@@ -1,0 +1,76 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  color-scheme: dark;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #050816;
+  color: #fff;
+  overflow: hidden;
+}
+
+button {
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+input {
+  font-family: inherit;
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0) translateY(0); }
+  20% { transform: translateX(-3px) translateY(2px) rotate(-2deg); }
+  40% { transform: translateX(3px) translateY(-1px) rotate(2deg); }
+  60% { transform: translateX(-2px) translateY(1px) rotate(-1deg); }
+  80% { transform: translateX(2px) translateY(-2px) rotate(1deg); }
+}
+@keyframes cardSlam {
+  0% { transform: translateY(-30px) scale(1.4); opacity: 0; }
+  60% { transform: translateY(4px) scale(0.95); opacity: 1; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+@keyframes flash {
+  0% { opacity: 0; }
+  20% { opacity: 1; }
+  100% { opacity: 0; }
+}
+@keyframes cardSummon {
+  0% { transform: scale(0.4) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(1.1) rotate(3deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+@keyframes float {
+  0%, 100% { transform: translate(-50%, -50%) rotate(var(--r, 0deg)) translateX(var(--x, 0px)) scale(var(--s, 1)) translateY(0); }
+  50% { transform: translate(-50%, -50%) rotate(var(--r, 0deg)) translateX(var(--x, 0px)) scale(var(--s, 1)) translateY(-8px); }
+}
+@keyframes packBurst {
+  0% { transform: scale(0); opacity: 1; }
+  60% { transform: scale(2.5); opacity: 0.7; }
+  100% { transform: scale(4); opacity: 0; }
+}
+@keyframes packShake {
+  0%, 100% { transform: translateY(0) rotate(0); }
+  25% { transform: translateY(-4px) rotate(-2deg); }
+  75% { transform: translateY(4px) rotate(2deg); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
