@@ -352,7 +352,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         style={{ display: 'none' }}
         onChange={ev => {
           const file = ev.target.files?.[0];
