@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { ELEMENTS } from '../data/elements';
@@ -13,7 +13,7 @@ interface Props {
   onBack: () => void;
 }
 
-const PHOTO_SIZE = 720; // saved photo width/height (square crop)
+const PHOTO_SIZE = 720;
 
 export function Capture({ template, onComplete, onBack }: Props) {
   const [stage, setStage] = useState<Stage>('starting');
@@ -25,12 +25,28 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Callback ref: whenever the <video> element mounts (or re-mounts), wire it
+  // up to the active stream. This avoids the race where stage === 'framing'
+  // triggers the video to render but srcObject was set on a not-yet-mounted ref.
+  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
+    videoRef.current = el;
+    if (el && streamRef.current) {
+      el.srcObject = streamRef.current;
+      el.play().catch(() => { /* iOS autoplay quirks — user gesture will resolve */ });
+    }
+  }, []);
+
   // Start the camera once when we have a template.
   useEffect(() => {
     if (!template) return;
     let cancelled = false;
 
     const start = async () => {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setStage('denied');
+        setError('Camera API not available in this browser');
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: { ideal: 'environment' } },
@@ -41,13 +57,15 @@ export function Capture({ template, onComplete, onBack }: Props) {
           return;
         }
         streamRef.current = stream;
+        // Trigger render of the <video> element. The attachVideo callback ref
+        // will wire the stream as soon as it mounts.
+        setStage('framing');
+        // If the element is already mounted (re-entry case), wire it now.
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          await videoRef.current.play().catch(() => {});
+          videoRef.current.play().catch(() => {});
         }
-        setStage('framing');
       } catch (err) {
-        // Permission denied or no camera — fall back to file upload.
         setStage('denied');
         setError(err instanceof Error ? err.message : 'Camera unavailable');
       }
@@ -195,7 +213,7 @@ export function Capture({ template, onComplete, onBack }: Props) {
         {(stage === 'framing' || stage === 'flashing') && (
           <CardShapedViewfinder template={template}>
             <video
-              ref={videoRef}
+              ref={attachVideo}
               playsInline
               muted
               autoPlay
