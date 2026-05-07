@@ -22,7 +22,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
-  const [diag, setDiag] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -82,43 +81,24 @@ export function Capture({ template, onComplete, onBack }: Props) {
       video.srcObject = stream;
     }
 
-    const updateDiag = () => {
-      const tracks = stream.getVideoTracks();
-      const track = tracks[0];
-      setDiag(
-        `tracks=${tracks.length} live=${track?.readyState ?? '?'} ` +
-        `enabled=${track?.enabled ?? '?'} muted=${track?.muted ?? '?'} ` +
-        `vid=${video.videoWidth}×${video.videoHeight} rs=${video.readyState}`
-      );
-    };
-
     const tryPlay = async () => {
       try {
         await video.play();
         setNeedsTap(false);
-        updateDiag();
-      } catch (err) {
-        // Autoplay blocked → require a tap.
+      } catch {
+        // Autoplay blocked — surface a "tap to start" overlay
         setNeedsTap(true);
-        updateDiag();
-        const msg = err instanceof Error ? err.message : String(err);
-        setDiag(d => d + ` | play=${msg}`);
       }
     };
 
-    const onLoaded = () => { updateDiag(); tryPlay(); };
-    const onPlaying = () => { setNeedsTap(false); updateDiag(); };
+    const onLoaded = () => { tryPlay(); };
+    const onPlaying = () => { setNeedsTap(false); };
 
     video.addEventListener('loadedmetadata', onLoaded);
     video.addEventListener('playing', onPlaying);
 
-    if (video.readyState >= 1) {
-      onLoaded();
-    } else {
-      // Sometimes attaching srcObject doesn't fire loadedmetadata fast enough
-      // on certain browsers; nudge with a play() attempt anyway.
-      tryPlay();
-    }
+    if (video.readyState >= 1) onLoaded();
+    else tryPlay();
 
     return () => {
       video.removeEventListener('loadedmetadata', onLoaded);
@@ -147,17 +127,12 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const handleTapToPlay = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.play().then(() => setNeedsTap(false)).catch(err => {
-      setDiag(d => d + ` | tap-play=${err?.message || err}`);
-    });
+    video.play().then(() => setNeedsTap(false)).catch(() => {});
   };
 
   const captureFromVideo = () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth) {
-      setDiag(d => d + ' | shutter: no video frame yet');
-      return;
-    }
+    if (!video || !video.videoWidth) return;
     const canvas = document.createElement('canvas');
     canvas.width = PHOTO_SIZE;
     canvas.height = PHOTO_SIZE;
@@ -308,20 +283,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
           </div>
         )}
       </div>
-
-      {/* Diagnostics overlay — shows during framing if anything looks wrong */}
-      {(stage === 'framing' || stage === 'denied') && diag && (
-        <div style={{
-          position: 'absolute', bottom: 200, left: 12, right: 12,
-          fontSize: 9, fontFamily: 'ui-monospace, monospace',
-          color: '#9ed6f7', opacity: 0.7,
-          textAlign: 'center', zIndex: 3,
-          padding: '4px 8px',
-          background: 'rgba(0,0,0,.4)', borderRadius: 4,
-        }}>
-          {diag}
-        </div>
-      )}
 
       <div style={{ padding: '0 20px 40px', position: 'relative', zIndex: 2 }}>
         {stage === 'framing' && (
