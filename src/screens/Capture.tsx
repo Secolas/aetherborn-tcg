@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { ELEMENTS } from '../data/elements';
@@ -20,51 +20,41 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const [photo, setPhoto] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const [needsTap, setNeedsTap] = useState(false);
+  const [diag, setDiag] = useState<string>('');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Callback ref: whenever the <video> element mounts (or re-mounts), wire it
-  // up to the active stream. This avoids the race where stage === 'framing'
-  // triggers the video to render but srcObject was set on a not-yet-mounted ref.
-  const attachVideo = useCallback((el: HTMLVideoElement | null) => {
-    videoRef.current = el;
-    if (el && streamRef.current) {
-      el.srcObject = streamRef.current;
-      el.play().catch(() => { /* iOS autoplay quirks — user gesture will resolve */ });
-    }
-  }, []);
-
-  // Start the camera once when we have a template.
+  // Acquire the camera once when we have a template.
   useEffect(() => {
     if (!template) return;
     let cancelled = false;
+    let s: MediaStream | null = null;
 
     const start = async () => {
       if (!navigator.mediaDevices?.getUserMedia) {
         setStage('denied');
-        setError('Camera API not available in this browser');
+        setError('Camera API not available');
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: 'environment' } },
-          audio: false,
-        });
+        // Try environment camera first; fall back to any.
+        try {
+          s = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: 'environment' } },
+            audio: false,
+          });
+        } catch {
+          s = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
         if (cancelled) {
-          stream.getTracks().forEach(t => t.stop());
+          s.getTracks().forEach(t => t.stop());
           return;
         }
-        streamRef.current = stream;
-        // Trigger render of the <video> element. The attachVideo callback ref
-        // will wire the stream as soon as it mounts.
+        setStream(s);
         setStage('framing');
-        // If the element is already mounted (re-entry case), wire it now.
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
-        }
       } catch (err) {
         setStage('denied');
         setError(err instanceof Error ? err.message : 'Camera unavailable');
@@ -75,10 +65,66 @@ export function Capture({ template, onComplete, onBack }: Props) {
 
     return () => {
       cancelled = true;
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      streamRef.current = null;
+      s?.getTracks().forEach(t => t.stop());
+      setStream(null);
     };
   }, [template]);
+
+  // Attach the stream to the video element after both exist (stage transitions
+  // to 'framing' AND the <video> has mounted).
+  useEffect(() => {
+    if (!stream) return;
+    if (stage !== 'framing' && stage !== 'flashing') return;
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.srcObject !== stream) {
+      video.srcObject = stream;
+    }
+
+    const updateDiag = () => {
+      const tracks = stream.getVideoTracks();
+      const track = tracks[0];
+      setDiag(
+        `tracks=${tracks.length} live=${track?.readyState ?? '?'} ` +
+        `enabled=${track?.enabled ?? '?'} muted=${track?.muted ?? '?'} ` +
+        `vid=${video.videoWidth}×${video.videoHeight} rs=${video.readyState}`
+      );
+    };
+
+    const tryPlay = async () => {
+      try {
+        await video.play();
+        setNeedsTap(false);
+        updateDiag();
+      } catch (err) {
+        // Autoplay blocked → require a tap.
+        setNeedsTap(true);
+        updateDiag();
+        const msg = err instanceof Error ? err.message : String(err);
+        setDiag(d => d + ` | play=${msg}`);
+      }
+    };
+
+    const onLoaded = () => { updateDiag(); tryPlay(); };
+    const onPlaying = () => { setNeedsTap(false); updateDiag(); };
+
+    video.addEventListener('loadedmetadata', onLoaded);
+    video.addEventListener('playing', onPlaying);
+
+    if (video.readyState >= 1) {
+      onLoaded();
+    } else {
+      // Sometimes attaching srcObject doesn't fire loadedmetadata fast enough
+      // on certain browsers; nudge with a play() attempt anyway.
+      tryPlay();
+    }
+
+    return () => {
+      video.removeEventListener('loadedmetadata', onLoaded);
+      video.removeEventListener('playing', onPlaying);
+    };
+  }, [stream, stage]);
 
   if (!template) {
     return (
@@ -98,14 +144,24 @@ export function Capture({ template, onComplete, onBack }: Props) {
 
   const e = ELEMENTS[template.el];
 
+  const handleTapToPlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.play().then(() => setNeedsTap(false)).catch(err => {
+      setDiag(d => d + ` | tap-play=${err?.message || err}`);
+    });
+  };
+
   const captureFromVideo = () => {
     const video = videoRef.current;
-    if (!video || !video.videoWidth) return;
+    if (!video || !video.videoWidth) {
+      setDiag(d => d + ' | shutter: no video frame yet');
+      return;
+    }
     const canvas = document.createElement('canvas');
     canvas.width = PHOTO_SIZE;
     canvas.height = PHOTO_SIZE;
     const ctx = canvas.getContext('2d')!;
-    // Square center crop from the video stream.
     const minDim = Math.min(video.videoWidth, video.videoHeight);
     const sx = (video.videoWidth - minDim) / 2;
     const sy = (video.videoHeight - minDim) / 2;
@@ -117,7 +173,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const handleFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = () => {
-      // Re-encode to a square JPEG so collection size stays sane.
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -138,8 +193,8 @@ export function Capture({ template, onComplete, onBack }: Props) {
   const finishWith = (dataUrl: string) => {
     setPhoto(dataUrl);
     setStage('flashing');
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
+    stream?.getTracks().forEach(t => t.stop());
+    setStream(null);
     window.setTimeout(() => setStage('revealed'), 700);
   };
 
@@ -156,7 +211,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
       display: 'flex', flexDirection: 'column',
       position: 'relative', overflow: 'hidden',
     }}>
-      {/* Background tint */}
       <div style={{
         position: 'absolute', inset: 0,
         background: stage === 'revealed'
@@ -165,7 +219,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
         transition: 'background 0.6s',
       }} />
 
-      {/* Flash */}
       {stage === 'flashing' && (
         <div style={{
           position: 'absolute', inset: 0, background: '#fff',
@@ -174,7 +227,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
         }} />
       )}
 
-      {/* Header */}
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 2 }}>
         <button onClick={onBack} style={iconBtn}>←</button>
         <div style={{ flex: 1, textAlign: 'center' }}>
@@ -188,7 +240,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
         <div style={{ width: 32 }} />
       </div>
 
-      {/* Hint */}
       {(stage === 'framing' || stage === 'denied') && (
         <div style={{
           textAlign: 'center', fontSize: 12, opacity: 0.7,
@@ -199,7 +250,6 @@ export function Capture({ template, onComplete, onBack }: Props) {
         </div>
       )}
 
-      {/* Main viewfinder area */}
       <div style={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
         position: 'relative', zIndex: 2,
@@ -213,12 +263,23 @@ export function Capture({ template, onComplete, onBack }: Props) {
         {(stage === 'framing' || stage === 'flashing') && (
           <CardShapedViewfinder template={template}>
             <video
-              ref={attachVideo}
+              ref={videoRef}
               playsInline
               muted
               autoPlay
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              {...{ 'webkit-playsinline': 'true' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
             />
+            {needsTap && (
+              <div onClick={handleTapToPlay} style={{
+                position: 'absolute', inset: 0,
+                display: 'grid', placeItems: 'center',
+                background: 'rgba(0,0,0,.6)',
+                color: '#f4d04a', fontSize: 11,
+                letterSpacing: '0.2em', textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}>tap to start</div>
+            )}
           </CardShapedViewfinder>
         )}
 
@@ -248,7 +309,20 @@ export function Capture({ template, onComplete, onBack }: Props) {
         )}
       </div>
 
-      {/* Bottom controls */}
+      {/* Diagnostics overlay — shows during framing if anything looks wrong */}
+      {(stage === 'framing' || stage === 'denied') && diag && (
+        <div style={{
+          position: 'absolute', bottom: 200, left: 12, right: 12,
+          fontSize: 9, fontFamily: 'ui-monospace, monospace',
+          color: '#9ed6f7', opacity: 0.7,
+          textAlign: 'center', zIndex: 3,
+          padding: '4px 8px',
+          background: 'rgba(0,0,0,.4)', borderRadius: 4,
+        }}>
+          {diag}
+        </div>
+      )}
+
       <div style={{ padding: '0 20px 40px', position: 'relative', zIndex: 2 }}>
         {stage === 'framing' && (
           <>
@@ -353,12 +427,13 @@ function CardShapedViewfinder({ template, children }: { template: CollectionCard
           { bottom: 8, left: 8, borderBottom: '2px solid #fff', borderLeft: '2px solid #fff' },
           { bottom: 8, right: 8, borderBottom: '2px solid #fff', borderRight: '2px solid #fff' },
         ].map((s, i) => (
-          <div key={i} style={{ position: 'absolute', width: 18, height: 18, ...s }} />
+          <div key={i} style={{ position: 'absolute', width: 18, height: 18, ...s, pointerEvents: 'none' }} />
         ))}
       </div>
       <div style={{
         position: 'absolute', top: 14, left: 12, right: 12,
         display: 'flex', alignItems: 'center', gap: 8,
+        pointerEvents: 'none',
       }}>
         <div style={{
           width: 30, height: 30, borderRadius: '50%',
@@ -379,6 +454,7 @@ function CardShapedViewfinder({ template, children }: { template: CollectionCard
             fontSize: 18, fontWeight: 800,
             display: 'grid', placeItems: 'center',
             fontFamily: '"Fredoka", system-ui',
+            pointerEvents: 'none',
           }}>{template.atk}</div>
           <div style={{
             position: 'absolute', bottom: 10, right: 12,
@@ -387,12 +463,14 @@ function CardShapedViewfinder({ template, children }: { template: CollectionCard
             fontSize: 18, fontWeight: 800,
             display: 'grid', placeItems: 'center',
             fontFamily: '"Fredoka", system-ui',
+            pointerEvents: 'none',
           }}>{template.hp}</div>
         </>
       )}
       <div style={{
         position: 'absolute', bottom: 50, left: 18, right: 18,
         fontSize: 10, color: '#aaa', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.3,
+        pointerEvents: 'none',
       }}>{template.ability}</div>
     </div>
   );
