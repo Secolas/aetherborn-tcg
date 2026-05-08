@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
-import { btnPrimary, btnSecondary, iconBtn } from '../components/styles';
+import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
 import { openPack, PACK_COST, PACK_SIZE } from '../game/pack';
 import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import type { CollectionCard, ElementId } from '../game/types';
@@ -51,16 +51,20 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
   return (
     <div style={{
       width: '100%', height: '100%',
-      background: 'radial-gradient(ellipse at 50% 30%, #2a3a5e 0%, #0e1428 70%, #050816 100%)',
-      color: '#fff', fontFamily: '"Inter", system-ui, sans-serif',
+      background: `
+        radial-gradient(ellipse 100% 60% at 50% 0%, #fff8e8 0%, transparent 70%),
+        linear-gradient(180deg, #fef3e8 0%, #ffe5cc 100%)
+      `,
+      color: PALETTE.text,
+      fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
       position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={iconBtn}>←</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif' }}>Packs</div>
-          <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.6, marginTop: 2 }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Packs</div>
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
             {coins} coins
           </div>
         </div>
@@ -69,8 +73,8 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '0 16px' }}>
         {stage === 'pick' && (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ textAlign: 'center', fontSize: 11, opacity: 0.7, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 4 }}>
-              Choose a theme to photograph
+            <div style={{ textAlign: 'center', fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic', marginBottom: 4 }}>
+              Choose what to photograph today
             </div>
             {THEMES.map(theme => (
               <ThemePackOption

@@ -1,6 +1,6 @@
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
-import { iconBtn } from '../components/styles';
+import { iconBtn, PALETTE } from '../components/styles';
 import type { CollectionCard } from '../game/types';
 
 const DECK_SIZE = 8;
@@ -24,15 +24,16 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
   return (
     <div style={{
       width: '100%', height: '100%',
-      background: 'linear-gradient(180deg, #161a2e 0%, #0a0c1c 100%)',
-      color: '#fff', fontFamily: '"Inter", system-ui, sans-serif',
+      background: 'linear-gradient(180deg, #fef3e8 0%, #ffe5cc 100%)',
+      color: PALETTE.text,
+      fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={iconBtn}>←</button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif' }}>Deck</div>
-          <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.6, marginTop: 2 }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>Deck</div>
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
             {deckUids.length} / {DECK_SIZE} cards
           </div>
         </div>
@@ -41,13 +42,14 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
       {/* Active deck strip */}
       <div style={{
         margin: '0 16px 16px',
-        background: 'rgba(255,255,255,.04)',
-        border: '1px dashed rgba(255,255,255,.15)',
-        borderRadius: 12,
+        background: '#fff',
+        border: `2px dashed ${PALETTE.accent}`,
+        borderRadius: 14,
         padding: 12,
         minHeight: 90,
+        boxShadow: '0 4px 10px rgba(58,46,42,.06)',
       }}>
-        <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.5, marginBottom: 8 }}>
+        <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 600 }}>
           Active Deck
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -57,14 +59,14 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
             return <DeckChip key={uid} card={c} onRemove={() => toggle(uid)} />;
           })}
           {deckUids.length === 0 && (
-            <div style={{ fontSize: 11, opacity: 0.5, fontStyle: 'italic' }}>
+            <div style={{ fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic' }}>
               Tap a summoned card below to add it.
             </div>
           )}
         </div>
       </div>
 
-      <div style={{ padding: '0 20px 8px', fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.5 }}>
+      <div style={{ padding: '0 20px 8px', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, fontWeight: 600 }}>
         Library · only summoned cards are playable
       </div>
 
@@ -96,20 +98,20 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
                 <div style={{
                   position: 'absolute', top: -4, right: -4,
                   width: 28, height: 28, borderRadius: '50%',
-                  background: '#f4d04a', color: '#3a2a0e',
+                  background: PALETTE.accent, color: '#fff',
                   display: 'grid', placeItems: 'center',
                   fontSize: 16, fontWeight: 800,
-                  boxShadow: '0 0 0 3px #161a2e',
+                  boxShadow: '0 0 0 3px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
                 }}>✓</div>
               )}
               {!playable && (
                 <div style={{
                   position: 'absolute', inset: 0,
                   display: 'grid', placeItems: 'center',
-                  background: 'rgba(10,12,28,.6)',
+                  background: 'rgba(58,46,42,.55)',
                   borderRadius: 12,
-                  fontSize: 10, fontWeight: 700, letterSpacing: '0.2em', textTransform: 'uppercase',
-                  color: '#f4d04a',
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+                  color: '#fff',
                 }}>🔒 Dormant</div>
               )}
             </div>

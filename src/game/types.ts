@@ -85,4 +85,5 @@ export interface SaveData {
   packsOpened: number;
   matchesWon: number;
   matchesLost: number;
+  bossesDefeated: string[];
 }

@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
-import { iconBtn, btnPrimary } from '../components/styles';
+import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
   attack, beginTurn, createMatch, endTurn, playCard,
   type SpellTarget,
 } from '../game/match';
+import { ELEMENTS } from '../data/elements';
+import type { BossDef } from '../data/bosses';
 import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/types';
 
 interface Props {
   deck: CollectionCard[];
+  boss: BossDef;
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
 
@@ -35,8 +38,8 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, onExit }: Props) {
-  const [state, setState] = useState<MatchState>(() => createMatch(deck));
+export function MatchBoard({ deck, boss, onExit }: Props) {
+  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss.themeId));
   const [drag, setDrag] = useState<DragState | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [selectedAttacker, setSelectedAttacker] = useState<string | null>(null);
@@ -79,7 +82,7 @@ export function MatchBoard({ deck, onExit }: Props) {
 
   const flashMsg = (m: string) => {
     showMsg(m);
-    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : "The Boss's turn"), 1200);
+    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : `${boss.name}'s turn`), 1200);
   };
 
   // ============== Combat animation orchestration ==============
@@ -247,7 +250,7 @@ export function MatchBoard({ deck, onExit }: Props) {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     setSelectedAttacker(null);
     setPendingSpell(null);
-    showMsg("The Boss's turn");
+    showMsg(`${boss.name}'s turn`);
     setState(s => endTurn(s));
   };
 
@@ -256,23 +259,27 @@ export function MatchBoard({ deck, onExit }: Props) {
     return <MatchEnd outcome={state.outcome} onExit={onExit} />;
   }
 
+  const bossElement = ELEMENTS[boss.themeId];
+
   return (
     <div
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
         width: '100%', height: '100%',
-        background: 'radial-gradient(ellipse at 50% 50%, #2a3a5e 0%, #0e1428 70%, #050816 100%)',
+        background: `
+          radial-gradient(ellipse at 50% 50%, #fef3e0 0%, #ffe0bf 50%, #f8c89c 100%)
+        `,
         position: 'relative', overflow: 'hidden',
-        fontFamily: '"Inter", system-ui, sans-serif',
-        color: '#fff',
+        fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+        color: PALETTE.text,
         userSelect: 'none', touchAction: 'none',
       }}
     >
-      <svg style={{ position: 'absolute', inset: 0, opacity: 0.06 }} width="100%" height="100%">
+      <svg style={{ position: 'absolute', inset: 0, opacity: 0.08 }} width="100%" height="100%">
         <defs>
           <pattern id="hex" width="30" height="26" patternUnits="userSpaceOnUse">
-            <polygon points="15,1 28,8 28,22 15,29 2,22 2,8" fill="none" stroke="#fff" strokeWidth="1" />
+            <polygon points="15,1 28,8 28,22 15,29 2,22 2,8" fill="none" stroke={PALETTE.accent} strokeWidth="1" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill="url(#hex)" />
@@ -281,12 +288,15 @@ export function MatchBoard({ deck, onExit }: Props) {
       <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5 }}>
         <button onClick={() => onExit('quit')} style={iconBtn}>←</button>
         <OpponentPortrait
+          boss={boss}
+          themeColor={bossElement.color}
+          themeDeep={bossElement.deep}
           hp={state.opponent.hp}
           highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
           onClick={onOppFaceClick}
           damage={damages[FACE_OPP] ?? null}
         />
-        <div style={{ width: 32 }} />
+        <div style={{ width: 36 }} />
       </div>
 
       {/* Opponent field */}
@@ -320,30 +330,35 @@ export function MatchBoard({ deck, onExit }: Props) {
       <div ref={fieldRef} style={{
         position: 'absolute', top: 200, left: 0, right: 0, height: 64,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        borderTop: drag?.overField ? '2px dashed #f4d04a' : '1px solid rgba(255,255,255,.08)',
-        borderBottom: drag?.overField ? '2px dashed #f4d04a' : '1px solid rgba(255,255,255,.08)',
-        background: drag?.overField ? 'rgba(244,208,74,.12)' : 'rgba(255,255,255,.02)',
+        borderTop: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
+        borderBottom: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
+        background: drag?.overField ? 'rgba(255,126,95,.12)' : 'rgba(255,255,255,.25)',
         transition: 'background .15s, border-color .15s',
       }}>
         {drag?.overField ? (
-          <div style={{ fontSize: 12, fontWeight: 600, letterSpacing: '0.15em', textTransform: 'uppercase', color: '#f4d04a' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
           </div>
         ) : pendingSpell ? (
           <button onClick={cancelPending} style={{
-            background: 'rgba(255,255,255,.1)',
-            color: '#fff', border: '1px solid rgba(255,255,255,.2)',
-            borderRadius: 24, padding: '6px 18px', fontSize: 11,
-            letterSpacing: '0.1em', textTransform: 'uppercase', cursor: 'pointer',
+            background: '#fff',
+            color: PALETTE.text, border: `1.5px solid ${PALETTE.border}`,
+            borderRadius: 22, padding: '7px 18px', fontSize: 12,
+            fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit',
+            boxShadow: '0 2px 6px rgba(58,46,42,.08)',
           }}>Cancel target</button>
         ) : (
           <button onClick={onEndTurn} disabled={state.turn !== 'player'} style={{
-            background: state.turn === 'player' ? 'linear-gradient(180deg, #f4d04a, #c4801a)' : '#3a3a4a',
-            color: state.turn === 'player' ? '#3a2a0e' : '#888',
-            border: 'none', borderRadius: 24, padding: '8px 22px',
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase',
+            background: state.turn === 'player'
+              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
+              : '#e8d8c8',
+            color: state.turn === 'player' ? '#fff' : '#9a8678',
+            border: 'none', borderRadius: 22, padding: '10px 24px',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
             cursor: state.turn === 'player' ? 'pointer' : 'default',
-            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(244,208,74,.4)' : 'none',
+            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
+            fontFamily: '"Fredoka", system-ui',
           }}>End Turn →</button>
         )}
       </div>
@@ -383,7 +398,7 @@ export function MatchBoard({ deck, onExit }: Props) {
       </div>
 
       {/* Status message */}
-      <div style={{ position: 'absolute', top: 380, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: 600, letterSpacing: '0.2em', textTransform: 'uppercase', color: '#9ed6f7', opacity: 0.9 }}>
+      <div style={{ position: 'absolute', top: 380, left: 0, right: 0, textAlign: 'center', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', color: PALETTE.textMid }}>
         {msg}
       </div>
 
@@ -393,19 +408,22 @@ export function MatchBoard({ deck, onExit }: Props) {
           style={{
             display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
             cursor: pendingSpell ? 'pointer' : 'default',
-            padding: 4, borderRadius: 8,
-            boxShadow: pendingSpell?.abilityKind === 'spell_heal' ? '0 0 0 2px #9ed6f7' : 'none',
+            padding: '6px 12px', borderRadius: 18,
+            background: '#fff',
+            boxShadow: pendingSpell?.abilityKind === 'spell_heal'
+              ? `0 0 0 2px #06d6a0, 0 4px 10px rgba(58,46,42,.12)`
+              : '0 4px 10px rgba(58,46,42,.12)',
             animation: damages[FACE_PLAYER] ? 'hpFlash 0.5s' : undefined,
           }}>
           <svg width="22" height="22" viewBox="0 0 18 18">
-            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#e85a5a" stroke="#fff" strokeWidth="1.5" />
+            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#ee5a52" stroke="#fff" strokeWidth="1.5" />
           </svg>
-          <span style={{ fontSize: 26, fontWeight: 700 }}>{state.player.hp}</span>
+          <span style={{ fontSize: 22, fontWeight: 700, color: PALETTE.text }}>{state.player.hp}</span>
           {damages[FACE_PLAYER] != null && (
             <div style={{
               position: 'absolute', top: -8, left: '50%',
-              fontSize: 22, fontWeight: 900, color: '#ff5a5a',
-              textShadow: '0 2px 0 #1a0408',
+              fontSize: 22, fontWeight: 900, color: '#ee5a52',
+              textShadow: '0 2px 0 #fff',
               animation: 'damagePopup .9s ease-out forwards',
               pointerEvents: 'none',
               fontFamily: '"Fredoka", system-ui',
@@ -514,49 +532,55 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   return false;
 }
 
-function OpponentPortrait({ hp, highlight, onClick, damage }: {
+function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick, damage }: {
+  boss: BossDef;
+  themeColor: string;
+  themeDeep: string;
   hp: number;
   highlight: 'attack' | 'spell' | null;
   onClick: () => void;
   damage: number | null;
 }) {
-  const ring = highlight === 'attack' ? '#f4d04a' : highlight === 'spell' ? '#9ed6f7' : null;
+  const ring = highlight === 'attack' ? '#ee5a52' : highlight === 'spell' ? '#3a8fc4' : null;
   return (
     <div onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
       cursor: highlight ? 'pointer' : 'default',
       padding: 4, borderRadius: 30,
-      boxShadow: ring ? `0 0 0 2px ${ring}, 0 0 12px ${ring}` : 'none',
+      background: '#fff',
+      boxShadow: ring
+        ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
+        : '0 4px 10px rgba(58,46,42,.12)',
       animation: damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
       <div style={{
-        width: 48, height: 48, borderRadius: '50%',
-        background: 'conic-gradient(from 90deg, #1c2a3d, #4a6280, #1c2a3d)',
+        width: 44, height: 44, borderRadius: '50%',
+        background: `conic-gradient(from 90deg, ${themeDeep}, ${themeColor}, ${themeDeep})`,
         padding: 2, position: 'relative',
       }}>
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
-          background: 'linear-gradient(160deg, #1c2a3d, #4a6280)',
+          background: `linear-gradient(160deg, ${themeDeep}, ${themeColor})`,
           display: 'grid', placeItems: 'center',
-          fontSize: 20, fontWeight: 700, color: '#fff',
-          fontFamily: '"Cinzel", Georgia, serif',
-        }}>B</div>
+          fontSize: 18, fontWeight: 700, color: '#fff',
+          fontFamily: '"Fredoka", system-ui',
+        }}>{boss.avatar}</div>
       </div>
-      <div>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.7 }}>The Boss</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
-          <svg width="16" height="16" viewBox="0 0 18 18">
-            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#e85a5a" stroke="#fff" strokeWidth="1.5" />
+      <div style={{ paddingRight: 8 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: PALETTE.text, lineHeight: 1.05 }}>{boss.name}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
+          <svg width="14" height="14" viewBox="0 0 18 18">
+            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#ee5a52" stroke="#fff" strokeWidth="1.5" />
           </svg>
-          <span style={{ fontSize: 20, fontWeight: 700 }}>{hp}</span>
+          <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
         </div>
       </div>
       {damage != null && damage !== 0 && (
         <div style={{
           position: 'absolute', top: -10, left: '50%',
-          fontSize: 22, fontWeight: 900, color: '#ff5a5a',
-          textShadow: '0 2px 0 #1a0408',
+          fontSize: 22, fontWeight: 900, color: '#ee5a52',
+          textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
           animation: 'damagePopup .9s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
@@ -569,13 +593,18 @@ function OpponentPortrait({ hp, highlight, onClick, damage }: {
 
 function ManaCrystals({ mana, maxMana }: { mana: number; maxMana: number }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 3,
+      background: '#fff',
+      padding: '6px 10px', borderRadius: 14,
+      boxShadow: '0 4px 10px rgba(58,46,42,.12)',
+    }}>
       {Array.from({ length: maxMana }).map((_, i) => (
         <div key={i} style={{
-          width: 14, height: 18,
+          width: 12, height: 16,
           clipPath: 'polygon(50% 0, 100% 30%, 80% 100%, 20% 100%, 0 30%)',
-          background: i < mana ? 'linear-gradient(180deg, #9ed6f7, #3a8fc4)' : 'rgba(255,255,255,.1)',
-          boxShadow: i < mana ? '0 0 6px #3a8fc488' : 'none',
+          background: i < mana ? 'linear-gradient(180deg, #9ed6f7, #3a8fc4)' : 'rgba(58,46,42,.1)',
+          boxShadow: i < mana ? '0 0 4px #3a8fc488' : 'none',
           transition: 'all .2s',
         }} />
       ))}
@@ -584,33 +613,35 @@ function ManaCrystals({ mana, maxMana }: { mana: number; maxMana: number }) {
 }
 
 function MatchEnd({ outcome, onExit }: { outcome: 'win' | 'loss'; onExit: (o: 'win' | 'loss' | 'quit') => void }) {
+  const isWin = outcome === 'win';
   return (
     <div style={{
       width: '100%', height: '100%',
-      background: outcome === 'win'
-        ? 'radial-gradient(ellipse at 50% 40%, #f4d04a 0%, #2a1a08 60%, #050816 100%)'
-        : 'radial-gradient(ellipse at 50% 40%, #5a1414 0%, #1a0608 60%, #050816 100%)',
-      color: '#fff', fontFamily: '"Inter", system-ui, sans-serif',
+      background: isWin
+        ? 'radial-gradient(ellipse at 50% 40%, #fff3e0 0%, #ffd6a4 60%, #ffb380 100%)'
+        : 'radial-gradient(ellipse at 50% 40%, #fef0e8 0%, #f4cfc0 60%, #d8a99a 100%)',
+      color: PALETTE.text, fontFamily: '"Fredoka", "Inter", system-ui',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: 30, textAlign: 'center',
       animation: 'fadeIn 0.5s',
     }}>
-      <div style={{ fontSize: 12, letterSpacing: '0.4em', textTransform: 'uppercase', opacity: 0.7, marginBottom: 8 }}>
-        {outcome === 'win' ? 'Victory' : 'Defeat'}
+      <div style={{ fontSize: 56, marginBottom: 16 }}>{isWin ? '🎉' : '😅'}</div>
+      <div style={{ fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 4 }}>
+        {isWin ? 'Victory' : 'Defeat'}
       </div>
       <div style={{
-        fontSize: 56, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif',
-        background: outcome === 'win'
-          ? 'linear-gradient(180deg, #fff8dc, #f4d04a)'
-          : 'linear-gradient(180deg, #ffd4d4, #e85a5a)',
+        fontSize: 48, fontWeight: 700,
+        background: isWin
+          ? 'linear-gradient(180deg, #ff9f1c, #ee5a52)'
+          : 'linear-gradient(180deg, #b85c50, #7a3a32)',
         WebkitBackgroundClip: 'text', backgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        marginBottom: 28,
+        marginBottom: 22,
       }}>
-        {outcome === 'win' ? 'You won' : 'You lost'}
+        {isWin ? 'You won!' : 'You lost'}
       </div>
-      <div style={{ fontSize: 13, opacity: 0.8, marginBottom: 32, fontStyle: 'italic' }}>
-        {outcome === 'win'
+      <div style={{ fontSize: 13, color: PALETTE.textMid, marginBottom: 28, maxWidth: 280, lineHeight: 1.5 }}>
+        {isWin
           ? '+75 coins earned. Open more packs and grow your collection.'
           : '+20 coins for the attempt. Refine your deck and try again.'}
       </div>

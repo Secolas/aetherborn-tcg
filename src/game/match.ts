@@ -1,7 +1,7 @@
-import { TEMPLATES } from '../data/templates';
+import { TEMPLATES, templatesByTheme } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
 import type {
-  BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
+  BattleCard, CollectionCard, ElementId, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
 } from './types';
 
 export const STARTING_HP = 24;
@@ -34,10 +34,19 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/** Build the AI's faux deck: thematic photos so it visually mirrors the player. */
-function buildOpponentDeck(): CollectionCard[] {
-  const pool = TEMPLATES.filter(t => t.cost <= 7); // skip the absolute biggest legendaries
-  const picks = shuffle(pool).slice(0, 12);
+/**
+ * Build the AI's deck. If a theme is provided, the AI plays a deck made
+ * entirely of that theme — so fighting Mom feels like a Family deck mirror,
+ * fighting The Manager feels like a Work deck, etc.
+ */
+function buildOpponentDeck(theme?: ElementId): CollectionCard[] {
+  const pool = theme
+    ? templatesByTheme(theme)
+    : TEMPLATES.filter(t => t.cost <= 7);
+  // Take all available + duplicate the cheap cards a couple times to make
+  // a workable deck of ~12 cards from a 12-card theme pool.
+  const base = shuffle(pool);
+  const picks = base.concat(base.slice(0, Math.max(0, 12 - base.length))).slice(0, 12);
   return picks.map((t, i) => ({
     ...t,
     uid: `opp_${i}`,
@@ -50,9 +59,9 @@ function emptyPlayer(): PlayerState {
   return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [] };
 }
 
-export function createMatch(playerCards: CollectionCard[]): MatchState {
+export function createMatch(playerCards: CollectionCard[], opponentTheme?: ElementId): MatchState {
   const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  const oppDeck = shuffle(buildOpponentDeck()).map(toBattleCard);
+  const oppDeck = shuffle(buildOpponentDeck(opponentTheme)).map(toBattleCard);
 
   const player = emptyPlayer();
   const opponent = emptyPlayer();

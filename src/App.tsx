@@ -6,8 +6,11 @@ import { Capture } from './screens/Capture';
 import { DeckBuilder } from './screens/DeckBuilder';
 import { PackOpening } from './screens/PackOpening';
 import { MatchBoard } from './screens/MatchBoard';
+import { BossPicker } from './screens/BossPicker';
+import { Album } from './screens/Album';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
+import type { BossDef } from './data/bosses';
 import type { CollectionCard, SaveData } from './game/types';
 
 const SAVE_KEY = 'lifedeck-save-v1';
@@ -22,15 +25,17 @@ function makeInitialSave(): SaveData {
     packsOpened: 0,
     matchesWon: 0,
     matchesLost: 0,
+    bossesDefeated: [],
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
   const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
+  const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
 
   const goCapture = (card: CollectionCard) => {
     setCapturing(card);
@@ -59,16 +64,31 @@ export default function App() {
     setSave(s => ({ ...s, deckUids: uids }));
   };
 
+  const onPickBoss = (boss: BossDef) => {
+    setActiveBoss(boss);
+    setScreen('match');
+  };
+
   const onMatchExit = (outcome: 'win' | 'loss' | 'quit') => {
+    const boss = activeBoss;
     if (outcome === 'win') {
-      setSave(s => ({ ...s, coins: s.coins + MATCH_WIN_REWARD, matchesWon: s.matchesWon + 1 }));
+      setSave(s => {
+        const firstTime = boss && !s.bossesDefeated.includes(boss.id);
+        const bonus = firstTime ? boss.rewardCoins : 0;
+        return {
+          ...s,
+          coins: s.coins + MATCH_WIN_REWARD + bonus,
+          matchesWon: s.matchesWon + 1,
+          bossesDefeated: firstTime ? [...s.bossesDefeated, boss.id] : s.bossesDefeated,
+        };
+      });
     } else if (outcome === 'loss') {
       setSave(s => ({ ...s, coins: s.coins + MATCH_LOSS_REWARD, matchesLost: s.matchesLost + 1 }));
     }
+    setActiveBoss(null);
     setScreen('home');
   };
 
-  // Build the player's actual deck from uids → CollectionCard
   const matchDeck = save.deckUids
     .map(uid => save.collection.find(c => c.uid === uid))
     .filter((c): c is CollectionCard => !!c && !!c.photo);
@@ -76,7 +96,10 @@ export default function App() {
   return (
     <PhoneShell>
       {screen === 'home' && (
-        <HomeMenu save={save} onNav={(s) => setScreen(s)} />
+        <HomeMenu save={save} onNav={(s) => {
+          if (s === 'play') setScreen('boss-picker');
+          else setScreen(s);
+        }} />
       )}
       {screen === 'collection' && (
         <Collection
@@ -107,9 +130,23 @@ export default function App() {
           onBack={() => setScreen('home')}
         />
       )}
-      {screen === 'match' && (
+      {screen === 'album' && (
+        <Album
+          collection={save.collection}
+          onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'boss-picker' && (
+        <BossPicker
+          defeatedIds={save.bossesDefeated}
+          onPick={onPickBoss}
+          onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'match' && activeBoss && (
         <MatchBoard
           deck={matchDeck}
+          boss={activeBoss}
           onExit={onMatchExit}
         />
       )}

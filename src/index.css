@@ -1,7 +1,7 @@
-@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -13,8 +13,8 @@ html, body, #root {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #050816;
-  color: #fff;
+  background: #fef8f0;
+  color: #3a2e2a;
   overflow: hidden;
 }
 
