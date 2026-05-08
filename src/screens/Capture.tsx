@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, FolderOpen } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { ELEMENTS } from '../data/elements';
@@ -116,7 +117,7 @@ export function Capture({ template, onComplete, onBack }: Props) {
       }}>
         <div>
           <div style={{ fontSize: 14, opacity: 0.7 }}>Pick a dormant card<br />from your collection<br />to summon.</div>
-          <button onClick={onBack} style={{ ...btnSecondary, width: 180, marginTop: 24 }}>← Back</button>
+          <button onClick={onBack} style={{ ...btnSecondary, width: 180, marginTop: 24, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}><ArrowLeft size={14} /> Back</button>
         </div>
       </div>
     );
@@ -203,7 +204,7 @@ export function Capture({ template, onComplete, onBack }: Props) {
       )}
 
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 2 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1, textAlign: 'center' }}>
           <div style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.6 }}>
             {stage === 'revealed' ? 'Summoned!' : 'Summoning'}
@@ -288,15 +289,16 @@ export function Capture({ template, onComplete, onBack }: Props) {
         {stage === 'framing' && (
           <>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 24 }}>
-              <button onClick={() => fileInputRef.current?.click()} style={{
-                background: 'rgba(255,255,255,.08)',
-                border: '1px solid rgba(255,255,255,.2)',
+              <button onClick={() => fileInputRef.current?.click()} aria-label="Pick from files" style={{
+                background: 'rgba(255,255,255,.10)',
+                border: '1.5px solid rgba(255,255,255,.25)',
                 color: '#fff',
-                padding: '10px 14px',
-                borderRadius: 22,
-                fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
+                width: 56, height: 56, borderRadius: '50%',
+                display: 'grid', placeItems: 'center',
                 cursor: 'pointer',
-              }}>📁 File</button>
+              }}>
+                <FolderOpen size={22} />
+              </button>
               <button onClick={captureFromVideo} aria-label="Take photo" style={{
                 width: 72, height: 72, borderRadius: '50%',
                 background: '#fff', border: '4px solid rgba(255,255,255,.4)',

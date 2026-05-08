@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Camera } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -34,7 +35,7 @@ export function Album({ collection, onBack }: Props) {
       overflow: 'hidden',
     }}>
       <div style={{ padding: '52px 16px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Life Album</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
@@ -191,7 +192,15 @@ function EmptyState() {
       background: '#fff', borderRadius: 18,
       boxShadow: '0 6px 14px rgba(58, 46, 42, .08)',
     }}>
-      <div style={{ fontSize: 40, marginBottom: 12 }}>📷</div>
+      <div style={{
+        margin: '0 auto 14px',
+        width: 64, height: 64, borderRadius: '50%',
+        background: 'linear-gradient(135deg, #ffd6c2, #ffa07a)',
+        display: 'grid', placeItems: 'center',
+        boxShadow: '0 6px 14px rgba(255,126,95,.3)',
+      }}>
+        <Camera size={28} color="#fff" strokeWidth={2.4} />
+      </div>
       <div style={{ fontSize: 15, fontWeight: 600, color: PALETTE.text, marginBottom: 6 }}>
         Your album is empty
       </div>

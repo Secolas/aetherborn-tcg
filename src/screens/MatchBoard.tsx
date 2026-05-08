@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Heart } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
@@ -286,7 +287,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       </svg>
 
       <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5 }}>
-        <button onClick={() => onExit('quit')} style={iconBtn}>←</button>
+        <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
         <OpponentPortrait
           boss={boss}
           themeColor={bossElement.color}
@@ -415,9 +416,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               : '0 4px 10px rgba(58,46,42,.12)',
             animation: damages[FACE_PLAYER] ? 'hpFlash 0.5s' : undefined,
           }}>
-          <svg width="22" height="22" viewBox="0 0 18 18">
-            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#ee5a52" stroke="#fff" strokeWidth="1.5" />
-          </svg>
+          <Heart size={22} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
           <span style={{ fontSize: 22, fontWeight: 700, color: PALETTE.text }}>{state.player.hp}</span>
           {damages[FACE_PLAYER] != null && (
             <div style={{
@@ -569,10 +568,8 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
       </div>
       <div style={{ paddingRight: 8 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: PALETTE.text, lineHeight: 1.05 }}>{boss.name}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-          <svg width="14" height="14" viewBox="0 0 18 18">
-            <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#ee5a52" stroke="#fff" strokeWidth="1.5" />
-          </svg>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
+          <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
           <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
         </div>
       </div>

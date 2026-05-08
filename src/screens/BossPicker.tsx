@@ -1,3 +1,4 @@
+import { ArrowLeft, Check, Coins } from 'lucide-react';
 import { BOSSES, type BossDef } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
@@ -23,7 +24,7 @@ export function BossPicker({ defeatedIds, onPick, onBack }: Props) {
       overflow: 'hidden',
     }}>
       <div style={{ padding: '52px 16px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Pick a fight</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
@@ -107,12 +108,14 @@ function BossCard({ boss, defeated, onClick }: { boss: BossDef; defeated: boolea
         <ElementGlyph el={boss.themeId} size={32} />
         {defeated && (
           <div style={{
-            position: 'absolute', top: 8, right: 8,
+            position: 'absolute', top: 10, right: 10,
             background: '#ffd166', color: '#5a3a0e',
-            padding: '2px 8px', borderRadius: 10,
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-            textTransform: 'uppercase',
-          }}>✓ defeated</div>
+            padding: '4px 8px 4px 6px', borderRadius: 12,
+            fontSize: 10, fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}>
+            <Check size={12} strokeWidth={3} /> defeated
+          </div>
         )}
       </div>
 
@@ -126,10 +129,12 @@ function BossCard({ boss, defeated, onClick }: { boss: BossDef; defeated: boolea
             Plays a <strong style={{ color: e.color }}>{e.name}</strong> deck
           </div>
           <div style={{
-            fontSize: 11, fontWeight: 700,
+            display: 'flex', alignItems: 'center', gap: 4,
+            fontSize: 12, fontWeight: 700,
             color: defeated ? PALETTE.textLight : '#e85d3c',
           }}>
-            {defeated ? `+${75} coins` : `+${boss.rewardCoins} bonus`}
+            <Coins size={14} fill={defeated ? PALETTE.textLight : '#ffd166'} strokeWidth={2.2} />
+            {defeated ? `+75` : `+${boss.rewardCoins}`}
           </div>
         </div>
       </div>

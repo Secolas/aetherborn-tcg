@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, Coins } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
@@ -61,10 +62,11 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Packs</div>
-          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Coins size={12} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
             {coins} coins
           </div>
         </div>
@@ -201,8 +203,11 @@ function ThemePackOption({
         display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
         fontSize: 11, fontWeight: 700,
       }}>
-        <div style={{ fontSize: 14 }}>{PACK_COST}</div>
-        <div style={{ fontSize: 9, letterSpacing: '0.15em', textTransform: 'uppercase', opacity: 0.7, marginTop: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
+          <Coins size={14} fill="#ffd166" color="#e8a93a" strokeWidth={2.2} />
+          {PACK_COST}
+        </div>
+        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2, fontWeight: 500 }}>
           {PACK_SIZE} cards
         </div>
       </div>

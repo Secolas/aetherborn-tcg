@@ -1,3 +1,4 @@
+import { ArrowLeft, Check, Lock } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -30,7 +31,7 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Deck</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
@@ -97,22 +98,25 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
               {inDeck && (
                 <div style={{
                   position: 'absolute', top: -4, right: -4,
-                  width: 28, height: 28, borderRadius: '50%',
+                  width: 30, height: 30, borderRadius: '50%',
                   background: PALETTE.accent, color: '#fff',
                   display: 'grid', placeItems: 'center',
-                  fontSize: 16, fontWeight: 800,
                   boxShadow: '0 0 0 3px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
-                }}>✓</div>
+                }}>
+                  <Check size={18} strokeWidth={3.5} />
+                </div>
               )}
               {!playable && (
                 <div style={{
                   position: 'absolute', inset: 0,
-                  display: 'grid', placeItems: 'center',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   background: 'rgba(58,46,42,.55)',
                   borderRadius: 12,
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.05em',
+                  fontSize: 12, fontWeight: 700,
                   color: '#fff',
-                }}>🔒 Dormant</div>
+                }}>
+                  <Lock size={14} strokeWidth={2.5} /> Dormant
+                </div>
               )}
             </div>
           );

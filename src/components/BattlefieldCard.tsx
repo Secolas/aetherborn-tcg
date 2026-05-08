@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { Snowflake, Shield } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import type { BattleCard } from '../game/types';
 
@@ -114,15 +115,15 @@ export function BattlefieldCard({
         }}>{card.cost}</div>
 
         {card.frozen && (
-          <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 12 }}>❄</div>
+          <div style={{ position: 'absolute', top: 4, right: 4, color: '#9ed6f7', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.4))' }}>
+            <Snowflake size={12} fill="#9ed6f7" strokeWidth={2.4} />
+          </div>
         )}
 
         {card.abilityKind === 'taunt' && !card.frozen && (
-          <div style={{
-            position: 'absolute', top: 4, right: 4,
-            width: 12, height: 12, borderRadius: 2,
-            background: '#5ea863', boxShadow: '0 0 4px #5ea863',
-          }} title="Taunt" />
+          <div style={{ position: 'absolute', top: 4, right: 4, color: '#5ea863', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.4))' }}>
+            <Shield size={12} fill="#5ea863" strokeWidth={2.4} />
+          </div>
         )}
 
         <div style={{

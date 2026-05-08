@@ -1,3 +1,4 @@
+import { Coins, Package, Images, Layers, Swords, ScrollText } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -69,13 +70,13 @@ export function HomeMenu({ save, onNav }: Props) {
           </div>
         </div>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 5,
+          display: 'flex', alignItems: 'center', gap: 6,
           background: '#fff',
           padding: '6px 12px', borderRadius: 16,
           boxShadow: '0 3px 8px rgba(58,46,42,.08)',
           border: `1.5px solid ${PALETTE.border}`,
         }}>
-          <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#ffd166', boxShadow: '0 0 0 1.5px #e8b943' }} />
+          <Coins size={16} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
           <span style={{ fontSize: 14, fontWeight: 700, color: PALETTE.text }}>{save.coins}</span>
         </div>
       </div>
@@ -149,17 +150,32 @@ export function HomeMenu({ save, onNav }: Props) {
             cursor: canMatch ? 'pointer' : 'not-allowed',
             fontSize: 16,
             padding: '16px 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
           }}
         >
-          {canMatch ? '⚔  Play Match' : `Need ${4 - playableInDeck} more in deck`}
+          {canMatch ? <><Swords size={20} strokeWidth={2.4} /> Play Match</> : `Need ${4 - playableInDeck} more in deck`}
         </button>
         <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => onNav('pack')} style={btnSecondary}>📦 Packs</button>
-          <button onClick={() => onNav('collection')} style={btnSecondary}>Collection</button>
-          <button onClick={() => onNav('deck')} style={btnSecondary}>Deck</button>
-          <button onClick={() => onNav('album')} style={btnSecondary}>📷 Album</button>
+          <NavButton label="Packs"      icon={<Package    size={18} />} onClick={() => onNav('pack')} />
+          <NavButton label="Collection" icon={<Layers     size={18} />} onClick={() => onNav('collection')} />
+          <NavButton label="Deck"       icon={<ScrollText size={18} />} onClick={() => onNav('deck')} />
+          <NavButton label="Album"      icon={<Images     size={18} />} onClick={() => onNav('album')} />
         </div>
       </div>
     </div>
+  );
+}
+
+function NavButton({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
+  return (
+    <button onClick={onClick} style={{
+      ...btnSecondary,
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      gap: 4, padding: '9px 0',
+      color: PALETTE.text,
+    }}>
+      <span style={{ color: PALETTE.accentDeep, display: 'flex' }}>{icon}</span>
+      <span style={{ fontSize: 11 }}>{label}</span>
+    </button>
   );
 }

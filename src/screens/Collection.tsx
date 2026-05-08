@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { Card } from '../components/Card';
 import { iconBtn, PALETTE } from '../components/styles';
 import type { CollectionCard } from '../game/types';
@@ -32,7 +33,7 @@ export function Collection({ collection, onCapture, onBack }: Props) {
       display: 'flex', flexDirection: 'column',
     }}>
       <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}>←</button>
+        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Collection</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
