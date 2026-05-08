@@ -1,3 +1,4 @@
+import { Sparkles } from 'lucide-react';
 import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
 import { ElementGlyph } from './ElementGlyph';
@@ -12,27 +13,36 @@ interface Props {
   /** Override displayed atk/hp for battle */
   displayAtk?: number;
   displayHp?: number;
+  /** Highlight the cost as unaffordable (red) instead of cream. */
+  unaffordable?: boolean;
 }
 
 function isCollectionCard(c: CardTemplate | CollectionCard): c is CollectionCard {
   return 'photo' in c;
 }
 
-export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp }: Props) {
+export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false }: Props) {
   const e = ELEMENTS[card.el];
   const photo = isCollectionCard(card) ? card.photo : null;
   const dormant = !photo;
+  const isSpell = card.type === 'Spell';
   const name = displayName ?? (isCollectionCard(card) && card.nickname ? card.nickname : card.name);
   const atk = displayAtk ?? card.atk;
   const hp = displayHp ?? card.hp;
+
+  // Spells get a subtle violet undertone at the bottom so they read as
+  // "magic" at a glance, even before the player notices the SPELL chip.
+  const cardBg = dormant
+    ? `linear-gradient(180deg, ${e.color}aa 0%, ${e.deep}cc 100%)`
+    : isSpell
+      ? `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 55%, #4a2a6a 100%)`
+      : `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`;
 
   return (
     <div style={{
       width: 220 * scale, height: 320 * scale,
       borderRadius: 18 * scale,
-      background: dormant
-        ? `linear-gradient(180deg, ${e.color}aa 0%, ${e.deep}cc 100%)`
-        : `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`,
+      background: cardBg,
       padding: 8 * scale,
       boxShadow: hovered
         ? `0 18px 40px rgba(0,0,0,.45), 0 0 0 3px ${e.glow}, inset 0 0 0 2px rgba(255,255,255,.2)`
@@ -58,21 +68,14 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         }}>DORMANT</div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6 * scale, padding: `0 ${4 * scale}px` }}>
-        <div style={{
-          width: 36 * scale, height: 36 * scale, borderRadius: '50%',
-          background: '#fef4d8', color: e.deep,
-          fontSize: 22 * scale, fontWeight: 800,
-          display: 'grid', placeItems: 'center',
-          boxShadow: `0 2px 0 ${e.deep}, 0 0 0 3px ${e.deep}`,
-          flex: '0 0 auto',
-        }}>{card.cost}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 * scale, padding: `0 ${4 * scale}px` }}>
+        <CostBadge cost={card.cost} themeDeep={e.deep} unaffordable={unaffordable} scale={scale} />
         <div style={{
           flex: 1, fontSize: 14 * scale, fontWeight: 700, lineHeight: 1.1,
           textShadow: `0 1px 0 ${e.deep}`,
           minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{name}</div>
-        <ElementGlyph el={card.el} size={20 * scale} />
+        <ElementGlyph el={card.el} size={22 * scale} />
       </div>
 
       <div style={{
@@ -87,11 +90,25 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 9 * scale, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase',
-        opacity: 0.85, padding: `0 ${4 * scale}px`,
+        gap: 4 * scale, padding: `0 ${4 * scale}px`,
         fontFamily: '"Inter", system-ui, sans-serif',
       }}>
-        <span>{card.type} · {ELEMENTS[card.el].name}</span>
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4 * scale,
+          background: isSpell ? '#7a4ea8' : '#3d8e57',
+          color: '#fff',
+          padding: `${2 * scale}px ${7 * scale}px`,
+          borderRadius: 7 * scale,
+          fontSize: 9 * scale, fontWeight: 700,
+          letterSpacing: '0.05em',
+          textTransform: 'uppercase',
+          boxShadow: '0 1px 2px rgba(0,0,0,.25)',
+        }}>
+          {isSpell && <Sparkles size={9 * scale} strokeWidth={2.6} />}
+          <span>{card.type}</span>
+          <span style={{ opacity: 0.6 }}>·</span>
+          <span style={{ opacity: 0.95 }}>{ELEMENTS[card.el].name}</span>
+        </div>
         <span style={{
           width: 8 * scale, height: 8 * scale, borderRadius: '50%',
           background: RARITY_COLOR[card.rarity], boxShadow: `0 0 6px ${RARITY_COLOR[card.rarity]}`,
@@ -99,24 +116,37 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       </div>
 
       <div style={{
-        background: 'rgba(255,255,255,.95)',
+        background: 'rgba(255,255,255,.96)',
         color: '#2a1f12',
         borderRadius: 10 * scale,
-        padding: `${6 * scale}px ${8 * scale}px`,
+        padding: `${7 * scale}px ${9 * scale}px`,
         fontSize: 10 * scale, lineHeight: 1.3,
-        minHeight: 42 * scale,
+        minHeight: 44 * scale,
         boxShadow: 'inset 0 1px 2px rgba(0,0,0,.1)',
         fontFamily: '"Inter", system-ui, sans-serif',
         display: 'flex', flexDirection: 'column',
-        gap: 2 * scale,
+        gap: 3 * scale,
       }}>
         {card.ability && (
-          <div style={{
-            fontWeight: 700,
-            color: e.deep,
-            fontSize: 10 * scale,
-            lineHeight: 1.25,
-          }}>{card.ability}</div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 * scale, flexWrap: 'wrap' }}>
+            <span style={{
+              background: e.deep, color: '#fff',
+              fontSize: 7.5 * scale, fontWeight: 700, letterSpacing: '0.1em',
+              padding: `${1.5 * scale}px ${5 * scale}px`,
+              borderRadius: 4 * scale,
+              textTransform: 'uppercase',
+              flex: '0 0 auto',
+              lineHeight: 1.4,
+              marginTop: 1 * scale,
+            }}>Ability</span>
+            <span style={{
+              fontWeight: 700,
+              color: e.deep,
+              fontSize: 10 * scale,
+              lineHeight: 1.25,
+              flex: 1,
+            }}>{card.ability}</span>
+          </div>
         )}
         {card.flavor && (
           <div style={{
@@ -130,24 +160,56 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
 
       {card.type === 'Creature' && (
         <>
-          <div style={{
-            position: 'absolute', bottom: -6 * scale, left: 8 * scale,
-            width: 36 * scale, height: 36 * scale, borderRadius: '50%',
-            background: '#f4d04a', color: '#5a3a0e',
-            display: 'grid', placeItems: 'center',
-            fontSize: 20 * scale, fontWeight: 800,
-            boxShadow: '0 3px 0 #8a5a14, 0 0 0 3px #8a5a14',
-          }}>{atk}</div>
-          <div style={{
-            position: 'absolute', bottom: -6 * scale, right: 8 * scale,
-            width: 36 * scale, height: 36 * scale, borderRadius: '50%',
-            background: '#e85a5a', color: '#5a1414',
-            display: 'grid', placeItems: 'center',
-            fontSize: 20 * scale, fontWeight: 800,
-            boxShadow: '0 3px 0 #8a1414, 0 0 0 3px #8a1414',
-          }}>{hp}</div>
+          <StatOrb value={atk} bg="#ffcb47" border="#8a5a14" textColor="#5a3a0e" position="left" scale={scale} />
+          <StatOrb value={hp} bg="#ef5a5a" border="#8a1414" textColor="#5a1414" position="right" scale={scale} />
         </>
       )}
     </div>
   );
 }
+
+/**
+ * Cost badge — clean cream (or red when unaffordable) circle with a single
+ * theme-colored ring and a soft drop shadow.
+ */
+function CostBadge({ cost, themeDeep, unaffordable, scale }: {
+  cost: number; themeDeep: string; unaffordable: boolean; scale: number;
+}) {
+  const ringColor = unaffordable ? '#c8362e' : themeDeep;
+  return (
+    <div style={{
+      width: 34 * scale, height: 34 * scale, borderRadius: '50%',
+      background: unaffordable ? '#ee5a52' : '#fff5dc',
+      color: unaffordable ? '#fff' : themeDeep,
+      fontSize: 18 * scale, fontWeight: 800,
+      display: 'grid', placeItems: 'center',
+      boxShadow: `0 0 0 ${2.5 * scale}px ${ringColor}, 0 ${3 * scale}px ${4 * scale}px rgba(0,0,0,.25)`,
+      flex: '0 0 auto',
+      letterSpacing: '-0.02em',
+      fontFamily: '"Fredoka", system-ui',
+      lineHeight: 1,
+    }}>{cost}</div>
+  );
+}
+
+function StatOrb({ value, bg, border, textColor, position, scale }: {
+  value: number; bg: string; border: string; textColor: string;
+  position: 'left' | 'right'; scale: number;
+}) {
+  return (
+    <div style={{
+      position: 'absolute',
+      bottom: -6 * scale,
+      [position]: 8 * scale,
+      width: 36 * scale, height: 36 * scale, borderRadius: '50%',
+      background: bg,
+      color: textColor,
+      display: 'grid', placeItems: 'center',
+      fontSize: 19 * scale, fontWeight: 800,
+      boxShadow: `0 0 0 ${2.5 * scale}px ${border}, 0 ${3 * scale}px ${5 * scale}px rgba(0,0,0,.4)`,
+      fontFamily: '"Fredoka", system-ui',
+      lineHeight: 1,
+    }}>{value}</div>
+  );
+}
+

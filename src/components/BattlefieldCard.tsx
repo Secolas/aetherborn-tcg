@@ -29,10 +29,13 @@ export function BattlefieldCard({
   const e = ELEMENTS[card.el];
   const sleeping = card.justPlayed && card.abilityKind !== 'rush';
   const exhausted = card.tapped && !card.justPlayed;
+  const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
+  // Taunt creatures get a permanent green ring so they're impossible to miss.
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
     : highlight === 'spell'  ? '#9ed6f7'
     : attackable             ? '#f4d04a'
+    : isTaunt                ? '#5ea863'
     : null;
 
   const pressTimer = useRef<number | null>(null);
@@ -119,23 +122,24 @@ export function BattlefieldCard({
           background: `linear-gradient(180deg, ${e.color}66 0%, transparent 30%, ${e.deep}cc 100%)`,
         }} />
 
-        {/* Cost */}
+        {/* Cost — pushed down when the TAUNT label is showing */}
         <div style={{
-          position: 'absolute', top: 4, left: 4,
+          position: 'absolute', top: isTaunt ? 14 : 4, left: 4,
           minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8,
           background: '#fef4d8', color: e.deep,
           fontSize: 10, fontWeight: 800,
           display: 'grid', placeItems: 'center',
           boxShadow: '0 1px 0 rgba(0,0,0,.25)',
+          zIndex: 2,
         }}>{card.cost}</div>
 
-        {/* Status badges (top-right stack) */}
+        {/* Status badges (top-right stack) — also pushed down when TAUNT shows */}
         <div style={{
-          position: 'absolute', top: 4, right: 4,
+          position: 'absolute', top: isTaunt ? 14 : 4, right: 4,
           display: 'flex', flexDirection: 'column', gap: 2,
+          zIndex: 2,
         }}>
           {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {card.abilityKind === 'taunt' && !card.frozen && <StatusPill color="#5ea863" icon={<Shield size={10} fill="#fff" strokeWidth={2.4} />} />}
           {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<Zap size={10} fill="#fff" strokeWidth={2.4} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
         </div>
@@ -178,6 +182,25 @@ export function BattlefieldCard({
               boxShadow: '0 0 0 1.5px #8a1414, 0 1px 3px rgba(0,0,0,.4)',
             }}>{card.currentHp}</div>
           </>
+        )}
+
+        {/* TAUNT label across the top — impossible to miss */}
+        {isTaunt && (
+          <div style={{
+            position: 'absolute', top: 0, left: 0, right: 0,
+            background: 'linear-gradient(180deg, #5ea863, #3d8e57)',
+            color: '#fff',
+            fontSize: 7.5, fontWeight: 800,
+            letterSpacing: '0.18em',
+            textAlign: 'center',
+            padding: '1.5px 4px',
+            textTransform: 'uppercase',
+            textShadow: '0 1px 1px rgba(0,0,0,.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+            boxShadow: '0 1px 3px rgba(0,0,0,.25)',
+          }}>
+            <Shield size={9} fill="#fff" strokeWidth={2.4} /> Taunt
+          </div>
         )}
       </div>
 

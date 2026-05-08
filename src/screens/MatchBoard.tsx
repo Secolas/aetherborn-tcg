@@ -459,14 +459,26 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             Tap your field to play
           </div>
         ) : pendingSpell ? (
-          <button onClick={cancelPending} style={{
-            background: '#fff',
-            color: PALETTE.text, border: `1.5px solid ${PALETTE.border}`,
-            borderRadius: 22, padding: '7px 16px', fontSize: 12,
-            fontWeight: 600, cursor: 'pointer',
-            fontFamily: 'inherit',
-            boxShadow: '0 2px 6px rgba(58,46,42,.08)',
-          }}>Cancel target</button>
+          // Persistent target instruction so the player isn't lost mid-cast.
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
+              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep, textTransform: 'uppercase' }}>
+                Casting · {pendingSpell.name}
+              </span>
+              <span style={{ fontSize: 10, color: PALETTE.textMid, fontStyle: 'italic', marginTop: 1 }}>
+                {spellTargetHint(pendingSpell)}
+              </span>
+            </div>
+            <button onClick={cancelPending} aria-label="Cancel" style={{
+              background: '#fff',
+              color: PALETTE.text, border: `1.5px solid ${PALETTE.border}`,
+              borderRadius: '50%', width: 28, height: 28, fontSize: 14,
+              fontWeight: 700, cursor: 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 6px rgba(58,46,42,.08)',
+              display: 'grid', placeItems: 'center',
+            }}>×</button>
+          </div>
         ) : (
           <button onClick={onEndTurn} disabled={state.turn !== 'player'} style={{
             background: state.turn === 'player'
@@ -739,6 +751,16 @@ function FieldRow({
       })}
     </div>
   );
+}
+
+/** Plain-English hint telling the player what kind of target a pending spell needs. */
+function spellTargetHint(card: BattleCard): string {
+  switch (card.abilityKind) {
+    case 'spell_damage': return `Tap an enemy creature or boss to deal ${card.abilityValue ?? 0}`;
+    case 'spell_freeze': return 'Tap an enemy creature to freeze it';
+    case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
+    default:             return 'Tap a target';
+  }
 }
 
 function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'player' | 'opponent'): boolean {
