@@ -22,7 +22,8 @@ export type AbilityKind =
   | 'spell_damage'   // (Spell) deal X damage to any target
   | 'spell_heal'     // (Spell) heal owner X
   | 'spell_buff'     // (Spell) +X/+X to a friendly creature
-  | 'spell_freeze';  // (Spell) tap an enemy creature
+  | 'spell_freeze'   // (Spell) tap an enemy creature
+  | 'silence';       // (Spell) strip all abilities from an enemy creature
 
 export interface CardTemplate {
   id: string;
@@ -79,6 +80,10 @@ export interface PlayerState {
       Surfaced via the in-match graveyard button so the player can review
       what was used. Newest entries are at the end of the array. */
   discard: BattleCard[];
+  /** Number of times this player has tried to draw from an empty deck. Each
+      subsequent fatigue draw deals 1 more damage (Hearthstone-style), so
+      stalling becomes self-destructive. */
+  fatigueCount: number;
 }
 
 export interface MatchState {

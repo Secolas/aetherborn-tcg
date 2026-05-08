@@ -5,11 +5,15 @@ import type {
   BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
 } from './types';
 
-export const STARTING_HP = 24;
+export const STARTING_HP = 20;
 export const STARTING_HAND = 4;
-export const MAX_MANA = 10;
+export const MAX_MANA = 7;
 export const MAX_FIELD = 3;
 export const MAX_HAND = 7;
+/** Hard cap on total turns. If both players are still alive when turn 15
+    ends, whoever has more HP wins; ties resolve as a player loss so
+    aggressive play is rewarded over heal-stalling. */
+export const TURN_LIMIT = 15;
 
 let battleIdCounter = 0;
 function newBattleId() { return `b${++battleIdCounter}`; }
@@ -75,7 +79,7 @@ function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
 }
 
 function emptyPlayer(): PlayerState {
-  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [] };
+  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [], fatigueCount: 0 };
 }
 
 export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
@@ -170,14 +174,25 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     }
   });
 
-  // Draw
+  // Draw — escalating fatigue when the deck runs out, so games can't drag
+  // forever even if both sides are healing. First fatigue = 1 dmg, second = 2,
+  // third = 3, etc.
   if (me.deck.length > 0 && me.hand.length < MAX_HAND) {
     const c = me.deck.shift()!;
     c.tapped = false;
     me.hand.push(c);
   } else if (me.deck.length === 0) {
-    me.hp -= 1;
-    state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} took 1 fatigue damage`);
+    me.fatigueCount += 1;
+    me.hp -= me.fatigueCount;
+    state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} took ${me.fatigueCount} fatigue damage`);
+  }
+
+  // Turn-limit check — once turn 15 has been played, whoever has more HP
+  // wins. Ties resolve as a loss so aggressive play is rewarded.
+  if (state.turnNumber > TURN_LIMIT) {
+    state.outcome = state.player.hp > state.opponent.hp ? 'win' : 'loss';
+    state.log.push(`Turn limit reached — ${state.outcome === 'win' ? 'you win' : 'you lose'} on HP`);
+    return state;
   }
 
   checkOutcome(state);
@@ -276,6 +291,12 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     if (target.owner !== owner) return false;
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
   }
+  if (card.abilityKind === 'silence') {
+    // Silence bypasses 'untargetable' on purpose — that's its job.
+    if (target.kind !== 'creature') return false;
+    if (target.owner === owner) return false;
+    return !!side(state, target.owner).field.find(x => x.battleId === target.battleId);
+  }
   return false;
 }
 
@@ -332,6 +353,16 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.currentAtk += v;
       c.currentHp += v;
       c.hp += v;
+    }
+  } else if (card.abilityKind === 'silence' && target?.kind === 'creature') {
+    // Strip the target's ability — taunt creatures lose the redirect, untargetable
+    // creatures become spell-targetable, rush sleepers no longer charge, etc.
+    // Buffs (raw stat increases) are intentionally preserved.
+    const t = side(state, target.owner);
+    const c = t.field.find(x => x.battleId === target.battleId);
+    if (c) {
+      c.abilityKind = 'none';
+      c.ability = '';
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic

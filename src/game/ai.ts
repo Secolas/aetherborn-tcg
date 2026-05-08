@@ -151,6 +151,17 @@ function chooseSpellTarget(card: BattleCard, state: MatchState): SpellTarget | n
     // Otherwise hit face anyway if no good removal option
     return { kind: 'face', owner: 'player' };
   }
+  if (card.abilityKind === 'silence') {
+    // Silence the most threatening enemy creature with an ability — taunt
+    // first (clears the lane), then untargetable, then big bodies. If no
+    // enemy creature has an ability, skip the cast.
+    const annoying = them.field.filter(c =>
+      c.abilityKind === 'taunt' || c.abilityKind === 'untargetable' || c.abilityKind === 'rush'
+    );
+    if (annoying.length === 0) return null;
+    const tgt = annoying.sort((a, b) => (b.currentAtk + b.currentHp) - (a.currentAtk + a.currentHp))[0];
+    return { kind: 'creature', owner: 'player', battleId: tgt.battleId };
+  }
   if (card.abilityKind === 'spell_freeze') {
     const big = them.field
       .filter(c => c.abilityKind !== 'untargetable' && !c.tapped)
