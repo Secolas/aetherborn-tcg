@@ -1,7 +1,8 @@
-import { TEMPLATES, templatesByTheme } from '../data/templates';
+import { TEMPLATES, getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
+import type { BossDef } from '../data/bosses';
 import type {
-  BattleCard, CollectionCard, ElementId, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
+  BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
 } from './types';
 
 export const STARTING_HP = 24;
@@ -35,16 +36,34 @@ function shuffle<T>(arr: T[]): T[] {
 }
 
 /**
- * Build the AI's deck. If a theme is provided, the AI plays a deck made
- * entirely of that theme — so fighting Mom feels like a Family deck mirror,
- * fighting The Manager feels like a Work deck, etc.
+ * Build the AI's deck. When a boss is provided, the AI plays *that boss's
+ * curated 12-card list* — so Mom always plays a heal-heavy Family deck,
+ * The Manager plays a spell-heavy Work deck, Pack Alpha plays a body-
+ * heavy Animals deck. Each boss can also override individual card photos
+ * so their iconic cards (Lion, The Boss, Sunday Dinner) look distinct.
+ *
+ * Without a boss spec we fall back to a random themed pool — used for
+ * future free-play modes.
  */
-function buildOpponentDeck(theme?: ElementId): CollectionCard[] {
-  const pool = theme
-    ? templatesByTheme(theme)
-    : TEMPLATES.filter(t => t.cost <= 7);
-  // Take all available + duplicate the cheap cards a couple times to make
-  // a workable deck of ~12 cards from a 12-card theme pool.
+function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
+  if (boss) {
+    const out: CollectionCard[] = [];
+    boss.deck.forEach((tid, i) => {
+      const template = getTemplateById(tid);
+      if (!template) return;
+      const photo = boss.photoOverrides?.[tid] ?? aiPhoto(tid);
+      out.push({
+        ...template,
+        uid: `opp_${i}_${tid}`,
+        photo,
+        nickname: undefined,
+      });
+    });
+    return out;
+  }
+
+  // Fallback: random sample (used if no boss is specified)
+  const pool = TEMPLATES.filter(t => t.cost <= 7);
   const base = shuffle(pool);
   const picks = base.concat(base.slice(0, Math.max(0, 12 - base.length))).slice(0, 12);
   return picks.map((t, i) => ({
@@ -59,9 +78,9 @@ function emptyPlayer(): PlayerState {
   return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [] };
 }
 
-export function createMatch(playerCards: CollectionCard[], opponentTheme?: ElementId): MatchState {
+export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
   const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  const oppDeck = shuffle(buildOpponentDeck(opponentTheme)).map(toBattleCard);
+  const oppDeck = shuffle(buildOpponentDeck(boss)).map(toBattleCard);
 
   const player = emptyPlayer();
   const opponent = emptyPlayer();

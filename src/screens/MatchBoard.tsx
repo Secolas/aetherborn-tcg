@@ -40,7 +40,7 @@ const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
 export function MatchBoard({ deck, boss, onExit }: Props) {
-  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss.themeId));
+  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
   const [drag, setDrag] = useState<DragState | null>(null);
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [selectedAttacker, setSelectedAttacker] = useState<string | null>(null);
