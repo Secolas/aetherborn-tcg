@@ -3,6 +3,7 @@ import { ArrowLeft, Heart, Coins, Layers, Skull } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
+import { CoinFlip } from '../components/CoinFlip';
 import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
@@ -62,6 +63,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
+  /** Pre-match coin flip is animating. While true, the AI driver is paused
+      and the player can't interact — keeps the opening uniform either way. */
+  const [flipping, setFlipping] = useState(true);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -76,6 +80,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   // ============== AI driver ==============
   useEffect(() => {
+    if (flipping) return; // wait until the opening coin flip finishes
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
 
@@ -112,7 +117,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     };
     const t = setTimeout(tick, 600);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state]);
+  }, [state, flipping]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
@@ -445,6 +450,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
+      {/* Pre-match coin flip — runs once at mount, then unblocks the rest of
+          the game. The actual first-turn decision lives in createMatch; this
+          is just the cosmetic reveal. */}
+      {flipping && (
+        <CoinFlip
+          result={state.turn}
+          bossAvatar={boss.avatar}
+          bossName={boss.name}
+          onDone={() => setFlipping(false)}
+        />
+      )}
+
       {/* Faint hex pattern under everything — gives the playmat texture. */}
       <svg style={{ position: 'absolute', inset: 0, opacity: 0.06, pointerEvents: 'none' }} width="100%" height="100%">
         <defs>

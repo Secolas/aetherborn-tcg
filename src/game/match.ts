@@ -100,13 +100,15 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef): Matc
   player.deck = playerDeck;
   opponent.deck = oppDeck;
 
-  // Player goes first; their turn starts immediately so they can act with mana=1.
+  // Coin flip — neither side has an inherent "I go first" advantage.
+  const first: Owner = Math.random() < 0.5 ? 'player' : 'opponent';
+
   return {
     player,
     opponent,
-    turn: 'player',
+    turn: first,
     turnNumber: 1,
-    log: ['Match begins'],
+    log: [`Match begins — ${first === 'player' ? 'you' : 'the boss'} go first`],
     outcome: 'ongoing',
   };
 }

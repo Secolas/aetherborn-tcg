@@ -148,6 +148,30 @@ input {
   100% { transform: translateX(130%); opacity: 0; }
 }
 
+/* Coin flip — opening animation before the match. The disc spins around Y
+   while bouncing slightly on Z so it reads as "tossed in the air". Two
+   variants exist (player / boss) so the coin lands showing the right face;
+   the only difference is the final rotation lands on 0 or 180 degrees. */
+@keyframes coinFlipPlayer {
+  0%   { transform: translateY(0) rotateY(0); }
+  20%  { transform: translateY(-90px) rotateY(720deg); }
+  55%  { transform: translateY(-110px) rotateY(1440deg); }
+  85%  { transform: translateY(0) rotateY(2160deg); }
+  100% { transform: translateY(0) rotateY(2160deg); }
+}
+@keyframes coinFlipBoss {
+  0%   { transform: translateY(0) rotateY(0); }
+  20%  { transform: translateY(-90px) rotateY(720deg); }
+  55%  { transform: translateY(-110px) rotateY(1440deg); }
+  85%  { transform: translateY(0) rotateY(1980deg); }
+  100% { transform: translateY(0) rotateY(1980deg); }
+}
+@keyframes coinFlipResult {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 /* Big "card vs card" overlay shown during a creature-vs-creature trade. */
 @keyframes vsReveal {
   0%   { opacity: 0; transform: scale(0.85); }
