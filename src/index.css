@@ -139,3 +139,31 @@ input {
   60%  { stroke-dashoffset: 0; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 0; }
 }
+
+/* Turn banner — slides in from the left, holds, slides out to the right. */
+@keyframes turnBanner {
+  0%   { transform: translateX(-130%); opacity: 0; }
+  18%  { transform: translateX(0); opacity: 1; }
+  78%  { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(130%); opacity: 0; }
+}
+
+/* Big "card vs card" overlay shown during a creature-vs-creature trade. */
+@keyframes vsReveal {
+  0%   { opacity: 0; transform: scale(0.85); }
+  18%  { opacity: 1; transform: scale(1); }
+  82%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(0.92); }
+}
+@keyframes vsRevealLeft {
+  0%   { opacity: 0; transform: translateX(-80px) rotate(-6deg); }
+  20%  { opacity: 1; transform: translateX(0) rotate(0); }
+  80%  { opacity: 1; transform: translateX(0) rotate(0); }
+  100% { opacity: 0; transform: translateX(-30px) rotate(-3deg); }
+}
+@keyframes vsRevealRight {
+  0%   { opacity: 0; transform: translateX(80px) rotate(6deg); }
+  20%  { opacity: 1; transform: translateX(0) rotate(0); }
+  80%  { opacity: 1; transform: translateX(0) rotate(0); }
+  100% { opacity: 0; transform: translateX(30px) rotate(3deg); }
+}
