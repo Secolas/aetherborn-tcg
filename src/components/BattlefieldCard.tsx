@@ -85,15 +85,17 @@ export function BattlefieldCard({
       onPointerUp={handlePointerUp}
       onPointerCancel={() => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } }}
       style={{
-        width: 64, height: 90,
-        borderRadius: 9,
+        width: 64, height: 88,
+        borderRadius: 8,
         background: `linear-gradient(180deg, ${tp.top}, ${tp.deep})`,
         boxShadow: ringColor
           ? `0 0 0 2.5px ${ringColor}, 0 0 14px ${ringColor}88, 0 4px 10px rgba(0,0,0,.25)`
           : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
-        opacity: card.frozen ? 0.6 : 1,
+        // Tapped/exhausted creatures fade to 55% so the player can tell at
+        // a glance which of their creatures have already attacked this turn.
+        opacity: card.frozen ? 0.6 : exhausted ? 0.55 : 1,
         animation,
         transition: 'opacity .2s, box-shadow .2s',
         flex: '0 0 auto',
@@ -145,13 +147,12 @@ export function BattlefieldCard({
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
         </div>
 
-        {/* Tapped/exhausted treatment */}
-        {(exhausted || card.frozen) && (
+        {/* Frozen creatures get a blue ice tint. Tapped/exhausted is handled
+            via outer opacity now, not a stacked overlay. */}
+        {card.frozen && (
           <div style={{
             position: 'absolute', inset: 0,
-            background: card.frozen
-              ? 'linear-gradient(180deg, rgba(158,214,247,.35) 0%, rgba(58,143,196,.45) 100%)'
-              : 'rgba(0,0,0,.3)',
+            background: 'linear-gradient(180deg, rgba(158,214,247,.35) 0%, rgba(58,143,196,.45) 100%)',
             backdropFilter: 'saturate(0.6)',
           }} />
         )}

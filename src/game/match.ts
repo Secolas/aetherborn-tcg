@@ -75,7 +75,7 @@ function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
 }
 
 function emptyPlayer(): PlayerState {
-  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [] };
+  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [] };
 }
 
 export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
@@ -223,6 +223,8 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
     me.hand.splice(idx, 1);
     state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} cast ${displayName(card)}`);
     resolveSpell(state, owner, card, target);
+    // Spell goes to its caster's graveyard so the player can review it later.
+    me.discard.push(card);
 
     // Spell-synergy creatures: deal X to opponent
     me.field.forEach(c => {
@@ -337,6 +339,10 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
 }
 
 function cleanField(p: PlayerState) {
+  // Move dead creatures into the graveyard instead of dropping them on the
+  // floor. The player can review what was killed via the graveyard button.
+  const dead = p.field.filter(c => c.currentHp <= 0);
+  if (dead.length) p.discard.push(...dead);
   p.field = p.field.filter(c => c.currentHp > 0);
 }
 

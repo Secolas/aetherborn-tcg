@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, Heart, Coins, Layers } from 'lucide-react';
+import { ArrowLeft, Heart, Coins, Layers, Skull } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
+import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
@@ -59,6 +60,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
+  /** Which graveyard pile (if any) is open in the modal. */
+  const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -442,25 +445,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
-      {/* Opponent's hand — face-down cards fanned at the very top so the player
-          can see how many cards the boss is holding (Pokemon-style). */}
-      <OpponentHand size={state.opponent.hand.length} />
-
-      {/* The battlefield "table" — gives the combat area visual weight and
-          frames the two field rows + center line. */}
-      <div style={{
-        position: 'absolute', top: 96, left: 8, right: 8, height: 248,
-        borderRadius: 22,
-        background: `
-          radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,255,255,.5) 0%, transparent 60%),
-          linear-gradient(180deg, rgba(255,236,210,.6) 0%, rgba(248,200,156,.5) 100%)
-        `,
-        border: '1.5px solid rgba(255,126,95,.18)',
-        boxShadow: '0 12px 32px rgba(120,60,30,.12), inset 0 0 30px rgba(255,200,160,.3)',
-        pointerEvents: 'none',
-      }} />
-
-      <svg style={{ position: 'absolute', inset: 0, opacity: 0.08 }} width="100%" height="100%">
+      {/* Faint hex pattern under everything — gives the playmat texture. */}
+      <svg style={{ position: 'absolute', inset: 0, opacity: 0.06, pointerEvents: 'none' }} width="100%" height="100%">
         <defs>
           <pattern id="hex" width="30" height="26" patternUnits="userSpaceOnUse">
             <polygon points="15,1 28,8 28,22 15,29 2,22 2,8" fill="none" stroke={PALETTE.accent} strokeWidth="1" />
@@ -469,23 +455,26 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      {/* Top header — single inline row: portrait + deck chip on the left,
-          turn counter + exit on the right. Sits below the face-down hand. */}
-      <div style={{ position: 'absolute', top: 56, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <OpponentPortrait
-            boss={boss}
-            themeColor={bossElement.color}
-            themeDeep={bossElement.deep}
-            hp={state.opponent.hp}
-            highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
-            onClick={onOppFaceClick}
-            damage={damages[FACE_OPP] ?? null}
-            elRef={(el) => registerEl(FACE_OPP, el)}
-          />
-          <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
-        </div>
+      {/* Opponent's face-down hand floats at the very top, centered. */}
+      <OpponentHand size={state.opponent.hand.length} />
+
+      {/* Opponent header strip — back button on the left, opp portrait + HP on
+          the right. Top: 16, height ~64 per the layout spec. */}
+      <div style={{ position: 'absolute', top: 16, left: 12, right: 12, height: 64, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8 }}>
+        <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
+        <OpponentPortrait
+          boss={boss}
+          themeColor={bossElement.color}
+          themeDeep={bossElement.deep}
+          hp={state.opponent.hp}
+          highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
+          onClick={onOppFaceClick}
+          damage={damages[FACE_OPP] ?? null}
+          elRef={(el) => registerEl(FACE_OPP, el)}
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
+          <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
           <div style={{
             background: '#fff',
             padding: '4px 10px', borderRadius: 12,
@@ -493,17 +482,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             color: PALETTE.textMid,
             boxShadow: '0 2px 6px rgba(58,46,42,.08)',
           }}>
-            Turn {state.turnNumber}
+            T{state.turnNumber}
           </div>
-          <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
         </div>
       </div>
 
-      {/* Opponent field */}
+      {/* Opponent's creature row — top: 230, height ~110. flex-center so a
+          single creature sits dead-center, two flank center, etc. */}
       <div style={{
-        position: 'absolute', top: 108, left: 12, right: 12,
-        display: 'flex', justifyContent: 'center', gap: 4,
-        minHeight: 90,
+        position: 'absolute', top: 230, left: 0, right: 0, height: 110,
+        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+        zIndex: 3,
       }}>
         <FieldRow
           side="opponent"
@@ -520,30 +509,36 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Center battle-line — a thin separator with a tiny phase label or
-          casting hint. End Turn lives in the bottom bar now (closer to the
-          player's natural focus). */}
+      {/* Center divider band — the drop zone. Top: 350, height: 56. Dashed top
+          + bottom borders that intensify when a card is dragged into it. The
+          End Turn button (or "Release to summon" hint during drag) lives here.
+          The phase label floats ABOVE this band, not inside it, so it never
+          fights the button for the click. */}
       <div ref={fieldRef} style={{
-        position: 'absolute', top: 204, left: 0, right: 0, height: 36,
+        position: 'absolute', top: 350, left: 0, right: 0, height: 56,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: '0 16px',
-        borderTop: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
-        borderBottom: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
-        background: drag?.overField ? 'rgba(255,126,95,.12)' : 'rgba(255,255,255,.25)',
+        borderTop: drag?.overField
+          ? '2px dashed #f4d04a'
+          : '1px dashed rgba(58,46,42,.20)',
+        borderBottom: drag?.overField
+          ? '2px dashed #f4d04a'
+          : '1px dashed rgba(58,46,42,.20)',
+        background: drag?.overField
+          ? 'rgba(244,208,74,.12)'
+          : 'rgba(255,255,255,.30)',
         transition: 'background .15s, border-color .15s',
-      }}>
+        zIndex: 4,
+      }}
+        onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
+      >
         {drag?.overField ? (
-          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
           </div>
-        ) : selectedHandIdx !== null ? (
-          <div style={{ fontSize: 11, fontWeight: 700, color: PALETTE.accentDeep, letterSpacing: '0.05em' }}>
-            Tap your field to play
-          </div>
         ) : pendingSpell ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
-              <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep, textTransform: 'uppercase' }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep, textTransform: 'uppercase' }}>
                 Casting · {pendingSpell.name}
               </span>
               <span style={{ fontSize: 10, color: PALETTE.textMid, fontStyle: 'italic', marginTop: 1 }}>
@@ -561,23 +556,44 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             }}>×</button>
           </div>
         ) : (
-          <div style={{
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.25em',
-            color: state.turn === 'player' ? PALETTE.accentDeep : PALETTE.textMid,
-            textTransform: 'uppercase', opacity: 0.7,
-          }}>
-            {state.turn === 'player' ? '— Your Turn —' : `— ${boss.name}'s Turn —`}
-          </div>
+          <button onClick={(e) => { e.stopPropagation(); onEndTurn(); }} disabled={state.turn !== 'player'} style={{
+            background: state.turn === 'player'
+              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
+              : '#e8d8c8',
+            color: state.turn === 'player' ? '#fff' : '#9a8678',
+            border: 'none', borderRadius: 22, padding: '10px 24px',
+            fontSize: 13, fontWeight: 700, letterSpacing: '0.04em',
+            cursor: state.turn === 'player' ? 'pointer' : 'default',
+            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
+            fontFamily: '"Fredoka", system-ui',
+          }}>End Turn →</button>
         )}
       </div>
 
-      {/* My field — slot outlines visible. Click an empty slot to play a selected hand card. */}
+      {/* Floating turn-status label — sits above the divider line at top:364
+          with pointer-events:none so it never intercepts clicks meant for the
+          End Turn button or the drop zone. Doubles as the transient action
+          message slot ("Drew 2 cards", error reasons, etc.). */}
+      <div style={{
+        position: 'absolute', top: 364, left: 0, right: 0,
+        textAlign: 'center', pointerEvents: 'none',
+        fontSize: 10, fontWeight: 700, letterSpacing: '0.22em',
+        textTransform: 'uppercase',
+        color: PALETTE.textMid,
+        zIndex: 5,
+      }}>
+        {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
+          ? msg
+          : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
+      </div>
+
+      {/* Player's creature row — top: 416, mirror of the opponent row. */}
       <div
         onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
         style={{
-          position: 'absolute', top: 246, left: 12, right: 12,
-          display: 'flex', justifyContent: 'center', gap: 4,
-          minHeight: 90,
+          position: 'absolute', top: 416, left: 0, right: 0, height: 110,
+          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+          zIndex: 3,
           cursor: selectedHandIdx !== null ? 'pointer' : 'default',
         }}
       >
@@ -602,16 +618,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Brief flash messages (errors, action confirmations) appear here.
-          Whose turn it is is shown in the center bar — no duplicate. */}
-      <div style={{ position: 'absolute', top: 344, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: 600, color: PALETTE.textMid, height: 16, transition: 'opacity .2s' }}>
-        {msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : ''}
-      </div>
-
-      {/* My stats row: portrait + mana on the left, deck chip + End Turn on the
-          right. End Turn used to live in the center divider but it sits more
-          naturally next to the player's other controls. */}
-      <div style={{ position: 'absolute', top: 360, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6 }}>
+      {/* Player stats — HP + mana left, deck + graveyard right. Top: 540. */}
+      <div style={{ position: 'absolute', top: 540, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <PlayerPortrait
             hp={state.player.hp}
@@ -622,19 +630,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           />
           <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
-          <button onClick={onEndTurn} disabled={state.turn !== 'player'} style={{
-            background: state.turn === 'player'
-              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
-              : '#e8d8c8',
-            color: state.turn === 'player' ? '#fff' : '#9a8678',
-            border: 'none', borderRadius: 20, padding: '8px 16px',
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.03em',
-            cursor: state.turn === 'player' ? 'pointer' : 'default',
-            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
-            fontFamily: '"Fredoka", system-ui',
-          }}>End Turn →</button>
+          <GraveyardButton count={state.player.discard.length} onClick={() => setGraveyardOpen('player')} />
         </div>
       </div>
 
@@ -642,7 +640,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           would clip off the left edge of the screen for the leftmost card);
           instead we render a centered preview overlay above the hand. */}
       <div style={{
-        position: 'absolute', bottom: 8, left: 0, right: 0, height: 240,
+        position: 'absolute', bottom: 30, left: 0, right: 0, height: 220,
         pointerEvents: 'none',
       }}>
         {state.player.hand.map((card, i) => {
@@ -922,15 +920,23 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           }}>tap anywhere to close</div>
         </div>
       )}
+
+      {/* Graveyard modal — opened from either side's skull button. Lists every
+          spell that's resolved + every creature that's died. */}
+      {graveyardOpen && (
+        <GraveyardModal
+          cards={graveyardOpen === 'player' ? state.player.discard : state.opponent.discard}
+          title={graveyardOpen === 'player' ? 'You' : boss.name}
+          onClose={() => setGraveyardOpen(null)}
+        />
+      )}
     </div>
   );
 }
 
-const SLOTS_PER_ROW = 6;
-
 function FieldRow({
   side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
-  highlightEmpty, registerEl, onCardClick, onCardLongPress,
+  registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
@@ -939,30 +945,18 @@ function FieldRow({
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
+  /** Reserved for future use — empty slots are no longer rendered. */
   highlightEmpty: boolean;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
 }) {
+  // Empty slots are no longer rendered — a single creature should sit dead
+  // center, two should flank the center, etc. The drop zone for playing new
+  // creatures is the divider band, not a row of slot outlines.
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', gap: 4, alignItems: 'center' }}>
-      {Array.from({ length: SLOTS_PER_ROW }).map((_, i) => {
-        const c = cards[i];
-        if (!c) {
-          return (
-            <div key={`empty-${i}`} style={{
-              width: 64, height: 90,
-              borderRadius: 9,
-              border: highlightEmpty
-                ? '2px dashed rgba(255,126,95,.6)'
-                : '1.5px dashed rgba(58,46,42,.18)',
-              background: highlightEmpty
-                ? 'rgba(255,126,95,.08)'
-                : 'rgba(255,255,255,.18)',
-              transition: 'border-color .2s, background .2s',
-            }} />
-          );
-        }
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
+      {cards.map((c) => {
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
@@ -1002,16 +996,37 @@ function FieldRow({
   );
 }
 
+/** Skull-icon pill that opens the graveyard modal for one player's pile. */
+function GraveyardButton({ count, onClick }: { count: number; onClick: () => void }) {
+  return (
+    <button onClick={onClick} aria-label="Graveyard" style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      background: '#fff',
+      padding: '5px 9px', borderRadius: 14,
+      boxShadow: '0 3px 8px rgba(58,46,42,.10)',
+      border: 'none',
+      fontSize: 12, fontWeight: 700, color: PALETTE.text,
+      cursor: 'pointer',
+      fontFamily: '"Fredoka", "Inter", system-ui',
+    }}>
+      <Skull size={14} color={PALETTE.accentDeep} strokeWidth={2.4} />
+      <span>{count}</span>
+    </button>
+  );
+}
+
 /** Face-down hand at the top — visualizes how many cards the boss is holding. */
 function OpponentHand({ size }: { size: number }) {
   if (size <= 0) return null;
   // Negative margin compresses the cards into a fan. Tighter for big hands.
   const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
+  // Sits in the breathing zone between the opp header (ends ~80) and the
+  // opp creature row (starts at 230) — high enough to feel "above the field"
+  // but not colliding with the centered portrait in the header.
   return (
     <div style={{
-      position: 'absolute', top: 0, left: 0, right: 0, height: 50,
+      position: 'absolute', top: 130, left: 0, right: 0, height: 70,
       display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      paddingTop: 4,
       pointerEvents: 'none',
       zIndex: 4,
     }}>

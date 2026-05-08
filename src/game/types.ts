@@ -75,6 +75,10 @@ export interface PlayerState {
   hand: BattleCard[];
   field: BattleCard[];
   deck: BattleCard[];
+  /** Cards that have left play — spells that resolved + creatures that died.
+      Surfaced via the in-match graveyard button so the player can review
+      what was used. Newest entries are at the end of the array. */
+  discard: BattleCard[];
 }
 
 export interface MatchState {
