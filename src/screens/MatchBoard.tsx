@@ -22,6 +22,7 @@ interface DragState {
   battleId: string;
   cardType: 'Creature' | 'Spell';
   x: number; y: number;     // current finger position (viewport coords)
+  startX: number; startY: number; // where the press began — used to detect tap-vs-drag
   ox: number; oy: number;   // finger offset within card at drag start
   overField: boolean;
 }
@@ -42,7 +43,8 @@ const FACE_OPP = '__face_opp__';
 export function MatchBoard({ deck, boss, onExit }: Props) {
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
   const [drag, setDrag] = useState<DragState | null>(null);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  /** Index of the hand card currently selected for preview/play (click-to-select). */
+  const [selectedHandIdx, setSelectedHandIdx] = useState<number | null>(null);
   const [selectedAttacker, setSelectedAttacker] = useState<string | null>(null);
   const [pendingSpell, setPendingSpell] = useState<BattleCard | null>(null);
   const [combat, setCombat] = useState<CombatFx | null>(null);
@@ -147,6 +149,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       battleId: card.battleId,
       cardType: card.type,
       x: ev.clientX, y: ev.clientY,
+      startX: ev.clientX, startY: ev.clientY,
       ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
     });
@@ -166,6 +169,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     if (!drag) return;
     const card = state.player.hand.find(c => c.battleId === drag.battleId);
     if (!card) { setDrag(null); return; }
+
+    // Tap (small movement) → click-to-select. Drag (large movement) → drop-to-play.
+    const dx = drag.x - drag.startX;
+    const dy = drag.y - drag.startY;
+    const wasTap = (dx * dx + dy * dy) < 64; // <8px movement
+
+    if (wasTap) {
+      const idx = state.player.hand.findIndex(c => c.battleId === drag.battleId);
+      handleHandTap(card, idx);
+      setDrag(null);
+      return;
+    }
 
     if (card.type === 'Creature') {
       if (drag.overField) {
@@ -189,6 +204,53 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       }
     }
     setDrag(null);
+  };
+
+  /** Tap a hand card: toggle selection. The card lifts up as a preview. */
+  const handleHandTap = (card: BattleCard, idx: number) => {
+    if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    if (card.cost > state.player.mana) {
+      flashMsg('Not enough mana');
+      return;
+    }
+    setSelectedHandIdx(prev => prev === idx ? null : idx);
+    setSelectedAttacker(null);
+    setPendingSpell(null);
+  };
+
+  /** Tap somewhere on the player's field area while a card is selected → play it. */
+  const playSelectedToField = () => {
+    if (selectedHandIdx === null) return;
+    const card = state.player.hand[selectedHandIdx];
+    if (!card) { setSelectedHandIdx(null); return; }
+
+    if (card.type === 'Creature') {
+      const r = playCard(state, 'player', card.battleId);
+      if (r.ok) {
+        setState(r.state);
+        setSelectedHandIdx(null);
+      } else {
+        flashMsg(r.reason ?? 'Cannot play');
+      }
+    } else {
+      const noTarget = card.abilityKind === 'spell_heal'
+        || card.abilityKind === 'draw_on_play'
+        || card.id === 'ti-05';
+      if (noTarget) {
+        const r = playCard(state, 'player', card.battleId, { kind: 'face', owner: 'player' });
+        if (r.ok) {
+          setState(r.state);
+          setSelectedHandIdx(null);
+        } else {
+          flashMsg(r.reason ?? 'Cannot cast');
+        }
+      } else {
+        // Spell needs a target — graduate from "selected hand card" to "pending spell"
+        setPendingSpell(card);
+        setSelectedHandIdx(null);
+        flashMsg('Tap a target');
+      }
+    }
   };
 
   // ============== Player attack ==============
@@ -311,8 +373,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5 }}>
-        <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
+      <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 5, gap: 8 }}>
         <OpponentPortrait
           boss={boss}
           themeColor={bossElement.color}
@@ -322,54 +383,70 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           onClick={onOppFaceClick}
           damage={damages[FACE_OPP] ?? null}
         />
-        <div style={{ width: 36 }} />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
+          <div style={{
+            background: '#fff',
+            padding: '4px 10px', borderRadius: 12,
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
+            color: PALETTE.textMid,
+            boxShadow: '0 2px 6px rgba(58,46,42,.08)',
+          }}>
+            Turn {state.turnNumber}
+          </div>
+        </div>
       </div>
 
-      {/* Opponent field */}
+      {/* Opponent field — same slot outline treatment. */}
       <div style={{
         position: 'absolute', top: 90, left: 12, right: 12,
-        display: 'flex', justifyContent: 'center', gap: 6,
+        display: 'flex', justifyContent: 'center', gap: 4,
         minHeight: 98,
       }}>
-        {state.opponent.field.map(c => {
-          const targetable = isTargetableForSpell(c, pendingSpell, 'opponent');
-          const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === 'opponent';
-          const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === 'opponent';
-          return (
-            <BattlefieldCard
-              key={c.battleId}
-              card={c}
-              shaking={isCombatDefender}
-              attackable={!!selectedAttacker}
-              highlight={pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null)}
-              lunging={isCombatAttacker ? 'down' : null}
-              impact={isCombatDefender}
-              damage={damages[c.battleId] ?? null}
-              onClick={() => onOppCreatureClick(c)}
-              onLongPress={() => setInspect(c)}
-            />
-          );
-        })}
+        <FieldRow
+          side="opponent"
+          cards={state.opponent.field}
+          combat={combat}
+          damages={damages}
+          selectedAttacker={selectedAttacker}
+          pendingSpell={pendingSpell}
+          highlightEmpty={false}
+          onCardClick={(c) => onOppCreatureClick(c)}
+          onCardLongPress={(c) => setInspect(c)}
+        />
       </div>
 
-      {/* Center divider */}
+      {/* Center divider — phase indicator on the left, action button on the right */}
       <div ref={fieldRef} style={{
         position: 'absolute', top: 200, left: 0, right: 0, height: 64,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 16px',
         borderTop: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
         borderBottom: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
         background: drag?.overField ? 'rgba(255,126,95,.12)' : 'rgba(255,255,255,.25)',
         transition: 'background .15s, border-color .15s',
       }}>
+        <div style={{
+          fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
+          color: state.turn === 'player' ? PALETTE.accentDeep : PALETTE.textMid,
+          textTransform: 'uppercase',
+        }}>
+          {state.turn === 'player' ? 'Your Turn' : `${boss.name}'s Turn`}
+        </div>
+
         {drag?.overField ? (
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
+          </div>
+        ) : selectedHandIdx !== null ? (
+          <div style={{ fontSize: 11, fontWeight: 700, color: PALETTE.accentDeep, letterSpacing: '0.05em' }}>
+            Tap your field to play
           </div>
         ) : pendingSpell ? (
           <button onClick={cancelPending} style={{
             background: '#fff',
             color: PALETTE.text, border: `1.5px solid ${PALETTE.border}`,
-            borderRadius: 22, padding: '7px 18px', fontSize: 12,
+            borderRadius: 22, padding: '7px 16px', fontSize: 12,
             fontWeight: 600, cursor: 'pointer',
             fontFamily: 'inherit',
             boxShadow: '0 2px 6px rgba(58,46,42,.08)',
@@ -380,8 +457,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
               : '#e8d8c8',
             color: state.turn === 'player' ? '#fff' : '#9a8678',
-            border: 'none', borderRadius: 22, padding: '10px 24px',
-            fontSize: 13, fontWeight: 700, letterSpacing: '0.03em',
+            border: 'none', borderRadius: 22, padding: '9px 20px',
+            fontSize: 12, fontWeight: 700, letterSpacing: '0.03em',
             cursor: state.turn === 'player' ? 'pointer' : 'default',
             boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
             fontFamily: '"Fredoka", system-ui',
@@ -389,38 +466,33 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         )}
       </div>
 
-      {/* My field */}
-      <div style={{
-        position: 'absolute', top: 268, left: 12, right: 12,
-        display: 'flex', justifyContent: 'center', gap: 6,
-        minHeight: 98,
-      }}>
-        {state.player.field.map(c => {
-          const friendlySpell = pendingSpell?.abilityKind === 'spell_buff';
-          const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === 'player';
-          const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === 'player';
-          return (
-            <BattlefieldCard
-              key={c.battleId}
-              card={c}
-              shaking={isCombatDefender}
-              selected={selectedAttacker === c.battleId}
-              attackable={!c.tapped && !c.justPlayed}
-              highlight={friendlySpell ? 'spell' : null}
-              lunging={isCombatAttacker ? 'up' : null}
-              impact={isCombatDefender}
-              damage={damages[c.battleId] ?? null}
-              onClick={() => {
-                if (pendingSpell?.abilityKind === 'spell_buff') {
-                  castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
-                } else {
-                  onMyCreatureClick(c);
-                }
-              }}
-              onLongPress={() => setInspect(c)}
-            />
-          );
-        })}
+      {/* My field — slot outlines visible. Click an empty slot to play a selected hand card. */}
+      <div
+        onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
+        style={{
+          position: 'absolute', top: 268, left: 12, right: 12,
+          display: 'flex', justifyContent: 'center', gap: 4,
+          minHeight: 98,
+          cursor: selectedHandIdx !== null ? 'pointer' : 'default',
+        }}
+      >
+        <FieldRow
+          side="player"
+          cards={state.player.field}
+          combat={combat}
+          damages={damages}
+          selectedAttacker={selectedAttacker}
+          pendingSpell={pendingSpell}
+          highlightEmpty={selectedHandIdx !== null}
+          onCardClick={(c) => {
+            if (pendingSpell?.abilityKind === 'spell_buff') {
+              castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
+            } else {
+              onMyCreatureClick(c);
+            }
+          }}
+          onCardLongPress={(c) => setInspect(c)}
+        />
       </div>
 
       {/* Status message */}
@@ -428,39 +500,20 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         {msg}
       </div>
 
-      {/* My stats */}
-      <div style={{ position: 'absolute', top: 410, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div onClick={onMyFaceClick}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
-            cursor: pendingSpell ? 'pointer' : 'default',
-            padding: '6px 12px', borderRadius: 18,
-            background: '#fff',
-            boxShadow: pendingSpell?.abilityKind === 'spell_heal'
-              ? `0 0 0 2px #06d6a0, 0 4px 10px rgba(58,46,42,.12)`
-              : '0 4px 10px rgba(58,46,42,.12)',
-            animation: damages[FACE_PLAYER] ? 'hpFlash 0.5s' : undefined,
-          }}>
-          <Heart size={22} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
-          <span style={{ fontSize: 22, fontWeight: 700, color: PALETTE.text }}>{state.player.hp}</span>
-          {damages[FACE_PLAYER] != null && (
-            <div style={{
-              position: 'absolute', top: -8, left: '50%',
-              fontSize: 22, fontWeight: 900, color: '#ee5a52',
-              textShadow: '0 2px 0 #fff',
-              animation: 'damagePopup .9s ease-out forwards',
-              pointerEvents: 'none',
-              fontFamily: '"Fredoka", system-ui',
-              whiteSpace: 'nowrap',
-            }}>−{damages[FACE_PLAYER]}</div>
-          )}
-        </div>
+      {/* My stats: mana on the left, player avatar+HP on the right */}
+      <div style={{ position: 'absolute', top: 410, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
+        <PlayerPortrait
+          hp={state.player.hp}
+          highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
+          onClick={onMyFaceClick}
+          damage={damages[FACE_PLAYER] ?? null}
+        />
       </div>
 
-      {/* Hand — non-dragging cards. Each card has a stable-size hit region so the
-          hover doesn't flicker between adjacent cards on desktop. The visual
-          transforms are inside, with pointer-events disabled. */}
+      {/* Hand — tap a card to select it (lifts up as preview), then tap your field
+          area to play. Drag still works as alternative. No hover-driven preview, so
+          no flicker. */}
       <div style={{
         position: 'absolute', bottom: 12, left: 0, right: 0, height: 260,
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
@@ -474,30 +527,28 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           const rot = offset * 5;
           const yOff = Math.abs(offset) * 5;
           const xOff = offset * 30;
-          const isHovered = hoverIdx === i && !drag;
+          const isSelected = selectedHandIdx === i && !drag;
           const playableNow = card.cost <= state.player.mana && state.turn === 'player';
           const baseScale = 0.62;
-          const hitWidth = 220 * baseScale + 8;       // stable hit-target width
-          const hitHeight = 320 * baseScale + 90;     // extends upward to cover the hovered (lifted) card
+          const hitWidth = 220 * baseScale + 8;
+          const hitHeight = 320 * baseScale + 90;
           return (
             <div
               key={card.battleId}
               onPointerDown={(e) => onCardPointerDown(e, card)}
-              onMouseEnter={() => setHoverIdx(i)}
-              onMouseLeave={() => setHoverIdx(null)}
               style={{
                 position: 'absolute', bottom: 0, left: '50%',
                 transform: `translateX(calc(-50% + ${xOff}px))`,
                 width: hitWidth, height: hitHeight,
-                zIndex: isHovered ? 100 : 10 + i,
-                cursor: playableNow ? 'grab' : 'not-allowed',
+                zIndex: isSelected ? 100 : 10 + i,
+                cursor: playableNow ? 'pointer' : 'not-allowed',
                 touchAction: 'none',
                 pointerEvents: 'auto',
               }}
             >
               <div style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(-50%) translateY(${isHovered ? -55 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? 1.45 : 1})`,
+                transform: `translateX(-50%) translateY(${isSelected ? -65 : yOff}px) rotate(${isSelected ? 0 : rot}deg) scale(${isSelected ? 1.45 : 1})`,
                 transformOrigin: 'bottom center',
                 transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
                 opacity: playableNow ? 1 : 0.55,
@@ -505,7 +556,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
                 pointerEvents: 'none',
                 willChange: 'transform',
               }}>
-                <Card card={card} scale={baseScale} hovered={isHovered} />
+                <Card card={card} scale={baseScale} hovered={isSelected} />
               </div>
             </div>
           );
@@ -586,6 +637,76 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   );
 }
 
+const SLOTS_PER_ROW = 6;
+
+function FieldRow({
+  side, cards, combat, damages, selectedAttacker, pendingSpell,
+  highlightEmpty, onCardClick, onCardLongPress,
+}: {
+  side: 'player' | 'opponent';
+  cards: BattleCard[];
+  combat: CombatFx | null;
+  damages: DamageMap;
+  selectedAttacker: string | null;
+  pendingSpell: BattleCard | null;
+  highlightEmpty: boolean;
+  onCardClick: (c: BattleCard) => void;
+  onCardLongPress: (c: BattleCard) => void;
+}) {
+  // Always render SLOTS_PER_ROW slots. Filled slots show a card; empty
+  // slots show a dashed outline. This makes the play area read clearly,
+  // even before a single creature is on the field.
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', gap: 4, alignItems: 'center' }}>
+      {Array.from({ length: SLOTS_PER_ROW }).map((_, i) => {
+        const c = cards[i];
+        if (!c) {
+          return (
+            <div key={`empty-${i}`} style={{
+              width: 64, height: 90,
+              borderRadius: 9,
+              border: highlightEmpty
+                ? '2px dashed rgba(255,126,95,.6)'
+                : '1.5px dashed rgba(58,46,42,.18)',
+              background: highlightEmpty
+                ? 'rgba(255,126,95,.08)'
+                : 'rgba(255,255,255,.18)',
+              transition: 'border-color .2s, background .2s',
+            }} />
+          );
+        }
+        const targetable = isTargetableForSpell(c, pendingSpell, side);
+        const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
+        const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
+        const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
+        return (
+          <BattlefieldCard
+            key={c.battleId}
+            card={c}
+            shaking={isCombatDefender}
+            selected={side === 'player' && selectedAttacker === c.battleId}
+            attackable={
+              side === 'player'
+                ? !c.tapped && !c.justPlayed
+                : !!selectedAttacker
+            }
+            highlight={
+              side === 'player'
+                ? (friendlySpell ? 'spell' : null)
+                : (pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null))
+            }
+            lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
+            impact={isCombatDefender}
+            damage={damages[c.battleId] ?? null}
+            onClick={() => onCardClick(c)}
+            onLongPress={() => onCardLongPress(c)}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'player' | 'opponent'): boolean {
   if (!spell) return false;
   if (c.abilityKind === 'untargetable' && spell.abilityKind !== 'spell_buff') return false;
@@ -636,6 +757,60 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
           <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
           <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
         </div>
+      </div>
+      {damage != null && damage !== 0 && (
+        <div style={{
+          position: 'absolute', top: -10, left: '50%',
+          fontSize: 22, fontWeight: 900, color: '#ee5a52',
+          textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
+          animation: 'damagePopup .9s ease-out forwards',
+          pointerEvents: 'none',
+          fontFamily: '"Fredoka", system-ui',
+          whiteSpace: 'nowrap',
+        }}>−{damage}</div>
+      )}
+    </div>
+  );
+}
+
+function PlayerPortrait({ hp, highlight, onClick, damage }: {
+  hp: number;
+  highlight: 'heal' | null;
+  onClick: () => void;
+  damage: number | null;
+}) {
+  const ring = highlight === 'heal' ? '#06d6a0' : null;
+  return (
+    <div onClick={onClick} style={{
+      display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
+      cursor: highlight ? 'pointer' : 'default',
+      padding: 4, borderRadius: 30,
+      background: '#fff',
+      boxShadow: ring
+        ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
+        : '0 4px 10px rgba(58,46,42,.12)',
+      animation: damage ? 'hpFlash 0.5s' : undefined,
+      transition: 'box-shadow .15s',
+    }}>
+      <div style={{ paddingLeft: 8, textAlign: 'right' }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: PALETTE.textMid, letterSpacing: '0.05em' }}>You</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1, justifyContent: 'flex-end' }}>
+          <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
+          <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
+        </div>
+      </div>
+      <div style={{
+        width: 44, height: 44, borderRadius: '50%',
+        background: 'conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)',
+        padding: 2, position: 'relative',
+      }}>
+        <div style={{
+          width: '100%', height: '100%', borderRadius: '50%',
+          background: 'linear-gradient(160deg, #6e1f1a, #d96658)',
+          display: 'grid', placeItems: 'center',
+          fontSize: 18, fontWeight: 700, color: '#fff',
+          fontFamily: '"Fredoka", system-ui',
+        }}>Y</div>
       </div>
       {damage != null && damage !== 0 && (
         <div style={{
