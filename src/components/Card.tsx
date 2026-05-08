@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react';
-import { ELEMENTS, RARITY_COLOR } from '../data/elements';
+import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
 import { ElementGlyph } from './ElementGlyph';
 import { PhotoFrame } from './PhotoFrame';
@@ -22,7 +22,6 @@ function isCollectionCard(c: CardTemplate | CollectionCard): c is CollectionCard
 }
 
 export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false }: Props) {
-  const e = ELEMENTS[card.el];
   const photo = isCollectionCard(card) ? card.photo : null;
   const dormant = !photo;
   const isSpell = card.type === 'Spell';
@@ -30,13 +29,13 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
   const atk = displayAtk ?? card.atk;
   const hp = displayHp ?? card.hp;
 
-  // Spells get a subtle violet undertone at the bottom so they read as
-  // "magic" at a glance, even before the player notices the SPELL chip.
+  // Card chrome is colored by TYPE only — every creature is green, every
+  // spell is violet, regardless of theme. Theme is signaled by the element
+  // glyph and the chip text.
+  const tp = TYPE_PALETTE[isSpell ? 'Spell' : 'Creature'];
   const cardBg = dormant
-    ? `linear-gradient(180deg, ${e.color}aa 0%, ${e.deep}cc 100%)`
-    : isSpell
-      ? `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 55%, #4a2a6a 100%)`
-      : `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`;
+    ? `linear-gradient(180deg, ${tp.top}aa 0%, ${tp.deep}cc 100%)`
+    : `linear-gradient(180deg, ${tp.top} 0%, ${tp.deep} 100%)`;
 
   return (
     <div style={{
@@ -45,7 +44,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       background: cardBg,
       padding: 8 * scale,
       boxShadow: hovered
-        ? `0 18px 40px rgba(0,0,0,.45), 0 0 0 3px ${e.glow}, inset 0 0 0 2px rgba(255,255,255,.2)`
+        ? `0 18px 40px rgba(0,0,0,.45), 0 0 0 3px #f4d04a, inset 0 0 0 2px rgba(255,255,255,.2)`
         : `0 6px 16px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.15)`,
       transform: hovered ? 'translateY(-6px) scale(1.02)' : 'none',
       transition: 'transform .2s, box-shadow .2s',
@@ -69,10 +68,10 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 * scale, padding: `0 ${4 * scale}px` }}>
-        <CostBadge cost={card.cost} themeDeep={e.deep} unaffordable={unaffordable} scale={scale} />
+        <CostBadge cost={card.cost} ringColor={tp.deep} unaffordable={unaffordable} scale={scale} />
         <div style={{
           flex: 1, fontSize: 14 * scale, fontWeight: 700, lineHeight: 1.1,
-          textShadow: `0 1px 0 ${e.deep}`,
+          textShadow: `0 1px 0 ${tp.deep}`,
           minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{name}</div>
         <ElementGlyph el={card.el} size={22 * scale} />
@@ -130,7 +129,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         {card.ability && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 * scale, flexWrap: 'wrap' }}>
             <span style={{
-              background: e.deep, color: '#fff',
+              background: tp.deep, color: '#fff',
               fontSize: 7.5 * scale, fontWeight: 700, letterSpacing: '0.1em',
               padding: `${1.5 * scale}px ${5 * scale}px`,
               borderRadius: 4 * scale,
@@ -141,7 +140,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
             }}>Ability</span>
             <span style={{
               fontWeight: 700,
-              color: e.deep,
+              color: tp.deep,
               fontSize: 10 * scale,
               lineHeight: 1.25,
               flex: 1,
@@ -168,22 +167,18 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
   );
 }
 
-/**
- * Cost badge — clean cream (or red when unaffordable) circle with a single
- * theme-colored ring and a soft drop shadow.
- */
-function CostBadge({ cost, themeDeep, unaffordable, scale }: {
-  cost: number; themeDeep: string; unaffordable: boolean; scale: number;
+function CostBadge({ cost, ringColor, unaffordable, scale }: {
+  cost: number; ringColor: string; unaffordable: boolean; scale: number;
 }) {
-  const ringColor = unaffordable ? '#c8362e' : themeDeep;
+  const ring = unaffordable ? '#c8362e' : ringColor;
   return (
     <div style={{
       width: 34 * scale, height: 34 * scale, borderRadius: '50%',
       background: unaffordable ? '#ee5a52' : '#fff5dc',
-      color: unaffordable ? '#fff' : themeDeep,
+      color: unaffordable ? '#fff' : ringColor,
       fontSize: 18 * scale, fontWeight: 800,
       display: 'grid', placeItems: 'center',
-      boxShadow: `0 0 0 ${2.5 * scale}px ${ringColor}, 0 ${3 * scale}px ${4 * scale}px rgba(0,0,0,.25)`,
+      boxShadow: `0 0 0 ${2.5 * scale}px ${ring}, 0 ${3 * scale}px ${4 * scale}px rgba(0,0,0,.25)`,
       flex: '0 0 auto',
       letterSpacing: '-0.02em',
       fontFamily: '"Fredoka", system-ui',

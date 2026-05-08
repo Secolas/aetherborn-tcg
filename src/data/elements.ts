@@ -23,6 +23,16 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
              blurb: 'pets, wildlife, the creatures around you' },
 };
 
+/**
+ * Card chrome is colored by TYPE, not theme. Every creature looks the same;
+ * every spell looks the same. Themes are signaled via the element glyph and
+ * the type chip text, never the card color.
+ */
+export const TYPE_PALETTE = {
+  Creature: { top: '#5ea76b', deep: '#1f4d2d' },
+  Spell:    { top: '#9c6fc8', deep: '#3d2456' },
+} as const;
+
 export const RARITY_COLOR: Record<string, string> = {
   common: '#9a958c',
   rare: '#5a8fc4',
