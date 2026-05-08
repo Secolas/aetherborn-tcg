@@ -121,6 +121,9 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         padding: `${7 * scale}px ${9 * scale}px`,
         fontSize: 10 * scale, lineHeight: 1.3,
         minHeight: 44 * scale,
+        // Bottom margin keeps the panel above the protruding ATK/HP orbs so
+        // text never sits underneath them.
+        marginBottom: 22 * scale,
         boxShadow: 'inset 0 1px 2px rgba(0,0,0,.1)',
         fontFamily: '"Inter", system-ui, sans-serif',
         display: 'flex', flexDirection: 'column',

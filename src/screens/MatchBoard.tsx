@@ -57,6 +57,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
   /** Spell the player just cast, shown as a centered reveal — same beat as opponentReveal. */
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
+  /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
+  const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
@@ -85,13 +87,15 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         } else if (step.played) {
           // Show the played card front-and-center so the player can see what
           // was just played — especially important for spells, which would
-          // otherwise resolve invisibly.
+          // otherwise resolve invisibly. Spells get a longer hold than
+          // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
+          const holdMs = step.played.type === 'Spell' ? 2200 : 1500;
           setTimeout(() => {
             if (cancelled) return;
             setOpponentReveal(null);
             setState(step.next);
-          }, 1500);
+          }, holdMs);
         } else {
           setTimeout(() => { if (!cancelled) setState(step.next); }, 700);
         }
@@ -106,6 +110,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const t = setTimeout(tick, 600);
     return () => { cancelled = true; clearTimeout(t); };
   }, [state]);
+
+  // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
+  // changes. Skips the very first render so the banner only fires on actual swaps.
+  const firstTurnRef = useRef(true);
+  useEffect(() => {
+    if (firstTurnRef.current) { firstTurnRef.current = false; return; }
+    if (state.outcome !== 'ongoing') return;
+    setTurnBanner(state.turn);
+    const t = setTimeout(() => setTurnBanner(null), 1400);
+    return () => clearTimeout(t);
+  }, [state.turn, state.outcome]);
 
   // Recompute the attack-arrow endpoints whenever combat starts. We read the
   // DOM positions of the attacker and defender (or the face portrait) and
@@ -371,7 +386,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       castPendingAt({ kind: 'creature', owner: 'opponent', battleId: c.battleId });
       return;
     }
-    if (selectedAttacker) playerAttack({ battleId: c.battleId });
+    if (selectedAttacker) { playerAttack({ battleId: c.battleId }); return; }
+    // No attack/spell context — surface the card details so desktop users can
+    // read what an enemy creature does without a long-press.
+    setInspect(c);
   };
 
   const onOppFaceClick = () => {
@@ -502,24 +520,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Center divider — slim battle line with phase indicator + end-turn button */}
+      {/* Center battle-line — a thin separator with a tiny phase label or
+          casting hint. End Turn lives in the bottom bar now (closer to the
+          player's natural focus). */}
       <div ref={fieldRef} style={{
         position: 'absolute', top: 204, left: 0, right: 0, height: 36,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '0 16px',
         borderTop: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
         borderBottom: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
         background: drag?.overField ? 'rgba(255,126,95,.12)' : 'rgba(255,255,255,.25)',
         transition: 'background .15s, border-color .15s',
       }}>
-        <div style={{
-          fontSize: 11, fontWeight: 700, letterSpacing: '0.15em',
-          color: state.turn === 'player' ? PALETTE.accentDeep : PALETTE.textMid,
-          textTransform: 'uppercase',
-        }}>
-          {state.turn === 'player' ? 'Your Turn' : `${boss.name}'s Turn`}
-        </div>
-
         {drag?.overField ? (
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
@@ -529,7 +541,6 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             Tap your field to play
           </div>
         ) : pendingSpell ? (
-          // Persistent target instruction so the player isn't lost mid-cast.
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
               <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep, textTransform: 'uppercase' }}>
@@ -550,17 +561,13 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             }}>×</button>
           </div>
         ) : (
-          <button onClick={onEndTurn} disabled={state.turn !== 'player'} style={{
-            background: state.turn === 'player'
-              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
-              : '#e8d8c8',
-            color: state.turn === 'player' ? '#fff' : '#9a8678',
-            border: 'none', borderRadius: 22, padding: '9px 20px',
-            fontSize: 12, fontWeight: 700, letterSpacing: '0.03em',
-            cursor: state.turn === 'player' ? 'pointer' : 'default',
-            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
-            fontFamily: '"Fredoka", system-ui',
-          }}>End Turn →</button>
+          <div style={{
+            fontSize: 10, fontWeight: 700, letterSpacing: '0.25em',
+            color: state.turn === 'player' ? PALETTE.accentDeep : PALETTE.textMid,
+            textTransform: 'uppercase', opacity: 0.7,
+          }}>
+            {state.turn === 'player' ? '— Your Turn —' : `— ${boss.name}'s Turn —`}
+          </div>
         )}
       </div>
 
@@ -601,24 +608,39 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         {msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : ''}
       </div>
 
-      {/* My stats row: mana, deck count, player portrait */}
-      <div style={{ position: 'absolute', top: 366, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 6 }}>
-        <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
-        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-          <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
+      {/* My stats row: portrait + mana on the left, deck chip + End Turn on the
+          right. End Turn used to live in the center divider but it sits more
+          naturally next to the player's other controls. */}
+      <div style={{ position: 'absolute', top: 360, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <PlayerPortrait
+            hp={state.player.hp}
+            highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
+            onClick={onMyFaceClick}
+            damage={damages[FACE_PLAYER] ?? null}
+            elRef={(el) => registerEl(FACE_PLAYER, el)}
+          />
+          <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
         </div>
-        <PlayerPortrait
-          hp={state.player.hp}
-          highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
-          onClick={onMyFaceClick}
-          damage={damages[FACE_PLAYER] ?? null}
-          elRef={(el) => registerEl(FACE_PLAYER, el)}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
+          <button onClick={onEndTurn} disabled={state.turn !== 'player'} style={{
+            background: state.turn === 'player'
+              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
+              : '#e8d8c8',
+            color: state.turn === 'player' ? '#fff' : '#9a8678',
+            border: 'none', borderRadius: 20, padding: '8px 16px',
+            fontSize: 12, fontWeight: 700, letterSpacing: '0.03em',
+            cursor: state.turn === 'player' ? 'pointer' : 'default',
+            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
+            fontFamily: '"Fredoka", system-ui',
+          }}>End Turn →</button>
+        </div>
       </div>
 
-      {/* Hand — flat Yu-Gi-Oh-style row. Tap a card to lift it for preview,
-          tap your field to play. Cards are always visible regardless of mana
-          (cost just shows in red when you can't afford it). */}
+      {/* Hand — flat row. Tapping a card no longer lifts it in place (which
+          would clip off the left edge of the screen for the leftmost card);
+          instead we render a centered preview overlay above the hand. */}
       <div style={{
         position: 'absolute', bottom: 8, left: 0, right: 0, height: 240,
         pointerEvents: 'none',
@@ -630,10 +652,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           const cardCount = state.player.hand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
-          const playableNow = card.cost <= state.player.mana && state.turn === 'player';
+          // Unaffordable = not enough mana. We don't tint cards red just
+          // because it's the boss's turn — that'd flash every card every turn.
+          const playableNow = card.cost <= state.player.mana;
           const baseScale = 0.66;
-          const cardW = 220 * baseScale; // 145
-          // Stride scales with hand size so cards always fit the screen
+          const cardW = 220 * baseScale;
           const stride = cardCount <= 4 ? 80
                        : cardCount <= 5 ? 70
                        : cardCount <= 6 ? 56
@@ -647,40 +670,61 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
                 position: 'absolute', bottom: 0, left: '50%',
                 transform: `translateX(calc(-50% + ${xOff}px))`,
                 width: cardW + 8,
-                height: 320 * baseScale + 80,
-                zIndex: isSelected ? 100 : 10 + i,
+                height: 320 * baseScale + 16,
+                zIndex: isSelected ? 60 : 10 + i,
                 cursor: 'pointer',
                 touchAction: 'none',
                 pointerEvents: 'auto',
+                opacity: selectedHandIdx !== null && !isSelected ? 0.55 : 1,
+                transition: 'opacity .15s',
               }}
             >
               <div style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(-50%) translateY(${isSelected ? -80 : 0}px) scale(${isSelected ? 1.35 : 1})`,
+                transform: `translateX(-50%) translateY(${isSelected ? -10 : 0}px)`,
                 transformOrigin: 'bottom center',
                 transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
                 pointerEvents: 'none',
                 willChange: 'transform',
+                filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
               }}>
-                <Card card={card} scale={baseScale} hovered={isSelected} />
-                {!playableNow && (
-                  <div style={{
-                    position: 'absolute', top: 6 * baseScale, left: 6 * baseScale,
-                    width: 36 * baseScale, height: 36 * baseScale, borderRadius: '50%',
-                    background: '#ee5a52',
-                    boxShadow: '0 0 0 2px #fff, 0 0 0 3px #ee5a52',
-                    display: 'grid', placeItems: 'center',
-                    fontSize: 22 * baseScale, fontWeight: 800,
-                    color: '#fff',
-                    fontFamily: '"Fredoka", system-ui',
-                    pointerEvents: 'none',
-                  }}>{card.cost}</div>
-                )}
+                <Card card={card} scale={baseScale} hovered={isSelected} unaffordable={!playableNow} />
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* Centered hand-card preview — rendered above the hand when a card is
+          tapped. Replaces the in-place lift so the preview never gets cut off
+          on screens narrower than 1.35× the card width. */}
+      {selectedHandIdx !== null && state.player.hand[selectedHandIdx] && !drag && (() => {
+        const card = state.player.hand[selectedHandIdx];
+        const playableNow = card.cost <= state.player.mana;
+        return (
+          <div
+            style={{
+              position: 'absolute', left: 0, right: 0, bottom: 200,
+              display: 'flex', justifyContent: 'center',
+              zIndex: 90,
+              pointerEvents: 'none',
+              animation: 'fadeIn 0.15s',
+            }}
+          >
+            <div
+              onClick={() => playSelectedToField()}
+              style={{
+                animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
+                filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
+                pointerEvents: 'auto',
+                cursor: 'pointer',
+              }}
+            >
+              <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Dragged card — rendered at fixed viewport position so it follows the finger exactly */}
       {drag && (() => {
@@ -731,6 +775,75 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               style={lineStyle}
             />
           </svg>
+        );
+      })()}
+
+      {/* Turn-change banner — slides in from the left when the active player
+          flips, holds, then slides out the right. Wakes the player up between
+          their turn and the boss's. */}
+      {turnBanner && (
+        <div style={{
+          position: 'absolute', top: '38%', left: 0, right: 0,
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 220,
+          pointerEvents: 'none',
+          animation: 'turnBanner 1.4s cubic-bezier(.2,.8,.3,1) forwards',
+        }}>
+          <div style={{
+            background: turnBanner === 'player'
+              ? 'linear-gradient(180deg, #ffa07a, #ff7e5f)'
+              : 'linear-gradient(180deg, #6a4a3a, #3a2018)',
+            color: '#fff',
+            padding: '14px 38px',
+            fontSize: 20, fontWeight: 900, letterSpacing: '0.2em',
+            boxShadow: '0 12px 28px rgba(0,0,0,.35)',
+            transform: 'skewX(-10deg)',
+            fontFamily: '"Fredoka", system-ui',
+            textShadow: '0 2px 0 rgba(0,0,0,.25)',
+          }}>
+            <div style={{ transform: 'skewX(10deg)' }}>
+              {turnBanner === 'player' ? 'YOUR TURN' : `${boss.name.toUpperCase()}'S TURN`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Big card-vs-card preview — shown for the duration of every creature
+          trade so the player sees the matchup, not just two tiny cards on the
+          field. Hidden for face attacks (the small-card lunge is enough). */}
+      {combat && combat.defenderId !== 'face' && (() => {
+        const attackerCard = (combat.attackerOwner === 'player' ? state.player.field : state.opponent.field)
+          .find(c => c.battleId === combat.attackerId);
+        const defenderCard = (combat.defenderOwner === 'player' ? state.player.field : state.opponent.field)
+          .find(c => c.battleId === combat.defenderId);
+        if (!attackerCard || !defenderCard) return null;
+        const attackerDying = dyingIds.includes(combat.attackerId);
+        const defenderDying = dyingIds.includes(combat.defenderId);
+        const heldMs = (attackerDying || defenderDying) ? 1100 : 700;
+        return (
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 18,
+            zIndex: 170,
+            pointerEvents: 'none',
+            background: 'rgba(0,0,0,.4)',
+            animation: `vsReveal ${heldMs}ms ease-out forwards`,
+          }}>
+            <div style={{ animation: `vsRevealLeft ${heldMs}ms ease-out forwards` }}>
+              <Card card={attackerCard} scale={0.62} hovered />
+            </div>
+            <div style={{
+              fontSize: 36, fontWeight: 900, letterSpacing: '0.05em',
+              color: '#fff',
+              textShadow: '0 3px 0 #c8362e, 0 0 18px rgba(238,90,82,.6)',
+              fontFamily: '"Fredoka", system-ui',
+              transform: 'rotate(-6deg)',
+            }}>VS</div>
+            <div style={{ animation: `vsRevealRight ${heldMs}ms ease-out forwards` }}>
+              <Card card={defenderCard} scale={0.62} hovered />
+            </div>
+          </div>
         );
       })()}
 
@@ -984,13 +1097,14 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
       {damage != null && damage !== 0 && (
         <div style={{
           position: 'absolute', top: -10, left: '50%',
-          fontSize: 22, fontWeight: 900, color: '#ee5a52',
+          fontSize: 22, fontWeight: 900,
+          color: damage > 0 ? '#ee5a52' : '#06d6a0',
           textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
           animation: 'damagePopup .9s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
           whiteSpace: 'nowrap',
-        }}>−{damage}</div>
+        }}>{damage > 0 ? `−${damage}` : `+${-damage}`}</div>
       )}
     </div>
   );
@@ -1039,13 +1153,14 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
       {damage != null && damage !== 0 && (
         <div style={{
           position: 'absolute', top: -10, left: '50%',
-          fontSize: 22, fontWeight: 900, color: '#ee5a52',
+          fontSize: 22, fontWeight: 900,
+          color: damage > 0 ? '#ee5a52' : '#06d6a0',
           textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
           animation: 'damagePopup .9s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
           whiteSpace: 'nowrap',
-        }}>−{damage}</div>
+        }}>{damage > 0 ? `−${damage}` : `+${-damage}`}</div>
       )}
     </div>
   );
