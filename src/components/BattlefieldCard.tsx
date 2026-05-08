@@ -15,6 +15,8 @@ interface Props {
   damage?: number | null;
   /** Show a brief impact burst at the center. */
   impact?: boolean;
+  /** Card is being destroyed — play the slice + split-apart animation. */
+  dying?: boolean;
   highlight?: 'attack' | 'spell' | null;
   onClick?: () => void;
   onLongPress?: () => void;
@@ -23,7 +25,7 @@ interface Props {
 const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
-  card, selected, attackable, shaking, lunging, damage, impact, highlight,
+  card, selected, attackable, shaking, lunging, damage, impact, dying, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -202,6 +204,30 @@ export function BattlefieldCard({
           </div>
         )}
       </div>
+
+      {/* Death — red tint + bright diagonal slash. Plays before the card is
+          removed from state, so the kill is visually obvious. */}
+      {dying && (
+        <>
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(255, 60, 60, 0.55)',
+            borderRadius: 'inherit',
+            zIndex: 25,
+            pointerEvents: 'none',
+            animation: 'fadeIn 0.2s',
+          }} />
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            width: 90, height: 5,
+            background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
+            boxShadow: '0 0 8px #fff, 0 0 16px #f4d04a',
+            animation: 'sliceFlash 0.55s ease-out forwards',
+            zIndex: 45,
+            pointerEvents: 'none',
+          }} />
+        </>
+      )}
 
       {/* Impact burst */}
       {impact && (
