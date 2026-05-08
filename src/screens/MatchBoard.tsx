@@ -458,9 +458,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
       </div>
 
-      {/* Hand — non-dragging cards. Scaled down so the battlefield is the visual focus. */}
+      {/* Hand — non-dragging cards. Each card has a stable-size hit region so the
+          hover doesn't flicker between adjacent cards on desktop. The visual
+          transforms are inside, with pointer-events disabled. */}
       <div style={{
-        position: 'absolute', bottom: 12, left: 0, right: 0, height: 140,
+        position: 'absolute', bottom: 12, left: 0, right: 0, height: 260,
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
         pointerEvents: 'none',
       }}>
@@ -471,12 +473,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           const offset = (i - (cardCount - 1) / 2);
           const rot = offset * 5;
           const yOff = Math.abs(offset) * 5;
-          const xOff = offset * 28;
+          const xOff = offset * 30;
           const isHovered = hoverIdx === i && !drag;
           const playableNow = card.cost <= state.player.mana && state.turn === 'player';
-          // Hover lifts the card up significantly — players "preview" by hovering to see the full card
           const baseScale = 0.62;
-          const hoverScale = 1.0;
+          const hitWidth = 220 * baseScale + 8;       // stable hit-target width
+          const hitHeight = 320 * baseScale + 90;     // extends upward to cover the hovered (lifted) card
           return (
             <div
               key={card.battleId}
@@ -484,19 +486,27 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
               style={{
-                position: 'absolute', left: '50%', bottom: 0,
-                transform: `translateX(calc(-50% + ${xOff}px)) translateY(${isHovered ? -160 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? hoverScale : baseScale})`,
-                transformOrigin: 'bottom center',
-                transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
+                position: 'absolute', bottom: 0, left: '50%',
+                transform: `translateX(calc(-50% + ${xOff}px))`,
+                width: hitWidth, height: hitHeight,
                 zIndex: isHovered ? 100 : 10 + i,
                 cursor: playableNow ? 'grab' : 'not-allowed',
-                opacity: playableNow ? 1 : 0.55,
-                filter: playableNow ? 'none' : 'grayscale(0.4)',
                 touchAction: 'none',
                 pointerEvents: 'auto',
               }}
             >
-              <Card card={card} scale={isHovered ? 1 : 0.85} hovered={isHovered} />
+              <div style={{
+                position: 'absolute', bottom: 0, left: '50%',
+                transform: `translateX(-50%) translateY(${isHovered ? -55 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? 1.45 : 1})`,
+                transformOrigin: 'bottom center',
+                transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
+                opacity: playableNow ? 1 : 0.55,
+                filter: playableNow ? 'none' : 'grayscale(0.4)',
+                pointerEvents: 'none',
+                willChange: 'transform',
+              }}>
+                <Card card={card} scale={baseScale} hovered={isHovered} />
+              </div>
             </div>
           );
         })}
