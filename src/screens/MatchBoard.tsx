@@ -8,7 +8,7 @@ import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
-  attack, beginTurn, createMatch, endTurn, playCard,
+  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT,
   type SpellTarget,
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
@@ -72,7 +72,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Spell-target burst — coordinates are within the boardRef. Cleared after
       the keyframe finishes. The kind drives the burst color. */
   const [spellFx, setSpellFx] = useState<
-    { x: number; y: number; kind: 'damage' | 'freeze' | 'buff' | 'face' } | null
+    { x: number; y: number; kind: 'damage' | 'freeze' | 'buff' | 'silence' | 'face' } | null
   >(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
@@ -275,9 +275,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     if (!el) return;
     const board = boardRef.current.getBoundingClientRect();
     const r = el.getBoundingClientRect();
-    const fxKind: 'damage' | 'freeze' | 'buff' | 'face' =
+    const fxKind: 'damage' | 'freeze' | 'buff' | 'silence' | 'face' =
       kind === 'spell_freeze' ? 'freeze' :
       kind === 'spell_buff'   ? 'buff' :
+      kind === 'silence'      ? 'silence' :
       target.kind === 'face'  ? 'face' : 'damage';
     setSpellFx({
       x: r.left + r.width / 2 - board.left,
@@ -576,13 +577,14 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
           <div style={{
-            background: '#fff',
+            background: state.turnNumber >= 12 ? '#ee5a52' : '#fff',
+            color: state.turnNumber >= 12 ? '#fff' : PALETTE.textMid,
             padding: '4px 10px', borderRadius: 12,
             fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-            color: PALETTE.textMid,
             boxShadow: '0 2px 6px rgba(58,46,42,.08)',
+            transition: 'background .2s, color .2s',
           }}>
-            T{state.turnNumber}
+            T{state.turnNumber}/{TURN_LIMIT}
           </div>
         </div>
       </div>
@@ -915,6 +917,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         const palette = spellFx.kind === 'damage' ? { core: '#ff5a5a', glow: '#ff7e5f', ring: '#c8362e' }
           : spellFx.kind === 'freeze' ? { core: '#9ed6f7', glow: '#3a8fc4', ring: '#1c5478' }
           : spellFx.kind === 'buff'   ? { core: '#7be8a4', glow: '#06d6a0', ring: '#0a8060' }
+          : spellFx.kind === 'silence' ? { core: '#dad0c4', glow: '#7a6e62', ring: '#3a2e2a' }
           :                              { core: '#ffe9a8', glow: '#f4d04a', ring: '#c8901a' };
         return (
           <>
@@ -1362,12 +1365,15 @@ function spellTargetHint(card: BattleCard): string {
     case 'spell_damage': return `Tap an enemy creature or boss to deal ${card.abilityValue ?? 0}`;
     case 'spell_freeze': return 'Tap an enemy creature to freeze it';
     case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
+    case 'silence':      return 'Tap an enemy creature to silence it';
     default:             return 'Tap a target';
   }
 }
 
 function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'player' | 'opponent'): boolean {
   if (!spell) return false;
+  // Silence ignores 'untargetable' on purpose — that's its job.
+  if (spell.abilityKind === 'silence') return owner === 'opponent';
   if (c.abilityKind === 'untargetable' && spell.abilityKind !== 'spell_buff') return false;
   if (spell.abilityKind === 'spell_buff') return owner === 'player';
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';

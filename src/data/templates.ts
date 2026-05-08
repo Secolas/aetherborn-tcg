@@ -28,9 +28,9 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'rush',
     rarity: 'common', suggested: 'a cousin, niece, or nephew' },
 
-  { id: 'fam-03', name: "Abuela's Soup", el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 6 HP.',
-    abilityKind: 'spell_heal', abilityValue: 6,
+  { id: 'fam-03', name: "Abuela's Soup", el: 'family', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 5 HP.',
+    abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'common', suggested: 'a homemade soup or stew' },
 
   { id: 'fam-04', name: 'Tio', el: 'family', cost: 3, atk: 2, hp: 3, type: 'Creature',
@@ -58,20 +58,20 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a sibling' },
 
   { id: 'fam-08', name: 'Abuela', el: 'family', cost: 4, atk: 2, hp: 6, type: 'Creature',
-    ability: '',
+    ability: 'Taunt.',
     flavor: 'Harder to take down than she looks.',
-    abilityKind: 'none',
+    abilityKind: 'taunt',
     rarity: 'rare', suggested: 'a grandparent' },
 
   { id: 'fam-09', name: 'Birthday Cake', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 8 HP.',
-    abilityKind: 'spell_heal', abilityValue: 8,
+    ability: 'Restore 6 HP.',
+    abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'common', suggested: 'a birthday cake or dessert' },
 
   { id: 'fam-10', name: 'Family Photo', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +5/+5.',
+    ability: 'Give a creature +3/+3.',
     flavor: 'They remember why they fight.',
-    abilityKind: 'spell_buff', abilityValue: 5,
+    abilityKind: 'spell_buff', abilityValue: 3,
     rarity: 'rare', suggested: 'everyone in one shot — group photo' },
 
   { id: 'fam-11', name: 'Dad', el: 'family', cost: 5, atk: 4, hp: 6, type: 'Creature',
@@ -80,11 +80,17 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'epic', suggested: 'your dad' },
 
-  { id: 'fam-12', name: 'Sunday Dinner', el: 'family', cost: 7, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 12 HP.',
+  { id: 'fam-12', name: 'Sunday Dinner', el: 'family', cost: 6, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 8 HP.',
     flavor: 'Everyone is at the table.',
-    abilityKind: 'spell_heal', abilityValue: 12,
+    abilityKind: 'spell_heal', abilityValue: 8,
     rarity: 'legendary', suggested: 'a meal with the whole family' },
+
+  { id: 'fam-13', name: 'Tough Love', el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Silence an enemy creature.',
+    flavor: 'They mean well.',
+    abilityKind: 'silence',
+    rarity: 'rare', suggested: 'a stern parent or grandparent' },
 
 
   // ============================================================
@@ -109,9 +115,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a coworker or office buddy' },
 
   { id: 'wrk-04', name: 'Coffee', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +3/+3.',
+    ability: 'Give a creature +2/+2.',
     flavor: 'Now they can think.',
-    abilityKind: 'spell_buff', abilityValue: 3,
+    abilityKind: 'spell_buff', abilityValue: 2,
     rarity: 'common', suggested: 'a coffee, mug, or barista shot' },
 
   { id: 'wrk-05', name: 'IT Support', el: 'work', cost: 3, atk: 2, hp: 3, type: 'Creature',
@@ -144,15 +150,15 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a conference room, calendar, Zoom call' },
 
   { id: 'wrk-10', name: 'Promotion', el: 'work', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +5/+5.',
+    ability: 'Give a creature +4/+4.',
     flavor: 'They earned it.',
-    abilityKind: 'spell_buff', abilityValue: 5,
+    abilityKind: 'spell_buff', abilityValue: 4,
     rarity: 'rare', suggested: 'a name plaque, an award, a trophy' },
 
   { id: 'wrk-11', name: 'Lunch Break', el: 'work', cost: 5, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 10 HP.',
+    ability: 'Restore 7 HP.',
     flavor: 'The only sacred hour.',
-    abilityKind: 'spell_heal', abilityValue: 10,
+    abilityKind: 'spell_heal', abilityValue: 7,
     rarity: 'rare', suggested: 'lunch — a sandwich, takeout, or break room' },
 
   { id: 'wrk-12', name: 'The Boss', el: 'work', cost: 6, atk: 5, hp: 6, type: 'Creature',
@@ -160,6 +166,12 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Everyone has to deal with the Boss first.',
     abilityKind: 'taunt',
     rarity: 'legendary', suggested: 'your boss, or their office door' },
+
+  { id: 'wrk-13', name: 'Performance Review', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Silence an enemy creature.',
+    flavor: 'Constructive feedback.',
+    abilityKind: 'silence',
+    rarity: 'rare', suggested: 'a manager, a meeting room, or a binder' },
 
 
   // ============================================================
@@ -207,8 +219,8 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'pet food, a treat, a bowl' },
 
   { id: 'ani-08', name: 'Vet Visit', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 8 HP.',
-    abilityKind: 'spell_heal', abilityValue: 8,
+    ability: 'Restore 6 HP.',
+    abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'rare', suggested: 'a vet, a clinic, or a pet carrier' },
 
   { id: 'ani-09', name: 'Bear Trap', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
@@ -216,7 +228,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_freeze',
     rarity: 'rare', suggested: 'a fence, cage, or trap of any kind' },
 
-  { id: 'ani-10', name: 'Horse', el: 'animals', cost: 4, atk: 4, hp: 4, type: 'Creature',
+  { id: 'ani-10', name: 'Horse', el: 'animals', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: 'Rush.',
     flavor: 'Charges in.',
     abilityKind: 'rush',
@@ -229,10 +241,16 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a dog with serious eyes, a wolf, a husky' },
 
   { id: 'ani-12', name: 'Lion', el: 'animals', cost: 6, atk: 6, hp: 6, type: 'Creature',
-    ability: '',
+    ability: 'On play: deal 2 to all enemy creatures.',
     flavor: 'Apex predator.',
-    abilityKind: 'none',
+    abilityKind: 'aoe_on_play', abilityValue: 2,
     rarity: 'legendary', suggested: 'the most majestic creature you can find' },
+
+  { id: 'ani-13', name: 'Muzzle', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Silence an enemy creature.',
+    flavor: 'Calm down.',
+    abilityKind: 'silence',
+    rarity: 'rare', suggested: 'a leash, harness, or quiet animal' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {
