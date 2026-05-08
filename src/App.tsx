@@ -68,12 +68,14 @@ export default function App() {
           : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
       );
       const playable = filled.filter(c => !!c.photo);
-      // Build a deck of up to 8 cards if we don't have a full one yet
+      // Auto-fill to a 12-card deck so the player matches the boss decks
+      // (also 12). With fewer cards the AI used to draw more cards over the
+      // course of a match, which felt unfair.
       let deckUids = s.deckUids.filter(uid => filled.find(c => c.uid === uid && c.photo));
-      if (deckUids.length < 8) {
+      if (deckUids.length < 12) {
         const sorted = [...playable].sort((a, b) => a.cost - b.cost); // cheap first for a sane curve
         for (const c of sorted) {
-          if (deckUids.length >= 8) break;
+          if (deckUids.length >= 12) break;
           if (!deckUids.includes(c.uid)) deckUids.push(c.uid);
         }
       }

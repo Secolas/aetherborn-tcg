@@ -16,6 +16,23 @@ html, body, #root {
   background: #fef8f0;
   color: #3a2e2a;
   overflow: hidden;
+  /* No accidental text-select / image-drag / iOS callouts. The whole app is
+     interactive — nothing here is meant to be selected the way prose is. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+  pointer-events: none;
+}
+
+/* Inputs still need to accept text. */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 button {
