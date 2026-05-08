@@ -8,7 +8,7 @@ import type {
 export const STARTING_HP = 24;
 export const STARTING_HAND = 4;
 export const MAX_MANA = 10;
-export const MAX_FIELD = 6;
+export const MAX_FIELD = 3;
 export const MAX_HAND = 7;
 
 let battleIdCounter = 0;
