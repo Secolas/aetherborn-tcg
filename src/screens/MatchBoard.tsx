@@ -477,6 +477,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
         color: PALETTE.text,
         userSelect: 'none', touchAction: 'none',
+        // Switched from absolute pixel positioning to flex column so the
+        // playfield adapts to any viewport height. On mobile the player's
+        // own field used to fall outside the visible area; this layout
+        // anchors the hand to the bottom and grows / shrinks the spacers
+        // around the field rows automatically.
+        display: 'flex', flexDirection: 'column',
       }}
     >
       {/* Pre-match coin flip — runs once at mount, then unblocks the rest of
@@ -501,12 +507,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      {/* Opponent's face-down hand floats at the very top, centered. */}
-      <OpponentHand size={state.opponent.hand.length} />
-
-      {/* Opponent header strip — back button on the left, opp portrait + HP on
-          the right. Top: 16, height ~64 per the layout spec. */}
-      <div style={{ position: 'absolute', top: 16, left: 12, right: 12, height: 64, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8 }}>
+      {/* Opponent header strip — back / give-up button on the left, opp portrait
+          + HP in the center, deck / graveyard / turn counter on the right. */}
+      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8, position: 'relative' }}>
         <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
           <Flag size={18} strokeWidth={2.4} />
         </button>
@@ -535,12 +538,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         </div>
       </div>
 
-      {/* Opponent's creature row — top: 230, height ~110. flex-center so a
-          single creature sits dead-center, two flank center, etc. */}
+      {/* Top spacer — absorbs extra vertical space and hosts the face-down
+          opponent hand so it floats between the header and the opp field row. */}
+      <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4 }}>
+        <OpponentHand size={state.opponent.hand.length} />
+      </div>
+
+      {/* Opponent's creature row */}
       <div style={{
-        position: 'absolute', top: 230, left: 0, right: 0, height: 110,
+        flex: '0 0 100px',
         display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
         zIndex: 3,
+        position: 'relative',
       }}>
         <FieldRow
           side="opponent"
@@ -557,13 +566,13 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Center divider band — the drop zone. Top: 350, height: 56. Dashed top
-          + bottom borders that intensify when a card is dragged into it. The
-          End Turn button (or "Release to summon" hint during drag) lives here.
-          The phase label floats ABOVE this band, not inside it, so it never
-          fights the button for the click. */}
+      {/* Center divider band — the drop zone. Dashed top + bottom borders
+          intensify when a card is dragged into it. The End Turn button (or
+          "Release to summon" hint during drag) lives here. The phase label
+          floats inside this band as an absolute child with pointer-events
+          off so it never fights the button for clicks. */}
       <div ref={fieldRef} style={{
-        position: 'absolute', top: 350, left: 0, right: 0, height: 56,
+        flex: '0 0 56px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         borderTop: drag?.overField
           ? '2px dashed #f4d04a'
@@ -576,6 +585,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           : 'rgba(255,255,255,.30)',
         transition: 'background .15s, border-color .15s',
         zIndex: 4,
+        position: 'relative',
       }}
         onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
       >
@@ -616,44 +626,41 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             fontFamily: '"Fredoka", system-ui',
           }}>End Turn →</button>
         )}
+
+        {/* Floating turn-status label — sits inside the divider band as an
+            absolute child with pointer-events:none so it never intercepts
+            clicks. Hidden while the band is showing the casting hint or
+            drop hint. */}
+        {!pendingSpell && !drag?.overField && (
+          <div style={{
+            position: 'absolute', top: 6, left: 0, right: 0,
+            textAlign: 'center', pointerEvents: 'none',
+            fontSize: 9, fontWeight: 700, letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            color: PALETTE.textMid,
+          }}>
+            {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
+              ? msg
+              : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
+          </div>
+        )}
       </div>
 
-      {/* Floating turn-status label — sits above the divider line at top:364
-          with pointer-events:none so it never intercepts clicks meant for the
-          End Turn button or the drop zone. Doubles as the transient action
-          message slot ("Drew 2 cards", error reasons, etc.). Hidden when the
-          divider is showing the casting hint or the drop hint, so the two
-          texts never collide. */}
-      {!pendingSpell && !drag?.overField && (
-        <div style={{
-          position: 'absolute', top: 364, left: 0, right: 0,
-          textAlign: 'center', pointerEvents: 'none',
-          fontSize: 10, fontWeight: 700, letterSpacing: '0.22em',
-          textTransform: 'uppercase',
-          color: PALETTE.textMid,
-          zIndex: 5,
-        }}>
-          {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
-            ? msg
-            : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
-        </div>
-      )}
-
-      {/* Player's creature row — top: 416, mirror of the opponent row. Also
-          acts as a drop zone so the player can drag straight onto the field. */}
+      {/* Player's creature row — also a drop zone so the player can drag a
+          card straight onto the field. */}
       <div
         ref={playerFieldRef}
         onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
         style={{
-          position: 'absolute', top: 416, left: 0, right: 0, height: 110,
+          flex: '0 0 100px',
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
           zIndex: 3,
           cursor: selectedHandIdx !== null ? 'pointer' : 'default',
-          // Subtle yellow tint when actively dragging into the field.
           background: drag?.overField
             ? 'rgba(244,208,74,.10)'
             : 'transparent',
           transition: 'background .15s',
+          position: 'relative',
         }}
       >
         <FieldRow
@@ -677,8 +684,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Player stats — HP + mana left, deck + graveyard right. Top: 540. */}
-      <div style={{ position: 'absolute', top: 540, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6 }}>
+      {/* Bottom spacer */}
+      <div style={{ flex: '1 1 auto', minHeight: 4 }} />
+
+      {/* Player stats — HP + mana on the left, deck + graveyard on the right. */}
+      <div style={{ flex: '0 0 auto', height: 56, padding: '0 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <PlayerPortrait
             hp={state.player.hp}
@@ -695,11 +705,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         </div>
       </div>
 
-      {/* Hand — flat row. Tapping a card no longer lifts it in place (which
-          would clip off the left edge of the screen for the leftmost card);
-          instead we render a centered preview overlay above the hand. */}
+      {/* Hand — flat row anchored to the bottom. Tapping a card lifts the
+          centered preview above; the hand cards themselves stay put so the
+          leftmost card never gets clipped on narrow viewports. */}
       <div style={{
-        position: 'absolute', bottom: 30, left: 0, right: 0, height: 220,
+        flex: '0 0 220px',
+        position: 'relative',
         pointerEvents: 'none',
       }}>
         {state.player.hand.map((card, i) => {
@@ -1197,12 +1208,10 @@ function OpponentHand({ size }: { size: number }) {
   if (size <= 0) return null;
   // Negative margin compresses the cards into a fan. Tighter for big hands.
   const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
-  // Sits in the breathing zone between the opp header (ends ~80) and the
-  // opp creature row (starts at 230) — high enough to feel "above the field"
-  // but not colliding with the centered portrait in the header.
+  // Lives inside the top spacer (flex column). No absolute positioning —
+  // the spacer sizes itself based on available room.
   return (
     <div style={{
-      position: 'absolute', top: 130, left: 0, right: 0, height: 70,
       display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
       pointerEvents: 'none',
       zIndex: 4,
