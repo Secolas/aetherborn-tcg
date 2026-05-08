@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 import { Snowflake, Shield, Moon, Zap } from 'lucide-react';
-import { ELEMENTS } from '../data/elements';
+import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
 
@@ -26,7 +26,7 @@ export function BattlefieldCard({
   card, selected, attackable, shaking, lunging, damage, impact, highlight,
   onClick, onLongPress,
 }: Props) {
-  const e = ELEMENTS[card.el];
+  const tp = TYPE_PALETTE.Creature;
   const sleeping = card.justPlayed && card.abilityKind !== 'rush';
   const exhausted = card.tapped && !card.justPlayed;
   const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
@@ -85,7 +85,7 @@ export function BattlefieldCard({
       style={{
         width: 64, height: 90,
         borderRadius: 9,
-        background: `linear-gradient(180deg, ${e.color}, ${e.deep})`,
+        background: `linear-gradient(180deg, ${tp.top}, ${tp.deep})`,
         boxShadow: ringColor
           ? `0 0 0 2.5px ${ringColor}, 0 0 14px ${ringColor}88, 0 4px 10px rgba(0,0,0,.25)`
           : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
@@ -116,17 +116,16 @@ export function BattlefieldCard({
             }}
           />
         )}
-        {/* Theme tint over photo */}
         <div style={{
           position: 'absolute', inset: 0,
-          background: `linear-gradient(180deg, ${e.color}66 0%, transparent 30%, ${e.deep}cc 100%)`,
+          background: `linear-gradient(180deg, ${tp.top}66 0%, transparent 30%, ${tp.deep}cc 100%)`,
         }} />
 
         {/* Cost — pushed down when the TAUNT label is showing */}
         <div style={{
           position: 'absolute', top: isTaunt ? 14 : 4, left: 4,
           minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8,
-          background: '#fef4d8', color: e.deep,
+          background: '#fef4d8', color: tp.deep,
           fontSize: 10, fontWeight: 800,
           display: 'grid', placeItems: 'center',
           boxShadow: '0 1px 0 rgba(0,0,0,.25)',
