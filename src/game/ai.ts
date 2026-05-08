@@ -2,27 +2,44 @@ import {
   attack, playCard, readyAttackers, displayName,
   type AttackTarget, type SpellTarget,
 } from './match';
-import type { BattleCard, MatchState } from './types';
+import type { BattleCard, MatchState, Owner } from './types';
+
+/** Combat info reported by the AI so the UI can animate the right cards. */
+export type AiCombat = {
+  attackerId: string;
+  attackerOwner: Owner;
+  defenderKind: 'face' | 'creature';
+  defenderId?: string;       // when defenderKind === 'creature'
+  defenderOwner: Owner;
+  damageToDef: number;
+  damageToAtk: number;
+};
+
+export type AiStepResult = {
+  next: MatchState;
+  action: string;
+  combat?: AiCombat;
+};
 
 /**
  * One AI step. Returns the next state plus a brief description of what it did,
- * or null when the AI is done with its turn (no further actions possible).
+ * or null when the AI is done with its turn.
  *
- * The match component drives this with a setTimeout loop so the player sees
- * each action play out instead of everything happening instantly.
+ * If the step was an attack, `combat` is populated so the UI can play the
+ * lunge + damage popup animations on the right creatures.
  */
-export function aiStep(state: MatchState): { next: MatchState; action: string } | null {
+export function aiStep(state: MatchState): AiStepResult | null {
   if (state.outcome !== 'ongoing') return null;
   if (state.turn !== 'opponent') return null;
 
   const me = state.opponent;
   const them = state.player;
 
-  // 1. Lethal check on face — any spell or attacker that can finish the player?
+  // 1. Lethal check
   const lethal = findLethal(state);
-  if (lethal) return { next: lethal.state, action: lethal.action };
+  if (lethal) return lethal;
 
-  // 2. Play the best card we can afford that has a clear use.
+  // 2. Play the best card we can afford
   const playable = me.hand
     .filter(c => c.cost <= me.mana)
     .sort((a, b) => scoreCard(b, state) - scoreCard(a, state));
@@ -32,17 +49,32 @@ export function aiStep(state: MatchState): { next: MatchState; action: string } 
     if (result) return result;
   }
 
-  // 3. Attack with what we have.
+  // 3. Attack
   const attackers = readyAttackers(me);
   for (const a of attackers) {
     const target = chooseAttackTarget(a, state);
     if (target) {
       const r = attack(state, 'opponent', a.battleId, target);
       if (r.ok) {
+        const defender = target.kind === 'creature'
+          ? them.field.find(x => x.battleId === target.battleId)
+          : null;
         const desc = target.kind === 'face'
           ? `${displayName(a)} attacks you for ${a.currentAtk}`
-          : `${displayName(a)} attacks ${displayName(them.field.find(x => x.battleId === target.battleId)!)}`;
-        return { next: r.state, action: desc };
+          : `${displayName(a)} attacks ${defender ? displayName(defender) : '?'}`;
+        return {
+          next: r.state,
+          action: desc,
+          combat: {
+            attackerId: a.battleId,
+            attackerOwner: 'opponent',
+            defenderKind: target.kind,
+            defenderId: target.kind === 'creature' ? target.battleId : undefined,
+            defenderOwner: 'player',
+            damageToDef: a.currentAtk,
+            damageToAtk: target.kind === 'creature' ? (defender?.currentAtk ?? 0) : 0,
+          },
+        };
       }
     }
   }
@@ -50,7 +82,7 @@ export function aiStep(state: MatchState): { next: MatchState; action: string } 
   return null;
 }
 
-function findLethal(state: MatchState): { state: MatchState; action: string } | null {
+function findLethal(state: MatchState): AiStepResult | null {
   const me = state.opponent;
   const them = state.player;
   const taunters = them.field.filter(c => c.abilityKind === 'taunt');
@@ -61,12 +93,25 @@ function findLethal(state: MatchState): { state: MatchState; action: string } | 
   if (totalAtk >= them.hp && ready.length > 0) {
     const a = ready[0];
     const r = attack(state, 'opponent', a.battleId, { kind: 'face' });
-    if (r.ok) return { state: r.state, action: `${displayName(a)} pushes for ${a.currentAtk}` };
+    if (r.ok) {
+      return {
+        next: r.state,
+        action: `${displayName(a)} pushes for ${a.currentAtk}`,
+        combat: {
+          attackerId: a.battleId,
+          attackerOwner: 'opponent',
+          defenderKind: 'face',
+          defenderOwner: 'player',
+          damageToDef: a.currentAtk,
+          damageToAtk: 0,
+        },
+      };
+    }
   }
   return null;
 }
 
-function tryPlay(state: MatchState, card: BattleCard): { next: MatchState; action: string } | null {
+function tryPlay(state: MatchState, card: BattleCard): AiStepResult | null {
   if (card.type === 'Creature') {
     if (state.opponent.field.length >= 6) return null;
     const r = playCard(state, 'opponent', card.battleId);
@@ -74,9 +119,8 @@ function tryPlay(state: MatchState, card: BattleCard): { next: MatchState; actio
     return null;
   }
 
-  // Spells
   const target = chooseSpellTarget(card, state);
-  if (target === undefined || target === null) return null; // can't be cast usefully right now
+  if (target === undefined || target === null) return null;
   const r = playCard(state, 'opponent', card.battleId, target);
   if (r.ok) return { next: r.state, action: `Vex casts ${displayName(card)}` };
   return null;

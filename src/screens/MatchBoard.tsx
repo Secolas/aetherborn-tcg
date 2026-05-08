@@ -2,17 +2,38 @@ import { useEffect, useRef, useState } from 'react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { iconBtn, btnPrimary } from '../components/styles';
-import { aiStep } from '../game/ai';
+import { aiStep, type AiCombat } from '../game/ai';
 import {
   attack, beginTurn, createMatch, endTurn, playCard,
   type SpellTarget,
 } from '../game/match';
-import type { BattleCard, CollectionCard, MatchState } from '../game/types';
+import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/types';
 
 interface Props {
-  deck: CollectionCard[]; // user's chosen deck — only photographed cards
+  deck: CollectionCard[];
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
+
+interface DragState {
+  battleId: string;
+  cardType: 'Creature' | 'Spell';
+  x: number; y: number;     // current finger position (viewport coords)
+  ox: number; oy: number;   // finger offset within card at drag start
+  overField: boolean;
+}
+
+interface CombatFx {
+  attackerId: string;
+  attackerOwner: Owner;
+  defenderId: string | 'face';
+  defenderOwner: Owner;
+  damageToDef: number;
+  damageToAtk: number;
+}
+
+type DamageMap = Record<string, number>;
+const FACE_PLAYER = '__face_player__';
+const FACE_OPP = '__face_opp__';
 
 export function MatchBoard({ deck, onExit }: Props) {
   const [state, setState] = useState<MatchState>(() => createMatch(deck));
@@ -20,7 +41,9 @@ export function MatchBoard({ deck, onExit }: Props) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const [selectedAttacker, setSelectedAttacker] = useState<string | null>(null);
   const [pendingSpell, setPendingSpell] = useState<BattleCard | null>(null);
-  const [shaking, setShaking] = useState<{ atk?: string; def?: string }>({});
+  const [combat, setCombat] = useState<CombatFx | null>(null);
+  const [damages, setDamages] = useState<DamageMap>({});
+  const [inspect, setInspect] = useState<BattleCard | null>(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
@@ -35,10 +58,11 @@ export function MatchBoard({ deck, onExit }: Props) {
       const step = aiStep(state);
       if (step) {
         showMsg(step.action);
-        setTimeout(() => {
-          if (cancelled) return;
-          setState(step.next);
-        }, 700);
+        if (step.combat) {
+          playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
+        } else {
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 700);
+        }
       } else {
         setTimeout(() => {
           if (cancelled) return;
@@ -53,30 +77,73 @@ export function MatchBoard({ deck, onExit }: Props) {
 
   const showMsg = (m: string) => setMsg(m);
 
+  const flashMsg = (m: string) => {
+    showMsg(m);
+    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : "Vex's turn"), 1200);
+  };
+
+  // ============== Combat animation orchestration ==============
+  // Plays the lunge + damage popups, then calls done() to apply the actual state change.
+  const playAttackAnimation = (info: AiCombat | CombatFx, done: () => void) => {
+    setCombat({
+      attackerId: info.attackerId,
+      attackerOwner: info.attackerOwner,
+      defenderId: 'defenderKind' in info
+        ? (info.defenderKind === 'face' ? 'face' : info.defenderId!)
+        : info.defenderId,
+      defenderOwner: info.defenderOwner,
+      damageToDef: info.damageToDef,
+      damageToAtk: info.damageToAtk,
+    });
+
+    // Damage pops at impact (~250ms in)
+    setTimeout(() => {
+      const defKey = (('defenderKind' in info ? info.defenderKind : (info.defenderId === 'face' ? 'face' : 'creature')) === 'face')
+        ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
+        : ('defenderKind' in info ? info.defenderId! : info.defenderId);
+      setDamages(d => ({ ...d, [defKey as string]: info.damageToDef }));
+      // Counter-damage on attacker (creature trade)
+      if (info.damageToAtk > 0) {
+        setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
+      }
+      // Clear damages after their popup animation finishes
+      setTimeout(() => {
+        setDamages({});
+      }, 900);
+    }, 250);
+
+    // Apply real state at peak of lunge
+    setTimeout(() => done(), 500);
+
+    // Clear combat state when animation finishes
+    setTimeout(() => setCombat(null), 700);
+  };
+
   // ============== Drag from hand ==============
-  const onCardPointerDown = (e: React.PointerEvent, card: BattleCard, idx: number) => {
+  const onCardPointerDown = (ev: React.PointerEvent, card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     if (card.cost > state.player.mana) {
       flashMsg('Not enough mana');
       return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
+    const rect = ev.currentTarget.getBoundingClientRect();
     setDrag({
-      battleId: card.battleId, idx, cardType: card.type,
-      x: e.clientX, y: e.clientY,
-      ox: e.clientX - rect.left, oy: e.clientY - rect.top,
+      battleId: card.battleId,
+      cardType: card.type,
+      x: ev.clientX, y: ev.clientY,
+      ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
     });
-    e.currentTarget.setPointerCapture(e.pointerId);
+    ev.currentTarget.setPointerCapture(ev.pointerId);
   };
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const onPointerMove = (ev: React.PointerEvent) => {
     if (!drag) return;
     const fr = fieldRef.current?.getBoundingClientRect();
     const overField = !!fr &&
-      e.clientX >= fr.left && e.clientX <= fr.right &&
-      e.clientY >= fr.top  && e.clientY <= fr.bottom;
-    setDrag(d => d ? { ...d, x: e.clientX, y: e.clientY, overField } : d);
+      ev.clientX >= fr.left && ev.clientX <= fr.right &&
+      ev.clientY >= fr.top  && ev.clientY <= fr.bottom;
+    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField } : d);
   };
 
   const onPointerUp = () => {
@@ -91,30 +158,53 @@ export function MatchBoard({ deck, onExit }: Props) {
         else flashMsg(r.reason ?? 'Cannot play');
       }
     } else {
-      // Spell — does it need a target?
       const noTarget = card.abilityKind === 'spell_heal'
         || card.abilityKind === 'draw_on_play'
-        || (card.id === 'ti-05'); // Reflecting Pool — handled as draw
+        || card.id === 'ti-05';
       if (noTarget) {
         if (drag.overField) {
           const r = playCard(state, 'player', card.battleId, { kind: 'face', owner: 'player' });
           if (r.ok) setState(r.state);
           else flashMsg(r.reason ?? 'Cannot cast');
         }
-      } else {
-        // Enter "select target" mode
-        if (drag.overField) {
-          setPendingSpell(card);
-          flashMsg('Select a target');
-        }
+      } else if (drag.overField) {
+        setPendingSpell(card);
+        flashMsg('Select a target');
       }
     }
     setDrag(null);
   };
 
-  // ============== Attack flow ==============
+  // ============== Player attack ==============
+  const playerAttack = (target: 'face' | { battleId: string }) => {
+    if (!selectedAttacker) return;
+    const attacker = state.player.field.find(c => c.battleId === selectedAttacker);
+    if (!attacker) return;
+    const result = attack(state, 'player', selectedAttacker,
+      target === 'face' ? { kind: 'face' } : { kind: 'creature', battleId: target.battleId });
+    if (!result.ok) {
+      flashMsg(result.reason ?? 'Cannot attack');
+      return;
+    }
+    let defender: BattleCard | null = null;
+    if (target !== 'face') {
+      defender = state.opponent.field.find(c => c.battleId === target.battleId) ?? null;
+    }
+    playAttackAnimation({
+      attackerId: attacker.battleId,
+      attackerOwner: 'player',
+      defenderId: target === 'face' ? 'face' : target.battleId,
+      defenderOwner: 'opponent',
+      damageToDef: attacker.currentAtk,
+      damageToAtk: defender ? defender.currentAtk : 0,
+    }, () => {
+      setState(result.state);
+      setSelectedAttacker(null);
+    });
+  };
+
   const onMyCreatureClick = (c: BattleCard) => {
-    if (pendingSpell) return; // ignore during targeting
+    if (pendingSpell) return;
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     if (c.tapped || c.justPlayed) { flashMsg('Cannot attack yet'); return; }
     setSelectedAttacker(prev => prev === c.battleId ? null : c.battleId);
@@ -125,16 +215,7 @@ export function MatchBoard({ deck, onExit }: Props) {
       castPendingAt({ kind: 'creature', owner: 'opponent', battleId: c.battleId });
       return;
     }
-    if (!selectedAttacker) return;
-    const r = attack(state, 'player', selectedAttacker, { kind: 'creature', battleId: c.battleId });
-    if (r.ok) {
-      setShaking({ atk: selectedAttacker, def: c.battleId });
-      setTimeout(() => setShaking({}), 400);
-      setState(r.state);
-      setSelectedAttacker(null);
-    } else {
-      flashMsg(r.reason ?? 'Cannot attack');
-    }
+    if (selectedAttacker) playerAttack({ battleId: c.battleId });
   };
 
   const onOppFaceClick = () => {
@@ -142,22 +223,11 @@ export function MatchBoard({ deck, onExit }: Props) {
       castPendingAt({ kind: 'face', owner: 'opponent' });
       return;
     }
-    if (!selectedAttacker) return;
-    const r = attack(state, 'player', selectedAttacker, { kind: 'face' });
-    if (r.ok) {
-      setShaking({ atk: selectedAttacker });
-      setTimeout(() => setShaking({}), 400);
-      setState(r.state);
-      setSelectedAttacker(null);
-    } else {
-      flashMsg(r.reason ?? 'Cannot attack');
-    }
+    if (selectedAttacker) playerAttack('face');
   };
 
   const onMyFaceClick = () => {
-    if (pendingSpell) {
-      castPendingAt({ kind: 'face', owner: 'player' });
-    }
+    if (pendingSpell) castPendingAt({ kind: 'face', owner: 'player' });
   };
 
   const castPendingAt = (target: SpellTarget) => {
@@ -181,11 +251,6 @@ export function MatchBoard({ deck, onExit }: Props) {
     setState(s => endTurn(s));
   };
 
-  const flashMsg = (m: string) => {
-    showMsg(m);
-    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : "Vex's turn"), 1200);
-  };
-
   // ============== Game over ==============
   if (state.outcome !== 'ongoing') {
     return <MatchEnd outcome={state.outcome} onExit={onExit} />;
@@ -204,7 +269,6 @@ export function MatchBoard({ deck, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
-      {/* Hex pattern */}
       <svg style={{ position: 'absolute', inset: 0, opacity: 0.06 }} width="100%" height="100%">
         <defs>
           <pattern id="hex" width="30" height="26" patternUnits="userSpaceOnUse">
@@ -214,13 +278,13 @@ export function MatchBoard({ deck, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      {/* Top bar — exit + opponent */}
       <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5 }}>
         <button onClick={() => onExit('quit')} style={iconBtn}>←</button>
         <OpponentPortrait
           hp={state.opponent.hp}
           highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
           onClick={onOppFaceClick}
+          damage={damages[FACE_OPP] ?? null}
         />
         <div style={{ width: 32 }} />
       </div>
@@ -233,14 +297,20 @@ export function MatchBoard({ deck, onExit }: Props) {
       }}>
         {state.opponent.field.map(c => {
           const targetable = isTargetableForSpell(c, pendingSpell, 'opponent');
+          const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === 'opponent';
+          const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === 'opponent';
           return (
             <BattlefieldCard
               key={c.battleId}
               card={c}
-              shaking={shaking.def === c.battleId}
+              shaking={isCombatDefender}
               attackable={!!selectedAttacker}
               highlight={pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null)}
+              lunging={isCombatAttacker ? 'down' : null}
+              impact={isCombatDefender}
+              damage={damages[c.battleId] ?? null}
               onClick={() => onOppCreatureClick(c)}
+              onLongPress={() => setInspect(c)}
             />
           );
         })}
@@ -286,14 +356,19 @@ export function MatchBoard({ deck, onExit }: Props) {
       }}>
         {state.player.field.map(c => {
           const friendlySpell = pendingSpell?.abilityKind === 'spell_buff';
+          const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === 'player';
+          const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === 'player';
           return (
             <BattlefieldCard
               key={c.battleId}
               card={c}
-              shaking={shaking.atk === c.battleId}
+              shaking={isCombatDefender}
               selected={selectedAttacker === c.battleId}
               attackable={!c.tapped && !c.justPlayed}
               highlight={friendlySpell ? 'spell' : null}
+              lunging={isCombatAttacker ? 'up' : null}
+              impact={isCombatDefender}
+              damage={damages[c.battleId] ?? null}
               onClick={() => {
                 if (pendingSpell?.abilityKind === 'spell_buff') {
                   castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
@@ -301,6 +376,7 @@ export function MatchBoard({ deck, onExit }: Props) {
                   onMyCreatureClick(c);
                 }
               }}
+              onLongPress={() => setInspect(c)}
             />
           );
         })}
@@ -315,20 +391,32 @@ export function MatchBoard({ deck, onExit }: Props) {
       <div style={{ position: 'absolute', top: 410, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div onClick={onMyFaceClick}
           style={{
-            display: 'flex', alignItems: 'center', gap: 6,
+            display: 'flex', alignItems: 'center', gap: 6, position: 'relative',
             cursor: pendingSpell ? 'pointer' : 'default',
             padding: 4, borderRadius: 8,
             boxShadow: pendingSpell?.abilityKind === 'spell_heal' ? '0 0 0 2px #9ed6f7' : 'none',
+            animation: damages[FACE_PLAYER] ? 'hpFlash 0.5s' : undefined,
           }}>
           <svg width="22" height="22" viewBox="0 0 18 18">
             <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#e85a5a" stroke="#fff" strokeWidth="1.5" />
           </svg>
           <span style={{ fontSize: 26, fontWeight: 700 }}>{state.player.hp}</span>
+          {damages[FACE_PLAYER] != null && (
+            <div style={{
+              position: 'absolute', top: -8, left: '50%',
+              fontSize: 22, fontWeight: 900, color: '#ff5a5a',
+              textShadow: '0 2px 0 #1a0408',
+              animation: 'damagePopup .9s ease-out forwards',
+              pointerEvents: 'none',
+              fontFamily: '"Fredoka", system-ui',
+              whiteSpace: 'nowrap',
+            }}>−{damages[FACE_PLAYER]}</div>
+          )}
         </div>
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
       </div>
 
-      {/* Hand */}
+      {/* Hand — non-dragging cards */}
       <div style={{
         position: 'absolute', bottom: 20, left: 0, right: 0, height: 200,
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
@@ -336,6 +424,7 @@ export function MatchBoard({ deck, onExit }: Props) {
       }}>
         {state.player.hand.map((card, i) => {
           const isDragging = drag?.battleId === card.battleId;
+          if (isDragging) return null; // rendered separately at fixed position
           const cardCount = state.player.hand.length;
           const offset = (i - (cardCount - 1) / 2);
           const rot = offset * 5;
@@ -346,17 +435,15 @@ export function MatchBoard({ deck, onExit }: Props) {
           return (
             <div
               key={card.battleId}
-              onPointerDown={(e) => onCardPointerDown(e, card, i)}
+              onPointerDown={(e) => onCardPointerDown(e, card)}
               onMouseEnter={() => setHoverIdx(i)}
               onMouseLeave={() => setHoverIdx(null)}
               style={{
                 position: 'absolute', left: '50%', bottom: 0,
-                transform: isDragging
-                  ? `translate(${drag.x - drag.ox - 95}px, ${drag.y - drag.oy - 700}px) rotate(0deg) scale(0.85)`
-                  : `translateX(calc(-50% + ${xOff}px)) translateY(${isHovered ? -90 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? 1.05 : 0.85})`,
+                transform: `translateX(calc(-50% + ${xOff}px)) translateY(${isHovered ? -90 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? 1.05 : 0.85})`,
                 transformOrigin: 'bottom center',
-                transition: isDragging ? 'none' : 'transform .25s cubic-bezier(.2,.8,.3,1)',
-                zIndex: isHovered || isDragging ? 50 : 10 + i,
+                transition: 'transform .25s cubic-bezier(.2,.8,.3,1)',
+                zIndex: isHovered ? 50 : 10 + i,
                 cursor: playableNow ? 'grab' : 'not-allowed',
                 opacity: playableNow ? 1 : 0.6,
                 filter: playableNow ? 'none' : 'grayscale(0.4)',
@@ -369,17 +456,53 @@ export function MatchBoard({ deck, onExit }: Props) {
           );
         })}
       </div>
+
+      {/* Dragged card — rendered at fixed viewport position so it follows the finger exactly */}
+      {drag && (() => {
+        const card = state.player.hand.find(c => c.battleId === drag.battleId);
+        if (!card) return null;
+        return (
+          <div
+            style={{
+              position: 'fixed',
+              left: drag.x - drag.ox,
+              top: drag.y - drag.oy,
+              transform: 'scale(0.85)',
+              transformOrigin: 'top left',
+              zIndex: 9999,
+              pointerEvents: 'none',
+              filter: drag.overField ? 'drop-shadow(0 12px 24px rgba(244,208,74,.4))' : 'drop-shadow(0 8px 16px rgba(0,0,0,.4))',
+            }}
+          >
+            <Card card={card} scale={1} hovered />
+          </div>
+        );
+      })()}
+
+      {/* Long-press inspect modal */}
+      {inspect && (
+        <div
+          onClick={() => setInspect(null)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,.7)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 200,
+            animation: 'fadeIn .2s',
+          }}
+        >
+          <div style={{ animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1)' }}>
+            <Card card={inspect} hovered scale={1.1} />
+          </div>
+          <div style={{
+            position: 'absolute', bottom: 50, left: 0, right: 0,
+            textAlign: 'center', fontSize: 10, opacity: 0.6,
+            letterSpacing: '0.2em', textTransform: 'uppercase',
+          }}>tap anywhere to close</div>
+        </div>
+      )}
     </div>
   );
-}
-
-interface DragState {
-  battleId: string;
-  idx: number;
-  cardType: 'Creature' | 'Spell';
-  x: number; y: number;
-  ox: number; oy: number;
-  overField: boolean;
 }
 
 function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'player' | 'opponent'): boolean {
@@ -391,14 +514,20 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   return false;
 }
 
-function OpponentPortrait({ hp, highlight, onClick }: { hp: number; highlight: 'attack' | 'spell' | null; onClick: () => void }) {
+function OpponentPortrait({ hp, highlight, onClick, damage }: {
+  hp: number;
+  highlight: 'attack' | 'spell' | null;
+  onClick: () => void;
+  damage: number | null;
+}) {
   const ring = highlight === 'attack' ? '#f4d04a' : highlight === 'spell' ? '#9ed6f7' : null;
   return (
     <div onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 10,
+      display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
       cursor: highlight ? 'pointer' : 'default',
       padding: 4, borderRadius: 30,
       boxShadow: ring ? `0 0 0 2px ${ring}, 0 0 12px ${ring}` : 'none',
+      animation: damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
       <div style={{
@@ -423,6 +552,17 @@ function OpponentPortrait({ hp, highlight, onClick }: { hp: number; highlight: '
           <span style={{ fontSize: 20, fontWeight: 700 }}>{hp}</span>
         </div>
       </div>
+      {damage != null && damage !== 0 && (
+        <div style={{
+          position: 'absolute', top: -10, left: '50%',
+          fontSize: 22, fontWeight: 900, color: '#ff5a5a',
+          textShadow: '0 2px 0 #1a0408',
+          animation: 'damagePopup .9s ease-out forwards',
+          pointerEvents: 'none',
+          fontFamily: '"Fredoka", system-ui',
+          whiteSpace: 'nowrap',
+        }}>−{damage}</div>
+      )}
     </div>
   );
 }

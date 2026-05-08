@@ -1,5 +1,5 @@
 import { TEMPLATES } from '../data/templates';
-import { SAMPLE_PHOTOS } from '../data/samplePhotos';
+import { aiPhoto } from '../data/samplePhotos';
 import type {
   BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
 } from './types';
@@ -34,15 +34,14 @@ function shuffle<T>(arr: T[]): T[] {
   return out;
 }
 
-/** Build the AI's faux deck: random photos applied so visually they feel "real". */
+/** Build the AI's faux deck: thematic photos so it visually mirrors the player. */
 function buildOpponentDeck(): CollectionCard[] {
   const pool = TEMPLATES.filter(t => t.cost <= 7); // skip the absolute biggest legendaries
-  const photoKeys = Object.keys(SAMPLE_PHOTOS) as (keyof typeof SAMPLE_PHOTOS)[];
   const picks = shuffle(pool).slice(0, 12);
   return picks.map((t, i) => ({
     ...t,
     uid: `opp_${i}`,
-    photo: SAMPLE_PHOTOS[photoKeys[i % photoKeys.length]],
+    photo: aiPhoto(t.id),
     nickname: undefined,
   }));
 }

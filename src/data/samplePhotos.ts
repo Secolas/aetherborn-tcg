@@ -1,27 +1,52 @@
 /**
- * Sample photos for the AI opponent's "summoned" creatures so the visual
- * fantasy holds up even before any cloud assets exist.
+ * Photo URLs the AI uses for its battlefield creatures so a match looks like
+ * a duel between two photo-summoners, not the player vs blank cards.
  *
- * These are SVG data URIs of stylized silhouettes — they always work, no
- * external image fetches. Each is element-tinted to suggest the creature.
+ * Strategy: thematic Unsplash URLs where the card concept clearly maps to a
+ * recognizable subject (Ember Hound → dog, Bloomshield → succulent), and
+ * deterministic picsum.photos seeds for everything else. Both sources are
+ * fast CDNs and don't require API keys.
  */
 
-const svg = (color: string, accent: string, shape: string) =>
-  `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'>
-    <defs><radialGradient id='g' cx='50%' cy='40%'><stop offset='0%' stop-color='${accent}'/><stop offset='100%' stop-color='${color}'/></radialGradient></defs>
-    <rect width='200' height='200' fill='url(#g)'/>
-    ${shape}
-  </svg>`)}`;
+// Known-good Unsplash CDN URLs (carried over from the original design bundle).
+const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
-export const SAMPLE_PHOTOS = {
-  emberA: svg('#3a1208', '#e8633a', "<g fill='#1a0604'><ellipse cx='100' cy='130' rx='55' ry='32'/><circle cx='100' cy='80' r='35'/><polygon points='80,55 90,30 100,55'/><polygon points='100,55 110,30 120,55'/><circle cx='90' cy='80' r='3' fill='#fff'/><circle cx='110' cy='80' r='3' fill='#fff'/></g>"),
-  emberB: svg('#3a1208', '#ffb38a', "<g fill='#1a0604'><polygon points='100,30 130,80 160,70 140,120 100,170 60,120 40,70 70,80'/></g>"),
-  tideA:  svg('#0e2c4a', '#9ed6f7', "<g fill='#051a30'><ellipse cx='100' cy='110' rx='60' ry='40'/><polygon points='40,110 20,90 25,140'/><polygon points='160,110 180,90 175,140'/><circle cx='90' cy='100' r='3' fill='#fff'/><circle cx='110' cy='100' r='3' fill='#fff'/></g>"),
-  tideB:  svg('#0e2c4a', '#3a8fc4', "<g fill='#051a30' opacity='0.9'><path d='M50,140 Q60,110 80,120 Q90,90 110,100 Q120,70 140,80 Q150,50 160,60 L160,180 L50,180 Z'/></g>"),
-  bloomA: svg('#1a3a1f', '#b9e3b8', "<g><circle cx='100' cy='80' r='25' fill='#5ea863'/><circle cx='75' cy='105' r='25' fill='#5ea863'/><circle cx='125' cy='105' r='25' fill='#5ea863'/><circle cx='100' cy='130' r='25' fill='#5ea863'/><circle cx='100' cy='105' r='15' fill='#f4d04a'/><rect x='95' y='130' width='10' height='50' fill='#3a5524'/></g>"),
-  bloomB: svg('#1a3a1f', '#5ea863', "<g fill='#0a1f0d'><polygon points='100,30 110,80 100,130 90,80'/><polygon points='30,100 80,90 130,100 80,110'/><circle cx='100' cy='100' r='15' fill='#f4d04a'/></g>"),
-  gustA:  svg('#3a3520', '#f4e8a8', "<g fill='#1a1908'><polygon points='100,40 130,90 100,160 70,90'/><polygon points='60,100 30,80 50,130'/><polygon points='140,100 170,80 150,130'/></g>"),
-  gustB:  svg('#3a3520', '#c8b46a', "<g fill='#1a1908' opacity='0.85'><circle cx='100' cy='100' r='40'/><polygon points='100,40 110,80 100,160 90,80' opacity='0.5'/></g>"),
-  voidA:  svg('#1a0c2a', '#c9a8e8', "<g><circle cx='100' cy='100' r='60' fill='none' stroke='#7a4ea8' stroke-width='3'/><circle cx='100' cy='100' r='40' fill='#0a0214'/><circle cx='100' cy='100' r='15' fill='#c9a8e8'/></g>"),
-  voidB:  svg('#1a0c2a', '#7a4ea8', "<g fill='#0a0214'><polygon points='100,30 130,90 170,100 130,110 100,170 70,110 30,100 70,90'/></g>"),
+const THEMED: Record<string, string> = {
+  // Ember — fierce, hot, animal
+  'em-01': U('photo-1543466835-00a7907e9de1'),       // dog → Ember Hound
+  'em-02': U('photo-1518709268805-4e9042af9f23'),    // small flame → Cinder Imp
+  'em-03': U('photo-1523301343968-6a6ebf63c672'),    // bonfire → Ashen Pyre
+  'em-06': U('photo-1492321936769-b49830bc1d1e'),    // wildfire texture → Wildfire
+  'em-07': U('photo-1583089580406-b8e4b9c2a18d'),    // volcano → Magma Titan
+
+  // Tide — water, calm, fluid
+  'ti-01': U('photo-1574144611937-0df059b5ef3e'),    // cat → Tide Familiar
+  'ti-02': U('photo-1502082553048-f009c37129b9'),    // misty mountain → Mistwalker
+  'ti-03': U('photo-1535591273668-578e31182c4f'),    // deep sea → Deepscale Sage
+  'ti-05': U('photo-1505142468610-359e7d316be0'),    // calm water → Reflecting Pool
+  'ti-06': U('photo-1568430462989-44163eb1752f'),    // whale tail → Leviathan
+
+  // Bloom — green, plant, taunting wall
+  'bl-01': U('photo-1463320726281-696a485928c7'),    // succulent → Bloomshield
+  'bl-02': U('photo-1490750967868-88aa4486c946'),    // flower → Bloompetal
+  'bl-03': U('photo-1444492417251-9c84a5fa18e0'),    // forest → Greatroot
+  'bl-05': U('photo-1533743983669-94fa5c4338ec'),    // green leaves → Verdant Mend
+
+  // Gust — sky, fast, evasive
+  'gu-02': U('photo-1559563458-527698bf5295'),       // sparrow → Sky Sparrow
+  'gu-03': U('photo-1561484930-998b6a7b22e8'),       // storm → Storm Caller
+  'gu-04': U('photo-1551772732-f8f17ac9dde9'),       // bird in sky → Cloudpiercer
+
+  // Void — dark, mysterious
+  'vo-01': U('photo-1505672954112-0e1f10adee94'),    // lightning → Voidlash
+  'vo-02': U('photo-1531746020798-e6953c6e8e04'),    // silhouette → Voidtouched Oracle
+  'vo-05': U('photo-1502134249126-9f3755a50d78'),    // moon → Eclipse
 };
+
+/**
+ * Thematic photo for an AI-controlled card. Falls back to a deterministic
+ * picsum.photos seed so every template gets *some* real image.
+ */
+export function aiPhoto(templateId: string): string {
+  return THEMED[templateId] ?? `https://picsum.photos/seed/aetherborn-${templateId}/400/400`;
+}
