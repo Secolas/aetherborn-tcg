@@ -80,7 +80,15 @@ function emptyPlayer(): PlayerState {
 
 export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
   const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  const oppDeck = shuffle(buildOpponentDeck(boss)).map(toBattleCard);
+  let oppDeck = shuffle(buildOpponentDeck(boss)).map(toBattleCard);
+
+  // Keep the two decks the same length so neither side gets a draw advantage
+  // over the course of a match. If the player's collection is short, trim
+  // the boss's deck to match; if the player has more, trim theirs down to
+  // the boss's count.
+  const matchSize = Math.min(playerDeck.length, oppDeck.length);
+  if (playerDeck.length > matchSize) playerDeck.length = matchSize;
+  if (oppDeck.length > matchSize) oppDeck = oppDeck.slice(0, matchSize);
 
   const player = emptyPlayer();
   const opponent = emptyPlayer();

@@ -515,6 +515,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       ref={boardRef}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragStart={(e) => e.preventDefault()}
       style={{
         width: '100%', height: '100%',
         background: `
@@ -613,11 +615,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Center divider band — the drop zone. Dashed top + bottom borders
-          intensify when a card is dragged into it. The End Turn button (or
-          "Release to summon" hint during drag) lives here. The phase label
-          floats inside this band as an absolute child with pointer-events
-          off so it never fights the button for clicks. */}
+      {/* Center divider band — the drop zone for drag-to-summon. Dashed top
+          + bottom borders intensify when a card is dragged into it. End Turn
+          button (or "Release to summon" hint during drag) lives here. The
+          phase label floats inside this band as an absolute child with
+          pointer-events off so it never fights the button for clicks. */}
       <div ref={fieldRef} style={{
         flex: '0 0 56px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -633,9 +635,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         transition: 'background .15s, border-color .15s',
         zIndex: 4,
         position: 'relative',
-      }}
-        onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
-      >
+      }}>
         {drag?.overField ? (
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
@@ -693,16 +693,15 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         )}
       </div>
 
-      {/* Player's creature row — also a drop zone so the player can drag a
-          card straight onto the field. */}
+      {/* Player's creature row — drop zone for drag-to-summon. Tapping it
+          alone no longer summons (use the Summon button on the centered
+          preview instead) — that prevents accidental plays. */}
       <div
         ref={playerFieldRef}
-        onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
         style={{
           flex: '0 0 100px',
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
           zIndex: 3,
-          cursor: selectedHandIdx !== null ? 'pointer' : 'default',
           background: drag?.overField
             ? 'rgba(244,208,74,.10)'
             : 'transparent',
@@ -772,11 +771,16 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           const playableNow = card.cost <= state.player.mana;
           const baseScale = 0.66;
           const cardW = 220 * baseScale;
-          const stride = cardCount <= 4 ? 80
-                       : cardCount <= 5 ? 70
-                       : cardCount <= 6 ? 56
-                       : 48;
+          // Tighter stride + per-card rotation = a real fan instead of a
+          // flat row, mirroring the opponent's face-down fan at the top.
+          const stride = cardCount <= 3 ? 80
+                       : cardCount <= 4 ? 60
+                       : cardCount <= 5 ? 48
+                       : cardCount <= 6 ? 38
+                       : 32;
           const xOff = offset * stride;
+          const rot = cardCount === 1 ? 0 : offset * 6;            // edges fan outward
+          const yArc = Math.abs(offset) * 3;                       // edges sink slightly
           return (
             <div
               key={card.battleId}
@@ -796,7 +800,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             >
               <div style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(-50%) translateY(${isSelected ? -10 : 0}px)`,
+                // Selected card rises and straightens out so the player can
+                // read it; non-selected stay fanned in their arc.
+                transform: isSelected
+                  ? `translateX(-50%) translateY(-12px) rotate(0deg)`
+                  : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
                 transformOrigin: 'bottom center',
                 transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
                 pointerEvents: 'none',
@@ -811,31 +819,69 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       </div>
 
       {/* Centered hand-card preview — rendered above the hand when a card is
-          tapped. Replaces the in-place lift so the preview never gets cut off
-          on screens narrower than 1.35× the card width. */}
+          tapped. Has an explicit Summon / Cast button so accidentally tapping
+          the field doesn't auto-play the card. */}
       {selectedHandIdx !== null && state.player.hand[selectedHandIdx] && !drag && (() => {
         const card = state.player.hand[selectedHandIdx];
-        const playableNow = card.cost <= state.player.mana;
+        const playableNow = card.cost <= state.player.mana && state.turn === 'player';
+        const isSpell = card.type === 'Spell';
+        const needsTarget = isSpell && !(
+          card.abilityKind === 'spell_heal' ||
+          card.abilityKind === 'draw_on_play' ||
+          card.id === 'ti-05'
+        );
+        const actionLabel = !playableNow
+          ? (state.turn !== 'player' ? "Wait — it's their turn" : 'Not enough mana')
+          : isSpell
+            ? (needsTarget ? 'Pick a target →' : 'Cast')
+            : 'Summon';
         return (
           <div
             style={{
               position: 'absolute', left: 0, right: 0, bottom: 200,
-              display: 'flex', justifyContent: 'center',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
               zIndex: 90,
               pointerEvents: 'none',
               animation: 'fadeIn 0.15s',
             }}
           >
-            <div
-              onClick={() => playSelectedToField()}
-              style={{
-                animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
-                filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
-                pointerEvents: 'auto',
-                cursor: 'pointer',
-              }}
-            >
+            <div style={{
+              animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
+              filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
+              pointerEvents: 'none',
+            }}>
               <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
+            </div>
+            <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto' }}>
+              <button
+                onClick={() => setSelectedHandIdx(null)}
+                style={{
+                  background: '#fff', color: PALETTE.text,
+                  border: `1.5px solid ${PALETTE.border}`,
+                  borderRadius: 18, padding: '10px 18px',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 10px rgba(58,46,42,.15)',
+                }}
+              >Cancel</button>
+              <button
+                onClick={() => { if (playableNow) playSelectedToField(); }}
+                disabled={!playableNow}
+                style={{
+                  background: playableNow
+                    ? 'linear-gradient(180deg, #ffa07a, #ff7e5f)'
+                    : '#e8d8c8',
+                  color: playableNow ? '#fff' : '#9a8678',
+                  border: 'none',
+                  borderRadius: 18, padding: '10px 22px',
+                  fontSize: 13, fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  cursor: playableNow ? 'pointer' : 'not-allowed',
+                  fontFamily: 'inherit',
+                  boxShadow: playableNow ? '0 4px 14px rgba(255,94,60,.4)' : 'none',
+                }}
+              >{actionLabel}</button>
             </div>
           </div>
         );

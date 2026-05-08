@@ -4,7 +4,9 @@ import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import type { CollectionCard } from '../game/types';
 
-const DECK_SIZE = 8;
+// Matches the boss deck size in data/bosses.ts so player and opponent always
+// start with the same number of cards.
+const DECK_SIZE = 12;
 
 interface Props {
   collection: CollectionCard[];
