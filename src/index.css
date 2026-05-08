@@ -107,3 +107,35 @@ input {
   78%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
   100% { transform: translateY(40px) scale(0.7) rotate(8deg); opacity: 0; }
 }
+
+/* Player spell — card lifts from the hand area and sits center-screen briefly. */
+@keyframes playerSpellReveal {
+  0%   { transform: translateY(120px) scale(0.4) rotate(8deg); opacity: 0; }
+  20%  { transform: translateY(0) scale(1.05) rotate(-2deg); opacity: 1; }
+  30%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  75%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-40px) scale(0.7) rotate(-6deg); opacity: 0; }
+}
+
+/* Slice — diagonal flash + the card splits and falls apart before disappearing. */
+@keyframes sliceFlash {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-25deg) scaleX(0); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) rotate(-25deg) scaleX(1.4); }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(-25deg) scaleX(1.6); }
+}
+@keyframes sliceTopHalf {
+  0%   { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(-14px, -22px) rotate(-18deg); opacity: 0; }
+}
+@keyframes sliceBottomHalf {
+  0%   { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(14px, 22px) rotate(18deg); opacity: 0; }
+}
+
+/* Attack arrow — stroke draws from attacker to defender. */
+@keyframes arrowDraw {
+  0%   { stroke-dashoffset: var(--len, 200); opacity: 0; }
+  20%  { opacity: 1; }
+  60%  { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}

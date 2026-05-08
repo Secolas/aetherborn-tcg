@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, Heart, Coins, Layers } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
+import { CardBack } from '../components/CardBack';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
@@ -49,11 +50,24 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [pendingSpell, setPendingSpell] = useState<BattleCard | null>(null);
   const [combat, setCombat] = useState<CombatFx | null>(null);
   const [damages, setDamages] = useState<DamageMap>({});
+  /** Battle ids of creatures whose slice/death animation is currently playing. */
+  const [dyingIds, setDyingIds] = useState<string[]>([]);
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
+  /** Spell the player just cast, shown as a centered reveal — same beat as opponentReveal. */
+  const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
+  const boardRef = useRef<HTMLDivElement | null>(null);
+  /** DOM nodes of every creature on the field + the two faces, keyed by battleId
+      (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
+  const cardEls = useRef<Map<string, HTMLElement>>(new Map());
+  const registerEl = (id: string, el: HTMLElement | null) => {
+    if (el) cardEls.current.set(id, el);
+    else cardEls.current.delete(id);
+  };
+  const [arrow, setArrow] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   // ============== AI driver ==============
   useEffect(() => {
@@ -93,6 +107,28 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     return () => { cancelled = true; clearTimeout(t); };
   }, [state]);
 
+  // Recompute the attack-arrow endpoints whenever combat starts. We read the
+  // DOM positions of the attacker and defender (or the face portrait) and
+  // hand them to the SVG overlay below.
+  useLayoutEffect(() => {
+    if (!combat || !boardRef.current) { setArrow(null); return; }
+    const attackerEl = cardEls.current.get(combat.attackerId);
+    const defenderKey = combat.defenderId === 'face'
+      ? (combat.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
+      : combat.defenderId;
+    const defenderEl = cardEls.current.get(defenderKey);
+    if (!attackerEl || !defenderEl) { setArrow(null); return; }
+    const board = boardRef.current.getBoundingClientRect();
+    const a = attackerEl.getBoundingClientRect();
+    const d = defenderEl.getBoundingClientRect();
+    setArrow({
+      x1: a.left + a.width / 2 - board.left,
+      y1: a.top + a.height / 2 - board.top,
+      x2: d.left + d.width / 2 - board.left,
+      y2: d.top + d.height / 2 - board.top,
+    });
+  }, [combat]);
+
   const showMsg = (m: string) => setMsg(m);
 
   const flashMsg = (m: string) => {
@@ -102,39 +138,95 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   // ============== Combat animation orchestration ==============
   // Plays the lunge + damage popups, then calls done() to apply the actual state change.
+  // If anything dies in the trade, holds the slice animation an extra ~400ms before
+  // letting state update so the kill is visible.
   const playAttackAnimation = (info: AiCombat | CombatFx, done: () => void) => {
+    const defenderKind = 'defenderKind' in info
+      ? info.defenderKind
+      : (info.defenderId === 'face' ? 'face' : 'creature');
+    const defenderId = 'defenderKind' in info
+      ? (info.defenderKind === 'face' ? 'face' : info.defenderId!)
+      : info.defenderId;
+
     setCombat({
       attackerId: info.attackerId,
       attackerOwner: info.attackerOwner,
-      defenderId: 'defenderKind' in info
-        ? (info.defenderKind === 'face' ? 'face' : info.defenderId!)
-        : info.defenderId,
+      defenderId,
       defenderOwner: info.defenderOwner,
       damageToDef: info.damageToDef,
       damageToAtk: info.damageToAtk,
     });
 
+    // Detect lethals so we can play the slice animation and hold state.
+    const defenderField = info.defenderOwner === 'player' ? state.player.field : state.opponent.field;
+    const attackerField = info.attackerOwner === 'player' ? state.player.field : state.opponent.field;
+    const defenderCard = defenderKind === 'creature'
+      ? defenderField.find(c => c.battleId === defenderId) ?? null
+      : null;
+    const attackerCard = attackerField.find(c => c.battleId === info.attackerId) ?? null;
+    const defenderDying = !!defenderCard && info.damageToDef >= defenderCard.currentHp;
+    const attackerDying = !!attackerCard && info.damageToAtk >= attackerCard.currentHp;
+    const anyDying = defenderDying || attackerDying;
+
     // Damage pops at impact (~250ms in)
     setTimeout(() => {
-      const defKey = (('defenderKind' in info ? info.defenderKind : (info.defenderId === 'face' ? 'face' : 'creature')) === 'face')
+      const defKey = defenderKind === 'face'
         ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
-        : ('defenderKind' in info ? info.defenderId! : info.defenderId);
-      setDamages(d => ({ ...d, [defKey as string]: info.damageToDef }));
-      // Counter-damage on attacker (creature trade)
+        : (defenderId as string);
+      setDamages(d => ({ ...d, [defKey]: info.damageToDef }));
       if (info.damageToAtk > 0) {
         setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
       }
-      // Clear damages after their popup animation finishes
-      setTimeout(() => {
-        setDamages({});
-      }, 900);
+      // Trigger slice on whichever creatures are about to die.
+      const dying: string[] = [];
+      if (defenderDying && defenderKind === 'creature') dying.push(defenderId as string);
+      if (attackerDying) dying.push(info.attackerId);
+      if (dying.length) setDyingIds(dying);
+
+      setTimeout(() => setDamages({}), 900);
     }, 250);
 
-    // Apply real state at peak of lunge
-    setTimeout(() => done(), 500);
+    // Hold state update until after the slice animation when something dies.
+    const stateDelay = anyDying ? 950 : 500;
+    const clearDelay = anyDying ? 1100 : 700;
+    setTimeout(() => done(), stateDelay);
+    setTimeout(() => {
+      setCombat(null);
+      setDyingIds([]);
+    }, clearDelay);
+  };
 
-    // Clear combat state when animation finishes
-    setTimeout(() => setCombat(null), 700);
+  // ============== Spell cast (player) ==============
+  // Spells resolve invisibly without this — the card moves from hand to discard
+  // and effects apply silently. We instead show the card center-screen for ~900ms
+  // (mirroring the AI's reveal) so the player feels what they cast.
+  const castSpell = (card: BattleCard, target: SpellTarget): boolean => {
+    const r = playCard(state, 'player', card.battleId, target);
+    if (!r.ok) {
+      flashMsg(r.reason ?? 'Cannot cast');
+      return false;
+    }
+    const beforeHp = state.player.hp;
+    const beforeHand = state.player.hand.length;
+
+    setPlayerSpellReveal(card);
+    setSelectedHandIdx(null);
+    setPendingSpell(null);
+
+    setTimeout(() => {
+      setState(r.state);
+      setPlayerSpellReveal(null);
+      const healed = r.state.player.hp - beforeHp;
+      if (healed > 0) {
+        setDamages(d => ({ ...d, [FACE_PLAYER]: -healed }));
+        setTimeout(() => setDamages(d => {
+          const next = { ...d }; delete next[FACE_PLAYER]; return next;
+        }), 900);
+      }
+      const drewCards = r.state.player.hand.length - (beforeHand - 1);
+      if (drewCards > 0) flashMsg(`Drew ${drewCards} card${drewCards === 1 ? '' : 's'}`);
+    }, 900);
+    return true;
   };
 
   // ============== Drag from hand ==============
@@ -191,11 +283,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         || card.abilityKind === 'draw_on_play'
         || card.id === 'ti-05';
       if (noTarget) {
-        if (drag.overField) {
-          const r = playCard(state, 'player', card.battleId, { kind: 'face', owner: 'player' });
-          if (r.ok) setState(r.state);
-          else flashMsg(r.reason ?? 'Cannot cast');
-        }
+        if (drag.overField) castSpell(card, { kind: 'face', owner: 'player' });
       } else if (drag.overField) {
         setPendingSpell(card);
         flashMsg('Select a target');
@@ -233,28 +321,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         || card.abilityKind === 'draw_on_play'
         || card.id === 'ti-05';
       if (noTarget) {
-        const beforeHp = state.player.hp;
-        const beforeHand = state.player.hand.length;
-        const r = playCard(state, 'player', card.battleId, { kind: 'face', owner: 'player' });
-        if (r.ok) {
-          setState(r.state);
-          setSelectedHandIdx(null);
-          // Show a green +N popup over the player avatar so heals are visible.
-          const healed = r.state.player.hp - beforeHp;
-          if (healed > 0) {
-            setDamages(d => ({ ...d, [FACE_PLAYER]: -healed }));
-            setTimeout(() => setDamages(d => {
-              const next = { ...d }; delete next[FACE_PLAYER]; return next;
-            }), 900);
-          }
-          // Card-draw spells likewise feel invisible — flash a quick confirmation.
-          const drewCards = r.state.player.hand.length - (beforeHand - 1);
-          if (drewCards > 0) {
-            flashMsg(`Drew ${drewCards} card${drewCards === 1 ? '' : 's'}`);
-          }
-        } else {
-          flashMsg(r.reason ?? 'Cannot cast');
-        }
+        castSpell(card, { kind: 'face', owner: 'player' });
       } else {
         // Spell needs a target — graduate from "selected hand card" to "pending spell"
         setPendingSpell(card);
@@ -321,13 +388,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   const castPendingAt = (target: SpellTarget) => {
     if (!pendingSpell) return;
-    const r = playCard(state, 'player', pendingSpell.battleId, target);
-    if (r.ok) {
-      setState(r.state);
-      setPendingSpell(null);
-    } else {
-      flashMsg(r.reason ?? 'Invalid target');
-    }
+    castSpell(pendingSpell, target);
   };
 
   const cancelPending = () => setPendingSpell(null);
@@ -349,6 +410,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   return (
     <div
+      ref={boardRef}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       style={{
@@ -362,9 +424,14 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
-      {/* The battlefield "table" — gives the field area visual weight */}
+      {/* Opponent's hand — face-down cards fanned at the very top so the player
+          can see how many cards the boss is holding (Pokemon-style). */}
+      <OpponentHand size={state.opponent.hand.length} />
+
+      {/* The battlefield "table" — gives the combat area visual weight and
+          frames the two field rows + center line. */}
       <div style={{
-        position: 'absolute', top: 78, left: 8, right: 8, height: 296,
+        position: 'absolute', top: 96, left: 8, right: 8, height: 248,
         borderRadius: 22,
         background: `
           radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,255,255,.5) 0%, transparent 60%),
@@ -384,8 +451,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 5, gap: 8 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      {/* Top header — single inline row: portrait + deck chip on the left,
+          turn counter + exit on the right. Sits below the face-down hand. */}
+      <div style={{ position: 'absolute', top: 56, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <OpponentPortrait
             boss={boss}
             themeColor={bossElement.color}
@@ -394,13 +463,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
             onClick={onOppFaceClick}
             damage={damages[FACE_OPP] ?? null}
+            elRef={(el) => registerEl(FACE_OPP, el)}
           />
-          <div style={{ paddingLeft: 4 }}>
-            <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
-          </div>
+          <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div style={{
             background: '#fff',
             padding: '4px 10px', borderRadius: 12,
@@ -410,31 +477,34 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           }}>
             Turn {state.turnNumber}
           </div>
+          <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
         </div>
       </div>
 
-      {/* Opponent field — same slot outline treatment. */}
+      {/* Opponent field */}
       <div style={{
-        position: 'absolute', top: 90, left: 12, right: 12,
+        position: 'absolute', top: 108, left: 12, right: 12,
         display: 'flex', justifyContent: 'center', gap: 4,
-        minHeight: 98,
+        minHeight: 90,
       }}>
         <FieldRow
           side="opponent"
           cards={state.opponent.field}
           combat={combat}
           damages={damages}
+          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           highlightEmpty={false}
+          registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
       </div>
 
-      {/* Center divider — phase indicator on the left, action button on the right */}
+      {/* Center divider — slim battle line with phase indicator + end-turn button */}
       <div ref={fieldRef} style={{
-        position: 'absolute', top: 200, left: 0, right: 0, height: 64,
+        position: 'absolute', top: 204, left: 0, right: 0, height: 36,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         padding: '0 16px',
         borderTop: drag?.overField ? `2px dashed ${PALETTE.accent}` : `1px solid rgba(58,46,42,.10)`,
@@ -498,9 +568,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       <div
         onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
         style={{
-          position: 'absolute', top: 268, left: 12, right: 12,
+          position: 'absolute', top: 246, left: 12, right: 12,
           display: 'flex', justifyContent: 'center', gap: 4,
-          minHeight: 98,
+          minHeight: 90,
           cursor: selectedHandIdx !== null ? 'pointer' : 'default',
         }}
       >
@@ -509,9 +579,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           cards={state.player.field}
           combat={combat}
           damages={damages}
+          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           highlightEmpty={selectedHandIdx !== null}
+          registerEl={registerEl}
           onCardClick={(c) => {
             if (pendingSpell?.abilityKind === 'spell_buff') {
               castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
@@ -525,13 +597,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
       {/* Brief flash messages (errors, action confirmations) appear here.
           Whose turn it is is shown in the center bar — no duplicate. */}
-      <div style={{ position: 'absolute', top: 372, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: 600, color: PALETTE.textMid, height: 16, transition: 'opacity .2s' }}>
-        {/* Only show transient messages (not the default 'Your turn') */}
+      <div style={{ position: 'absolute', top: 344, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: 600, color: PALETTE.textMid, height: 16, transition: 'opacity .2s' }}>
         {msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : ''}
       </div>
 
       {/* My stats row: mana, deck count, player portrait */}
-      <div style={{ position: 'absolute', top: 396, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 6 }}>
+      <div style={{ position: 'absolute', top: 366, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 6 }}>
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
         <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
@@ -541,6 +612,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
           onClick={onMyFaceClick}
           damage={damages[FACE_PLAYER] ?? null}
+          elRef={(el) => registerEl(FACE_PLAYER, el)}
         />
       </div>
 
@@ -553,7 +625,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       }}>
         {state.player.hand.map((card, i) => {
           const isDragging = drag?.battleId === card.battleId;
-          if (isDragging) return null;
+          const isCasting = playerSpellReveal?.battleId === card.battleId;
+          if (isDragging || isCasting) return null;
           const cardCount = state.player.hand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
@@ -631,6 +704,63 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         );
       })()}
 
+      {/* Attack arrow — drawn from attacker center to defender center for the
+          length of the strike animation. Makes "who is hitting what" obvious. */}
+      {arrow && (() => {
+        const len = Math.hypot(arrow.x2 - arrow.x1, arrow.y2 - arrow.y1);
+        const lineStyle: React.CSSProperties & Record<string, string | number> = {
+          strokeDasharray: len,
+          animation: 'arrowDraw 0.7s ease-out forwards',
+          ['--len' as string]: `${len}px`,
+        };
+        return (
+          <svg style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            pointerEvents: 'none', zIndex: 150,
+          }}>
+            <defs>
+              <marker id="atkArrowhead" viewBox="0 0 10 10" refX="9" refY="5"
+                      markerWidth="5" markerHeight="5" orient="auto">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ee5a52" />
+              </marker>
+            </defs>
+            <line
+              x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2}
+              stroke="#ee5a52" strokeWidth={4} strokeLinecap="round"
+              markerEnd="url(#atkArrowhead)"
+              style={lineStyle}
+            />
+          </svg>
+        );
+      })()}
+
+      {/* Player spell reveal — the spell card sits center-screen for ~900ms so
+          casting feels like an event, not a silent state mutation. */}
+      {playerSpellReveal && (
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,.35)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 180,
+            pointerEvents: 'none',
+            animation: 'fadeIn .15s',
+          }}
+        >
+          <div style={{ position: 'relative', animation: 'playerSpellReveal 0.9s ease-out forwards' }}>
+            <div style={{
+              position: 'absolute', top: -28, left: 0, right: 0, textAlign: 'center',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
+              fontFamily: '"Fredoka", system-ui',
+            }}>
+              You cast
+            </div>
+            <Card card={playerSpellReveal} hovered scale={0.95} />
+          </div>
+        </div>
+      )}
+
       {/* Opponent's played card reveal */}
       {opponentReveal && (
         <div
@@ -686,22 +816,21 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 const SLOTS_PER_ROW = 6;
 
 function FieldRow({
-  side, cards, combat, damages, selectedAttacker, pendingSpell,
-  highlightEmpty, onCardClick, onCardLongPress,
+  side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
+  highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
   combat: CombatFx | null;
   damages: DamageMap;
+  dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
   highlightEmpty: boolean;
+  registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
 }) {
-  // Always render SLOTS_PER_ROW slots. Filled slots show a card; empty
-  // slots show a dashed outline. This makes the play area read clearly,
-  // even before a single creature is on the field.
   return (
     <div style={{ display: 'flex', justifyContent: 'center', gap: 4, alignItems: 'center' }}>
       {Array.from({ length: SLOTS_PER_ROW }).map((_, i) => {
@@ -725,28 +854,65 @@ function FieldRow({
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
         const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
+        const isDying = dyingIds.includes(c.battleId);
         return (
-          <BattlefieldCard
+          <div
             key={c.battleId}
-            card={c}
-            shaking={isCombatDefender}
-            selected={side === 'player' && selectedAttacker === c.battleId}
-            attackable={
-              side === 'player'
-                ? !c.tapped && !c.justPlayed
-                : !!selectedAttacker
-            }
-            highlight={
-              side === 'player'
-                ? (friendlySpell ? 'spell' : null)
-                : (pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null))
-            }
-            lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
-            impact={isCombatDefender}
-            damage={damages[c.battleId] ?? null}
-            onClick={() => onCardClick(c)}
-            onLongPress={() => onCardLongPress(c)}
-          />
+            ref={(el) => registerEl(c.battleId, el)}
+            style={{ display: 'flex', flex: '0 0 auto' }}
+          >
+            <BattlefieldCard
+              card={c}
+              shaking={isCombatDefender && !isDying}
+              dying={isDying}
+              selected={side === 'player' && selectedAttacker === c.battleId}
+              attackable={
+                side === 'player'
+                  ? !c.tapped && !c.justPlayed
+                  : !!selectedAttacker
+              }
+              highlight={
+                side === 'player'
+                  ? (friendlySpell ? 'spell' : null)
+                  : (pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null))
+              }
+              lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
+              impact={isCombatDefender}
+              damage={damages[c.battleId] ?? null}
+              onClick={() => onCardClick(c)}
+              onLongPress={() => onCardLongPress(c)}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Face-down hand at the top — visualizes how many cards the boss is holding. */
+function OpponentHand({ size }: { size: number }) {
+  if (size <= 0) return null;
+  // Negative margin compresses the cards into a fan. Tighter for big hands.
+  const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0, height: 50,
+      display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
+      paddingTop: 4,
+      pointerEvents: 'none',
+      zIndex: 4,
+    }}>
+      {Array.from({ length: size }).map((_, i) => {
+        const offset = i - (size - 1) / 2;
+        const rot = offset * 4;
+        return (
+          <div key={i} style={{
+            marginLeft: i === 0 ? 0 : overlap,
+            transform: `translateY(${Math.abs(offset) * 1.5}px)`,
+            zIndex: i,
+          }}>
+            <CardBack scale={0.32} rotate={rot} />
+          </div>
         );
       })}
     </div>
@@ -772,7 +938,7 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   return false;
 }
 
-function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick, damage }: {
+function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick, damage, elRef }: {
   boss: BossDef;
   themeColor: string;
   themeDeep: string;
@@ -780,10 +946,11 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   highlight: 'attack' | 'spell' | null;
   onClick: () => void;
   damage: number | null;
+  elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'attack' ? '#ee5a52' : highlight === 'spell' ? '#3a8fc4' : null;
   return (
-    <div onClick={onClick} style={{
+    <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
       cursor: highlight ? 'pointer' : 'default',
       padding: 4, borderRadius: 30,
@@ -829,15 +996,16 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   );
 }
 
-function PlayerPortrait({ hp, highlight, onClick, damage }: {
+function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
   hp: number;
   highlight: 'heal' | null;
   onClick: () => void;
   damage: number | null;
+  elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'heal' ? '#06d6a0' : null;
   return (
-    <div onClick={onClick} style={{
+    <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
       cursor: highlight ? 'pointer' : 'default',
       padding: 4, borderRadius: 30,
