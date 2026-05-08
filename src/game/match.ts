@@ -128,7 +128,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   me.field.forEach(c => {
     if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
       me.hp = Math.min(STARTING_HP, me.hp + c.abilityValue);
-      state.log.push(`${displayName(c)} heals ${owner === 'player' ? 'you' : 'Vex'} for ${c.abilityValue}`);
+      state.log.push(`${displayName(c)} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${c.abilityValue}`);
     }
   });
 
@@ -139,7 +139,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     me.hand.push(c);
   } else if (me.deck.length === 0) {
     me.hp -= 1;
-    state.log.push(`${owner === 'player' ? 'You' : 'Vex'} took 1 fatigue damage`);
+    state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} took 1 fatigue damage`);
   }
 
   checkOutcome(state);
@@ -182,7 +182,7 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
     card.justPlayed = card.abilityKind !== 'rush';
     card.tapped = card.abilityKind !== 'rush'; // rush creatures can attack
     me.field.push(card);
-    state.log.push(`${owner === 'player' ? 'You' : 'Vex'} summon ${displayName(card)}`);
+    state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} summon ${displayName(card)}`);
 
     // On-play triggers
     resolveOnPlay(state, owner, card);
@@ -193,7 +193,7 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
     }
     me.mana -= card.cost;
     me.hand.splice(idx, 1);
-    state.log.push(`${owner === 'player' ? 'You' : 'Vex'} cast ${displayName(card)}`);
+    state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} cast ${displayName(card)}`);
     resolveSpell(state, owner, card, target);
 
     // Spell-synergy creatures: deal X to opponent

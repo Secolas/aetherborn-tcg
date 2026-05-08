@@ -10,7 +10,7 @@ import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import type { CollectionCard, SaveData } from './game/types';
 
-const SAVE_KEY = 'aetherborn-save-v1';
+const SAVE_KEY = 'lifedeck-save-v1';
 
 function makeInitialSave(): SaveData {
   const starter = starterPack();

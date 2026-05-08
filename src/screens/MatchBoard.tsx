@@ -79,7 +79,7 @@ export function MatchBoard({ deck, onExit }: Props) {
 
   const flashMsg = (m: string) => {
     showMsg(m);
-    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : "Vex's turn"), 1200);
+    setTimeout(() => showMsg(state.turn === 'player' ? 'Your turn' : "The Boss's turn"), 1200);
   };
 
   // ============== Combat animation orchestration ==============
@@ -247,7 +247,7 @@ export function MatchBoard({ deck, onExit }: Props) {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     setSelectedAttacker(null);
     setPendingSpell(null);
-    showMsg("Vex's turn");
+    showMsg("The Boss's turn");
     setState(s => endTurn(s));
   };
 
@@ -532,19 +532,19 @@ function OpponentPortrait({ hp, highlight, onClick, damage }: {
     }}>
       <div style={{
         width: 48, height: 48, borderRadius: '50%',
-        background: 'conic-gradient(from 90deg, #7a4ea8, #c9a8e8, #7a4ea8)',
+        background: 'conic-gradient(from 90deg, #1c2a3d, #4a6280, #1c2a3d)',
         padding: 2, position: 'relative',
       }}>
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
-          background: 'linear-gradient(160deg, #2a163f, #7a4ea8)',
+          background: 'linear-gradient(160deg, #1c2a3d, #4a6280)',
           display: 'grid', placeItems: 'center',
           fontSize: 20, fontWeight: 700, color: '#fff',
           fontFamily: '"Cinzel", Georgia, serif',
-        }}>V</div>
+        }}>B</div>
       </div>
       <div>
-        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.7 }}>Vex, Voidcaller</div>
+        <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.7 }}>The Boss</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 1 }}>
           <svg width="16" height="16" viewBox="0 0 18 18">
             <path d="M9 16 L2 9 A4 4 0 0 1 9 4 A4 4 0 0 1 16 9 Z" fill="#e85a5a" stroke="#fff" strokeWidth="1.5" />

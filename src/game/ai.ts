@@ -115,14 +115,14 @@ function tryPlay(state: MatchState, card: BattleCard): AiStepResult | null {
   if (card.type === 'Creature') {
     if (state.opponent.field.length >= 6) return null;
     const r = playCard(state, 'opponent', card.battleId);
-    if (r.ok) return { next: r.state, action: `Vex summons ${displayName(card)}` };
+    if (r.ok) return { next: r.state, action: `The Boss summons ${displayName(card)}` };
     return null;
   }
 
   const target = chooseSpellTarget(card, state);
   if (target === undefined || target === null) return null;
   const r = playCard(state, 'opponent', card.battleId, target);
-  if (r.ok) return { next: r.state, action: `Vex casts ${displayName(card)}` };
+  if (r.ok) return { next: r.state, action: `The Boss casts ${displayName(card)}` };
   return null;
 }
 

@@ -11,7 +11,8 @@ interface Props {
 export function HomeMenu({ save, onNav }: Props) {
   // Featured cards: an alive one (if any) and a dormant template for contrast.
   const summoned = save.collection.find(c => c.photo);
-  const dormant = TEMPLATES.find(t => t.rarity === 'legendary')!;
+  // Show one card from each theme as visual variety on the home screen
+  const dormant = TEMPLATES.find(t => t.id === 'fam-11')!; // Dad — most iconic
   const playableInDeck = save.deckUids.filter(uid => {
     const c = save.collection.find(x => x.uid === uid);
     return c && c.photo;
@@ -49,13 +50,13 @@ export function HomeMenu({ save, onNav }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{
             width: 36, height: 36, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #e8633a, #7a2a13)',
+            background: 'linear-gradient(135deg, #d96658, #6e1f1a)',
             display: 'grid', placeItems: 'center',
             fontSize: 16, fontWeight: 700,
             border: '2px solid #f4d04a',
-          }}>K</div>
+          }}>Y</div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>Keldra</div>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>You</div>
             <div style={{ fontSize: 9, letterSpacing: '0.1em', textTransform: 'uppercase', opacity: 0.6 }}>
               {save.matchesWon} W · {save.matchesLost} L
             </div>
@@ -75,19 +76,19 @@ export function HomeMenu({ save, onNav }: Props) {
       {/* Title */}
       <div style={{ textAlign: 'center', marginTop: 24, position: 'relative', zIndex: 2 }}>
         <div style={{ fontSize: 11, letterSpacing: '0.4em', textTransform: 'uppercase', opacity: 0.5, fontFamily: '"Cinzel", Georgia, serif' }}>
-          Realm of
+          Welcome to
         </div>
         <div style={{
-          fontSize: 44, fontWeight: 700, lineHeight: 1,
+          fontSize: 56, fontWeight: 700, lineHeight: 1,
           fontFamily: '"Cinzel", Georgia, serif',
           background: 'linear-gradient(180deg, #f4d04a, #c4801a)',
           WebkitBackgroundClip: 'text', backgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           textShadow: '0 0 30px rgba(244,208,74,.3)',
           marginTop: 4,
-        }}>AETHER<br />BORN</div>
+        }}>LIFEDECK</div>
         <div style={{ fontSize: 10, letterSpacing: '0.25em', textTransform: 'uppercase', opacity: 0.55, marginTop: 8, fontStyle: 'italic' }}>
-          your world. summoned.
+          your life. in cards.
         </div>
       </div>
 

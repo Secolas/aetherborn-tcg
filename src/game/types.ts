@@ -1,4 +1,5 @@
-export type ElementId = 'ember' | 'tide' | 'bloom' | 'gust' | 'void';
+/** Themes are the deck-organizing axis. Each theme is a photo prompt set. */
+export type ElementId = 'family' | 'work' | 'animals';
 
 export type CardType = 'Creature' | 'Spell';
 
@@ -15,7 +16,7 @@ export type AbilityKind =
   | 'taunt'          // enemies must hit this first
   | 'untargetable'   // spells cannot target this creature
   | 'draw_on_play'   // draw 1 when summoned
-  | 'aoe_on_play'    // deal X to all enemies on play (X stored on card)
+  | 'aoe_on_play'    // deal X to all enemies on play
   | 'heal_each_turn' // heal owner X at start of their turn
   | 'spell_synergy'  // when owner casts a spell, deal X to opponent
   | 'spell_damage'   // (Spell) deal X damage to any target
@@ -33,15 +34,15 @@ export interface CardTemplate {
   type: CardType;
   ability: string;            // human-readable text
   abilityKind: AbilityKind;   // machine-readable
-  abilityValue?: number;      // X used by AOE/heal/draw etc.
+  abilityValue?: number;
   rarity: Rarity;
-  suggested: string;          // "a pet", "something fast" — photo prompt
+  suggested: string;          // photo prompt — what to take a photo of
 }
 
 /** A template combined with the user's photo + nickname, after summoning. */
 export interface CollectionCard extends CardTemplate {
-  uid: string;          // unique per owned copy
-  photo: string | null; // dataURL or null
+  uid: string;
+  photo: string | null;
   nickname?: string;
 }
 
@@ -50,9 +51,9 @@ export interface BattleCard extends CollectionCard {
   battleId: string;
   currentHp: number;
   currentAtk: number;
-  tapped: boolean;       // already attacked this turn
-  justPlayed: boolean;   // summoning sickness (unless rush)
-  frozen: boolean;       // skip next untap
+  tapped: boolean;
+  justPlayed: boolean;
+  frozen: boolean;
 }
 
 export type Owner = 'player' | 'opponent';
@@ -64,7 +65,7 @@ export interface PlayerState {
   maxMana: number;
   hand: BattleCard[];
   field: BattleCard[];
-  deck: BattleCard[];   // remaining draw pile
+  deck: BattleCard[];
 }
 
 export interface MatchState {
@@ -79,7 +80,7 @@ export interface MatchState {
 export interface SaveData {
   version: number;
   collection: CollectionCard[];
-  deckUids: string[];   // uids in active deck
+  deckUids: string[];
   coins: number;
   packsOpened: number;
   matchesWon: number;

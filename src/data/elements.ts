@@ -5,14 +5,22 @@ export interface ElementDef {
   color: string;
   deep: string;
   glow: string;
+  /** What kind of photo prompt this theme is — shown on pack cover and intros. */
+  blurb: string;
 }
 
+/**
+ * Themes are the photo-prompt categories. Each one tells the player what
+ * to point their camera at. Color palette is tuned to evoke the theme:
+ * Family is warm/coral, Work is steel-blue corporate, Animals is earthy green.
+ */
 export const ELEMENTS: Record<ElementId, ElementDef> = {
-  ember: { name: 'Ember', color: '#e8633a', deep: '#7a2a13', glow: '#ffb38a' },
-  tide:  { name: 'Tide',  color: '#3a8fc4', deep: '#143b5e', glow: '#9ed6f7' },
-  bloom: { name: 'Bloom', color: '#5ea863', deep: '#1f4524', glow: '#b9e3b8' },
-  gust:  { name: 'Gust',  color: '#c8b46a', deep: '#5a4a1f', glow: '#f4e8a8' },
-  void:  { name: 'Void',  color: '#7a4ea8', deep: '#2a163f', glow: '#c9a8e8' },
+  family:  { name: 'Family',  color: '#d96658', deep: '#6e1f1a', glow: '#f4b8a8',
+             blurb: 'the people who raised you' },
+  work:    { name: 'Work',    color: '#4a6280', deep: '#1c2a3d', glow: '#b6c5da',
+             blurb: 'the office, the grind, the boss' },
+  animals: { name: 'Animals', color: '#5ea863', deep: '#1f4524', glow: '#b9e3b8',
+             blurb: 'pets, wildlife, the creatures around you' },
 };
 
 export const RARITY_COLOR: Record<string, string> = {
