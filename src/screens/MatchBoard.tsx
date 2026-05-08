@@ -3,6 +3,7 @@ import { ArrowLeft, Heart, Coins, Layers, Skull } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
+import { CoinFlip } from '../components/CoinFlip';
 import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
@@ -62,8 +63,14 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
+  /** Pre-match coin flip is animating. While true, the AI driver is paused
+      and the player can't interact — keeps the opening uniform either way. */
+  const [flipping, setFlipping] = useState(true);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
+  /** Player creature row — also a valid drop target so the player can drag a
+      card straight onto the field instead of having to aim at the divider. */
+  const playerFieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   /** DOM nodes of every creature on the field + the two faces, keyed by battleId
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
@@ -76,6 +83,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   // ============== AI driver ==============
   useEffect(() => {
+    if (flipping) return; // wait until the opening coin flip finishes
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
 
@@ -112,7 +120,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     };
     const t = setTimeout(tick, 600);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state]);
+  }, [state, flipping]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
@@ -266,10 +274,14 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   const onPointerMove = (ev: React.PointerEvent) => {
     if (!drag) return;
-    const fr = fieldRef.current?.getBoundingClientRect();
-    const overField = !!fr &&
-      ev.clientX >= fr.left && ev.clientX <= fr.right &&
-      ev.clientY >= fr.top  && ev.clientY <= fr.bottom;
+    // Drop zone = divider band OR the player creature row. Releasing on
+    // either plays the card; aiming at the thin center line was too fiddly.
+    const inside = (rect: DOMRect | undefined) =>
+      !!rect &&
+      ev.clientX >= rect.left && ev.clientX <= rect.right &&
+      ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+    const overField = inside(fieldRef.current?.getBoundingClientRect())
+      || inside(playerFieldRef.current?.getBoundingClientRect());
     setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField } : d);
   };
 
@@ -445,6 +457,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
+      {/* Pre-match coin flip — runs once at mount, then unblocks the rest of
+          the game. The actual first-turn decision lives in createMatch; this
+          is just the cosmetic reveal. */}
+      {flipping && (
+        <CoinFlip
+          result={state.turn}
+          bossAvatar={boss.avatar}
+          bossName={boss.name}
+          onDone={() => setFlipping(false)}
+        />
+      )}
+
       {/* Faint hex pattern under everything — gives the playmat texture. */}
       <svg style={{ position: 'absolute', inset: 0, opacity: 0.06, pointerEvents: 'none' }} width="100%" height="100%">
         <defs>
@@ -573,28 +597,39 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       {/* Floating turn-status label — sits above the divider line at top:364
           with pointer-events:none so it never intercepts clicks meant for the
           End Turn button or the drop zone. Doubles as the transient action
-          message slot ("Drew 2 cards", error reasons, etc.). */}
-      <div style={{
-        position: 'absolute', top: 364, left: 0, right: 0,
-        textAlign: 'center', pointerEvents: 'none',
-        fontSize: 10, fontWeight: 700, letterSpacing: '0.22em',
-        textTransform: 'uppercase',
-        color: PALETTE.textMid,
-        zIndex: 5,
-      }}>
-        {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
-          ? msg
-          : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
-      </div>
+          message slot ("Drew 2 cards", error reasons, etc.). Hidden when the
+          divider is showing the casting hint or the drop hint, so the two
+          texts never collide. */}
+      {!pendingSpell && !drag?.overField && (
+        <div style={{
+          position: 'absolute', top: 364, left: 0, right: 0,
+          textAlign: 'center', pointerEvents: 'none',
+          fontSize: 10, fontWeight: 700, letterSpacing: '0.22em',
+          textTransform: 'uppercase',
+          color: PALETTE.textMid,
+          zIndex: 5,
+        }}>
+          {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
+            ? msg
+            : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
+        </div>
+      )}
 
-      {/* Player's creature row — top: 416, mirror of the opponent row. */}
+      {/* Player's creature row — top: 416, mirror of the opponent row. Also
+          acts as a drop zone so the player can drag straight onto the field. */}
       <div
+        ref={playerFieldRef}
         onClick={() => { if (selectedHandIdx !== null) playSelectedToField(); }}
         style={{
           position: 'absolute', top: 416, left: 0, right: 0, height: 110,
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
           zIndex: 3,
           cursor: selectedHandIdx !== null ? 'pointer' : 'default',
+          // Subtle yellow tint when actively dragging into the field.
+          background: drag?.overField
+            ? 'rgba(244,208,74,.10)'
+            : 'transparent',
+          transition: 'background .15s',
         }}
       >
         <FieldRow
@@ -934,9 +969,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   );
 }
 
+const SLOTS_PER_ROW = 6;
+
 function FieldRow({
   side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
-  registerEl, onCardClick, onCardLongPress,
+  highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
@@ -945,15 +982,16 @@ function FieldRow({
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
-  /** Reserved for future use — empty slots are no longer rendered. */
+  /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
 }) {
-  // Empty slots are no longer rendered — a single creature should sit dead
-  // center, two should flank the center, etc. The drop zone for playing new
-  // creatures is the divider band, not a row of slot outlines.
+  // Render filled slots first (centered), followed by empty slot outlines so
+  // the player can see how many spaces are left and where new creatures will
+  // land. Outlines stay subtle by default and brighten on drag/select.
+  const emptyCount = Math.max(0, SLOTS_PER_ROW - cards.length);
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {cards.map((c) => {
@@ -992,6 +1030,20 @@ function FieldRow({
           </div>
         );
       })}
+      {Array.from({ length: emptyCount }).map((_, i) => (
+        <div key={`empty-${i}`} style={{
+          width: 64, height: 88,
+          borderRadius: 8,
+          border: highlightEmpty
+            ? '2px dashed #f4d04a'
+            : '1.5px dashed rgba(58,46,42,.18)',
+          background: highlightEmpty
+            ? 'rgba(244,208,74,.12)'
+            : 'rgba(255,255,255,.18)',
+          transition: 'border-color .15s, background .15s',
+          flex: '0 0 auto',
+        }} />
+      ))}
     </div>
   );
 }
