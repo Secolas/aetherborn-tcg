@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { ArrowLeft, Heart, Coins, Layers, Skull } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -66,6 +66,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Pre-match coin flip is animating. While true, the AI driver is paused
       and the player can't interact — keeps the opening uniform either way. */
   const [flipping, setFlipping] = useState(true);
+  /** Give-up confirmation modal. We never quit on the first tap — too easy
+      to lose 20 minutes of progress to a misclick. */
+  const [confirmGiveUp, setConfirmGiveUp] = useState(false);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   /** Player creature row — also a valid drop target so the player can drag a
@@ -194,27 +197,46 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const attackerDying = !!attackerCard && info.damageToAtk >= attackerCard.currentHp;
     const anyDying = defenderDying || attackerDying;
 
-    // Damage pops at impact (~250ms in)
+    // Creature trades show the big card-vs-card preview. The trade plays out
+    // across ~1700ms (slide-in → strike → counter → settle / slice) so the
+    // player can actually see who hit who. Face attacks keep the snappy
+    // ~500ms timing — there's no preview overlay to wait for.
+    const isTrade = defenderKind === 'creature';
+    const popDelay = isTrade ? 700 : 250;
+
+    // Damage pops at the strike phase.
     setTimeout(() => {
       const defKey = defenderKind === 'face'
         ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
         : (defenderId as string);
       setDamages(d => ({ ...d, [defKey]: info.damageToDef }));
+      // Counter-strike pops slightly later for trades so the two hits read
+      // as separate beats, not one combined flash.
       if (info.damageToAtk > 0) {
-        setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
+        const counterOffset = isTrade ? 300 : 0;
+        setTimeout(() => {
+          setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
+        }, counterOffset);
       }
-      // Trigger slice on whichever creatures are about to die.
+      // Track who's dying. For trades, the VS overlay reads dyingIds and
+      // plays the slice on the big preview cards. For face attacks (no
+      // big preview), the small battlefield card plays its own slice via
+      // the same state — see FieldRow's `inTrade` guard.
       const dying: string[] = [];
-      if (defenderDying && defenderKind === 'creature') dying.push(defenderId as string);
+      if (defenderDying && isTrade) dying.push(defenderId as string);
       if (attackerDying) dying.push(info.attackerId);
       if (dying.length) setDyingIds(dying);
-
       setTimeout(() => setDamages({}), 900);
-    }, 250);
+    }, popDelay);
 
-    // Hold state update until after the slice animation when something dies.
-    const stateDelay = anyDying ? 950 : 500;
-    const clearDelay = anyDying ? 1100 : 700;
+    // State swap timing — extended for trades so the slice / settle finishes
+    // before the cards disappear from state.
+    const stateDelay = isTrade
+      ? (anyDying ? 1700 : 1400)
+      : (anyDying ? 950 : 500);
+    const clearDelay = isTrade
+      ? (anyDying ? 1900 : 1600)
+      : (anyDying ? 1100 : 700);
     setTimeout(() => done(), stateDelay);
     setTimeout(() => {
       setCombat(null);
@@ -485,7 +507,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       {/* Opponent header strip — back button on the left, opp portrait + HP on
           the right. Top: 16, height ~64 per the layout spec. */}
       <div style={{ position: 'absolute', top: 16, left: 12, right: 12, height: 64, display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8 }}>
-        <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
+        <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
+          <Flag size={18} strokeWidth={2.4} />
+        </button>
         <OpponentPortrait
           boss={boss}
           themeColor={bossElement.color}
@@ -843,7 +867,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
       {/* Big card-vs-card preview — shown for the duration of every creature
           trade so the player sees the matchup, not just two tiny cards on the
-          field. Hidden for face attacks (the small-card lunge is enough). */}
+          field. Hidden for face attacks (the small-card lunge is enough).
+          The trade plays out across ~1700ms with a lunge → counter → settle
+          rhythm, and the dying side ends with a brightness flare + slash
+          rather than just disappearing from the field. */}
       {combat && combat.defenderId !== 'face' && (() => {
         const attackerCard = (combat.attackerOwner === 'player' ? state.player.field : state.opponent.field)
           .find(c => c.battleId === combat.attackerId);
@@ -852,7 +879,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         if (!attackerCard || !defenderCard) return null;
         const attackerDying = dyingIds.includes(combat.attackerId);
         const defenderDying = dyingIds.includes(combat.defenderId);
-        const heldMs = (attackerDying || defenderDying) ? 1100 : 700;
+        const anyDying = attackerDying || defenderDying;
+        const heldMs = anyDying ? 1900 : 1600;
+        const leftAnim = attackerDying ? 'vsLeftDying' : 'vsLeftLunge';
+        const rightAnim = defenderDying ? 'vsRightDying' : 'vsRightLunge';
         return (
           <div style={{
             position: 'absolute', inset: 0,
@@ -860,11 +890,22 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             gap: 18,
             zIndex: 170,
             pointerEvents: 'none',
-            background: 'rgba(0,0,0,.4)',
+            background: 'rgba(0,0,0,.45)',
             animation: `vsReveal ${heldMs}ms ease-out forwards`,
           }}>
-            <div style={{ animation: `vsRevealLeft ${heldMs}ms ease-out forwards` }}>
+            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms ease-out forwards` }}>
               <Card card={attackerCard} scale={0.62} hovered />
+              {attackerDying && (
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: 220, height: 7,
+                  background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
+                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                }} />
+              )}
             </div>
             <div style={{
               fontSize: 36, fontWeight: 900, letterSpacing: '0.05em',
@@ -873,8 +914,19 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               fontFamily: '"Fredoka", system-ui',
               transform: 'rotate(-6deg)',
             }}>VS</div>
-            <div style={{ animation: `vsRevealRight ${heldMs}ms ease-out forwards` }}>
+            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms ease-out forwards` }}>
               <Card card={defenderCard} scale={0.62} hovered />
+              {defenderDying && (
+                <div style={{
+                  position: 'absolute', top: '50%', left: '50%',
+                  width: 220, height: 7,
+                  background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
+                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
+                  pointerEvents: 'none',
+                  zIndex: 5,
+                }} />
+              )}
             </div>
           </div>
         );
@@ -965,11 +1017,80 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           onClose={() => setGraveyardOpen(null)}
         />
       )}
+
+      {/* Give-up confirmation — quitting a match should never be one tap. */}
+      {confirmGiveUp && (
+        <div
+          onClick={() => setConfirmGiveUp(false)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(8,4,12,.75)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 280,
+            animation: 'fadeIn .2s',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#fef8f0',
+              borderRadius: 22,
+              padding: '26px 28px 22px',
+              maxWidth: 320, width: '88%',
+              boxShadow: '0 18px 48px rgba(0,0,0,.4)',
+              fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{
+              width: 56, height: 56, borderRadius: '50%',
+              background: 'linear-gradient(160deg, #ffa07a, #ee5a52)',
+              display: 'grid', placeItems: 'center',
+              margin: '0 auto 14px',
+              boxShadow: '0 8px 18px rgba(238,90,82,.35)',
+              color: '#fff',
+            }}>
+              <Flag size={26} strokeWidth={2.4} />
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: PALETTE.text, marginBottom: 6 }}>
+              Give up this match?
+            </div>
+            <div style={{ fontSize: 13, color: PALETTE.textMid, marginBottom: 22, lineHeight: 1.4 }}>
+              You'll lose to {boss.name} and forfeit the round.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setConfirmGiveUp(false)} style={{
+                flex: 1,
+                background: '#fff',
+                color: PALETTE.text,
+                border: `1.5px solid ${PALETTE.border}`,
+                borderRadius: 18, padding: '11px 16px',
+                fontSize: 14, fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}>Keep playing</button>
+              <button onClick={() => onExit('quit')} style={{
+                flex: 1,
+                background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 18, padding: '11px 16px',
+                fontSize: 14, fontWeight: 700,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: '0 4px 12px rgba(200,54,46,.35)',
+              }}>Give up</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-const SLOTS_PER_ROW = 6;
+// Mirrors MAX_FIELD in the engine so the empty-slot placeholders match the
+// engine's actual cap. Three keeps games short and tactical.
+const SLOTS_PER_ROW = 3;
 
 function FieldRow({
   side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
@@ -992,6 +1113,10 @@ function FieldRow({
   // the player can see how many spaces are left and where new creatures will
   // land. Outlines stay subtle by default and brighten on drag/select.
   const emptyCount = Math.max(0, SLOTS_PER_ROW - cards.length);
+  // Creature trades render slice + recoil on the big VS preview overlay, not
+  // on the tiny battlefield card. We only let the small slice play for face
+  // attacks (no preview) and for AI plays that don't go through combat.
+  const inTrade = !!combat && combat.defenderId !== 'face';
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {cards.map((c) => {
@@ -999,7 +1124,7 @@ function FieldRow({
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
         const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
-        const isDying = dyingIds.includes(c.battleId);
+        const isDying = !inTrade && dyingIds.includes(c.battleId);
         return (
           <div
             key={c.battleId}
@@ -1129,6 +1254,8 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'attack' ? '#ee5a52' : highlight === 'spell' ? '#3a8fc4' : null;
+  // Shake when actually hit (damage > 0). Heals don't shake.
+  const hit = damage != null && damage > 0;
   return (
     <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
@@ -1137,8 +1264,12 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
       background: '#fff',
       boxShadow: ring
         ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
-        : '0 4px 10px rgba(58,46,42,.12)',
-      animation: damage ? 'hpFlash 0.5s' : undefined,
+        : hit
+          ? '0 0 0 2px #ee5a52, 0 0 16px rgba(238,90,82,.6), 0 4px 10px rgba(58,46,42,.12)'
+          : '0 4px 10px rgba(58,46,42,.12)',
+      animation: hit
+        ? 'shake 0.4s, hpFlash 0.5s'
+        : damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
       <div style={{
@@ -1185,6 +1316,7 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
   elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'heal' ? '#06d6a0' : null;
+  const hit = damage != null && damage > 0;
   return (
     <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
@@ -1193,8 +1325,12 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
       background: '#fff',
       boxShadow: ring
         ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
-        : '0 4px 10px rgba(58,46,42,.12)',
-      animation: damage ? 'hpFlash 0.5s' : undefined,
+        : hit
+          ? '0 0 0 2px #ee5a52, 0 0 16px rgba(238,90,82,.6), 0 4px 10px rgba(58,46,42,.12)'
+          : '0 4px 10px rgba(58,46,42,.12)',
+      animation: hit
+        ? 'shake 0.4s, hpFlash 0.5s'
+        : damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
       <div style={{ paddingLeft: 8, textAlign: 'right' }}>
