@@ -162,6 +162,20 @@ input {
 }
 /* Subtle scale pulse on the wrapper so the spin feels alive without moving
    off-center. Matches the spin duration. */
+/* Spell-target FX — burst + ring rendered over a targeted creature when a
+   spell resolves. Color is set per spell kind via inline styles. */
+@keyframes spellTargetBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1.6); }
+  60%  { opacity: 0.85; transform: translate(-50%, -50%) scale(1.3); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.1); }
+}
+@keyframes spellTargetRing {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  30%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
+}
+
 @keyframes coinPulse {
   0%   { transform: scale(0.85); }
   10%  { transform: scale(1.05); }
