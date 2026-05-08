@@ -90,7 +90,10 @@ export function Collection({ collection, onCapture, onBack }: Props) {
         </div>
       </div>
 
-      <div className="no-scrollbar" style={{ padding: '4px 16px 12px', display: 'flex', gap: 6, overflow: 'auto' }}>
+      <div style={{
+        padding: '4px 16px 12px',
+        display: 'flex', flexWrap: 'wrap', gap: 6,
+      }}>
         {FILTERS.map(f => {
           const active = f.id === filter;
           const count = countFor(f.id);
@@ -103,7 +106,7 @@ export function Collection({ collection, onCapture, onBack }: Props) {
               onClick={() => setFilter(f.id)}
               disabled={count === 0 && f.id !== 'All'}
               style={{
-                padding: '7px 12px', borderRadius: 14,
+                padding: '6px 11px', borderRadius: 12,
                 background: bg,
                 color: active ? '#fff' : PALETTE.text,
                 fontSize: 12, fontWeight: 600,
@@ -117,7 +120,7 @@ export function Collection({ collection, onCapture, onBack }: Props) {
                   ? '0 4px 10px rgba(255,126,95,.35)'
                   : '0 2px 4px rgba(58,46,42,.06)',
                 transition: 'all .15s',
-                display: 'flex', alignItems: 'center', gap: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 5,
               }}
             >
               {f.icon && <span style={{ display: 'flex', alignItems: 'center' }}>{f.icon}</span>}
@@ -128,7 +131,6 @@ export function Collection({ collection, onCapture, onBack }: Props) {
                   background: active ? 'rgba(255,255,255,.25)' : 'rgba(58,46,42,.08)',
                   color: active ? '#fff' : PALETTE.textMid,
                   padding: '1px 6px', borderRadius: 8,
-                  marginLeft: 1,
                 }}>{count}</span>
               )}
             </button>
