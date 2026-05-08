@@ -44,6 +44,12 @@ export interface CollectionCard extends CardTemplate {
   uid: string;
   photo: string | null;
   nickname?: string;
+  /**
+   * True when this photo is a placeholder (thematic stock image filled in
+   * by Quick Play) rather than a real photo the user took. Lets the UI
+   * mark these cards so the player knows which ones to retake.
+   */
+  isPlaceholder?: boolean;
 }
 
 /** Live battlefield instance — copy of a card with mutable battle state. */

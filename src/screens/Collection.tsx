@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Heart, Briefcase, PawPrint, Swords, Sparkles, Lock } from 'lucide-react';
+import { ArrowLeft, Heart, Briefcase, PawPrint, Swords, Sparkles, Lock, Camera, Trash2, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { iconBtn, PALETTE } from '../components/styles';
 import { ELEMENTS } from '../data/elements';
@@ -24,13 +24,19 @@ const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme
 interface Props {
   collection: CollectionCard[];
   onCapture: (card: CollectionCard) => void;
+  onClearPhoto: (uid: string) => void;
+  onQuickFill: () => void;
   onBack: () => void;
 }
 
-export function Collection({ collection, onCapture, onBack }: Props) {
+export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onBack }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
+  const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
   const summoned = collection.filter(c => c.photo).length;
   const total = collection.length;
+
+  const dormantCount = collection.filter(c => !c.photo).length;
+  const placeholderCount = collection.filter(c => c.isPlaceholder).length;
 
   const filtered = collection.filter(c => {
     switch (filter) {
@@ -70,8 +76,31 @@ export function Collection({ collection, onCapture, onBack }: Props) {
           <div style={{ fontSize: 20, fontWeight: 700 }}>Collection</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
             {summoned} summoned · {total - summoned} dormant
+            {placeholderCount > 0 && ` · ${placeholderCount} placeholder`}
           </div>
         </div>
+        {dormantCount > 0 && (
+          <button
+            onClick={onQuickFill}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              background: '#fff',
+              color: PALETTE.accentDeep,
+              border: `1.5px dashed ${PALETTE.accent}`,
+              borderRadius: 14,
+              padding: '6px 11px',
+              fontSize: 11, fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: '0 2px 6px rgba(58,46,42,.06)',
+              whiteSpace: 'nowrap',
+            }}
+            title="Fill all dormant cards with placeholder photos"
+          >
+            <Sparkles size={13} strokeWidth={2.4} />
+            Fill all
+          </button>
+        )}
       </div>
 
       <div style={{ padding: '0 20px 12px' }}>
@@ -156,29 +185,130 @@ export function Collection({ collection, onCapture, onBack }: Props) {
             justifyItems: 'center',
             alignContent: 'start',
           }}>
-            {filtered.map(card => (
-              <div key={card.uid}
-                onClick={() => !card.photo && onCapture(card)}
-                style={{ cursor: card.photo ? 'default' : 'pointer', position: 'relative' }}
-              >
-                <Card card={card} scale={0.7} />
-                {!card.photo && (
-                  <div style={{
-                    position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
-                    fontSize: 10, fontWeight: 700,
-                    color: '#fff',
-                    background: PALETTE.accent,
-                    padding: '4px 10px', borderRadius: 10,
-                    boxShadow: '0 4px 10px rgba(255,126,95,.4)',
-                    pointerEvents: 'none',
-                    whiteSpace: 'nowrap',
-                  }}>tap to summon</div>
-                )}
-              </div>
-            ))}
+            {filtered.map(card => {
+              const isReplaceable = !card.photo || card.isPlaceholder;
+              return (
+                <div key={card.uid}
+                  onClick={() => {
+                    if (!card.photo) onCapture(card);
+                    else if (card.isPlaceholder) setActionFor(card);
+                  }}
+                  style={{ cursor: isReplaceable ? 'pointer' : 'default', position: 'relative' }}
+                >
+                  <Card card={card} scale={0.7} />
+                  {!card.photo && (
+                    <div style={{
+                      position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
+                      fontSize: 10, fontWeight: 700,
+                      color: '#fff',
+                      background: PALETTE.accent,
+                      padding: '4px 10px', borderRadius: 10,
+                      boxShadow: '0 4px 10px rgba(255,126,95,.4)',
+                      pointerEvents: 'none',
+                      whiteSpace: 'nowrap',
+                    }}>tap to summon</div>
+                  )}
+                  {card.isPlaceholder && (
+                    <div style={{
+                      position: 'absolute', top: 4, right: 4,
+                      fontSize: 9, fontWeight: 700,
+                      color: '#fff',
+                      background: 'rgba(58,46,42,.85)',
+                      padding: '3px 7px', borderRadius: 8,
+                      letterSpacing: '0.05em',
+                      display: 'flex', alignItems: 'center', gap: 3,
+                      boxShadow: '0 2px 6px rgba(0,0,0,.25)',
+                      pointerEvents: 'none',
+                    }}>
+                      <Sparkles size={10} strokeWidth={2.4} />
+                      placeholder
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
+
+      {actionFor && (
+        <div
+          onClick={() => setActionFor(null)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(58,46,42,.55)',
+            display: 'flex', alignItems: 'flex-end',
+            zIndex: 200,
+            animation: 'fadeIn .2s',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%', background: '#fff',
+              borderRadius: '20px 20px 0 0',
+              padding: '18px 18px 28px',
+              boxShadow: '0 -4px 20px rgba(0,0,0,.15)',
+              animation: 'slideUp .25s cubic-bezier(.2,.8,.3,1)',
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 700, color: PALETTE.text, marginBottom: 2 }}>
+              {actionFor.nickname || actionFor.name}
+            </div>
+            <div style={{ fontSize: 11, color: PALETTE.textMid, marginBottom: 16 }}>
+              This card has a placeholder photo
+            </div>
+            <button
+              onClick={() => { onCapture(actionFor); setActionFor(null); }}
+              style={{
+                width: '100%', padding: '14px 16px',
+                background: PALETTE.accent, color: '#fff',
+                border: 'none', borderRadius: 14,
+                fontSize: 14, fontWeight: 700,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                boxShadow: '0 4px 12px rgba(255,126,95,.35)',
+                marginBottom: 8,
+              }}
+            >
+              <Camera size={18} strokeWidth={2.4} />
+              Take my own photo
+            </button>
+            <button
+              onClick={() => { onClearPhoto(actionFor.uid); setActionFor(null); }}
+              style={{
+                width: '100%', padding: '12px 16px',
+                background: '#fff', color: PALETTE.text,
+                border: `1.5px solid ${PALETTE.border}`,
+                borderRadius: 14,
+                fontSize: 13, fontWeight: 600,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                marginBottom: 8,
+              }}
+            >
+              <Trash2 size={16} strokeWidth={2.2} />
+              Clear photo (return to dormant)
+            </button>
+            <button
+              onClick={() => setActionFor(null)}
+              style={{
+                width: '100%', padding: '10px 16px',
+                background: 'transparent', color: PALETTE.textMid,
+                border: 'none',
+                fontSize: 12, fontWeight: 600,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}
+            >
+              <X size={14} /> Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

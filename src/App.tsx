@@ -10,6 +10,7 @@ import { BossPicker } from './screens/BossPicker';
 import { Album } from './screens/Album';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
+import { aiPhoto } from './data/samplePhotos';
 import type { BossDef } from './data/bosses';
 import type { CollectionCard, SaveData } from './game/types';
 
@@ -43,12 +44,55 @@ export default function App() {
   };
 
   const onCaptureComplete = (updated: CollectionCard) => {
+    // Real photo replaces any placeholder
+    const real = { ...updated, isPlaceholder: false };
     setSave(s => ({
       ...s,
-      collection: s.collection.map(c => c.uid === updated.uid ? updated : c),
+      collection: s.collection.map(c => c.uid === real.uid ? real : c),
     }));
     setCapturing(null);
     setScreen('collection');
+  };
+
+  /**
+   * Quick Play: fill every dormant card with a thematic placeholder photo
+   * and auto-build a starter deck so the player can play immediately
+   * without taking real photos. Each placeholder is marked so they can
+   * see what to replace later.
+   */
+  const onQuickFill = () => {
+    setSave(s => {
+      const filled = s.collection.map(c =>
+        c.photo
+          ? c
+          : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
+      );
+      const playable = filled.filter(c => !!c.photo);
+      // Build a deck of up to 8 cards if we don't have a full one yet
+      let deckUids = s.deckUids.filter(uid => filled.find(c => c.uid === uid && c.photo));
+      if (deckUids.length < 8) {
+        const sorted = [...playable].sort((a, b) => a.cost - b.cost); // cheap first for a sane curve
+        for (const c of sorted) {
+          if (deckUids.length >= 8) break;
+          if (!deckUids.includes(c.uid)) deckUids.push(c.uid);
+        }
+      }
+      return { ...s, collection: filled, deckUids };
+    });
+  };
+
+  /**
+   * Clear a card's photo so the player can retake it. Also drops it from
+   * the active deck since dormant cards can't be played.
+   */
+  const onClearPhoto = (uid: string) => {
+    setSave(s => ({
+      ...s,
+      collection: s.collection.map(c =>
+        c.uid === uid ? { ...c, photo: null, isPlaceholder: false } : c
+      ),
+      deckUids: s.deckUids.filter(x => x !== uid),
+    }));
   };
 
   const onPackOpened = (cards: CollectionCard[], coinsSpent: number) => {
@@ -96,15 +140,21 @@ export default function App() {
   return (
     <PhoneShell>
       {screen === 'home' && (
-        <HomeMenu save={save} onNav={(s) => {
-          if (s === 'play') setScreen('boss-picker');
-          else setScreen(s);
-        }} />
+        <HomeMenu
+          save={save}
+          onQuickFill={onQuickFill}
+          onNav={(s) => {
+            if (s === 'play') setScreen('boss-picker');
+            else setScreen(s);
+          }}
+        />
       )}
       {screen === 'collection' && (
         <Collection
           collection={save.collection}
           onCapture={goCapture}
+          onClearPhoto={onClearPhoto}
+          onQuickFill={onQuickFill}
           onBack={() => setScreen('home')}
         />
       )}

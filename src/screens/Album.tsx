@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Camera } from 'lucide-react';
+import { ArrowLeft, Camera, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -164,6 +164,18 @@ function PolaroidEntry({
           padding: '2px 6px', borderRadius: 8,
           textTransform: 'uppercase', letterSpacing: '0.05em',
         }}>{e.name}</div>
+        {card.isPlaceholder && (
+          <div style={{
+            position: 'absolute', top: 6, right: 6,
+            background: 'rgba(58,46,42,.85)', color: '#fff',
+            fontSize: 9, fontWeight: 700,
+            padding: '3px 6px', borderRadius: 8,
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}>
+            <Sparkles size={9} strokeWidth={2.5} />
+            placeholder
+          </div>
+        )}
       </div>
       <div style={{
         marginTop: 8, paddingLeft: 2,

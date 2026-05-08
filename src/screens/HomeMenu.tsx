@@ -1,4 +1,4 @@
-import { Coins, Package, Images, Layers, Swords, ScrollText } from 'lucide-react';
+import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -7,9 +7,10 @@ import type { SaveData } from '../game/types';
 interface Props {
   save: SaveData;
   onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album') => void;
+  onQuickFill: () => void;
 }
 
-export function HomeMenu({ save, onNav }: Props) {
+export function HomeMenu({ save, onNav, onQuickFill }: Props) {
   const summoned = save.collection.find(c => c.photo);
   const dormant = TEMPLATES.find(t => t.id === 'fam-11')!; // Dad — iconic
   const playableInDeck = save.deckUids.filter(uid => {
@@ -18,6 +19,8 @@ export function HomeMenu({ save, onNav }: Props) {
   }).length;
   const canMatch = playableInDeck >= 4;
   const summonedCount = save.collection.filter(c => c.photo).length;
+  const dormantCount = save.collection.filter(c => !c.photo).length;
+  const showQuickFill = !canMatch && dormantCount > 0;
 
   return (
     <div style={{
@@ -155,6 +158,26 @@ export function HomeMenu({ save, onNav }: Props) {
         >
           {canMatch ? <><Swords size={20} strokeWidth={2.4} /> Play Match</> : `Need ${4 - playableInDeck} more in deck`}
         </button>
+
+        {showQuickFill && (
+          <button
+            onClick={onQuickFill}
+            style={{
+              ...btnSecondary,
+              width: '100%',
+              padding: '12px 16px',
+              fontSize: 13,
+              fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              background: 'rgba(255,255,255,0.85)',
+              color: PALETTE.text,
+              border: `1.5px dashed ${PALETTE.accent}`,
+            }}
+          >
+            <Sparkles size={16} color={PALETTE.accent} strokeWidth={2.4} />
+            <span>Quick Play with placeholder photos</span>
+          </button>
+        )}
         <div style={{ display: 'flex', gap: 8 }}>
           <NavButton label="Packs"      icon={<Package    size={18} />} onClick={() => onNav('pack')} />
           <NavButton label="Collection" icon={<Layers     size={18} />} onClick={() => onNav('collection')} />
