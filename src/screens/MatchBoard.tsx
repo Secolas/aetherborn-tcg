@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Heart, Coins } from 'lucide-react';
+import { ArrowLeft, Heart, Coins, Layers } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
@@ -140,10 +140,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   // ============== Drag from hand ==============
   const onCardPointerDown = (ev: React.PointerEvent, card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
-    if (card.cost > state.player.mana) {
-      flashMsg('Not enough mana');
-      return;
-    }
+    // Note: we no longer block pointer-down on unaffordable cards. Players can
+    // still tap them to preview — the mana check happens at PLAY time.
     const rect = ev.currentTarget.getBoundingClientRect();
     setDrag({
       battleId: card.battleId,
@@ -207,12 +205,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   };
 
   /** Tap a hand card: toggle selection. The card lifts up as a preview. */
-  const handleHandTap = (card: BattleCard, idx: number) => {
+  const handleHandTap = (_card: BattleCard, idx: number) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
-    if (card.cost > state.player.mana) {
-      flashMsg('Not enough mana');
-      return;
-    }
+    // Selection is allowed even if mana is short — the player can still preview
+    // a card. The mana check fires when they actually try to play.
     setSelectedHandIdx(prev => prev === idx ? null : idx);
     setSelectedAttacker(null);
     setPendingSpell(null);
@@ -237,10 +233,25 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         || card.abilityKind === 'draw_on_play'
         || card.id === 'ti-05';
       if (noTarget) {
+        const beforeHp = state.player.hp;
+        const beforeHand = state.player.hand.length;
         const r = playCard(state, 'player', card.battleId, { kind: 'face', owner: 'player' });
         if (r.ok) {
           setState(r.state);
           setSelectedHandIdx(null);
+          // Show a green +N popup over the player avatar so heals are visible.
+          const healed = r.state.player.hp - beforeHp;
+          if (healed > 0) {
+            setDamages(d => ({ ...d, [FACE_PLAYER]: -healed }));
+            setTimeout(() => setDamages(d => {
+              const next = { ...d }; delete next[FACE_PLAYER]; return next;
+            }), 900);
+          }
+          // Card-draw spells likewise feel invisible — flash a quick confirmation.
+          const drewCards = r.state.player.hand.length - (beforeHand - 1);
+          if (drewCards > 0) {
+            flashMsg(`Drew ${drewCards} card${drewCards === 1 ? '' : 's'}`);
+          }
         } else {
           flashMsg(r.reason ?? 'Cannot cast');
         }
@@ -374,15 +385,20 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       </svg>
 
       <div style={{ position: 'absolute', top: 16, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', zIndex: 5, gap: 8 }}>
-        <OpponentPortrait
-          boss={boss}
-          themeColor={bossElement.color}
-          themeDeep={bossElement.deep}
-          hp={state.opponent.hp}
-          highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
-          onClick={onOppFaceClick}
-          damage={damages[FACE_OPP] ?? null}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <OpponentPortrait
+            boss={boss}
+            themeColor={bossElement.color}
+            themeDeep={bossElement.deep}
+            hp={state.opponent.hp}
+            highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
+            onClick={onOppFaceClick}
+            damage={damages[FACE_OPP] ?? null}
+          />
+          <div style={{ paddingLeft: 4 }}>
+            <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
+          </div>
+        </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <button onClick={() => onExit('quit')} style={iconBtn}><ArrowLeft size={18} /></button>
           <div style={{
@@ -495,14 +511,19 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Status message */}
-      <div style={{ position: 'absolute', top: 380, left: 0, right: 0, textAlign: 'center', fontSize: 12, fontWeight: 600, letterSpacing: '0.05em', color: PALETTE.textMid }}>
-        {msg}
+      {/* Brief flash messages (errors, action confirmations) appear here.
+          Whose turn it is is shown in the center bar — no duplicate. */}
+      <div style={{ position: 'absolute', top: 372, left: 0, right: 0, textAlign: 'center', fontSize: 11, fontWeight: 600, color: PALETTE.textMid, height: 16, transition: 'opacity .2s' }}>
+        {/* Only show transient messages (not the default 'Your turn') */}
+        {msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : ''}
       </div>
 
-      {/* My stats: mana on the left, player avatar+HP on the right */}
-      <div style={{ position: 'absolute', top: 410, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+      {/* My stats row: mana, deck count, player portrait */}
+      <div style={{ position: 'absolute', top: 396, left: 12, right: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 6 }}>
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
+        <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+          <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
+        </div>
         <PlayerPortrait
           hp={state.player.hp}
           highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
@@ -511,27 +532,28 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         />
       </div>
 
-      {/* Hand — tap a card to select it (lifts up as preview), then tap your field
-          area to play. Drag still works as alternative. No hover-driven preview, so
-          no flicker. */}
+      {/* Hand — flat Yu-Gi-Oh-style row. Tap a card to lift it for preview,
+          tap your field to play. Cards are always visible regardless of mana
+          (cost just shows in red when you can't afford it). */}
       <div style={{
-        position: 'absolute', bottom: 12, left: 0, right: 0, height: 260,
-        display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
+        position: 'absolute', bottom: 8, left: 0, right: 0, height: 240,
         pointerEvents: 'none',
       }}>
         {state.player.hand.map((card, i) => {
           const isDragging = drag?.battleId === card.battleId;
           if (isDragging) return null;
           const cardCount = state.player.hand.length;
-          const offset = (i - (cardCount - 1) / 2);
-          const rot = offset * 5;
-          const yOff = Math.abs(offset) * 5;
-          const xOff = offset * 30;
+          const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
           const playableNow = card.cost <= state.player.mana && state.turn === 'player';
-          const baseScale = 0.62;
-          const hitWidth = 220 * baseScale + 8;
-          const hitHeight = 320 * baseScale + 90;
+          const baseScale = 0.66;
+          const cardW = 220 * baseScale; // 145
+          // Stride scales with hand size so cards always fit the screen
+          const stride = cardCount <= 4 ? 80
+                       : cardCount <= 5 ? 70
+                       : cardCount <= 6 ? 56
+                       : 48;
+          const xOff = offset * stride;
           return (
             <div
               key={card.battleId}
@@ -539,24 +561,36 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               style={{
                 position: 'absolute', bottom: 0, left: '50%',
                 transform: `translateX(calc(-50% + ${xOff}px))`,
-                width: hitWidth, height: hitHeight,
+                width: cardW + 8,
+                height: 320 * baseScale + 80,
                 zIndex: isSelected ? 100 : 10 + i,
-                cursor: playableNow ? 'pointer' : 'not-allowed',
+                cursor: 'pointer',
                 touchAction: 'none',
                 pointerEvents: 'auto',
               }}
             >
               <div style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(-50%) translateY(${isSelected ? -65 : yOff}px) rotate(${isSelected ? 0 : rot}deg) scale(${isSelected ? 1.45 : 1})`,
+                transform: `translateX(-50%) translateY(${isSelected ? -80 : 0}px) scale(${isSelected ? 1.35 : 1})`,
                 transformOrigin: 'bottom center',
                 transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
-                opacity: playableNow ? 1 : 0.55,
-                filter: playableNow ? 'none' : 'grayscale(0.4)',
                 pointerEvents: 'none',
                 willChange: 'transform',
               }}>
                 <Card card={card} scale={baseScale} hovered={isSelected} />
+                {!playableNow && (
+                  <div style={{
+                    position: 'absolute', top: 6 * baseScale, left: 6 * baseScale,
+                    width: 36 * baseScale, height: 36 * baseScale, borderRadius: '50%',
+                    background: '#ee5a52',
+                    boxShadow: '0 0 0 2px #fff, 0 0 0 3px #ee5a52',
+                    display: 'grid', placeItems: 'center',
+                    fontSize: 22 * baseScale, fontWeight: 800,
+                    color: '#fff',
+                    fontFamily: '"Fredoka", system-ui',
+                    pointerEvents: 'none',
+                  }}>{card.cost}</div>
+                )}
               </div>
             </div>
           );
@@ -823,6 +857,25 @@ function PlayerPortrait({ hp, highlight, onClick, damage }: {
           whiteSpace: 'nowrap',
         }}>−{damage}</div>
       )}
+    </div>
+  );
+}
+
+function DeckChip({ count, handSize }: { count: number; handSize: number }) {
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center', gap: 6,
+      background: '#fff',
+      padding: '5px 11px', borderRadius: 14,
+      boxShadow: '0 3px 8px rgba(58,46,42,.10)',
+      fontSize: 12, fontWeight: 600, color: PALETTE.textMid,
+    }}>
+      <Layers size={14} color={PALETTE.accentDeep} strokeWidth={2.4} />
+      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{count}</span>
+      <span style={{ opacity: 0.7 }}>deck</span>
+      <span style={{ width: 1, height: 14, background: 'rgba(58,46,42,.12)' }} />
+      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{handSize}</span>
+      <span style={{ opacity: 0.7 }}>hand</span>
     </div>
   );
 }
