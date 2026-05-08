@@ -82,7 +82,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.25), inset 0 4px 12px rgba(0,0,0,.3)',
         position: 'relative',
       }}>
-        <PhotoFrame photo={photo} el={card.el} scale={scale} />
+        <PhotoFrame photo={photo} el={card.el} scale={scale} fallbackSeed={card.id} />
       </div>
 
       <div style={{
@@ -99,7 +99,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       </div>
 
       <div style={{
-        background: 'rgba(255,255,255,.92)',
+        background: 'rgba(255,255,255,.95)',
         color: '#2a1f12',
         borderRadius: 10 * scale,
         padding: `${6 * scale}px ${8 * scale}px`,
@@ -107,7 +107,26 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         minHeight: 42 * scale,
         boxShadow: 'inset 0 1px 2px rgba(0,0,0,.1)',
         fontFamily: '"Inter", system-ui, sans-serif',
-      }}>{card.ability}</div>
+        display: 'flex', flexDirection: 'column',
+        gap: 2 * scale,
+      }}>
+        {card.ability && (
+          <div style={{
+            fontWeight: 700,
+            color: e.deep,
+            fontSize: 10 * scale,
+            lineHeight: 1.25,
+          }}>{card.ability}</div>
+        )}
+        {card.flavor && (
+          <div style={{
+            fontStyle: 'italic',
+            color: '#7a5a52',
+            fontSize: 9 * scale,
+            lineHeight: 1.25,
+          }}>{card.flavor}</div>
+        )}
+      </div>
 
       {card.type === 'Creature' && (
         <>

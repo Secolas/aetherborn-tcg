@@ -1,4 +1,5 @@
 import { ELEMENTS } from '../data/elements';
+import { SmartImage } from './SmartImage';
 import type { ElementId } from '../game/types';
 
 interface Props {
@@ -6,19 +7,27 @@ interface Props {
   el: ElementId;
   scale?: number;
   dashed?: boolean;
+  /** Used for picsum fallback if photo URL fails to load. */
+  fallbackSeed?: string;
 }
 
-export function PhotoFrame({ photo, el, scale = 1, dashed = true }: Props) {
+export function PhotoFrame({ photo, el, scale = 1, dashed = true, fallbackSeed = el }: Props) {
   const e = ELEMENTS[el];
 
   if (photo) {
     return (
       <div style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
-        <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <SmartImage
+          src={photo}
+          alt=""
+          fallbackSeed={fallbackSeed}
+          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
         <div style={{
           position: 'absolute', inset: 0,
           background: `linear-gradient(160deg, ${e.color}30 0%, transparent 40%, ${e.deep}55 100%)`,
           mixBlendMode: 'overlay',
+          pointerEvents: 'none',
         }} />
         <div style={{
           position: 'absolute', inset: 0,

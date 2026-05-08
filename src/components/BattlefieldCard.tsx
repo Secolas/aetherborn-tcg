@@ -1,6 +1,7 @@
 import { useRef } from 'react';
-import { Snowflake, Shield } from 'lucide-react';
+import { Snowflake, Shield, Moon, Zap } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
+import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
 
 interface Props {
@@ -26,7 +27,8 @@ export function BattlefieldCard({
   onClick, onLongPress,
 }: Props) {
   const e = ELEMENTS[card.el];
-  const tapped = card.tapped || card.justPlayed;
+  const sleeping = card.justPlayed && card.abilityKind !== 'rush';
+  const exhausted = card.tapped && !card.justPlayed;
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
     : highlight === 'spell'  ? '#9ed6f7'
@@ -49,7 +51,6 @@ export function BattlefieldCard({
   };
 
   const handlePointerMove = (ev: React.PointerEvent) => {
-    // Cancel long-press if finger moves significantly
     if (!downPos.current || !pressTimer.current) return;
     const dx = ev.clientX - downPos.current.x;
     const dy = ev.clientY - downPos.current.y;
@@ -67,7 +68,6 @@ export function BattlefieldCard({
     if (!longFired.current && onClick) onClick();
   };
 
-  // Combine animations: lunge + shake (lunge wins; shake during defender)
   const animation = lunging === 'up' ? 'lungeUp .55s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .55s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
@@ -80,55 +80,80 @@ export function BattlefieldCard({
       onPointerUp={handlePointerUp}
       onPointerCancel={() => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } }}
       style={{
-        width: 64, height: 88,
-        borderRadius: 8,
-        background: card.photo
-          ? `linear-gradient(180deg, ${e.color}88, ${e.deep}cc), url(${card.photo}) center/cover`
-          : `linear-gradient(180deg, ${e.color}, ${e.deep})`,
-        backgroundBlendMode: card.photo ? 'multiply' : 'normal',
+        width: 64, height: 90,
+        borderRadius: 9,
+        background: `linear-gradient(180deg, ${e.color}, ${e.deep})`,
         boxShadow: ringColor
-          ? `0 0 0 2px ${ringColor}, 0 0 12px ${ringColor}`
-          : `0 4px 8px rgba(0,0,0,.4), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
+          ? `0 0 0 2.5px ${ringColor}, 0 0 14px ${ringColor}88, 0 4px 10px rgba(0,0,0,.25)`
+          : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
-        opacity: tapped ? 0.55 : 1,
+        opacity: card.frozen ? 0.6 : 1,
         animation,
         transition: 'opacity .2s, box-shadow .2s',
         flex: '0 0 auto',
-        overflow: 'visible', // allow damage popup to escape
+        overflow: 'visible',
         touchAction: 'manipulation',
       }}
     >
-      {/* The actual card "background" needs overflow:hidden so the photo doesn't bleed,
-          but the damage popup needs to escape — solved by an inner clipped layer. */}
+      {/* Inner photo + chrome (clipped) */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: 'inherit',
         overflow: 'hidden', pointerEvents: 'none',
       }}>
+        {card.photo && (
+          <SmartImage
+            src={card.photo}
+            alt={card.name}
+            fallbackSeed={card.id}
+            style={{
+              position: 'absolute', inset: 0,
+              width: '100%', height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        )}
+        {/* Theme tint over photo */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: `linear-gradient(180deg, ${e.color}66 0%, transparent 30%, ${e.deep}cc 100%)`,
+        }} />
+
         {/* Cost */}
         <div style={{
           position: 'absolute', top: 4, left: 4,
-          width: 14, height: 14, borderRadius: '50%',
+          minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8,
           background: '#fef4d8', color: e.deep,
-          fontSize: 9, fontWeight: 700,
+          fontSize: 10, fontWeight: 800,
           display: 'grid', placeItems: 'center',
+          boxShadow: '0 1px 0 rgba(0,0,0,.25)',
         }}>{card.cost}</div>
 
-        {card.frozen && (
-          <div style={{ position: 'absolute', top: 4, right: 4, color: '#9ed6f7', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.4))' }}>
-            <Snowflake size={12} fill="#9ed6f7" strokeWidth={2.4} />
-          </div>
-        )}
+        {/* Status badges (top-right stack) */}
+        <div style={{
+          position: 'absolute', top: 4, right: 4,
+          display: 'flex', flexDirection: 'column', gap: 2,
+        }}>
+          {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {card.abilityKind === 'taunt' && !card.frozen && <StatusPill color="#5ea863" icon={<Shield size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<Zap size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
+        </div>
 
-        {card.abilityKind === 'taunt' && !card.frozen && (
-          <div style={{ position: 'absolute', top: 4, right: 4, color: '#5ea863', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,.4))' }}>
-            <Shield size={12} fill="#5ea863" strokeWidth={2.4} />
-          </div>
+        {/* Tapped/exhausted treatment */}
+        {(exhausted || card.frozen) && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: card.frozen
+              ? 'linear-gradient(180deg, rgba(158,214,247,.35) 0%, rgba(58,143,196,.45) 100%)'
+              : 'rgba(0,0,0,.3)',
+            backdropFilter: 'saturate(0.6)',
+          }} />
         )}
 
         <div style={{
-          position: 'absolute', bottom: 22, left: 0, right: 0,
-          textAlign: 'center', fontSize: 8, fontWeight: 700,
+          position: 'absolute', bottom: 24, left: 0, right: 0,
+          textAlign: 'center', fontSize: 9, fontWeight: 700,
           color: '#fff', textShadow: '0 1px 2px #000',
           padding: '0 4px', lineHeight: 1.1,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
@@ -138,29 +163,29 @@ export function BattlefieldCard({
           <>
             <div style={{
               position: 'absolute', bottom: 2, left: 2,
-              width: 16, height: 16, borderRadius: '50%',
+              width: 18, height: 18, borderRadius: '50%',
               background: '#f4d04a', color: '#5a3a0e',
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               display: 'grid', placeItems: 'center',
-              boxShadow: '0 0 0 1px #8a5a14',
+              boxShadow: '0 0 0 1.5px #8a5a14, 0 1px 3px rgba(0,0,0,.4)',
             }}>{card.currentAtk}</div>
             <div style={{
               position: 'absolute', bottom: 2, right: 2,
-              width: 16, height: 16, borderRadius: '50%',
+              width: 18, height: 18, borderRadius: '50%',
               background: '#e85a5a', color: '#5a1414',
-              fontSize: 10, fontWeight: 800,
+              fontSize: 11, fontWeight: 800,
               display: 'grid', placeItems: 'center',
-              boxShadow: '0 0 0 1px #8a1414',
+              boxShadow: '0 0 0 1.5px #8a1414, 0 1px 3px rgba(0,0,0,.4)',
             }}>{card.currentHp}</div>
           </>
         )}
       </div>
 
-      {/* Impact burst — escapes the clipped layer */}
+      {/* Impact burst */}
       {impact && (
         <div style={{
           position: 'absolute', top: '50%', left: '50%',
-          width: 50, height: 50, borderRadius: '50%',
+          width: 60, height: 60, borderRadius: '50%',
           background: 'radial-gradient(circle, #f4d04a 0%, transparent 70%)',
           animation: 'impactBurst .5s ease-out forwards',
           pointerEvents: 'none',
@@ -168,11 +193,11 @@ export function BattlefieldCard({
         }} />
       )}
 
-      {/* Damage popup — escapes the clipped layer */}
+      {/* Damage popup */}
       {damage != null && damage !== 0 && (
         <div style={{
           position: 'absolute', top: -6, left: '50%',
-          fontSize: 22, fontWeight: 900,
+          fontSize: 24, fontWeight: 900,
           color: damage > 0 ? '#ff5a5a' : '#5ea863',
           textShadow: '0 2px 0 #1a0408, 0 0 8px rgba(0,0,0,.6)',
           fontFamily: '"Fredoka", system-ui',
@@ -184,6 +209,20 @@ export function BattlefieldCard({
           {damage > 0 ? `−${damage}` : `+${-damage}`}
         </div>
       )}
+    </div>
+  );
+}
+
+function StatusPill({ color, icon }: { color: string; icon: React.ReactNode }) {
+  return (
+    <div style={{
+      width: 16, height: 16, borderRadius: '50%',
+      background: color,
+      boxShadow: `0 0 0 1.5px #fff, 0 1px 2px rgba(0,0,0,.4)`,
+      display: 'grid', placeItems: 'center',
+      color: '#fff',
+    }}>
+      {icon}
     </div>
   );
 }

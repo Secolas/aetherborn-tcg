@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Heart } from 'lucide-react';
+import { ArrowLeft, Heart, Coins } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
@@ -48,6 +48,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [combat, setCombat] = useState<CombatFx | null>(null);
   const [damages, setDamages] = useState<DamageMap>({});
   const [inspect, setInspect] = useState<BattleCard | null>(null);
+  /** Card that the AI just played, shown as a centered reveal so the player sees it. */
+  const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
 
@@ -64,6 +66,16 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         showMsg(step.action);
         if (step.combat) {
           playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
+        } else if (step.played) {
+          // Show the played card front-and-center so the player can see what
+          // was just played — especially important for spells, which would
+          // otherwise resolve invisibly.
+          setOpponentReveal(step.played);
+          setTimeout(() => {
+            if (cancelled) return;
+            setOpponentReveal(null);
+            setState(step.next);
+          }, 1500);
         } else {
           setTimeout(() => { if (!cancelled) setState(step.next); }, 700);
         }
@@ -257,7 +269,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
   // ============== Game over ==============
   if (state.outcome !== 'ongoing') {
-    return <MatchEnd outcome={state.outcome} onExit={onExit} />;
+    return <MatchEnd outcome={state.outcome} boss={boss} onExit={onExit} />;
   }
 
   const bossElement = ELEMENTS[boss.themeId];
@@ -277,6 +289,19 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         userSelect: 'none', touchAction: 'none',
       }}
     >
+      {/* The battlefield "table" — gives the field area visual weight */}
+      <div style={{
+        position: 'absolute', top: 78, left: 8, right: 8, height: 296,
+        borderRadius: 22,
+        background: `
+          radial-gradient(ellipse 60% 50% at 50% 50%, rgba(255,255,255,.5) 0%, transparent 60%),
+          linear-gradient(180deg, rgba(255,236,210,.6) 0%, rgba(248,200,156,.5) 100%)
+        `,
+        border: '1.5px solid rgba(255,126,95,.18)',
+        boxShadow: '0 12px 32px rgba(120,60,30,.12), inset 0 0 30px rgba(255,200,160,.3)',
+        pointerEvents: 'none',
+      }} />
+
       <svg style={{ position: 'absolute', inset: 0, opacity: 0.08 }} width="100%" height="100%">
         <defs>
           <pattern id="hex" width="30" height="26" patternUnits="userSpaceOnUse">
@@ -433,22 +458,25 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
       </div>
 
-      {/* Hand — non-dragging cards */}
+      {/* Hand — non-dragging cards. Scaled down so the battlefield is the visual focus. */}
       <div style={{
-        position: 'absolute', bottom: 20, left: 0, right: 0, height: 200,
+        position: 'absolute', bottom: 12, left: 0, right: 0, height: 140,
         display: 'flex', justifyContent: 'center', alignItems: 'flex-end',
         pointerEvents: 'none',
       }}>
         {state.player.hand.map((card, i) => {
           const isDragging = drag?.battleId === card.battleId;
-          if (isDragging) return null; // rendered separately at fixed position
+          if (isDragging) return null;
           const cardCount = state.player.hand.length;
           const offset = (i - (cardCount - 1) / 2);
           const rot = offset * 5;
-          const yOff = Math.abs(offset) * 6;
-          const xOff = offset * 36;
+          const yOff = Math.abs(offset) * 5;
+          const xOff = offset * 28;
           const isHovered = hoverIdx === i && !drag;
           const playableNow = card.cost <= state.player.mana && state.turn === 'player';
+          // Hover lifts the card up significantly — players "preview" by hovering to see the full card
+          const baseScale = 0.62;
+          const hoverScale = 1.0;
           return (
             <div
               key={card.battleId}
@@ -457,18 +485,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               onMouseLeave={() => setHoverIdx(null)}
               style={{
                 position: 'absolute', left: '50%', bottom: 0,
-                transform: `translateX(calc(-50% + ${xOff}px)) translateY(${isHovered ? -90 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? 1.05 : 0.85})`,
+                transform: `translateX(calc(-50% + ${xOff}px)) translateY(${isHovered ? -160 : yOff}px) rotate(${isHovered ? 0 : rot}deg) scale(${isHovered ? hoverScale : baseScale})`,
                 transformOrigin: 'bottom center',
-                transition: 'transform .25s cubic-bezier(.2,.8,.3,1)',
-                zIndex: isHovered ? 50 : 10 + i,
+                transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
+                zIndex: isHovered ? 100 : 10 + i,
                 cursor: playableNow ? 'grab' : 'not-allowed',
-                opacity: playableNow ? 1 : 0.6,
+                opacity: playableNow ? 1 : 0.55,
                 filter: playableNow ? 'none' : 'grayscale(0.4)',
                 touchAction: 'none',
                 pointerEvents: 'auto',
               }}
             >
-              <Card card={card} scale={0.85} hovered={isHovered} />
+              <Card card={card} scale={isHovered ? 1 : 0.85} hovered={isHovered} />
             </div>
           );
         })}
@@ -495,6 +523,32 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           </div>
         );
       })()}
+
+      {/* Opponent's played card reveal */}
+      {opponentReveal && (
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,.45)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 180,
+            pointerEvents: 'none',
+            animation: 'fadeIn .15s',
+          }}
+        >
+          <div style={{ position: 'relative', animation: 'opponentPlayReveal 1.5s ease-out forwards' }}>
+            <div style={{
+              position: 'absolute', top: -32, left: 0, right: 0, textAlign: 'center',
+              fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
+              color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
+              fontFamily: '"Fredoka", system-ui',
+            }}>
+              {boss.name} {opponentReveal.type === 'Spell' ? 'casts' : 'plays'}
+            </div>
+            <Card card={opponentReveal} hovered scale={0.95} />
+          </div>
+        </div>
+      )}
 
       {/* Long-press inspect modal */}
       {inspect && (
@@ -609,39 +663,118 @@ function ManaCrystals({ mana, maxMana }: { mana: number; maxMana: number }) {
   );
 }
 
-function MatchEnd({ outcome, onExit }: { outcome: 'win' | 'loss'; onExit: (o: 'win' | 'loss' | 'quit') => void }) {
+/** Boss-specific dialogue. Tries to make the result feel like a moment, not a stat screen. */
+const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss: { title: string; line: string } }> = {
+  mom: {
+    win:  { title: 'You won', line: "She made you soup anyway." },
+    loss: { title: 'You lost', line: "She's proud of you. She'll never tell you, though." },
+  },
+  manager: {
+    win:  { title: 'You won', line: "He's filing a complaint with HR. About himself." },
+    loss: { title: 'You lost', line: "He'd like to schedule a 30-minute follow-up." },
+  },
+  alpha: {
+    win:  { title: 'You won', line: "The pack respects you now. Don't lose that." },
+    loss: { title: 'You lost', line: "The pack hunts another day. So do you." },
+  },
+};
+
+function MatchEnd({ outcome, boss, onExit }: {
+  outcome: 'win' | 'loss';
+  boss: BossDef;
+  onExit: (o: 'win' | 'loss' | 'quit') => void;
+}) {
   const isWin = outcome === 'win';
+  const e = ELEMENTS[boss.themeId];
+  const dialogue = BOSS_DIALOGUE[boss.id]?.[outcome] ?? {
+    title: isWin ? 'You won' : 'You lost',
+    line: isWin ? 'Well played.' : 'Better luck next time.',
+  };
+  const reward = isWin ? 75 : 20;
+
   return (
     <div style={{
       width: '100%', height: '100%',
       background: isWin
-        ? 'radial-gradient(ellipse at 50% 40%, #fff3e0 0%, #ffd6a4 60%, #ffb380 100%)'
-        : 'radial-gradient(ellipse at 50% 40%, #fef0e8 0%, #f4cfc0 60%, #d8a99a 100%)',
-      color: PALETTE.text, fontFamily: '"Fredoka", "Inter", system-ui',
+        ? `radial-gradient(ellipse at 50% 30%, #fff8e8 0%, ${e.color}55 50%, ${e.deep}88 100%)`
+        : `radial-gradient(ellipse at 50% 30%, #fef3eb 0%, #f0c9b9 50%, #b88a78 100%)`,
+      color: PALETTE.text,
+      fontFamily: '"Fredoka", "Inter", system-ui',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      padding: 30, textAlign: 'center',
+      padding: '40px 30px', textAlign: 'center',
       animation: 'fadeIn 0.5s',
+      position: 'relative',
+      overflow: 'hidden',
     }}>
-      <div style={{ fontSize: 56, marginBottom: 16 }}>{isWin ? '🎉' : '😅'}</div>
-      <div style={{ fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 4 }}>
+      {/* Decorative confetti for wins, soft droplets for losses */}
+      <svg style={{ position: 'absolute', inset: 0, opacity: 0.45, pointerEvents: 'none' }} width="100%" height="100%">
+        {Array.from({ length: 14 }).map((_, i) => (
+          <circle key={i}
+            cx={`${(i * 53) % 100}%`}
+            cy={`${(i * 37) % 100}%`}
+            r={isWin ? (3 + (i % 3)) : 2}
+            fill={isWin ? ['#ffd166', '#ff7e5f', '#06d6a0', '#ffa07a'][i % 4] : '#b88a78'}
+            opacity={isWin ? 0.6 : 0.35}
+          />
+        ))}
+      </svg>
+
+      {/* Boss avatar */}
+      <div style={{
+        position: 'relative', zIndex: 2,
+        animation: isWin ? 'cardSummon .6s cubic-bezier(.2,.8,.3,1)' : 'fadeIn .5s',
+      }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: '50%',
+          background: `linear-gradient(160deg, ${e.deep}, ${e.color})`,
+          display: 'grid', placeItems: 'center',
+          fontSize: 48, fontWeight: 700, color: '#fff',
+          boxShadow: `0 12px 30px rgba(0,0,0,.25), 0 0 0 5px #fff, 0 0 0 7px ${e.color}55`,
+          fontFamily: '"Fredoka", system-ui',
+          filter: isWin ? 'none' : 'grayscale(0.3)',
+          transform: isWin ? 'rotate(-4deg)' : 'rotate(2deg)',
+        }}>{boss.avatar}</div>
+        <div style={{
+          marginTop: 14, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase',
+          color: PALETTE.textMid, fontWeight: 600,
+        }}>
+          {boss.name} · {boss.subtitle}
+        </div>
+      </div>
+
+      <div style={{
+        fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase',
+        color: PALETTE.textMid, marginTop: 30, marginBottom: 4, fontWeight: 600,
+      }}>
         {isWin ? 'Victory' : 'Defeat'}
       </div>
       <div style={{
-        fontSize: 48, fontWeight: 700,
+        fontSize: 44, fontWeight: 700, lineHeight: 1.05,
         background: isWin
           ? 'linear-gradient(180deg, #ff9f1c, #ee5a52)'
-          : 'linear-gradient(180deg, #b85c50, #7a3a32)',
+          : 'linear-gradient(180deg, #6e3a32, #3a2018)',
         WebkitBackgroundClip: 'text', backgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
-        marginBottom: 22,
+        marginBottom: 12,
+      }}>{dialogue.title}</div>
+      <div style={{
+        fontSize: 14, color: PALETTE.text, fontStyle: 'italic',
+        marginBottom: 24, maxWidth: 320, lineHeight: 1.45,
       }}>
-        {isWin ? 'You won!' : 'You lost'}
+        “{dialogue.line}”
       </div>
-      <div style={{ fontSize: 13, color: PALETTE.textMid, marginBottom: 28, maxWidth: 280, lineHeight: 1.5 }}>
-        {isWin
-          ? '+75 coins earned. Open more packs and grow your collection.'
-          : '+20 coins for the attempt. Refine your deck and try again.'}
+
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        background: '#fff', padding: '10px 18px', borderRadius: 24,
+        boxShadow: '0 6px 14px rgba(58,46,42,.12)',
+        marginBottom: 28,
+      }}>
+        <Coins size={18} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
+        <span style={{ fontSize: 17, fontWeight: 700, color: PALETTE.text }}>+{reward}</span>
+        <span style={{ fontSize: 11, color: PALETTE.textMid, fontWeight: 500 }}>coins</span>
       </div>
+
       <button onClick={() => onExit(outcome)} style={{ ...btnPrimary, minWidth: 220 }}>
         Continue
       </button>

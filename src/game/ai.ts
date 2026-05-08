@@ -19,6 +19,8 @@ export type AiStepResult = {
   next: MatchState;
   action: string;
   combat?: AiCombat;
+  /** When the AI plays a card (creature or spell), the UI shows it. */
+  played?: BattleCard;
 };
 
 /**
@@ -115,14 +117,14 @@ function tryPlay(state: MatchState, card: BattleCard): AiStepResult | null {
   if (card.type === 'Creature') {
     if (state.opponent.field.length >= 6) return null;
     const r = playCard(state, 'opponent', card.battleId);
-    if (r.ok) return { next: r.state, action: `The Boss summons ${displayName(card)}` };
+    if (r.ok) return { next: r.state, action: `The Boss summons ${displayName(card)}`, played: card };
     return null;
   }
 
   const target = chooseSpellTarget(card, state);
   if (target === undefined || target === null) return null;
   const r = playCard(state, 'opponent', card.battleId, target);
-  if (r.ok) return { next: r.state, action: `The Boss casts ${displayName(card)}` };
+  if (r.ok) return { next: r.state, action: `The Boss casts ${displayName(card)}`, played: card };
   return null;
 }
 

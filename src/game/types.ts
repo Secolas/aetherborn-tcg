@@ -32,11 +32,14 @@ export interface CardTemplate {
   atk: number;
   hp: number;
   type: CardType;
-  ability: string;            // human-readable text
-  abilityKind: AbilityKind;   // machine-readable
+  /** Mechanical text — what the card does. Bold/themed color. Empty = no special ability. */
+  ability: string;
+  /** Italic flavor prose. De-emphasized in the card description. */
+  flavor?: string;
+  abilityKind: AbilityKind;
   abilityValue?: number;
   rarity: Rarity;
-  suggested: string;          // photo prompt — what to take a photo of
+  suggested: string;
 }
 
 /** A template combined with the user's photo + nickname, after summoning. */

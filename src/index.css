@@ -100,3 +100,10 @@ input {
   60%  { transform: translate(-50%, -50%) scale(1.6); opacity: 0.8; }
   100% { transform: translate(-50%, -50%) scale(2.2); opacity: 0; }
 }
+@keyframes opponentPlayReveal {
+  0%   { transform: translateY(-80px) scale(0.3) rotate(-12deg); opacity: 0; }
+  18%  { transform: translateY(0) scale(1.05) rotate(2deg); opacity: 1; }
+  25%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  78%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(40px) scale(0.7) rotate(8deg); opacity: 0; }
+}
