@@ -69,6 +69,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Give-up confirmation modal. We never quit on the first tap — too easy
       to lose 20 minutes of progress to a misclick. */
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
+  /** Spell-target burst — coordinates are within the boardRef. Cleared after
+      the keyframe finishes. The kind drives the burst color. */
+  const [spellFx, setSpellFx] = useState<
+    { x: number; y: number; kind: 'damage' | 'freeze' | 'buff' | 'face' } | null
+  >(null);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   /** Player creature row — also a valid drop target so the player can drag a
@@ -105,6 +110,16 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
           const holdMs = step.played.type === 'Spell' ? 2200 : 1500;
+          // Fire the target burst near the end of the reveal so it lands as
+          // the spell finishes resolving.
+          if (step.played.type === 'Spell' && step.spellTarget) {
+            const playedCard = step.played;
+            const playedTarget = step.spellTarget;
+            setTimeout(() => {
+              if (cancelled) return;
+              fireSpellFx(playedTarget, playedCard.abilityKind);
+            }, holdMs - 600);
+          }
           setTimeout(() => {
             if (cancelled) return;
             setOpponentReveal(null);
@@ -244,6 +259,34 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     }, clearDelay);
   };
 
+  // Fire a colored burst FX over a spell's target. Reads the target's DOM
+  // rect from the cardEls map (or the face portrait), translates it into
+  // boardRef-local coordinates, and stashes a spellFx so the overlay
+  // renders. Self-clears after 700ms (matches the keyframe).
+  const fireSpellFx = (
+    target: SpellTarget | undefined,
+    kind: 'spell_damage' | 'spell_freeze' | 'spell_buff' | 'spell_heal' | 'draw_on_play' | string | undefined,
+  ) => {
+    if (!target || !boardRef.current) return;
+    const key = target.kind === 'face'
+      ? (target.owner === 'player' ? FACE_PLAYER : FACE_OPP)
+      : target.battleId;
+    const el = cardEls.current.get(key);
+    if (!el) return;
+    const board = boardRef.current.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    const fxKind: 'damage' | 'freeze' | 'buff' | 'face' =
+      kind === 'spell_freeze' ? 'freeze' :
+      kind === 'spell_buff'   ? 'buff' :
+      target.kind === 'face'  ? 'face' : 'damage';
+    setSpellFx({
+      x: r.left + r.width / 2 - board.left,
+      y: r.top + r.height / 2 - board.top,
+      kind: fxKind,
+    });
+    setTimeout(() => setSpellFx(null), 700);
+  };
+
   // ============== Spell cast (player) ==============
   // Spells resolve invisibly without this — the card moves from hand to discard
   // and effects apply silently. We instead show the card center-screen for ~900ms
@@ -260,6 +303,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     setPlayerSpellReveal(card);
     setSelectedHandIdx(null);
     setPendingSpell(null);
+
+    // Burst the target ~600ms in (right before state applies) so the spell
+    // visibly "lands" on whatever it was aimed at.
+    setTimeout(() => fireSpellFx(target, card.abilityKind), 600);
 
     setTimeout(() => {
       setState(r.state);
@@ -813,6 +860,36 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           >
             <Card card={card} scale={1} hovered />
           </div>
+        );
+      })()}
+
+      {/* Spell-target burst — colored ring + glow that lands on whichever
+          creature (or face) a spell was aimed at, just as the spell resolves. */}
+      {spellFx && (() => {
+        const palette = spellFx.kind === 'damage' ? { core: '#ff5a5a', glow: '#ff7e5f', ring: '#c8362e' }
+          : spellFx.kind === 'freeze' ? { core: '#9ed6f7', glow: '#3a8fc4', ring: '#1c5478' }
+          : spellFx.kind === 'buff'   ? { core: '#7be8a4', glow: '#06d6a0', ring: '#0a8060' }
+          :                              { core: '#ffe9a8', glow: '#f4d04a', ring: '#c8901a' };
+        return (
+          <>
+            <div style={{
+              position: 'absolute', left: spellFx.x, top: spellFx.y,
+              width: 110, height: 110, borderRadius: '50%',
+              background: `radial-gradient(circle, ${palette.core} 0%, ${palette.glow}cc 40%, transparent 75%)`,
+              boxShadow: `0 0 28px ${palette.glow}, 0 0 60px ${palette.glow}88`,
+              animation: 'spellTargetBurst 700ms ease-out forwards',
+              pointerEvents: 'none',
+              zIndex: 175,
+            }} />
+            <div style={{
+              position: 'absolute', left: spellFx.x, top: spellFx.y,
+              width: 90, height: 90, borderRadius: '50%',
+              border: `4px solid ${palette.ring}`,
+              animation: 'spellTargetRing 700ms ease-out forwards',
+              pointerEvents: 'none',
+              zIndex: 176,
+            }} />
+          </>
         );
       })()}
 

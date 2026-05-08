@@ -21,6 +21,8 @@ export type AiStepResult = {
   combat?: AiCombat;
   /** When the AI plays a card (creature or spell), the UI shows it. */
   played?: BattleCard;
+  /** Spell target — populated for spell plays so the UI can fire a target FX. */
+  spellTarget?: SpellTarget;
 };
 
 /**
@@ -124,7 +126,13 @@ function tryPlay(state: MatchState, card: BattleCard): AiStepResult | null {
   const target = chooseSpellTarget(card, state);
   if (target === undefined || target === null) return null;
   const r = playCard(state, 'opponent', card.battleId, target);
-  if (r.ok) return { next: r.state, action: `The Boss casts ${displayName(card)}`, played: card };
+  if (r.ok) return {
+    next: r.state,
+    action: `The Boss casts ${displayName(card)}`,
+    played: card,
+    // Pass along so the UI can play the burst on the targeted creature.
+    spellTarget: target ?? undefined,
+  };
   return null;
 }
 
