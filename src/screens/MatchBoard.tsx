@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Shield, ShieldHalf, Zap } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -1354,7 +1354,7 @@ function StatusLabels({ card }: { card: BattleCard }) {
       label: 'Untargetable', hint: 'Spells can’t target this creature.' });
   }
   if (card.abilityKind === 'taunt') {
-    items.push({ icon: <Shield size={14} fill="#fff" strokeWidth={2.4} />, color: '#3d8e57',
+    items.push({ icon: <Target size={14} strokeWidth={2.6} />, color: '#3d8e57',
       label: 'Taunt', hint: 'Enemies must hit this before anything else.' });
   }
   if (card.abilityKind === 'rush') {

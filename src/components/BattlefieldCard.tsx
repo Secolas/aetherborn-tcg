@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Snowflake, Shield, ShieldHalf, Moon } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -212,7 +212,7 @@ export function BattlefieldCard({
             display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
             boxShadow: '0 1px 3px rgba(0,0,0,.25)',
           }}>
-            <Shield size={9} fill="#fff" strokeWidth={2.4} /> Taunt
+            <Target size={9} strokeWidth={2.6} /> Taunt
           </div>
         )}
       </div>
