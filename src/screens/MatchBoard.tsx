@@ -160,6 +160,41 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
 
+  // Surface non-combat HP loss as damage popups so abilities like Lion's
+  // "deal 2 to all enemy creatures" don't silently change stats. We diff
+  // each side's field on every state update; any creature whose currentHp
+  // dropped (and isn't already in the active combat trade, which has its
+  // own popups) fires a transient -N popup over its slot.
+  const prevFieldRef = useRef<{ player: Map<string, number>; opponent: Map<string, number> }>({
+    player: new Map(),
+    opponent: new Map(),
+  });
+  useEffect(() => {
+    const snapshot = (cs: BattleCard[]) => new Map(cs.map(c => [c.battleId, c.currentHp]));
+    const prev = prevFieldRef.current;
+    const fresh = { player: snapshot(state.player.field), opponent: snapshot(state.opponent.field) };
+    if (!combat) {
+      const popped: Record<string, number> = {};
+      for (const [id, hp] of fresh.player) {
+        const before = prev.player.get(id);
+        if (before != null && hp < before) popped[id] = before - hp;
+      }
+      for (const [id, hp] of fresh.opponent) {
+        const before = prev.opponent.get(id);
+        if (before != null && hp < before) popped[id] = before - hp;
+      }
+      if (Object.keys(popped).length) {
+        setDamages(d => ({ ...d, ...popped }));
+        setTimeout(() => setDamages(d => {
+          const next = { ...d };
+          for (const id of Object.keys(popped)) delete next[id];
+          return next;
+        }), 1100);
+      }
+    }
+    prevFieldRef.current = fresh;
+  }, [state, combat]);
+
   // Card draw flight + mana pulse — fire whenever a new player's turn begins
   // (after turn 1, since the initial hand is dealt by createMatch, not by
   // beginTurn). The draw flight is a card-back animating from the active
@@ -579,22 +614,23 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      {/* Opponent header strip — back / give-up button on the left, opp portrait
-          + HP in the center, deck / graveyard / turn counter on the right. */}
-      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8, position: 'relative' }}>
-        <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
-          <Flag size={18} strokeWidth={2.4} />
-        </button>
-        <OpponentPortrait
-          boss={boss}
-          themeColor={bossElement.color}
-          themeDeep={bossElement.deep}
-          hp={state.opponent.hp}
-          highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
-          onClick={onOppFaceClick}
-          damage={damages[FACE_OPP] ?? null}
-          elRef={(el) => registerEl(FACE_OPP, el)}
-        />
+      {/* Opponent header strip — mirrors the player stats row at the bottom:
+          portrait + mana on the left, deck + graveyard on the right. The
+          give-up flag moved to the divider band so it sits next to End Turn. */}
+      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <OpponentPortrait
+            boss={boss}
+            themeColor={bossElement.color}
+            themeDeep={bossElement.deep}
+            hp={state.opponent.hp}
+            highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
+            onClick={onOppFaceClick}
+            damage={damages[FACE_OPP] ?? null}
+            elRef={(el) => registerEl(FACE_OPP, el)}
+          />
+          <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
@@ -651,9 +687,15 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         zIndex: 4,
         position: 'relative',
       }}>
-        {/* Turn counter — pinned to the left of the divider so it's always
-            on screen, even when the top header is crowded. */}
-        <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
+        {/* Left cluster — turn counter + give-up flag, pinned to the divider
+            so they're always visible AND give-up sits right next to End Turn
+            (not lost in the corner of the opponent header). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
+          <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
+            <Flag size={16} strokeWidth={2.4} />
+          </button>
+        </div>
         {drag?.overField ? (
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
@@ -1707,20 +1749,22 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
 }
 
 function DeckChip({ count, handSize }: { count: number; handSize: number }) {
+  // Tight number-only chip — labels were pushing the right cluster off the
+  // screen edge on narrow phones. Layers icon + deck count + thin divider +
+  // hand count is enough to read at a glance.
   return (
     <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
+      display: 'inline-flex', alignItems: 'center', gap: 5,
       background: '#fff',
-      padding: '5px 11px', borderRadius: 14,
+      padding: '5px 9px', borderRadius: 14,
       boxShadow: '0 3px 8px rgba(58,46,42,.10)',
-      fontSize: 12, fontWeight: 600, color: PALETTE.textMid,
+      fontSize: 12, fontWeight: 700, color: PALETTE.text,
+      fontFamily: '"Fredoka", "Inter", system-ui',
     }}>
-      <Layers size={14} color={PALETTE.accentDeep} strokeWidth={2.4} />
-      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{count}</span>
-      <span style={{ opacity: 0.7 }}>deck</span>
-      <span style={{ width: 1, height: 14, background: 'rgba(58,46,42,.12)' }} />
-      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{handSize}</span>
-      <span style={{ opacity: 0.7 }}>hand</span>
+      <Layers size={13} color={PALETTE.accentDeep} strokeWidth={2.4} />
+      <span>{count}</span>
+      <span style={{ width: 1, height: 12, background: 'rgba(58,46,42,.15)' }} />
+      <span style={{ color: PALETTE.textMid }}>{handSize}</span>
     </div>
   );
 }
