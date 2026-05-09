@@ -576,7 +576,6 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
-          <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
         </div>
       </div>
 
@@ -615,7 +614,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           pointer-events off so it never fights the button for clicks. */}
       <div ref={fieldRef} style={{
         flex: '0 0 56px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 12px',
         borderTop: drag?.overField
           ? '2px dashed #f4d04a'
           : '1px dashed rgba(58,46,42,.20)',
@@ -629,6 +629,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         zIndex: 4,
         position: 'relative',
       }}>
+        {/* Turn counter — pinned to the left of the divider so it's always
+            on screen, even when the top header is crowded. */}
+        <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
         {drag?.overField ? (
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
