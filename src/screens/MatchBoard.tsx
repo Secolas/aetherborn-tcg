@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -1152,8 +1152,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             animation: 'fadeIn .2s',
           }}
         >
-          <div style={{ animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1)' }}>
+          <div style={{ animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             <Card card={inspect} hovered scale={1.1} />
+            {/* Status labels — long-press surfaces what every icon on the
+                creature actually means, since the small status pills aren't
+                self-documenting. */}
+            <StatusLabels card={inspect} />
           </div>
           <div style={{
             position: 'absolute', bottom: 50, left: 0, right: 0,
@@ -1324,6 +1328,67 @@ function FieldRow({
           transition: 'border-color .15s, background .15s',
           flex: '0 0 auto',
         }} />
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Inspect-modal helper — explains every icon active on the creature so the
+ * player can learn what frozen / sleeping / untargetable / taunt / rush mean
+ * by long-pressing the card. Each row shows the icon, its name, and a
+ * one-line description.
+ */
+function StatusLabels({ card }: { card: BattleCard }) {
+  const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
+  if (card.frozen) {
+    items.push({ icon: <Snowflake size={14} fill="#fff" strokeWidth={2.4} />, color: '#3a8fc4',
+      label: 'Frozen', hint: 'Skips its next turn.' });
+  }
+  if (card.justPlayed && card.abilityKind !== 'rush') {
+    items.push({ icon: <Moon size={14} fill="#fff" strokeWidth={2.4} />, color: '#5a4a2a',
+      label: 'Sleeping', hint: 'Just summoned — can’t attack until next turn.' });
+  }
+  if (card.abilityKind === 'untargetable') {
+    items.push({ icon: <ShieldHalf size={14} strokeWidth={2.6} />, color: '#7a4ea8',
+      label: 'Untargetable', hint: 'Spells can’t target this creature.' });
+  }
+  if (card.abilityKind === 'taunt') {
+    items.push({ icon: <Target size={14} strokeWidth={2.6} />, color: '#3d8e57',
+      label: 'Taunt', hint: 'Enemies must hit this before anything else.' });
+  }
+  if (card.abilityKind === 'rush') {
+    items.push({ icon: <Zap size={14} fill="#fff" strokeWidth={2.4} />, color: '#e8a93a',
+      label: 'Rush', hint: 'Can attack the turn it’s played.' });
+  }
+  if (items.length === 0) return null;
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', gap: 6,
+      background: 'rgba(255,255,255,.96)',
+      padding: '10px 14px', borderRadius: 12,
+      boxShadow: '0 6px 16px rgba(0,0,0,.25)',
+      maxWidth: 260,
+      fontFamily: '"Inter", system-ui',
+    }}>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: '50%',
+            background: it.color, color: '#fff',
+            display: 'grid', placeItems: 'center',
+            flex: '0 0 auto',
+            boxShadow: '0 1px 3px rgba(0,0,0,.3)',
+          }}>{it.icon}</div>
+          <div style={{ flex: 1, lineHeight: 1.25 }}>
+            <div style={{ fontSize: 12, fontWeight: 800, color: '#3a2e2a', letterSpacing: '0.05em' }}>
+              {it.label}
+            </div>
+            <div style={{ fontSize: 11, color: '#6e5a52' }}>
+              {it.hint}
+            </div>
+          </div>
+        </div>
       ))}
     </div>
   );
