@@ -179,29 +179,29 @@ input {
 }
 /* Subtle scale pulse on the wrapper so the spin feels alive without moving
    off-center. Matches the spin duration. */
-/* Home-screen slideshow — cards drop from above the viewport, spinning as
-   they fall, and settle into their fanned pose with a small bounce.
-   Two variants so the left and right slots land at mirrored angles. */
-@keyframes homeFallLeft {
-  0%   { opacity: 0; transform: translate(-50%, calc(-50% - 420px)) rotate(-180deg) translateX(-60px) scale(0.55); }
-  55%  { opacity: 1; }
-  72%  { opacity: 1; transform: translate(-50%, calc(-50% + 14px)) rotate(-2deg)   translateX(-60px) scale(0.74); }
-  85%  { transform: translate(-50%, calc(-50% - 6px))  rotate(-12deg)  translateX(-60px) scale(0.68); }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg)   translateX(-60px) scale(0.7);  }
+/* Home-screen burst — a fan of cards explodes outward from center, each
+   flying its own direction (--dx, --dy), tumbling (--rot), and fading.
+   Driven by inline CSS variables so every card in the burst can have its
+   own trajectory. */
+@keyframes homeBurst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.4); }
+  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(0.95); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) rotate(calc(var(--rot, 0deg) * 0.2)) scale(0.85); }
+  100% {
+    opacity: 0;
+    transform:
+      translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)))
+      rotate(var(--rot, 0deg))
+      scale(0.55);
+  }
 }
-@keyframes homeFallRight {
-  0%   { opacity: 0; transform: translate(-50%, calc(-50% - 460px)) rotate(220deg) translateX(60px) scale(0.55); }
-  55%  { opacity: 1; }
-  72%  { opacity: 1; transform: translate(-50%, calc(-50% + 14px)) rotate(2deg)   translateX(60px) scale(0.74); }
-  85%  { transform: translate(-50%, calc(-50% - 6px))  rotate(13deg)  translateX(60px) scale(0.68); }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(9deg)   translateX(60px) scale(0.7);  }
-}
-/* Tiny dust-puff under the card right as it lands — sells the impact. */
-@keyframes homeFallDust {
-  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
+/* Central pair fades in after the burst peaks so the new cards "appear"
+   through the cloud of scattering cards. */
+@keyframes homePairAppear {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.5); }
   60%  { opacity: 0; }
-  72%  { opacity: 0.55; transform: translate(-50%, 0) scale(1); }
-  100% { opacity: 0;    transform: translate(-50%, -8px) scale(1.6); }
+  78%  { opacity: 1; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.78); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.7); }
 }
 
 /* Spell-target FX — burst + ring rendered over a targeted creature when a
