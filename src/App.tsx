@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { PhoneShell } from './components/PhoneShell';
 import { HomeMenu } from './screens/HomeMenu';
 import { Collection } from './screens/Collection';
@@ -37,6 +37,27 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
+
+  // Migrate placeholder photos on load. The samplePhotos table gets curated
+  // over time (e.g. fam-08 Abuela's URL was rotated when the original ID
+  // 404'd and SmartImage's picsum fallback returned a wolf). Existing saves
+  // have the old URL baked into card.photo, so we re-fetch aiPhoto for every
+  // placeholder card whenever the app boots. Real captured photos (data URIs)
+  // are untouched.
+  useEffect(() => {
+    setSave(s => {
+      let dirty = false;
+      const collection = s.collection.map(c => {
+        if (!c.isPlaceholder) return c;
+        const fresh = aiPhoto(c.id);
+        if (fresh === c.photo) return c;
+        dirty = true;
+        return { ...c, photo: fresh };
+      });
+      return dirty ? { ...s, collection } : s;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const goCapture = (card: CollectionCard) => {
     setCapturing(card);

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Snowflake, ShieldHalf, Target, Moon } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
@@ -37,6 +37,16 @@ export function BattlefieldCard({
   const sleeping = card.justPlayed && card.abilityKind !== 'rush';
   const exhausted = card.tapped && !card.justPlayed;
   const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
+  // Track first-mount so the cardSlam keyframe + summon dust fire whenever
+  // the BattlefieldCard appears on the field — including for Rush creatures
+  // (whose `card.justPlayed` is set false in the engine, since they aren't
+  // sleeping). Without this Rush summons landed silently.
+  const [justMounted, setJustMounted] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setJustMounted(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+  const showSummonFx = card.justPlayed || justMounted;
   // Taunt creatures get a permanent green ring so they're impossible to miss.
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
@@ -81,7 +91,7 @@ export function BattlefieldCard({
   const animation = lunging === 'up' ? 'lungeUp .55s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .55s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
-    : (card.justPlayed ? 'cardSlam .5s' : 'none');
+    : (showSummonFx ? 'cardSlam .5s' : 'none');
 
   return (
     <div
@@ -257,16 +267,31 @@ export function BattlefieldCard({
           lands on the field. Plays while the card is in its `justPlayed`
           window (cardSlam handles the card itself; this sells the impact
           on the slot beneath). */}
-      {card.justPlayed && (
-        <div style={{
-          position: 'absolute', bottom: -6, left: '50%',
-          width: 110, height: 22, borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
-          filter: 'blur(2px)',
-          animation: 'summonDust .7s ease-out forwards',
-          pointerEvents: 'none',
-          zIndex: 1,
-        }} />
+      {showSummonFx && (
+        <>
+          {/* Dust ring under the card — settling on the field */}
+          <div style={{
+            position: 'absolute', bottom: -6, left: '50%',
+            width: 110, height: 22, borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
+            filter: 'blur(2px)',
+            animation: 'summonDust .7s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }} />
+          {/* Bright halo ring centered on the slot — fires for every creature
+              summon (drag, tap-Summon, AI play, Rush or not) so the "card
+              landed on the field" beat is identical regardless of path. */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            width: 80, height: 80, borderRadius: '50%',
+            border: '3px solid #ffd166',
+            boxShadow: '0 0 18px rgba(255,209,102,.85), inset 0 0 12px rgba(255,209,102,.6)',
+            animation: 'summonHalo .65s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }} />
+        </>
       )}
 
       {/* Damage popup */}
