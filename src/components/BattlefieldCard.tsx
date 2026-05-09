@@ -17,6 +17,11 @@ interface Props {
   impact?: boolean;
   /** Card is being destroyed — play the slice + split-apart animation. */
   dying?: boolean;
+  /** Dim the card when it's tapped/exhausted. Only meaningful for the
+      player's own creatures (so they can see who can still attack);
+      opponent creatures stay full opacity since their tapped state isn't
+      actionable for the player and was being read as "greyed out / dead". */
+  dimWhenExhausted?: boolean;
   highlight?: 'attack' | 'spell' | null;
   onClick?: () => void;
   onLongPress?: () => void;
@@ -25,7 +30,7 @@ interface Props {
 const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
-  card, selected, attackable, shaking, lunging, damage, impact, dying, highlight,
+  card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -93,9 +98,11 @@ export function BattlefieldCard({
           : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
-        // Tapped/exhausted creatures fade to 55% so the player can tell at
-        // a glance which of their creatures have already attacked this turn.
-        opacity: card.frozen ? 0.6 : exhausted ? 0.55 : 1,
+        // Tapped player creatures fade so you can see at a glance who's
+        // already attacked. Opponent creatures stay full opacity — their
+        // tapped state isn't actionable for the player and the dim was
+        // confusing them with "greyed out / dead" cards.
+        opacity: card.frozen ? 0.6 : (exhausted && dimWhenExhausted) ? 0.6 : 1,
         animation,
         transition: 'opacity .2s, box-shadow .2s',
         flex: '0 0 auto',
