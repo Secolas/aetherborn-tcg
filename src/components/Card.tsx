@@ -108,10 +108,20 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
           <span style={{ opacity: 0.6 }}>·</span>
           <span style={{ opacity: 0.95 }}>{ELEMENTS[card.el].name}</span>
         </div>
+        {/* Rarity chip — small text label. Replaces the previous 8px colored
+            dot that was easy to miss / misread. The background still uses the
+            rarity color so a quick glance reads even before the text. */}
         <span style={{
-          width: 8 * scale, height: 8 * scale, borderRadius: '50%',
-          background: RARITY_COLOR[card.rarity], boxShadow: `0 0 6px ${RARITY_COLOR[card.rarity]}`,
-        }}></span>
+          background: RARITY_COLOR[card.rarity],
+          color: card.rarity === 'common' ? '#2a1f12' : '#fff',
+          padding: `${1.5 * scale}px ${5 * scale}px`,
+          borderRadius: 4 * scale,
+          fontSize: 7.5 * scale, fontWeight: 800,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          boxShadow: `0 0 4px ${RARITY_COLOR[card.rarity]}88`,
+          lineHeight: 1.2,
+        }}>{card.rarity}</span>
       </div>
 
       <div style={{

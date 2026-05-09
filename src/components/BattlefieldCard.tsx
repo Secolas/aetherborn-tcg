@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { Snowflake, Shield, Moon, Zap } from 'lucide-react';
+import { Snowflake, Shield, ShieldHalf, Moon } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -149,8 +149,12 @@ export function BattlefieldCard({
           display: 'flex', flexDirection: 'column', gap: 2,
           zIndex: 2,
         }}>
+          {/* Status pills — frozen, untargetable (spell-immune), sleeping. The
+              untargetable pill uses ShieldHalf rather than the lightning bolt
+              that previously shipped here; lightning read as "fast / electric"
+              instead of "spell-immune". */}
           {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<Zap size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
         </div>
 
