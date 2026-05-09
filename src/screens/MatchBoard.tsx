@@ -79,6 +79,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [drawingFor, setDrawingFor] = useState<Owner | null>(null);
   /** Bumps every time the active player's mana ramps so the chip can pulse. */
   const [manaPulse, setManaPulse] = useState(0);
+  /** True while a tapped-Summon is mid-flight to the field. The preview
+      replays a deploy keyframe and we delay the actual play so the card
+      visibly travels from the preview position into the field slot. */
+  const [deploying, setDeploying] = useState(false);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   /** Player creature row — also a valid drop target so the player can drag a
@@ -887,7 +891,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
-                animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
+                // While deploying, replace the entry keyframe with the
+                // deploy keyframe so the preview card visibly flies up
+                // toward the field before vanishing into the slot.
+                animation: deploying
+                  ? 'deployToField .5s cubic-bezier(.4,.6,.3,1) forwards'
+                  : 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
                 filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
                 // Card image catches its own clicks so tapping the preview
                 // doesn't fall through to the backdrop and dismiss. Action
@@ -897,9 +906,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             >
               <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
             </div>
-            <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto' }}>
+            <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto', opacity: deploying ? 0 : 1, transition: 'opacity .15s' }}>
               <button
                 onClick={() => setSelectedHandIdx(null)}
+                disabled={deploying}
                 style={{
                   background: '#fff', color: PALETTE.text,
                   border: `1.5px solid ${PALETTE.border}`,
@@ -911,8 +921,22 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
                 }}
               >Cancel</button>
               <button
-                onClick={() => { if (playableNow) playSelectedToField(); }}
-                disabled={!playableNow}
+                onClick={() => {
+                  if (!playableNow || deploying) return;
+                  if (card.type === 'Creature') {
+                    // Hold the state update until the deploy animation lands
+                    // so the player visibly sees the card travel to the field.
+                    setDeploying(true);
+                    setTimeout(() => {
+                      playSelectedToField();
+                      setDeploying(false);
+                    }, 480);
+                  } else {
+                    // Spells already have their centered reveal; no deploy.
+                    playSelectedToField();
+                  }
+                }}
+                disabled={!playableNow || deploying}
                 style={{
                   background: playableNow
                     ? 'linear-gradient(180deg, #ffa07a, #ff7e5f)'
