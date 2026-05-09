@@ -1,8 +1,9 @@
+import { useEffect, useState } from 'react';
 import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
-import type { SaveData } from '../game/types';
+import type { CardTemplate, CollectionCard, SaveData } from '../game/types';
 
 interface Props {
   save: SaveData;
@@ -11,7 +12,6 @@ interface Props {
 }
 
 export function HomeMenu({ save, onNav, onQuickFill }: Props) {
-  const summoned = save.collection.find(c => c.photo);
   const dormant = TEMPLATES.find(t => t.id === 'fam-11')!; // Dad — iconic
   const playableInDeck = save.deckUids.filter(uid => {
     const c = save.collection.find(x => x.uid === uid);
@@ -21,6 +21,29 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
   const summonedCount = save.collection.filter(c => c.photo).length;
   const dormantCount = save.collection.filter(c => !c.photo).length;
   const showQuickFill = !canMatch && dormantCount > 0;
+
+  // Slideshow source: every summoned card the player owns. With <2 cards we
+  // fall back to a single-card loop or the original "dormant + first card"
+  // pair so the showcase area never goes empty.
+  const summonedAll: (CollectionCard | CardTemplate)[] = save.collection.filter(c => c.photo);
+  const slideshow: (CollectionCard | CardTemplate)[] =
+    summonedAll.length >= 2 ? summonedAll
+    : summonedAll.length === 1 ? [summonedAll[0], dormant]
+    : [dormant, TEMPLATES[0]];
+
+  // Auto-advance every ~3s. The two slots show consecutive cards; on each
+  // tick we step forward by one so the right card slides into the left
+  // position visually (and a new card slides in on the right).
+  const [slideIdx, setSlideIdx] = useState(0);
+  useEffect(() => {
+    if (slideshow.length <= 2) return; // nothing to cycle
+    const id = window.setInterval(() => {
+      setSlideIdx(i => (i + 1) % slideshow.length);
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [slideshow.length]);
+  const leftCard = slideshow[slideIdx % slideshow.length];
+  const rightCard = slideshow[(slideIdx + 1) % slideshow.length];
 
   return (
     <div style={{
@@ -103,38 +126,61 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
         </div>
       </div>
 
-      {/* Card preview area — Polaroid pinned to corkboard */}
+      {/* Card preview area — sliding showcase. Two slots auto-cycle through
+          every summoned card the player owns. The React `key` includes the
+          slide index so each tick remounts the slot, replaying the slide-in
+          keyframe, while the floating idle animation keeps running between
+          ticks. */}
       <div style={{
         position: 'relative', flex: 1, minHeight: 220,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginTop: 12,
       }}>
-        <div style={{
-          position: 'absolute', left: '50%', top: '50%',
-          ['--r' as string]: '-9deg', ['--x' as string]: '-60px', ['--s' as string]: '0.7',
-          transform: 'translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7)',
-          opacity: 0.95,
-          animation: 'float 4s ease-in-out infinite',
-          filter: 'drop-shadow(0 8px 16px rgba(58, 46, 42, .15))',
-        }}>
-          <Card card={dormant} scale={0.7} />
+        <div
+          key={`left-${slideIdx}`}
+          style={{
+            position: 'absolute', left: '50%', top: '50%',
+            ['--r' as string]: '-9deg', ['--x' as string]: '-60px', ['--s' as string]: '0.7',
+            transform: 'translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7)',
+            opacity: 0.95,
+            animation: 'homeSlideInLeft .55s cubic-bezier(.2,.8,.3,1) forwards, float 4s ease-in-out .55s infinite',
+            filter: 'drop-shadow(0 8px 16px rgba(58, 46, 42, .15))',
+          }}
+        >
+          <Card card={leftCard} scale={0.7} />
         </div>
-        <div style={{
-          position: 'absolute', left: '50%', top: '50%',
-          ['--r' as string]: '9deg', ['--x' as string]: '60px', ['--s' as string]: '0.7',
-          transform: 'translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7)',
-          opacity: 1,
-          animation: 'float 4s ease-in-out infinite',
-          animationDelay: '0.5s',
-          zIndex: 2,
-          filter: 'drop-shadow(0 10px 18px rgba(58, 46, 42, .18))',
-        }}>
-          {summoned ? (
-            <Card card={summoned} scale={0.7} />
-          ) : (
-            <Card card={TEMPLATES[0]} scale={0.7} />
-          )}
+        <div
+          key={`right-${slideIdx}`}
+          style={{
+            position: 'absolute', left: '50%', top: '50%',
+            ['--r' as string]: '9deg', ['--x' as string]: '60px', ['--s' as string]: '0.7',
+            transform: 'translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7)',
+            opacity: 1,
+            animation: 'homeSlideInRight .55s cubic-bezier(.2,.8,.3,1) forwards, float 4s ease-in-out .55s infinite',
+            animationDelay: '0.1s',
+            zIndex: 2,
+            filter: 'drop-shadow(0 10px 18px rgba(58, 46, 42, .18))',
+          }}
+        >
+          <Card card={rightCard} scale={0.7} />
         </div>
+
+        {/* Tiny progress dots so the slideshow feels intentional, not random */}
+        {slideshow.length > 2 && (
+          <div style={{
+            position: 'absolute', bottom: 4, left: 0, right: 0,
+            display: 'flex', justifyContent: 'center', gap: 5,
+            zIndex: 3,
+          }}>
+            {slideshow.map((_, i) => (
+              <span key={i} style={{
+                width: i === slideIdx ? 16 : 5, height: 5, borderRadius: 3,
+                background: i === slideIdx ? PALETTE.accent : 'rgba(58,46,42,.18)',
+                transition: 'width .25s, background .25s',
+              }} />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Bottom: Play button + nav */}
