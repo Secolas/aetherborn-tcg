@@ -74,6 +74,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   const [spellFx, setSpellFx] = useState<
     { x: number; y: number; kind: 'damage' | 'freeze' | 'buff' | 'silence' | 'face' } | null
   >(null);
+  /** Side that just drew a card at the start of their turn — fires the draw
+      flight overlay (a card-back animating from the deck chip into the hand). */
+  const [drawingFor, setDrawingFor] = useState<Owner | null>(null);
+  /** Bumps every time the active player's mana ramps so the chip can pulse. */
+  const [manaPulse, setManaPulse] = useState(0);
   const [msg, setMsg] = useState<string>('Your turn');
   const fieldRef = useRef<HTMLDivElement | null>(null);
   /** Player creature row — also a valid drop target so the player can drag a
@@ -150,6 +155,19 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const t = setTimeout(() => setTurnBanner(null), 1400);
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
+
+  // Card draw flight + mana pulse — fire whenever a new player's turn begins
+  // (after turn 1, since the initial hand is dealt by createMatch, not by
+  // beginTurn). The draw flight is a card-back animating from the active
+  // player's deck chip into their hand zone; the mana pulse pops the chip.
+  useEffect(() => {
+    if (flipping || state.outcome !== 'ongoing') return;
+    if (state.turnNumber <= 1) return; // first turn — no draw happened
+    setDrawingFor(state.turn);
+    setManaPulse(p => p + 1);
+    const t = setTimeout(() => setDrawingFor(null), 700);
+    return () => clearTimeout(t);
+  }, [state.turn, state.turnNumber, flipping, state.outcome]);
 
   // Recompute the attack-arrow endpoints whenever combat starts. We read the
   // DOM positions of the attacker and defender (or the face portrait) and
@@ -739,7 +757,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             damage={damages[FACE_PLAYER] ?? null}
             elRef={(el) => registerEl(FACE_PLAYER, el)}
           />
-          <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} />
+          <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} pulseKey={manaPulse} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
@@ -804,8 +822,15 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
                 transformOrigin: 'bottom center',
                 transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
                 pointerEvents: 'none',
-                willChange: 'transform',
+                willChange: 'transform, filter',
                 filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
+                // Affordable cards on your turn breathe a soft yellow glow
+                // so playable cards stand out from unaffordable ones at a
+                // glance. The keyframe only animates `filter`, so it
+                // doesn't conflict with the static fanned `transform`.
+                animation: playableNow && state.turn === 'player' && !isSelected
+                  ? 'playablePulse 2.4s ease-in-out infinite'
+                  : undefined,
               }}>
                 <Card card={card} scale={baseScale} hovered={isSelected} unaffordable={!playableNow} />
               </div>
@@ -928,6 +953,38 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           </div>
         );
       })()}
+
+      {/* Card draw flight — when a turn starts, animate a card-back flying
+          out of the active player's deck chip toward their hand zone. The
+          end position is approximated relative to the chip's location. */}
+      {drawingFor === 'player' && (
+        <div
+          key={`draw-p-${state.turnNumber}`}
+          style={{
+            position: 'absolute', bottom: 70, right: 30,
+            animation: 'drawFlyPlayer .7s cubic-bezier(.3,.7,.4,1) forwards',
+            pointerEvents: 'none',
+            zIndex: 95,
+            filter: 'drop-shadow(0 6px 14px rgba(58,46,42,.4))',
+          }}
+        >
+          <CardBack scale={0.32} />
+        </div>
+      )}
+      {drawingFor === 'opponent' && (
+        <div
+          key={`draw-o-${state.turnNumber}`}
+          style={{
+            position: 'absolute', top: 30, right: 30,
+            animation: 'drawFlyOpp .7s cubic-bezier(.3,.7,.4,1) forwards',
+            pointerEvents: 'none',
+            zIndex: 95,
+            filter: 'drop-shadow(0 6px 14px rgba(58,46,42,.4))',
+          }}
+        >
+          <CardBack scale={0.32} />
+        </div>
+      )}
 
       {/* Spell-target burst — colored ring + glow that lands on whichever
           creature (or face) a spell was aimed at, just as the spell resolves. */}
@@ -1644,18 +1701,21 @@ function DeckChip({ count, handSize }: { count: number; handSize: number }) {
   );
 }
 
-function ManaCrystals({ mana, maxMana }: { mana: number; maxMana: number }) {
+function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
   // Compact "5 / 7" pill plus a single decorative crystal so the chip stays
-  // a fixed width regardless of how much mana the player has. The old fan
-  // of crystals grew with maxMana and started pushing the deck/graveyard
-  // chips off the right edge of the screen at high mana counts.
+  // a fixed width regardless of how much mana the player has. The chip
+  // remounts on every pulseKey change, replaying the manaGain keyframe so
+  // the player can see the mana ramp at the start of their turn.
   return (
-    <div style={{
+    <div
+      key={pulseKey}
+      style={{
       display: 'flex', alignItems: 'center', gap: 5,
       background: '#fff',
       padding: '5px 10px', borderRadius: 14,
       boxShadow: '0 4px 10px rgba(58,46,42,.12)',
       fontFamily: '"Fredoka", "Inter", system-ui',
+      animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
     }}>
       <div style={{
         width: 14, height: 18,
