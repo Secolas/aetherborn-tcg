@@ -41,8 +41,6 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
     }, 4000);
     return () => window.clearInterval(id);
   }, [slideshow.length]);
-  const leftCard = slideshow[slideIdx % slideshow.length];
-  const rightCard = slideshow[(slideIdx + 1) % slideshow.length];
 
   return (
     <div style={{
@@ -125,81 +123,47 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
         </div>
       </div>
 
-      {/* Card preview area — radial burst showcase. On each tick a fan of
-          cards explodes outward from the center of the frame, scattering
-          and tumbling, then fades. The new pair appears through the
-          dissipating cloud, settling into the fanned center pose. */}
+      {/* Card preview area — hand fan-out. On each tick a fresh hand of
+          ~6 cards arcs in from below the showcase one card at a time,
+          forming a curved fan in the center. The hand sits gently swaying
+          before the cycle replaces it with the next set. */}
       <div style={{
         position: 'relative', flex: 1, minHeight: 220,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginTop: 12,
       }}>
-        {/* Burst — N cards, each given a randomized angle, distance,
-            rotation, and duration so the explosion feels organic. The
-            React key ties the whole burst to slideIdx so each tick
-            remounts every card and replays the animation from scratch. */}
         {(() => {
-          const N = 10;
-          // Use slideshow as the burst's card pool so the explosion shows
-          // recognizable cards from the player's life. Cycle through them
-          // so each burst doesn't repeat the same card.
+          const N = Math.min(6, Math.max(2, slideshow.length));
           return Array.from({ length: N }).map((_, i) => {
-            const baseAngle = (i * 360) / N;
-            // Spread + jitter so the burst looks chaotic, not perfectly radial.
-            const angle = baseAngle + (Math.sin(slideIdx * 11 + i * 7) * 18);
-            const dist = 200 + (Math.cos(slideIdx * 5 + i * 3) * 60);
-            const rot = (Math.sin(slideIdx * 13 + i) * 540) + 360;
-            const dur = 1.0 + Math.abs(Math.cos(slideIdx + i)) * 0.5;
-            const delay = (i / N) * 0.18; // slight stagger
-            const dx = Math.cos((angle * Math.PI) / 180) * dist;
-            const dy = Math.sin((angle * Math.PI) / 180) * dist;
-            const card = slideshow[(slideIdx + i + 2) % slideshow.length];
-            const burstStyle: React.CSSProperties & Record<string, string | number> = {
+            // Distribute around the centered fan: leftmost negative,
+            // rightmost positive. Edge cards rotate further out and sink
+            // slightly to form a natural arc.
+            const offset = i - (N - 1) / 2;
+            const finalX = offset * 32;            // px — horizontal stride
+            const finalY = Math.abs(offset) * 8;   // px — arc curve, edges sink
+            const finalRot = offset * 8;            // deg — fan splay
+            const delay = i * 0.11;                 // s — staggered entry
+            const card = slideshow[(slideIdx * N + i) % slideshow.length];
+            const cardStyle: React.CSSProperties & Record<string, string | number> = {
               position: 'absolute', left: '50%', top: '50%',
-              animation: `homeBurst ${dur}s cubic-bezier(.25,.6,.3,1) ${delay}s forwards`,
+              animation:
+                `homeFanIn 0.85s cubic-bezier(.22,.85,.3,1.15) ${delay}s both, ` +
+                `homeFanIdle 4s ease-in-out ${delay + 0.85}s infinite`,
               willChange: 'transform, opacity',
               pointerEvents: 'none',
-              zIndex: 1,
-              filter: 'drop-shadow(0 6px 14px rgba(58,46,42,.25))',
-              ['--dx']: `${dx}px`,
-              ['--dy']: `${dy}px`,
-              ['--rot']: `${rot}deg`,
+              zIndex: 10 + i,
+              filter: 'drop-shadow(0 8px 16px rgba(58, 46, 42, .18))',
+              ['--final-x']: `${finalX}px`,
+              ['--final-y']: `${finalY}px`,
+              ['--final-rot']: `${finalRot}deg`,
             };
             return (
-              <div key={`burst-${slideIdx}-${i}`} style={burstStyle}>
-                <Card card={card} scale={0.45} />
+              <div key={`fan-${slideIdx}-${i}`} style={cardStyle}>
+                <Card card={card} scale={0.6} />
               </div>
             );
           });
         })()}
-
-        {/* Center reveal — the new pair appears through the dissipating burst. */}
-        <div
-          key={`left-${slideIdx}`}
-          style={{
-            position: 'absolute', left: '50%', top: '50%',
-            ['--final-rot' as string]: '-9deg', ['--final-tx' as string]: '-60px',
-            transform: 'translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7)',
-            animation: 'homePairAppear 1.2s cubic-bezier(.2,.8,.3,1.2) forwards, float 4s ease-in-out 1.2s infinite',
-            filter: 'drop-shadow(0 8px 16px rgba(58, 46, 42, .15))',
-            zIndex: 2,
-          }}
-        >
-          <Card card={leftCard} scale={0.7} />
-        </div>
-        <div
-          key={`right-${slideIdx}`}
-          style={{
-            position: 'absolute', left: '50%', top: '50%',
-            ['--final-rot' as string]: '9deg', ['--final-tx' as string]: '60px',
-            transform: 'translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7)',
-            animation: 'homePairAppear 1.2s cubic-bezier(.2,.8,.3,1.2) 0.12s forwards, float 4s ease-in-out 1.32s infinite',
-            zIndex: 3,
-            filter: 'drop-shadow(0 10px 18px rgba(58, 46, 42, .18))',
-          }}
-        >
-          <Card card={rightCard} scale={0.7} />
-        </div>
 
         {/* Tiny progress dots so the slideshow feels intentional, not random */}
         {slideshow.length > 2 && (

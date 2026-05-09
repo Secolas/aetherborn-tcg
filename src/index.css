@@ -179,29 +179,34 @@ input {
 }
 /* Subtle scale pulse on the wrapper so the spin feels alive without moving
    off-center. Matches the spin duration. */
-/* Home-screen burst — a fan of cards explodes outward from center, each
-   flying its own direction (--dx, --dy), tumbling (--rot), and fading.
-   Driven by inline CSS variables so every card in the burst can have its
-   own trajectory. */
-@keyframes homeBurst {
-  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(0deg) scale(0.4); }
-  12%  { opacity: 1; transform: translate(-50%, -50%) rotate(0deg) scale(0.95); }
-  20%  { opacity: 1; transform: translate(-50%, -50%) rotate(calc(var(--rot, 0deg) * 0.2)) scale(0.85); }
-  100% {
-    opacity: 0;
-    transform:
-      translate(calc(-50% + var(--dx, 0px)), calc(-50% + var(--dy, 0px)))
-      rotate(var(--rot, 0deg))
-      scale(0.55);
-  }
+/* Home-screen hand fan-out — each card in the hand arcs up from a stack
+   point below the showcase area and lands in its fanned position. Final
+   pose driven by inline CSS variables so every card lands at a different
+   angle and offset. Uses fill-mode `both` so the 0% state holds through
+   the per-card delay (cards sit hidden until their turn). */
+@keyframes homeFanIn {
+  0%   { opacity: 0; transform: translate(-50%, calc(-50% + 240px)) rotate(0deg) scale(0.42); }
+  35%  { opacity: 1; }
+  78%  { transform:
+           translate(calc(-50% + var(--final-x, 0px)), calc(-50% + var(--final-y, 0px) - 6px))
+           rotate(var(--final-rot, 0deg))
+           scale(0.65); }
+  100% { opacity: 1; transform:
+           translate(calc(-50% + var(--final-x, 0px)), calc(-50% + var(--final-y, 0px)))
+           rotate(var(--final-rot, 0deg))
+           scale(0.6); }
 }
-/* Central pair fades in after the burst peaks so the new cards "appear"
-   through the cloud of scattering cards. */
-@keyframes homePairAppear {
-  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.5); }
-  60%  { opacity: 0; }
-  78%  { opacity: 1; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.78); }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(var(--final-rot, 0deg)) translateX(var(--final-tx, 0px)) scale(0.7); }
+/* Subtle in-place sway after landing so the fanned hand feels alive
+   between fan-outs. */
+@keyframes homeFanIdle {
+  0%, 100% { transform:
+              translate(calc(-50% + var(--final-x, 0px)), calc(-50% + var(--final-y, 0px)))
+              rotate(var(--final-rot, 0deg))
+              scale(0.6); }
+  50%      { transform:
+              translate(calc(-50% + var(--final-x, 0px)), calc(-50% + var(--final-y, 0px) - 5px))
+              rotate(calc(var(--final-rot, 0deg) + 1deg))
+              scale(0.6); }
 }
 
 /* Spell-target FX — burst + ring rendered over a targeted creature when a
