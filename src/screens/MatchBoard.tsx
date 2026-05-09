@@ -77,8 +77,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Side that just drew a card at the start of their turn — fires the draw
       flight overlay (a card-back animating from the deck chip into the hand). */
   const [drawingFor, setDrawingFor] = useState<Owner | null>(null);
+  /** Bumps on every fired draw so the keyframe replays even when the same
+      side draws multiple cards back-to-back (e.g. Suitcase draws 2, Tio
+      drew 1 on the same turn-start). */
+  const [drawTick, setDrawTick] = useState(0);
   /** Bumps every time the active player's mana ramps so the chip can pulse. */
   const [manaPulse, setManaPulse] = useState(0);
+  /** Per-creature buff popup: shows "+atk/+hp" in green over the creature
+      slot when a spell_buff resolves on it. Cleared after the keyframe. */
+  const [buffs, setBuffs] = useState<Record<string, { atk: number; hp: number }>>({});
+  /** Per-creature silence flash trigger — bumping the entry replays the
+      gray flash + "SILENCED" text on that creature. */
+  const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
   /** True while a tapped-Summon is mid-flight to the field. The preview
       replays a deploy keyframe and we delay the actual play so the card
       visibly travels from the preview position into the field slot. */
@@ -160,39 +170,102 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
 
-  // Surface non-combat HP loss as damage popups so abilities like Lion's
-  // "deal 2 to all enemy creatures" don't silently change stats. We diff
-  // each side's field on every state update; any creature whose currentHp
-  // dropped (and isn't already in the active combat trade, which has its
-  // own popups) fires a transient -N popup over its slot.
-  const prevFieldRef = useRef<{ player: Map<string, number>; opponent: Map<string, number> }>({
-    player: new Map(),
-    opponent: new Map(),
+  // Surface silent state changes — non-combat HP loss (Lion's AOE),
+  // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
+  // hits, and hand-size increases from on-play draws (Tio, IT Support,
+  // Owl, Train Conductor, Suitcase) and spell draws — so the player
+  // sees what changed instead of guessing.
+  interface CreatureSnap { atk: number; hp: number; ability: string }
+  const prevSnapRef = useRef<{
+    player: Map<string, CreatureSnap>;
+    opponent: Map<string, CreatureSnap>;
+    handSize: { player: number; opponent: number };
+    turnNumber: number;
+  }>({
+    player: new Map(), opponent: new Map(),
+    handSize: { player: 0, opponent: 0 },
+    turnNumber: state.turnNumber,
   });
   useEffect(() => {
-    const snapshot = (cs: BattleCard[]) => new Map(cs.map(c => [c.battleId, c.currentHp]));
-    const prev = prevFieldRef.current;
-    const fresh = { player: snapshot(state.player.field), opponent: snapshot(state.opponent.field) };
+    const snapshot = (cs: BattleCard[]) => new Map(cs.map(c => [c.battleId, {
+      atk: c.currentAtk, hp: c.currentHp, ability: c.abilityKind,
+    } as CreatureSnap]));
+    const prev = prevSnapRef.current;
+    const fresh = {
+      player: snapshot(state.player.field),
+      opponent: snapshot(state.opponent.field),
+      handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
+      turnNumber: state.turnNumber,
+    };
+
     if (!combat) {
-      const popped: Record<string, number> = {};
-      for (const [id, hp] of fresh.player) {
-        const before = prev.player.get(id);
-        if (before != null && hp < before) popped[id] = before - hp;
-      }
-      for (const [id, hp] of fresh.opponent) {
-        const before = prev.opponent.get(id);
-        if (before != null && hp < before) popped[id] = before - hp;
-      }
-      if (Object.keys(popped).length) {
-        setDamages(d => ({ ...d, ...popped }));
+      const damagePops: Record<string, number> = {};
+      const buffPops: Record<string, { atk: number; hp: number }> = {};
+      const silenced: Record<string, number> = {};
+      const checkSide = (side: Map<string, CreatureSnap>, prevSide: Map<string, CreatureSnap>) => {
+        for (const [id, cur] of side) {
+          const before = prevSide.get(id);
+          if (!before) continue;
+          // HP drop → damage popup (covers Lion's AOE etc.)
+          if (cur.hp < before.hp) damagePops[id] = before.hp - cur.hp;
+          // ATK or max-HP rose → buff popup (spell_buff resolves)
+          const atkUp = cur.atk - before.atk;
+          const hpUp = cur.hp - before.hp;
+          if (atkUp > 0 || hpUp > 0) buffPops[id] = { atk: Math.max(0, atkUp), hp: Math.max(0, hpUp) };
+          // Ability stripped → silence flash
+          if (before.ability !== 'none' && cur.ability === 'none') silenced[id] = Date.now();
+        }
+      };
+      checkSide(fresh.player, prev.player);
+      checkSide(fresh.opponent, prev.opponent);
+
+      if (Object.keys(damagePops).length) {
+        setDamages(d => ({ ...d, ...damagePops }));
         setTimeout(() => setDamages(d => {
           const next = { ...d };
-          for (const id of Object.keys(popped)) delete next[id];
+          for (const id of Object.keys(damagePops)) delete next[id];
           return next;
         }), 1100);
       }
+      if (Object.keys(buffPops).length) {
+        setBuffs(b => ({ ...b, ...buffPops }));
+        setTimeout(() => setBuffs(b => {
+          const next = { ...b };
+          for (const id of Object.keys(buffPops)) delete next[id];
+          return next;
+        }), 1200);
+      }
+      if (Object.keys(silenced).length) {
+        setSilencedAt(s => ({ ...s, ...silenced }));
+        setTimeout(() => setSilencedAt(s => {
+          const next = { ...s };
+          for (const id of Object.keys(silenced)) delete next[id];
+          return next;
+        }), 900);
+      }
+
+      // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
+      // Per-turn draws are handled by the dedicated turn-change effect.
+      if (fresh.turnNumber === prev.turnNumber) {
+        const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
+        const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
+        for (let i = 0; i < playerDraws; i++) {
+          setTimeout(() => {
+            setDrawingFor('player');
+            setDrawTick(t => t + 1);
+            setTimeout(() => setDrawingFor(null), 700);
+          }, i * 220);
+        }
+        for (let i = 0; i < oppDraws; i++) {
+          setTimeout(() => {
+            setDrawingFor('opponent');
+            setDrawTick(t => t + 1);
+            setTimeout(() => setDrawingFor(null), 700);
+          }, i * 220);
+        }
+      }
     }
-    prevFieldRef.current = fresh;
+    prevSnapRef.current = fresh;
   }, [state, combat]);
 
   // Card draw flight + mana pulse — fire whenever a new player's turn begins
@@ -203,6 +276,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     if (flipping || state.outcome !== 'ongoing') return;
     if (state.turnNumber <= 1) return; // first turn — no draw happened
     setDrawingFor(state.turn);
+    setDrawTick(t => t + 1);
     setManaPulse(p => p + 1);
     const t = setTimeout(() => setDrawingFor(null), 700);
     return () => clearTimeout(t);
@@ -655,6 +729,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           cards={state.opponent.field}
           combat={combat}
           damages={damages}
+          buffs={buffs}
+          silencedAt={silencedAt}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -774,6 +850,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           cards={state.player.field}
           combat={combat}
           damages={damages}
+          buffs={buffs}
+          silencedAt={silencedAt}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -1025,7 +1103,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           end position is approximated relative to the chip's location. */}
       {drawingFor === 'player' && (
         <div
-          key={`draw-p-${state.turnNumber}`}
+          key={`draw-p-${drawTick}`}
           style={{
             position: 'absolute', bottom: 70, right: 30,
             animation: 'drawFlyPlayer .7s cubic-bezier(.3,.7,.4,1) forwards',
@@ -1039,7 +1117,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       )}
       {drawingFor === 'opponent' && (
         <div
-          key={`draw-o-${state.turnNumber}`}
+          key={`draw-o-${drawTick}`}
           style={{
             position: 'absolute', top: 30, right: 30,
             animation: 'drawFlyOpp .7s cubic-bezier(.3,.7,.4,1) forwards',
@@ -1375,13 +1453,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 const SLOTS_PER_ROW = 3;
 
 function FieldRow({
-  side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, combat, damages, buffs, silencedAt, dyingIds, selectedAttacker, pendingSpell,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
   combat: CombatFx | null;
   damages: DamageMap;
+  /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
+  buffs: Record<string, { atk: number; hp: number }>;
+  /** Per-creature silence trigger — bumping the value replays the flash. */
+  silencedAt: Record<string, number>;
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
@@ -1432,6 +1514,8 @@ function FieldRow({
               lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
               impact={isCombatDefender}
               damage={damages[c.battleId] ?? null}
+              buff={buffs[c.battleId] ?? null}
+              silencedAt={silencedAt[c.battleId] ?? null}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />

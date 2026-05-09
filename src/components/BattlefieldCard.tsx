@@ -22,6 +22,11 @@ interface Props {
       opponent creatures stay full opacity since their tapped state isn't
       actionable for the player and was being read as "greyed out / dead". */
   dimWhenExhausted?: boolean;
+  /** Buff popup — surfaces "+atk/+hp" in green when a buff spell lands. */
+  buff?: { atk: number; hp: number } | null;
+  /** Silence trigger timestamp — when present, plays a gray flash + label
+      to make the ability strip readable. */
+  silencedAt?: number | null;
   highlight?: 'attack' | 'spell' | null;
   onClick?: () => void;
   onLongPress?: () => void;
@@ -30,7 +35,8 @@ interface Props {
 const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
-  card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted, highlight,
+  card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
+  buff, silencedAt, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -335,6 +341,61 @@ export function BattlefieldCard({
         }}>
           {damage > 0 ? `−${damage}` : `+${-damage}`}
         </div>
+      )}
+
+      {/* Buff popup — fires when spell_buff resolves on this creature so the
+          stat change is something you SEE instead of just notice in the orbs. */}
+      {buff && (buff.atk > 0 || buff.hp > 0) && (
+        <div
+          key={`buff-${card.battleId}-${buff.atk}-${buff.hp}`}
+          style={{
+            position: 'absolute', top: -6, left: '50%',
+            fontSize: 18, fontWeight: 900,
+            color: '#06d6a0',
+            textShadow: '0 2px 0 #0a4030, 0 0 10px rgba(6,214,160,.5)',
+            fontFamily: '"Fredoka", system-ui',
+            animation: 'damagePopup 1.1s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 50,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          +{buff.atk}/+{buff.hp}
+        </div>
+      )}
+
+      {/* Silence flash — gray-flash overlay + "SILENCED" label fired when
+          the creature's ability is stripped, so the loss-of-power isn't
+          something you only notice retroactively. */}
+      {silencedAt != null && (
+        <>
+          <div
+            key={`silence-fx-${silencedAt}`}
+            style={{
+              position: 'absolute', inset: 0, borderRadius: 'inherit',
+              background: 'rgba(120,110,98,.55)',
+              animation: 'spellTargetBurst .9s ease-out forwards',
+              pointerEvents: 'none',
+              zIndex: 30,
+            }}
+          />
+          <div
+            key={`silence-text-${silencedAt}`}
+            style={{
+              position: 'absolute', top: -10, left: '50%',
+              fontSize: 11, fontWeight: 900, letterSpacing: '0.2em',
+              color: '#fff',
+              textShadow: '0 2px 0 #3a2e2a, 0 0 8px rgba(0,0,0,.7)',
+              fontFamily: '"Fredoka", system-ui',
+              animation: 'damagePopup 1s ease-out forwards',
+              pointerEvents: 'none',
+              zIndex: 51,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            SILENCED
+          </div>
+        </>
       )}
     </div>
   );
