@@ -1620,6 +1620,10 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
     win:  { title: 'You won', line: "The pack respects you now. Don't lose that." },
     loss: { title: 'You lost', line: "The pack hunts another day. So do you." },
   },
+  drifter: {
+    win:  { title: 'You won', line: "They left their address on a napkin. It's blank." },
+    loss: { title: 'You lost', line: "By morning they're three time zones away." },
+  },
 };
 
 function MatchEnd({ outcome, boss, onExit }: {
