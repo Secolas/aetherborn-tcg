@@ -48,7 +48,7 @@ const THEMED: Record<string, string> = {
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
   'ani-05': U('photo-1543466835-00a7907e9de1'),     // Dog → dog
-  'ani-06': U('photo-1551772732-f8f17ac9dde9'),     // Owl → owl/bird
+  'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
   'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Bear Trap → fence/wire
