@@ -576,16 +576,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
-          <div style={{
-            background: state.turnNumber >= 12 ? '#ee5a52' : '#fff',
-            color: state.turnNumber >= 12 ? '#fff' : PALETTE.textMid,
-            padding: '4px 10px', borderRadius: 12,
-            fontSize: 10, fontWeight: 700, letterSpacing: '0.05em',
-            boxShadow: '0 2px 6px rgba(58,46,42,.08)',
-            transition: 'background .2s, color .2s',
-          }}>
-            T{state.turnNumber}/{TURN_LIMIT}
-          </div>
+          <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
         </div>
       </div>
 
@@ -1504,6 +1495,40 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
           whiteSpace: 'nowrap',
         }}>{damage > 0 ? `−${damage}` : `+${-damage}`}</div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Turn counter chip. Shows the current turn AND how many turns are left
+ * before the time-out condition fires (higher HP wins). Color escalates as
+ * the cap approaches: white → orange (≤5 left) → red (≤2 left), so the
+ * player always knows whether they need to push for the kill or hold HP.
+ */
+function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
+  const left = Math.max(0, limit - turnNumber + 1); // includes current turn
+  const palette =
+    left <= 2 ? { bg: '#ee5a52', fg: '#fff', sub: 'rgba(255,255,255,.85)' }
+    : left <= 5 ? { bg: '#ffa07a', fg: '#fff', sub: 'rgba(255,255,255,.9)' }
+    : { bg: '#fff', fg: PALETTE.text, sub: PALETTE.textMid };
+  return (
+    <div style={{
+      background: palette.bg,
+      color: palette.fg,
+      padding: '3px 10px', borderRadius: 12,
+      fontWeight: 700, letterSpacing: '0.05em',
+      boxShadow: '0 2px 6px rgba(58,46,42,.10)',
+      transition: 'background .2s, color .2s',
+      textAlign: 'center', lineHeight: 1.1,
+      fontFamily: '"Fredoka", "Inter", system-ui',
+      minWidth: 56,
+    }}>
+      <div style={{ fontSize: 9, opacity: 0.85, color: palette.sub }}>
+        TURN {turnNumber}/{limit}
+      </div>
+      <div style={{ fontSize: 12, fontWeight: 800, marginTop: 1 }}>
+        {left} left
+      </div>
     </div>
   );
 }
