@@ -117,6 +117,39 @@ export const BOSSES: BossDef[] = [
       'ani-05': U('photo-1587300003388-59208cc962cb'),  // their own guard dog
     },
   },
+
+  // ============================================================
+  // THE DRIFTER — Travel theme. Tempo / rush / draw-focused.
+  // Plays cheap evasive bodies, cycles through their hand fast,
+  // closes the game with a rushing finisher.
+  // ============================================================
+  {
+    id: 'drifter',
+    name: 'The Drifter',
+    subtitle: 'Already gone',
+    themeId: 'travel',
+    avatar: 'D',
+    intro: "Don't get attached.",
+    rewardCoins: 150,
+    deck: [
+      'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early
+      'trv-02',          // Carry-On — small evasive body
+      'trv-03',          // Suitcase — draw 2
+      'trv-04',          // Lost Luggage — silence
+      'trv-05',          // Window Seat — 3/3 Rush
+      'trv-06',          // Train Conductor — value body + draw
+      'trv-07',          // Roadmap — burn
+      'trv-09',          // Hotel — defensive anchor
+      'trv-10',          // Beach — heal
+      'trv-11',          // First Class — finisher buff
+      'trv-12',          // Mountain Summit — finisher
+    ],
+    photoOverrides: {
+      'trv-12': U('photo-1464822759023-fed622ff2c3b'),  // their own mountain summit
+      'trv-09': U('photo-1566073771259-6a8506099945'),  // their own hotel facade
+      'trv-05': U('photo-1436491865332-7a61a109cc05'),  // their own airplane window
+    },
+  },
 ];
 
 export function getBoss(id: string): BossDef | undefined {
