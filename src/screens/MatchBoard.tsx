@@ -77,8 +77,18 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Side that just drew a card at the start of their turn — fires the draw
       flight overlay (a card-back animating from the deck chip into the hand). */
   const [drawingFor, setDrawingFor] = useState<Owner | null>(null);
+  /** Bumps on every fired draw so the keyframe replays even when the same
+      side draws multiple cards back-to-back (e.g. Suitcase draws 2, Tio
+      drew 1 on the same turn-start). */
+  const [drawTick, setDrawTick] = useState(0);
   /** Bumps every time the active player's mana ramps so the chip can pulse. */
   const [manaPulse, setManaPulse] = useState(0);
+  /** Per-creature buff popup: shows "+atk/+hp" in green over the creature
+      slot when a spell_buff resolves on it. Cleared after the keyframe. */
+  const [buffs, setBuffs] = useState<Record<string, { atk: number; hp: number }>>({});
+  /** Per-creature silence flash trigger — bumping the entry replays the
+      gray flash + "SILENCED" text on that creature. */
+  const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
   /** True while a tapped-Summon is mid-flight to the field. The preview
       replays a deploy keyframe and we delay the actual play so the card
       visibly travels from the preview position into the field slot. */
@@ -118,7 +128,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           // otherwise resolve invisibly. Spells get a longer hold than
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
-          const holdMs = step.played.type === 'Spell' ? 2200 : 1500;
+          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -135,17 +145,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             setState(step.next);
           }, holdMs);
         } else {
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 700);
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
         }
       } else {
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => beginTurn(s, 'player'));
-        }, 800);
+        }, 1100);
       }
     };
-    const t = setTimeout(tick, 600);
+    const t = setTimeout(tick, 850);
     return () => { cancelled = true; clearTimeout(t); };
   }, [state, flipping]);
 
@@ -160,6 +170,104 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
 
+  // Surface silent state changes — non-combat HP loss (Lion's AOE),
+  // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
+  // hits, and hand-size increases from on-play draws (Tio, IT Support,
+  // Owl, Train Conductor, Suitcase) and spell draws — so the player
+  // sees what changed instead of guessing.
+  interface CreatureSnap { atk: number; hp: number; ability: string }
+  const prevSnapRef = useRef<{
+    player: Map<string, CreatureSnap>;
+    opponent: Map<string, CreatureSnap>;
+    handSize: { player: number; opponent: number };
+    turnNumber: number;
+  }>({
+    player: new Map(), opponent: new Map(),
+    handSize: { player: 0, opponent: 0 },
+    turnNumber: state.turnNumber,
+  });
+  useEffect(() => {
+    const snapshot = (cs: BattleCard[]) => new Map(cs.map(c => [c.battleId, {
+      atk: c.currentAtk, hp: c.currentHp, ability: c.abilityKind,
+    } as CreatureSnap]));
+    const prev = prevSnapRef.current;
+    const fresh = {
+      player: snapshot(state.player.field),
+      opponent: snapshot(state.opponent.field),
+      handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
+      turnNumber: state.turnNumber,
+    };
+
+    if (!combat) {
+      const damagePops: Record<string, number> = {};
+      const buffPops: Record<string, { atk: number; hp: number }> = {};
+      const silenced: Record<string, number> = {};
+      const checkSide = (side: Map<string, CreatureSnap>, prevSide: Map<string, CreatureSnap>) => {
+        for (const [id, cur] of side) {
+          const before = prevSide.get(id);
+          if (!before) continue;
+          // HP drop → damage popup (covers Lion's AOE etc.)
+          if (cur.hp < before.hp) damagePops[id] = before.hp - cur.hp;
+          // ATK or max-HP rose → buff popup (spell_buff resolves)
+          const atkUp = cur.atk - before.atk;
+          const hpUp = cur.hp - before.hp;
+          if (atkUp > 0 || hpUp > 0) buffPops[id] = { atk: Math.max(0, atkUp), hp: Math.max(0, hpUp) };
+          // Ability stripped → silence flash
+          if (before.ability !== 'none' && cur.ability === 'none') silenced[id] = Date.now();
+        }
+      };
+      checkSide(fresh.player, prev.player);
+      checkSide(fresh.opponent, prev.opponent);
+
+      if (Object.keys(damagePops).length) {
+        setDamages(d => ({ ...d, ...damagePops }));
+        setTimeout(() => setDamages(d => {
+          const next = { ...d };
+          for (const id of Object.keys(damagePops)) delete next[id];
+          return next;
+        }), 1100);
+      }
+      if (Object.keys(buffPops).length) {
+        setBuffs(b => ({ ...b, ...buffPops }));
+        setTimeout(() => setBuffs(b => {
+          const next = { ...b };
+          for (const id of Object.keys(buffPops)) delete next[id];
+          return next;
+        }), 1200);
+      }
+      if (Object.keys(silenced).length) {
+        setSilencedAt(s => ({ ...s, ...silenced }));
+        setTimeout(() => setSilencedAt(s => {
+          const next = { ...s };
+          for (const id of Object.keys(silenced)) delete next[id];
+          return next;
+        }), 900);
+      }
+
+      // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
+      // Per-turn draws are handled by the dedicated turn-change effect.
+      if (fresh.turnNumber === prev.turnNumber) {
+        const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
+        const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
+        for (let i = 0; i < playerDraws; i++) {
+          setTimeout(() => {
+            setDrawingFor('player');
+            setDrawTick(t => t + 1);
+            setTimeout(() => setDrawingFor(null), 700);
+          }, i * 220);
+        }
+        for (let i = 0; i < oppDraws; i++) {
+          setTimeout(() => {
+            setDrawingFor('opponent');
+            setDrawTick(t => t + 1);
+            setTimeout(() => setDrawingFor(null), 700);
+          }, i * 220);
+        }
+      }
+    }
+    prevSnapRef.current = fresh;
+  }, [state, combat]);
+
   // Card draw flight + mana pulse — fire whenever a new player's turn begins
   // (after turn 1, since the initial hand is dealt by createMatch, not by
   // beginTurn). The draw flight is a card-back animating from the active
@@ -168,6 +276,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     if (flipping || state.outcome !== 'ongoing') return;
     if (state.turnNumber <= 1) return; // first turn — no draw happened
     setDrawingFor(state.turn);
+    setDrawTick(t => t + 1);
     setManaPulse(p => p + 1);
     const t = setTimeout(() => setDrawingFor(null), 700);
     return () => clearTimeout(t);
@@ -235,11 +344,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const anyDying = defenderDying || attackerDying;
 
     // Creature trades show the big card-vs-card preview. The trade plays out
-    // across ~1700ms (slide-in → strike → counter → settle / slice) so the
-    // player can actually see who hit who. Face attacks keep the snappy
-    // ~500ms timing — there's no preview overlay to wait for.
+    // across ~2400ms (2900 if anyone dies) so the strike → counter → settle
+    // beats each have time to land. Face attacks keep a snappier ~700ms
+    // timing — there's no preview overlay to wait for.
     const isTrade = defenderKind === 'creature';
-    const popDelay = isTrade ? 700 : 250;
+    const popDelay = isTrade ? 950 : 350;
 
     // Damage pops at the strike phase.
     setTimeout(() => {
@@ -247,10 +356,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
         : (defenderId as string);
       setDamages(d => ({ ...d, [defKey]: info.damageToDef }));
-      // Counter-strike pops slightly later for trades so the two hits read
+      // Counter-strike pops noticeably later for trades so the two hits read
       // as separate beats, not one combined flash.
       if (info.damageToAtk > 0) {
-        const counterOffset = isTrade ? 300 : 0;
+        const counterOffset = isTrade ? 500 : 0;
         setTimeout(() => {
           setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
         }, counterOffset);
@@ -263,17 +372,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       if (defenderDying && isTrade) dying.push(defenderId as string);
       if (attackerDying) dying.push(info.attackerId);
       if (dying.length) setDyingIds(dying);
-      setTimeout(() => setDamages({}), 900);
+      setTimeout(() => setDamages({}), 1100);
     }, popDelay);
 
     // State swap timing — extended for trades so the slice / settle finishes
     // before the cards disappear from state.
     const stateDelay = isTrade
-      ? (anyDying ? 1700 : 1400)
-      : (anyDying ? 950 : 500);
+      ? (anyDying ? 2500 : 2100)
+      : (anyDying ? 1300 : 700);
     const clearDelay = isTrade
-      ? (anyDying ? 1900 : 1600)
-      : (anyDying ? 1100 : 700);
+      ? (anyDying ? 2900 : 2400)
+      : (anyDying ? 1500 : 900);
     setTimeout(() => done(), stateDelay);
     setTimeout(() => {
       setCombat(null);
@@ -579,22 +688,23 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <rect width="100%" height="100%" fill="url(#hex)" />
       </svg>
 
-      {/* Opponent header strip — back / give-up button on the left, opp portrait
-          + HP in the center, deck / graveyard / turn counter on the right. */}
-      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 8, position: 'relative' }}>
-        <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
-          <Flag size={18} strokeWidth={2.4} />
-        </button>
-        <OpponentPortrait
-          boss={boss}
-          themeColor={bossElement.color}
-          themeDeep={bossElement.deep}
-          hp={state.opponent.hp}
-          highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
-          onClick={onOppFaceClick}
-          damage={damages[FACE_OPP] ?? null}
-          elRef={(el) => registerEl(FACE_OPP, el)}
-        />
+      {/* Opponent header strip — mirrors the player stats row at the bottom:
+          portrait + mana on the left, deck + graveyard on the right. The
+          give-up flag moved to the divider band so it sits next to End Turn. */}
+      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <OpponentPortrait
+            boss={boss}
+            themeColor={bossElement.color}
+            themeDeep={bossElement.deep}
+            hp={state.opponent.hp}
+            highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
+            onClick={onOppFaceClick}
+            damage={damages[FACE_OPP] ?? null}
+            elRef={(el) => registerEl(FACE_OPP, el)}
+          />
+          <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
@@ -619,6 +729,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           cards={state.opponent.field}
           combat={combat}
           damages={damages}
+          buffs={buffs}
+          silencedAt={silencedAt}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -651,9 +763,15 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         zIndex: 4,
         position: 'relative',
       }}>
-        {/* Turn counter — pinned to the left of the divider so it's always
-            on screen, even when the top header is crowded. */}
-        <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
+        {/* Left cluster — turn counter + give-up flag, pinned to the divider
+            so they're always visible AND give-up sits right next to End Turn
+            (not lost in the corner of the opponent header). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
+          <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
+            <Flag size={16} strokeWidth={2.4} />
+          </button>
+        </div>
         {drag?.overField ? (
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
             {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
@@ -732,6 +850,8 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           cards={state.player.field}
           combat={combat}
           damages={damages}
+          buffs={buffs}
+          silencedAt={silencedAt}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -983,7 +1103,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           end position is approximated relative to the chip's location. */}
       {drawingFor === 'player' && (
         <div
-          key={`draw-p-${state.turnNumber}`}
+          key={`draw-p-${drawTick}`}
           style={{
             position: 'absolute', bottom: 70, right: 30,
             animation: 'drawFlyPlayer .7s cubic-bezier(.3,.7,.4,1) forwards',
@@ -997,7 +1117,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       )}
       {drawingFor === 'opponent' && (
         <div
-          key={`draw-o-${state.turnNumber}`}
+          key={`draw-o-${drawTick}`}
           style={{
             position: 'absolute', top: 30, right: 30,
             animation: 'drawFlyOpp .7s cubic-bezier(.3,.7,.4,1) forwards',
@@ -1116,7 +1236,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         const attackerDying = dyingIds.includes(combat.attackerId);
         const defenderDying = dyingIds.includes(combat.defenderId);
         const anyDying = attackerDying || defenderDying;
-        const heldMs = anyDying ? 1900 : 1600;
+        const heldMs = anyDying ? 2900 : 2400;
         const leftAnim = attackerDying ? 'vsLeftDying' : 'vsLeftLunge';
         const rightAnim = defenderDying ? 'vsRightDying' : 'vsRightLunge';
         return (
@@ -1333,13 +1453,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 const SLOTS_PER_ROW = 3;
 
 function FieldRow({
-  side, cards, combat, damages, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, combat, damages, buffs, silencedAt, dyingIds, selectedAttacker, pendingSpell,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
   combat: CombatFx | null;
   damages: DamageMap;
+  /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
+  buffs: Record<string, { atk: number; hp: number }>;
+  /** Per-creature silence trigger — bumping the value replays the flash. */
+  silencedAt: Record<string, number>;
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
@@ -1390,6 +1514,8 @@ function FieldRow({
               lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
               impact={isCombatDefender}
               damage={damages[c.battleId] ?? null}
+              buff={buffs[c.battleId] ?? null}
+              silencedAt={silencedAt[c.battleId] ?? null}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />
@@ -1707,20 +1833,22 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
 }
 
 function DeckChip({ count, handSize }: { count: number; handSize: number }) {
+  // Tight number-only chip — labels were pushing the right cluster off the
+  // screen edge on narrow phones. Layers icon + deck count + thin divider +
+  // hand count is enough to read at a glance.
   return (
     <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 6,
+      display: 'inline-flex', alignItems: 'center', gap: 5,
       background: '#fff',
-      padding: '5px 11px', borderRadius: 14,
+      padding: '5px 9px', borderRadius: 14,
       boxShadow: '0 3px 8px rgba(58,46,42,.10)',
-      fontSize: 12, fontWeight: 600, color: PALETTE.textMid,
+      fontSize: 12, fontWeight: 700, color: PALETTE.text,
+      fontFamily: '"Fredoka", "Inter", system-ui',
     }}>
-      <Layers size={14} color={PALETTE.accentDeep} strokeWidth={2.4} />
-      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{count}</span>
-      <span style={{ opacity: 0.7 }}>deck</span>
-      <span style={{ width: 1, height: 14, background: 'rgba(58,46,42,.12)' }} />
-      <span style={{ color: PALETTE.text, fontWeight: 700 }}>{handSize}</span>
-      <span style={{ opacity: 0.7 }}>hand</span>
+      <Layers size={13} color={PALETTE.accentDeep} strokeWidth={2.4} />
+      <span>{count}</span>
+      <span style={{ width: 1, height: 12, background: 'rgba(58,46,42,.15)' }} />
+      <span style={{ color: PALETTE.textMid }}>{handSize}</span>
     </div>
   );
 }
