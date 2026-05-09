@@ -155,11 +155,12 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   me.maxMana = Math.min(MAX_MANA, me.maxMana + 1);
   me.mana = me.maxMana;
 
-  // Untap, clear sickness
+  // Untap, clear sickness. Frozen creatures stay frozen through their owner's
+  // turn (so the snowflake is visible the whole time the freeze is "active");
+  // the freeze actually wears off at the end of that turn. See endTurn below.
   me.field.forEach(c => {
     if (c.frozen) {
-      c.frozen = false;
-      c.tapped = true; // stay tapped this turn
+      c.tapped = true; // can't act while frozen
     } else {
       c.tapped = false;
     }
@@ -200,8 +201,15 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
 }
 
 export function endTurn(prev: MatchState): MatchState {
-  const next = beginTurn(prev, opp(prev.turn));
-  return next;
+  // Wear off the active player's freeze tokens at the END of their turn so
+  // the snowflake icon stays visible all turn long while the creature is
+  // skipping it. By the time the opponent's beginTurn fires, frozen has
+  // cleared and the creature looks normal (and can act again next turn).
+  const cleared = clone(prev);
+  side(cleared, cleared.turn).field.forEach(c => {
+    if (c.frozen) c.frozen = false;
+  });
+  return beginTurn(cleared, opp(cleared.turn));
 }
 
 interface PlayResult {

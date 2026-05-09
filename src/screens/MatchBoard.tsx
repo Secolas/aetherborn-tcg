@@ -1683,57 +1683,19 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'attack' ? '#ee5a52' : highlight === 'spell' ? '#3a8fc4' : null;
-  // Shake when actually hit (damage > 0). Heals don't shake.
   const hit = damage != null && damage > 0;
   return (
-    <div ref={elRef} onClick={onClick} style={{
-      display: 'flex', alignItems: 'center', gap: 10, position: 'relative',
-      cursor: highlight ? 'pointer' : 'default',
-      padding: 4, borderRadius: 30,
-      background: '#fff',
-      boxShadow: ring
-        ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
-        : hit
-          ? '0 0 0 2px #ee5a52, 0 0 16px rgba(238,90,82,.6), 0 4px 10px rgba(58,46,42,.12)'
-          : '0 4px 10px rgba(58,46,42,.12)',
-      animation: hit
-        ? 'shake 0.4s, hpFlash 0.5s'
-        : damage ? 'hpFlash 0.5s' : undefined,
-      transition: 'box-shadow .15s',
-    }}>
-      <div style={{
-        width: 44, height: 44, borderRadius: '50%',
-        background: `conic-gradient(from 90deg, ${themeDeep}, ${themeColor}, ${themeDeep})`,
-        padding: 2, position: 'relative',
-      }}>
-        <div style={{
-          width: '100%', height: '100%', borderRadius: '50%',
-          background: `linear-gradient(160deg, ${themeDeep}, ${themeColor})`,
-          display: 'grid', placeItems: 'center',
-          fontSize: 18, fontWeight: 700, color: '#fff',
-          fontFamily: '"Fredoka", system-ui',
-        }}>{boss.avatar}</div>
-      </div>
-      <div style={{ paddingRight: 8 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: PALETTE.text, lineHeight: 1.05 }}>{boss.name}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 }}>
-          <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
-        </div>
-      </div>
-      {damage != null && damage !== 0 && (
-        <div style={{
-          position: 'absolute', top: -10, left: '50%',
-          fontSize: 22, fontWeight: 900,
-          color: damage > 0 ? '#ee5a52' : '#06d6a0',
-          textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
-          animation: 'damagePopup .9s ease-out forwards',
-          pointerEvents: 'none',
-          fontFamily: '"Fredoka", system-ui',
-          whiteSpace: 'nowrap',
-        }}>{damage > 0 ? `−${damage}` : `+${-damage}`}</div>
-      )}
-    </div>
+    <Portrait
+      avatar={boss.avatar}
+      avatarBg={`linear-gradient(160deg, ${themeDeep}, ${themeColor})`}
+      avatarRing={`conic-gradient(from 90deg, ${themeDeep}, ${themeColor}, ${themeDeep})`}
+      hp={hp}
+      ring={ring}
+      hit={hit}
+      damage={damage}
+      onClick={onClick}
+      elRef={elRef}
+    />
   );
 }
 
@@ -1747,9 +1709,43 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
   const ring = highlight === 'heal' ? '#06d6a0' : null;
   const hit = damage != null && damage > 0;
   return (
+    <Portrait
+      avatar="Y"
+      avatarBg="linear-gradient(160deg, #6e1f1a, #d96658)"
+      avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
+      hp={hp}
+      ring={ring}
+      hit={hit}
+      damage={damage}
+      onClick={onClick}
+      elRef={elRef}
+    />
+  );
+}
+
+/**
+ * Shared portrait pill — avatar circle + heart icon + HP. Both the player
+ * and the boss render through this so the two sides have identical chrome:
+ * same widths, same internal padding, same alignment relative to the
+ * portrait dot. No per-side name labels (avatar conveys identity well
+ * enough and dropping the names removes the layout asymmetry that the
+ * names were creating).
+ */
+function Portrait({ avatar, avatarBg, avatarRing, hp, ring, hit, damage, onClick, elRef }: {
+  avatar: string;
+  avatarBg: string;
+  avatarRing: string;
+  hp: number;
+  ring: string | null;
+  hit: boolean;
+  damage: number | null;
+  onClick: () => void;
+  elRef?: (el: HTMLElement | null) => void;
+}) {
+  return (
     <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
-      cursor: highlight ? 'pointer' : 'default',
+      cursor: ring ? 'pointer' : 'default',
       padding: 4, borderRadius: 30,
       background: '#fff',
       boxShadow: ring
@@ -1757,30 +1753,25 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
         : hit
           ? '0 0 0 2px #ee5a52, 0 0 16px rgba(238,90,82,.6), 0 4px 10px rgba(58,46,42,.12)'
           : '0 4px 10px rgba(58,46,42,.12)',
-      animation: hit
-        ? 'shake 0.4s, hpFlash 0.5s'
-        : damage ? 'hpFlash 0.5s' : undefined,
+      animation: hit ? 'shake 0.4s, hpFlash 0.5s' : damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
-      <div style={{ paddingLeft: 8, textAlign: 'right' }}>
-        <div style={{ fontSize: 11, fontWeight: 600, color: PALETTE.textMid, letterSpacing: '0.05em' }}>You</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 1, justifyContent: 'flex-end' }}>
-          <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
-          <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
-        </div>
-      </div>
       <div style={{
-        width: 44, height: 44, borderRadius: '50%',
-        background: 'conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)',
-        padding: 2, position: 'relative',
+        width: 40, height: 40, borderRadius: '50%',
+        background: avatarRing,
+        padding: 2, flex: '0 0 auto',
       }}>
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
-          background: 'linear-gradient(160deg, #6e1f1a, #d96658)',
+          background: avatarBg,
           display: 'grid', placeItems: 'center',
-          fontSize: 18, fontWeight: 700, color: '#fff',
+          fontSize: 16, fontWeight: 700, color: '#fff',
           fontFamily: '"Fredoka", system-ui',
-        }}>Y</div>
+        }}>{avatar}</div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 5, paddingRight: 10 }}>
+        <Heart size={15} fill="#ee5a52" color="#ee5a52" strokeWidth={2} />
+        <span style={{ fontSize: 18, fontWeight: 700, color: PALETTE.text }}>{hp}</span>
       </div>
       {damage != null && damage !== 0 && (
         <div style={{
