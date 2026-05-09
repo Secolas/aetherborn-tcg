@@ -118,7 +118,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           // otherwise resolve invisibly. Spells get a longer hold than
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
-          const holdMs = step.played.type === 'Spell' ? 2200 : 1500;
+          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -135,17 +135,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             setState(step.next);
           }, holdMs);
         } else {
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 700);
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
         }
       } else {
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => beginTurn(s, 'player'));
-        }, 800);
+        }, 1100);
       }
     };
-    const t = setTimeout(tick, 600);
+    const t = setTimeout(tick, 850);
     return () => { cancelled = true; clearTimeout(t); };
   }, [state, flipping]);
 
@@ -235,11 +235,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const anyDying = defenderDying || attackerDying;
 
     // Creature trades show the big card-vs-card preview. The trade plays out
-    // across ~1700ms (slide-in → strike → counter → settle / slice) so the
-    // player can actually see who hit who. Face attacks keep the snappy
-    // ~500ms timing — there's no preview overlay to wait for.
+    // across ~2400ms (2900 if anyone dies) so the strike → counter → settle
+    // beats each have time to land. Face attacks keep a snappier ~700ms
+    // timing — there's no preview overlay to wait for.
     const isTrade = defenderKind === 'creature';
-    const popDelay = isTrade ? 700 : 250;
+    const popDelay = isTrade ? 950 : 350;
 
     // Damage pops at the strike phase.
     setTimeout(() => {
@@ -247,10 +247,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
         : (defenderId as string);
       setDamages(d => ({ ...d, [defKey]: info.damageToDef }));
-      // Counter-strike pops slightly later for trades so the two hits read
+      // Counter-strike pops noticeably later for trades so the two hits read
       // as separate beats, not one combined flash.
       if (info.damageToAtk > 0) {
-        const counterOffset = isTrade ? 300 : 0;
+        const counterOffset = isTrade ? 500 : 0;
         setTimeout(() => {
           setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
         }, counterOffset);
@@ -263,17 +263,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       if (defenderDying && isTrade) dying.push(defenderId as string);
       if (attackerDying) dying.push(info.attackerId);
       if (dying.length) setDyingIds(dying);
-      setTimeout(() => setDamages({}), 900);
+      setTimeout(() => setDamages({}), 1100);
     }, popDelay);
 
     // State swap timing — extended for trades so the slice / settle finishes
     // before the cards disappear from state.
     const stateDelay = isTrade
-      ? (anyDying ? 1700 : 1400)
-      : (anyDying ? 950 : 500);
+      ? (anyDying ? 2500 : 2100)
+      : (anyDying ? 1300 : 700);
     const clearDelay = isTrade
-      ? (anyDying ? 1900 : 1600)
-      : (anyDying ? 1100 : 700);
+      ? (anyDying ? 2900 : 2400)
+      : (anyDying ? 1500 : 900);
     setTimeout(() => done(), stateDelay);
     setTimeout(() => {
       setCombat(null);
@@ -1116,7 +1116,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         const attackerDying = dyingIds.includes(combat.attackerId);
         const defenderDying = dyingIds.includes(combat.defenderId);
         const anyDying = attackerDying || defenderDying;
-        const heldMs = anyDying ? 1900 : 1600;
+        const heldMs = anyDying ? 2900 : 2400;
         const leftAnim = attackerDying ? 'vsLeftDying' : 'vsLeftLunge';
         const rightAnim = defenderDying ? 'vsRightDying' : 'vsRightLunge';
         return (

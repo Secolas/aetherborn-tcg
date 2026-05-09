@@ -93,8 +93,8 @@ export function BattlefieldCard({
   // Opponent creatures that are spell/attack targets are excluded — they
   // already have their own red/blue highlight ring.
   const isAttackReady = !!attackable && !selected && !highlight && !lunging && !shaking && !card.frozen && !showSummonFx;
-  const animation = lunging === 'up' ? 'lungeUp .55s cubic-bezier(.4,.6,.5,1.4)'
-    : lunging === 'down' ? 'lungeDown .55s cubic-bezier(.4,.6,.5,1.4)'
+  const animation = lunging === 'up' ? 'lungeUp .75s cubic-bezier(.4,.6,.5,1.4)'
+    : lunging === 'down' ? 'lungeDown .75s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
     : showSummonFx ? 'cardSlam .5s'
     : isAttackReady ? 'attackReadyPulse 1.6s ease-in-out infinite'
