@@ -203,7 +203,7 @@ export const TEMPLATES: CardTemplate[] = [
 
   { id: 'ani-05', name: 'Dog', el: 'animals', cost: 3, atk: 2, hp: 4, type: 'Creature',
     ability: 'Taunt.',
-    flavor: 'Loyal to a fault.',
+    flavor: 'Stays at your side. Always.',
     abilityKind: 'taunt',
     rarity: 'rare', suggested: 'a dog — any dog' },
 

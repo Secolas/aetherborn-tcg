@@ -119,7 +119,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       if (cancelled) return;
       const step = aiStep(state);
       if (step) {
-        showMsg(step.action);
+        // ai.ts uses a generic "The Boss" prefix in its log strings; we
+        // substitute the actual boss name at display time so the message
+        // reads "Mom summons Dad" / "The Drifter casts Layover" / etc.
+        // Only the leading "The Boss" gets swapped — the wrk-12 card is
+        // also named "The Boss" and shouldn't be renamed mid-string.
+        showMsg(step.action.replace(/^The Boss\b/, boss.name));
         if (step.combat) {
           playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
         } else if (step.played) {
