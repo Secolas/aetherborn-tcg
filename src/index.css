@@ -248,6 +248,16 @@ input {
   50%      { filter: drop-shadow(0 6px 14px rgba(58, 46, 42, .18)) drop-shadow(0 0 16px rgba(244,208,74,.55)); }
 }
 
+/* Deploy — when the player taps Summon, the centered preview shrinks and
+   slides up into the field zone, fading out as the actual battlefield
+   card slams down into the slot. Connects "I picked this card" to "it's
+   on the board now" with a continuous arc. */
+@keyframes deployToField {
+  0%   { opacity: 1; transform: translateY(0) scale(1) rotate(0deg); }
+  50%  { opacity: 1; transform: translateY(-90px) scale(0.7) rotate(-3deg); }
+  100% { opacity: 0; transform: translateY(-150px) scale(0.4) rotate(-6deg); }
+}
+
 /* Spell-target FX — burst + ring rendered over a targeted creature when a
    spell resolves. Color is set per spell kind via inline styles. */
 @keyframes spellTargetBurst {
