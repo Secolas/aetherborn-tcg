@@ -268,15 +268,30 @@ export function BattlefieldCard({
           window (cardSlam handles the card itself; this sells the impact
           on the slot beneath). */}
       {showSummonFx && (
-        <div style={{
-          position: 'absolute', bottom: -6, left: '50%',
-          width: 110, height: 22, borderRadius: '50%',
-          background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
-          filter: 'blur(2px)',
-          animation: 'summonDust .7s ease-out forwards',
-          pointerEvents: 'none',
-          zIndex: 1,
-        }} />
+        <>
+          {/* Dust ring under the card — settling on the field */}
+          <div style={{
+            position: 'absolute', bottom: -6, left: '50%',
+            width: 110, height: 22, borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
+            filter: 'blur(2px)',
+            animation: 'summonDust .7s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }} />
+          {/* Bright halo ring centered on the slot — fires for every creature
+              summon (drag, tap-Summon, AI play, Rush or not) so the "card
+              landed on the field" beat is identical regardless of path. */}
+          <div style={{
+            position: 'absolute', top: '50%', left: '50%',
+            width: 80, height: 80, borderRadius: '50%',
+            border: '3px solid #ffd166',
+            boxShadow: '0 0 18px rgba(255,209,102,.85), inset 0 0 12px rgba(255,209,102,.6)',
+            animation: 'summonHalo .65s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 2,
+          }} />
+        </>
       )}
 
       {/* Damage popup */}
