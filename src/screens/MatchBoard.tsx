@@ -814,6 +814,24 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         })}
       </div>
 
+      {/* Backdrop — when a hand card is being previewed, dim the rest of the
+          screen and block clicks to anything BUT the hand and the preview
+          itself. Tapping the dim area dismisses. Without this you could
+          accidentally hit the End Turn button while reading a card. */}
+      {selectedHandIdx !== null && !drag && (
+        <div
+          onClick={() => setSelectedHandIdx(null)}
+          style={{
+            position: 'absolute', top: 0, left: 0, right: 0, bottom: 220,
+            background: 'rgba(8,4,12,.42)',
+            zIndex: 88,
+            animation: 'fadeIn .15s',
+            cursor: 'pointer',
+          }}
+          aria-label="Cancel preview"
+        />
+      )}
+
       {/* Centered hand-card preview — rendered above the hand when a card is
           tapped. Has an explicit Summon / Cast button so accidentally tapping
           the field doesn't auto-play the card. */}
@@ -841,11 +859,17 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               animation: 'fadeIn 0.15s',
             }}
           >
-            <div style={{
-              animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
-              filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
-              pointerEvents: 'none',
-            }}>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                animation: 'cardSummon 0.28s cubic-bezier(.2,.8,.3,1)',
+                filter: 'drop-shadow(0 12px 28px rgba(0,0,0,.35))',
+                // Card image catches its own clicks so tapping the preview
+                // doesn't fall through to the backdrop and dismiss. Action
+                // happens via Cancel / Summon below.
+                pointerEvents: 'auto',
+              }}
+            >
               <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
             </div>
             <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto' }}>
