@@ -179,18 +179,29 @@ input {
 }
 /* Subtle scale pulse on the wrapper so the spin feels alive without moving
    off-center. Matches the spin duration. */
-/* Home-screen slideshow — each pair of cards slides in from the right
-   when the carousel advances. Two variants so the left and right slots
-   land at different angles + offsets. */
-@keyframes homeSlideInLeft {
-  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-30deg) translateX(120px) scale(0.55); }
-  60%  { opacity: 1; }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7); }
+/* Home-screen slideshow — cards drop from above the viewport, spinning as
+   they fall, and settle into their fanned pose with a small bounce.
+   Two variants so the left and right slots land at mirrored angles. */
+@keyframes homeFallLeft {
+  0%   { opacity: 0; transform: translate(-50%, calc(-50% - 420px)) rotate(-180deg) translateX(-60px) scale(0.55); }
+  55%  { opacity: 1; }
+  72%  { opacity: 1; transform: translate(-50%, calc(-50% + 14px)) rotate(-2deg)   translateX(-60px) scale(0.74); }
+  85%  { transform: translate(-50%, calc(-50% - 6px))  rotate(-12deg)  translateX(-60px) scale(0.68); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg)   translateX(-60px) scale(0.7);  }
 }
-@keyframes homeSlideInRight {
-  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(30deg) translateX(220px) scale(0.55); }
-  60%  { opacity: 1; }
-  100% { opacity: 1; transform: translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7); }
+@keyframes homeFallRight {
+  0%   { opacity: 0; transform: translate(-50%, calc(-50% - 460px)) rotate(220deg) translateX(60px) scale(0.55); }
+  55%  { opacity: 1; }
+  72%  { opacity: 1; transform: translate(-50%, calc(-50% + 14px)) rotate(2deg)   translateX(60px) scale(0.74); }
+  85%  { transform: translate(-50%, calc(-50% - 6px))  rotate(13deg)  translateX(60px) scale(0.68); }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(9deg)   translateX(60px) scale(0.7);  }
+}
+/* Tiny dust-puff under the card right as it lands — sells the impact. */
+@keyframes homeFallDust {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
+  60%  { opacity: 0; }
+  72%  { opacity: 0.55; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0;    transform: translate(-50%, -8px) scale(1.6); }
 }
 
 /* Spell-target FX — burst + ring rendered over a targeted creature when a

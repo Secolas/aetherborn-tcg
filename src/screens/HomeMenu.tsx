@@ -126,16 +126,30 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
         </div>
       </div>
 
-      {/* Card preview area — sliding showcase. Two slots auto-cycle through
-          every summoned card the player owns. The React `key` includes the
-          slide index so each tick remounts the slot, replaying the slide-in
-          keyframe, while the floating idle animation keeps running between
-          ticks. */}
+      {/* Card preview area — falling-card showcase. Two slots auto-cycle
+          through every summoned card the player owns; on each tick both
+          slots remount (via keyed children) and the new cards drop in
+          from above, spinning, then settle with a small bounce. The
+          existing `float` idle animation kicks in after the fall so motion
+          never stops between ticks. */}
       <div style={{
         position: 'relative', flex: 1, minHeight: 220,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         marginTop: 12,
       }}>
+        {/* Dust puff under the left card landing zone */}
+        <div
+          key={`dust-l-${slideIdx}`}
+          style={{
+            position: 'absolute', left: 'calc(50% - 60px)', top: 'calc(50% + 96px)',
+            width: 110, height: 14, borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(120,80,40,.45), transparent 70%)',
+            filter: 'blur(2px)',
+            animation: 'homeFallDust .9s ease-out forwards',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
         <div
           key={`left-${slideIdx}`}
           style={{
@@ -143,12 +157,27 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
             ['--r' as string]: '-9deg', ['--x' as string]: '-60px', ['--s' as string]: '0.7',
             transform: 'translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7)',
             opacity: 0.95,
-            animation: 'homeSlideInLeft .55s cubic-bezier(.2,.8,.3,1) forwards, float 4s ease-in-out .55s infinite',
+            animation: 'homeFallLeft .9s cubic-bezier(.25,.6,.3,1.2) forwards, float 4s ease-in-out .9s infinite',
             filter: 'drop-shadow(0 8px 16px rgba(58, 46, 42, .15))',
+            zIndex: 2,
           }}
         >
           <Card card={leftCard} scale={0.7} />
         </div>
+        {/* Dust puff under the right card landing zone — fires slightly later
+            so the two impacts don't overlap. */}
+        <div
+          key={`dust-r-${slideIdx}`}
+          style={{
+            position: 'absolute', left: 'calc(50% + 60px)', top: 'calc(50% + 96px)',
+            width: 110, height: 14, borderRadius: '50%',
+            background: 'radial-gradient(ellipse, rgba(120,80,40,.45), transparent 70%)',
+            filter: 'blur(2px)',
+            animation: 'homeFallDust .9s ease-out 0.18s forwards',
+            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
         <div
           key={`right-${slideIdx}`}
           style={{
@@ -156,9 +185,8 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
             ['--r' as string]: '9deg', ['--x' as string]: '60px', ['--s' as string]: '0.7',
             transform: 'translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7)',
             opacity: 1,
-            animation: 'homeSlideInRight .55s cubic-bezier(.2,.8,.3,1) forwards, float 4s ease-in-out .55s infinite',
-            animationDelay: '0.1s',
-            zIndex: 2,
+            animation: 'homeFallRight .9s cubic-bezier(.25,.6,.3,1.2) 0.18s forwards, float 4s ease-in-out 1.08s infinite',
+            zIndex: 3,
             filter: 'drop-shadow(0 10px 18px rgba(58, 46, 42, .18))',
           }}
         >
