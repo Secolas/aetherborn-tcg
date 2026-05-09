@@ -179,6 +179,20 @@ input {
 }
 /* Subtle scale pulse on the wrapper so the spin feels alive without moving
    off-center. Matches the spin duration. */
+/* Home-screen slideshow — each pair of cards slides in from the right
+   when the carousel advances. Two variants so the left and right slots
+   land at different angles + offsets. */
+@keyframes homeSlideInLeft {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(-30deg) translateX(120px) scale(0.55); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(-9deg) translateX(-60px) scale(0.7); }
+}
+@keyframes homeSlideInRight {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(30deg) translateX(220px) scale(0.55); }
+  60%  { opacity: 1; }
+  100% { opacity: 1; transform: translate(-50%, -50%) rotate(9deg) translateX(60px) scale(0.7); }
+}
+
 /* Spell-target FX — burst + ring rendered over a targeted creature when a
    spell resolves. Color is set per spell kind via inline styles. */
 @keyframes spellTargetBurst {
