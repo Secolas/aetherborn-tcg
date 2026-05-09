@@ -21,6 +21,8 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
              blurb: 'the office, the grind, the boss' },
   animals: { name: 'Animals', color: '#5ea863', deep: '#1f4524', glow: '#b9e3b8',
              blurb: 'pets, wildlife, the creatures around you' },
+  travel:  { name: 'Travel',  color: '#3aa8c4', deep: '#155a73', glow: '#a8dde8',
+             blurb: 'planes, trains, hotels, the road' },
 };
 
 /**

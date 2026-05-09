@@ -1,5 +1,5 @@
 /** Themes are the deck-organizing axis. Each theme is a photo prompt set. */
-export type ElementId = 'family' | 'work' | 'animals';
+export type ElementId = 'family' | 'work' | 'animals' | 'travel';
 
 export type CardType = 'Creature' | 'Spell';
 

@@ -8,7 +8,7 @@ import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import type { CollectionCard, ElementId } from '../game/types';
 
 type Stage = 'pick' | 'shaking' | 'revealing' | 'done';
-const THEMES: ElementId[] = ['family', 'work', 'animals'];
+const THEMES: ElementId[] = ['family', 'work', 'animals', 'travel'];
 
 interface Props {
   coins: number;

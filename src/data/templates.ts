@@ -1,4 +1,4 @@
-import type { CardTemplate } from '../game/types';
+import type { CardTemplate, ElementId } from '../game/types';
 
 /**
  * 36 cards. Three themes (Family, Work, Animals), each with its own playstyle:
@@ -251,12 +251,89 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Calm down.',
     abilityKind: 'silence',
     rarity: 'rare', suggested: 'a leash, harness, or quiet animal' },
+
+
+  // ============================================================
+  // TRAVEL — tempo / evasion. They move fast and slip past defenses.
+  // ============================================================
+
+  { id: 'trv-01', name: 'Boarding Pass', el: 'travel', cost: 1, atk: 2, hp: 1, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'You\'re already through security.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'a boarding pass, ticket stub, or gate sign' },
+
+  { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
+    ability: 'Spells cannot target this.',
+    flavor: 'Never leaves your side.',
+    abilityKind: 'untargetable',
+    rarity: 'common', suggested: 'a backpack, duffel, or wheeled bag' },
+
+  { id: 'trv-03', name: 'Suitcase', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw 2 cards.',
+    flavor: 'You packed for everything.',
+    abilityKind: 'draw_on_play', abilityValue: 2,
+    rarity: 'common', suggested: 'a packed suitcase or open luggage' },
+
+  { id: 'trv-04', name: 'Lost Luggage', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Silence an enemy creature.',
+    flavor: 'They\'re going to need to fill out a form.',
+    abilityKind: 'silence',
+    rarity: 'rare', suggested: 'a baggage carousel, claim tag, or empty rack' },
+
+  { id: 'trv-05', name: 'Window Seat', el: 'travel', cost: 3, atk: 3, hp: 3, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Best view in the house.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'an airplane window, a view from above the clouds' },
+
+  { id: 'trv-06', name: 'Train Conductor', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
+    ability: 'On play: draw a card.',
+    flavor: 'They know every stop by heart.',
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'a train, station, or platform sign' },
+
+  { id: 'trv-07', name: 'Roadmap', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Deal 3 damage to any target.',
+    flavor: 'Some routes shouldn\'t be taken.',
+    abilityKind: 'spell_damage', abilityValue: 3,
+    rarity: 'common', suggested: 'a paper map, a GPS screen, a road sign' },
+
+  { id: 'trv-08', name: 'Layover', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Freeze an enemy creature.',
+    flavor: 'Hours bleed into hours.',
+    abilityKind: 'spell_freeze',
+    rarity: 'rare', suggested: 'a departure board, a quiet terminal, a long hall' },
+
+  { id: 'trv-09', name: 'Hotel', el: 'travel', cost: 4, atk: 2, hp: 5, type: 'Creature',
+    ability: 'Taunt.',
+    flavor: 'Where the night ends.',
+    abilityKind: 'taunt',
+    rarity: 'rare', suggested: 'a hotel facade, room key, or lobby' },
+
+  { id: 'trv-10', name: 'Beach', el: 'travel', cost: 4, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 6 HP.',
+    flavor: 'You can breathe again.',
+    abilityKind: 'spell_heal', abilityValue: 6,
+    rarity: 'common', suggested: 'a beach, ocean view, or shoreline' },
+
+  { id: 'trv-11', name: 'First Class', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a creature +4/+4.',
+    flavor: 'Some people travel differently.',
+    abilityKind: 'spell_buff', abilityValue: 4,
+    rarity: 'rare', suggested: 'a lie-flat seat, a champagne flute, a lounge' },
+
+  { id: 'trv-12', name: 'Mountain Summit', el: 'travel', cost: 6, atk: 6, hp: 5, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'You made it to the top.',
+    abilityKind: 'rush',
+    rarity: 'legendary', suggested: 'a peak, summit, or panoramic mountain view' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {
   return TEMPLATES.find(t => t.id === id);
 }
 
-export function templatesByTheme(theme: 'family' | 'work' | 'animals'): CardTemplate[] {
+export function templatesByTheme(theme: ElementId): CardTemplate[] {
   return TEMPLATES.filter(t => t.el === theme);
 }
