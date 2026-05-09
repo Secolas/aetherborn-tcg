@@ -253,6 +253,22 @@ export function BattlefieldCard({
         }} />
       )}
 
+      {/* Summon dust — one-shot ring of light under the card the moment it
+          lands on the field. Plays while the card is in its `justPlayed`
+          window (cardSlam handles the card itself; this sells the impact
+          on the slot beneath). */}
+      {card.justPlayed && (
+        <div style={{
+          position: 'absolute', bottom: -6, left: '50%',
+          width: 110, height: 22, borderRadius: '50%',
+          background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
+          filter: 'blur(2px)',
+          animation: 'summonDust .7s ease-out forwards',
+          pointerEvents: 'none',
+          zIndex: 1,
+        }} />
+      )}
+
       {/* Damage popup */}
       {damage != null && damage !== 0 && (
         <div style={{

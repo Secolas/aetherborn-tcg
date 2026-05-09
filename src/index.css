@@ -209,6 +209,45 @@ input {
               scale(0.6); }
 }
 
+/* Card draw flight — at the start of each turn, a card-back flies from the
+   active player's deck chip into the hand zone. Two variants because the
+   player draws into the bottom hand and the opp draws into the top one. */
+@keyframes drawFlyPlayer {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.55); }
+  15%  { opacity: 1; transform: translate(-30px, -10px) rotate(-4deg) scale(0.7); }
+  60%  { opacity: 1; transform: translate(-160px, -90px) rotate(-18deg) scale(1.0); }
+  100% { opacity: 0; transform: translate(-200px, -130px) rotate(-22deg) scale(0.9); }
+}
+@keyframes drawFlyOpp {
+  0%   { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.55); }
+  15%  { opacity: 1; transform: translate(-30px, 10px) rotate(4deg) scale(0.7); }
+  60%  { opacity: 1; transform: translate(-160px, 90px) rotate(18deg) scale(1.0); }
+  100% { opacity: 0; transform: translate(-200px, 130px) rotate(22deg) scale(0.9); }
+}
+
+/* Mana chip pulse — when the active player gains a mana point at the start
+   of their turn, the chip pops + glows briefly. */
+@keyframes manaGain {
+  0%   { transform: scale(1); box-shadow: 0 4px 10px rgba(58,46,42,.12); }
+  30%  { transform: scale(1.18); box-shadow: 0 0 28px #3a8fc4, 0 4px 10px rgba(58,46,42,.12); }
+  100% { transform: scale(1); box-shadow: 0 4px 10px rgba(58,46,42,.12); }
+}
+
+/* Summon dust — one-shot ring of light beneath a creature the moment it
+   lands on the field, reinforcing the existing cardSlam keyframe. */
+@keyframes summonDust {
+  0%   { opacity: 0; transform: translate(-50%, 0) scale(0.4); }
+  25%  { opacity: 1; transform: translate(-50%, 0) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(2.4); }
+}
+
+/* Playable pulse — affordable hand cards on the player's turn breathe a
+   soft yellow glow so the player can tell at a glance what's castable. */
+@keyframes playablePulse {
+  0%, 100% { filter: drop-shadow(0 6px 14px rgba(58, 46, 42, .18)) drop-shadow(0 0 0 rgba(244,208,74,0)); }
+  50%      { filter: drop-shadow(0 6px 14px rgba(58, 46, 42, .18)) drop-shadow(0 0 16px rgba(244,208,74,.55)); }
+}
+
 /* Spell-target FX — burst + ring rendered over a targeted creature when a
    spell resolves. Color is set per spell kind via inline styles. */
 @keyframes spellTargetBurst {
