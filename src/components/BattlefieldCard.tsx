@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -88,10 +88,17 @@ export function BattlefieldCard({
     if (!longFired.current && onClick) onClick();
   };
 
+  // Player's own creatures that can act this turn (untapped, not sleeping,
+  // no spell pending) get a pulsing yellow glow that actively invites a tap.
+  // Opponent creatures that are spell/attack targets are excluded — they
+  // already have their own red/blue highlight ring.
+  const isAttackReady = !!attackable && !selected && !highlight && !lunging && !shaking && !card.frozen && !showSummonFx;
   const animation = lunging === 'up' ? 'lungeUp .55s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .55s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
-    : (showSummonFx ? 'cardSlam .5s' : 'none');
+    : showSummonFx ? 'cardSlam .5s'
+    : isAttackReady ? 'attackReadyPulse 1.6s ease-in-out infinite'
+    : 'none';
 
   return (
     <div
@@ -267,6 +274,25 @@ export function BattlefieldCard({
           lands on the field. Plays while the card is in its `justPlayed`
           window (cardSlam handles the card itself; this sells the impact
           on the slot beneath). */}
+      {/* Attack-ready badge — small Swords icon floating off the top-left
+          corner of any of your own creatures that can attack this turn. The
+          pulse around the card already conveys "tappable", but the icon
+          tells you what tapping it will *do*. */}
+      {isAttackReady && (
+        <div style={{
+          position: 'absolute', top: -8, left: -8,
+          width: 22, height: 22, borderRadius: '50%',
+          background: 'linear-gradient(160deg, #ffe89a, #f4d04a)',
+          color: '#5a3a0e',
+          display: 'grid', placeItems: 'center',
+          boxShadow: '0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.35), 0 0 12px rgba(244,208,74,.7)',
+          zIndex: 12,
+          pointerEvents: 'none',
+        }}>
+          <Swords size={11} strokeWidth={2.6} />
+        </div>
+      )}
+
       {showSummonFx && (
         <>
           {/* Dust ring under the card — settling on the field */}
