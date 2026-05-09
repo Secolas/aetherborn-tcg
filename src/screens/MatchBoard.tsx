@@ -1272,6 +1272,7 @@ function FieldRow({
               card={c}
               shaking={isCombatDefender && !isDying}
               dying={isDying}
+              dimWhenExhausted={side === 'player'}
               selected={side === 'player' && selectedAttacker === c.battleId}
               attackable={
                 side === 'player'
@@ -1527,22 +1528,28 @@ function DeckChip({ count, handSize }: { count: number; handSize: number }) {
 }
 
 function ManaCrystals({ mana, maxMana }: { mana: number; maxMana: number }) {
+  // Compact "5 / 7" pill plus a single decorative crystal so the chip stays
+  // a fixed width regardless of how much mana the player has. The old fan
+  // of crystals grew with maxMana and started pushing the deck/graveyard
+  // chips off the right edge of the screen at high mana counts.
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 3,
+      display: 'flex', alignItems: 'center', gap: 5,
       background: '#fff',
-      padding: '6px 10px', borderRadius: 14,
+      padding: '5px 10px', borderRadius: 14,
       boxShadow: '0 4px 10px rgba(58,46,42,.12)',
+      fontFamily: '"Fredoka", "Inter", system-ui',
     }}>
-      {Array.from({ length: maxMana }).map((_, i) => (
-        <div key={i} style={{
-          width: 12, height: 16,
-          clipPath: 'polygon(50% 0, 100% 30%, 80% 100%, 20% 100%, 0 30%)',
-          background: i < mana ? 'linear-gradient(180deg, #9ed6f7, #3a8fc4)' : 'rgba(58,46,42,.1)',
-          boxShadow: i < mana ? '0 0 4px #3a8fc488' : 'none',
-          transition: 'all .2s',
-        }} />
-      ))}
+      <div style={{
+        width: 14, height: 18,
+        clipPath: 'polygon(50% 0, 100% 30%, 80% 100%, 20% 100%, 0 30%)',
+        background: 'linear-gradient(180deg, #9ed6f7, #3a8fc4)',
+        boxShadow: '0 0 6px #3a8fc488',
+      }} />
+      <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
+        {mana}
+      </span>
+      <span style={{ fontSize: 11, fontWeight: 600, color: '#9a8678' }}>/{maxMana}</span>
     </div>
   );
 }
@@ -1569,20 +1576,24 @@ function MatchEnd({ outcome, boss, onExit }: {
   onExit: (o: 'win' | 'loss' | 'quit') => void;
 }) {
   const isWin = outcome === 'win';
-  const e = ELEMENTS[boss.themeId];
   const dialogue = BOSS_DIALOGUE[boss.id]?.[outcome] ?? {
     title: isWin ? 'You won' : 'You lost',
     line: isWin ? 'Well played.' : 'Better luck next time.',
   };
   const reward = isWin ? 75 : 20;
 
+  // Single contrast-safe palette regardless of which boss we just played —
+  // the old version used the boss's theme color for the background, so
+  // navy-themed bosses (The Manager) made the dark "VICTORY" letters
+  // disappear. Now the screen is the same warm cream every time, with the
+  // win/loss accent driven by the orange/grey gradient on the title only.
   return (
     <div style={{
       width: '100%', height: '100%',
       background: isWin
-        ? `radial-gradient(ellipse at 50% 30%, #fff8e8 0%, ${e.color}55 50%, ${e.deep}88 100%)`
-        : `radial-gradient(ellipse at 50% 30%, #fef3eb 0%, #f0c9b9 50%, #b88a78 100%)`,
-      color: PALETTE.text,
+        ? 'radial-gradient(ellipse at 50% 30%, #fff8e8 0%, #ffe0bf 55%, #f4b48a 100%)'
+        : 'radial-gradient(ellipse at 50% 30%, #fef3eb 0%, #ead5c4 55%, #b88a78 100%)',
+      color: '#3a2e2a',
       fontFamily: '"Fredoka", "Inter", system-ui',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       padding: '40px 30px', textAlign: 'center',
@@ -1590,7 +1601,6 @@ function MatchEnd({ outcome, boss, onExit }: {
       position: 'relative',
       overflow: 'hidden',
     }}>
-      {/* Decorative confetti for wins, soft droplets for losses */}
       <svg style={{ position: 'absolute', inset: 0, opacity: 0.45, pointerEvents: 'none' }} width="100%" height="100%">
         {Array.from({ length: 14 }).map((_, i) => (
           <circle key={i}
@@ -1603,24 +1613,27 @@ function MatchEnd({ outcome, boss, onExit }: {
         ))}
       </svg>
 
-      {/* Boss avatar */}
       <div style={{
         position: 'relative', zIndex: 2,
         animation: isWin ? 'cardSummon .6s cubic-bezier(.2,.8,.3,1)' : 'fadeIn .5s',
       }}>
         <div style={{
           width: 96, height: 96, borderRadius: '50%',
-          background: `linear-gradient(160deg, ${e.deep}, ${e.color})`,
+          // Single warm gradient for the avatar — no more boss-theme colors
+          // bleeding into the result palette.
+          background: isWin
+            ? 'linear-gradient(160deg, #ff9f1c, #ee5a52)'
+            : 'linear-gradient(160deg, #6e3a32, #3a2018)',
           display: 'grid', placeItems: 'center',
           fontSize: 48, fontWeight: 700, color: '#fff',
-          boxShadow: `0 12px 30px rgba(0,0,0,.25), 0 0 0 5px #fff, 0 0 0 7px ${e.color}55`,
+          boxShadow: '0 12px 30px rgba(0,0,0,.25), 0 0 0 5px #fff, 0 0 0 7px rgba(255,158,90,.4)',
           fontFamily: '"Fredoka", system-ui',
           filter: isWin ? 'none' : 'grayscale(0.3)',
           transform: isWin ? 'rotate(-4deg)' : 'rotate(2deg)',
         }}>{boss.avatar}</div>
         <div style={{
           marginTop: 14, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase',
-          color: PALETTE.textMid, fontWeight: 600,
+          color: '#6e5a52', fontWeight: 700,
         }}>
           {boss.name} · {boss.subtitle}
         </div>
@@ -1628,12 +1641,13 @@ function MatchEnd({ outcome, boss, onExit }: {
 
       <div style={{
         fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase',
-        color: PALETTE.textMid, marginTop: 30, marginBottom: 4, fontWeight: 600,
+        color: isWin ? '#c8362e' : '#6e3a32',
+        marginTop: 30, marginBottom: 4, fontWeight: 800,
       }}>
         {isWin ? 'Victory' : 'Defeat'}
       </div>
       <div style={{
-        fontSize: 44, fontWeight: 700, lineHeight: 1.05,
+        fontSize: 44, fontWeight: 800, lineHeight: 1.05,
         background: isWin
           ? 'linear-gradient(180deg, #ff9f1c, #ee5a52)'
           : 'linear-gradient(180deg, #6e3a32, #3a2018)',
@@ -1642,7 +1656,7 @@ function MatchEnd({ outcome, boss, onExit }: {
         marginBottom: 12,
       }}>{dialogue.title}</div>
       <div style={{
-        fontSize: 14, color: PALETTE.text, fontStyle: 'italic',
+        fontSize: 14, color: '#3a2e2a', fontStyle: 'italic',
         marginBottom: 24, maxWidth: 320, lineHeight: 1.45,
       }}>
         “{dialogue.line}”
@@ -1655,8 +1669,8 @@ function MatchEnd({ outcome, boss, onExit }: {
         marginBottom: 28,
       }}>
         <Coins size={18} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
-        <span style={{ fontSize: 17, fontWeight: 700, color: PALETTE.text }}>+{reward}</span>
-        <span style={{ fontSize: 11, color: PALETTE.textMid, fontWeight: 500 }}>coins</span>
+        <span style={{ fontSize: 17, fontWeight: 700, color: '#3a2e2a' }}>+{reward}</span>
+        <span style={{ fontSize: 11, color: '#6e5a52', fontWeight: 500 }}>coins</span>
       </div>
 
       <button onClick={() => onExit(outcome)} style={{ ...btnPrimary, minWidth: 220 }}>
