@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Snowflake, ShieldHalf, Target, Moon } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
@@ -37,6 +37,16 @@ export function BattlefieldCard({
   const sleeping = card.justPlayed && card.abilityKind !== 'rush';
   const exhausted = card.tapped && !card.justPlayed;
   const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
+  // Track first-mount so the cardSlam keyframe + summon dust fire whenever
+  // the BattlefieldCard appears on the field — including for Rush creatures
+  // (whose `card.justPlayed` is set false in the engine, since they aren't
+  // sleeping). Without this Rush summons landed silently.
+  const [justMounted, setJustMounted] = useState(true);
+  useEffect(() => {
+    const t = setTimeout(() => setJustMounted(false), 600);
+    return () => clearTimeout(t);
+  }, []);
+  const showSummonFx = card.justPlayed || justMounted;
   // Taunt creatures get a permanent green ring so they're impossible to miss.
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
@@ -81,7 +91,7 @@ export function BattlefieldCard({
   const animation = lunging === 'up' ? 'lungeUp .55s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .55s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
-    : (card.justPlayed ? 'cardSlam .5s' : 'none');
+    : (showSummonFx ? 'cardSlam .5s' : 'none');
 
   return (
     <div
@@ -257,7 +267,7 @@ export function BattlefieldCard({
           lands on the field. Plays while the card is in its `justPlayed`
           window (cardSlam handles the card itself; this sells the impact
           on the slot beneath). */}
-      {card.justPlayed && (
+      {showSummonFx && (
         <div style={{
           position: 'absolute', bottom: -6, left: '50%',
           width: 110, height: 22, borderRadius: '50%',
