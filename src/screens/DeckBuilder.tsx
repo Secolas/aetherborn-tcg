@@ -164,16 +164,12 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         Library · only summoned cards are playable
       </div>
 
-      {/* Filter chips — icon-only with count so all 7 fit on one row. */}
-      <div
-        className="no-scrollbar"
-        style={{
-          padding: '0 12px 10px',
-          display: 'flex', gap: 5,
-          overflowX: 'auto',
-          WebkitOverflowScrolling: 'touch',
-        }}
-      >
+      {/* Filter chips — icon-only with count, wraps to multiple rows on
+          narrow phones so every filter stays visible without scrolling. */}
+      <div style={{
+        padding: '0 12px 10px',
+        display: 'flex', flexWrap: 'wrap', gap: 5,
+      }}>
         {FILTERS.map(f => {
           const count = countFor(f.id);
           const active = filter === f.id;
