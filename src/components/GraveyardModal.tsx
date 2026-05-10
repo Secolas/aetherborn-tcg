@@ -26,7 +26,11 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
       onClick={onClose}
       style={{
         position: 'absolute', inset: 0,
-        background: 'rgba(0,0,0,.7)',
+        // Warm cream dim consistent with the Collection / Album / inspect
+        // preview modals across the app.
+        background: 'rgba(254, 243, 224, 0.85)',
+        backdropFilter: 'blur(6px)',
+        WebkitBackdropFilter: 'blur(6px)',
         zIndex: 250,
         display: 'flex', flexDirection: 'column',
         animation: 'fadeIn .2s',
@@ -115,7 +119,9 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
           onClick={(e) => { e.stopPropagation(); setPreview(null); }}
           style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(0,0,0,.7)',
+            background: 'rgba(254, 243, 224, 0.85)',
+            backdropFilter: 'blur(8px)',
+            WebkitBackdropFilter: 'blur(8px)',
             zIndex: 260,
             display: 'grid', placeItems: 'center',
             animation: 'fadeIn .15s',
