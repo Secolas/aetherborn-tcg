@@ -53,7 +53,7 @@ const THEMED: Record<string, string> = {
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
   'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Bear Trap → fence/wire
   'ani-10': U('photo-1553284965-83fd3e82fa5a'),     // Horse → horse
-  'ani-11': U('photo-1564415051543-c4b21afae0bd'),  // Wolf → wolfdog
+  'ani-11': U('photo-1516934024742-b461fba47600'),  // Wolf → wolf portrait (was a generic husky photo when the previous ID rotated)
   'ani-12': U('photo-1546182990-dffeafbe841d'),     // Lion → lion
   'ani-13': U('photo-1601758228041-f3b2795255f1'),  // Muzzle → leashed pet
 

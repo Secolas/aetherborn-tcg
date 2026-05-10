@@ -1,9 +1,24 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Lock, LayoutGrid, Rows3 } from 'lucide-react';
+import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
-import type { CollectionCard } from '../game/types';
+import type { CollectionCard, ElementId } from '../game/types';
+
+type Filter =
+  | 'All'
+  | 'Family' | 'Work' | 'Animals' | 'Travel'
+  | 'Creatures' | 'Spells';
+
+const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme' | 'type'; themeId?: ElementId }[] = [
+  { id: 'All',       label: 'All',       icon: null },
+  { id: 'Family',    label: 'Family',    icon: <Heart     size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'family' },
+  { id: 'Work',      label: 'Work',      icon: <Briefcase size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'work' },
+  { id: 'Animals',   label: 'Animals',   icon: <PawPrint  size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'animals' },
+  { id: 'Travel',    label: 'Travel',    icon: <Plane     size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'travel' },
+  { id: 'Creatures', label: 'Creatures', icon: <Swords    size={11} strokeWidth={2.4} />, tone: 'type' },
+  { id: 'Spells',    label: 'Spells',    icon: <Sparkles  size={11} strokeWidth={2.4} />, tone: 'type' },
+];
 
 // Matches the boss deck size in data/bosses.ts so player and opponent always
 // start with the same number of cards.
@@ -20,6 +35,32 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
   /** Big = 2-column for full card detail; Compact = 4-column smaller cards
       so you can scan a large library when picking your deck. */
   const [layout, setLayout] = useState<'big' | 'compact'>('big');
+  const [filter, setFilter] = useState<Filter>('All');
+
+  const filtered = collection.filter(c => {
+    switch (filter) {
+      case 'Creatures': return c.type === 'Creature';
+      case 'Spells':    return c.type === 'Spell';
+      case 'Family':    return c.el === 'family';
+      case 'Work':      return c.el === 'work';
+      case 'Animals':   return c.el === 'animals';
+      case 'Travel':    return c.el === 'travel';
+      default:          return true;
+    }
+  });
+
+  const countFor = (f: Filter): number => {
+    switch (f) {
+      case 'All':       return collection.length;
+      case 'Creatures': return collection.filter(c => c.type === 'Creature').length;
+      case 'Spells':    return collection.filter(c => c.type === 'Spell').length;
+      case 'Family':    return collection.filter(c => c.el === 'family').length;
+      case 'Work':      return collection.filter(c => c.el === 'work').length;
+      case 'Animals':   return collection.filter(c => c.el === 'animals').length;
+      case 'Travel':    return collection.filter(c => c.el === 'travel').length;
+    }
+  };
+
   const toggle = (uid: string) => {
     if (deckUids.includes(uid)) {
       onChange(deckUids.filter(x => x !== uid));
@@ -86,6 +127,44 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         Library · only summoned cards are playable
       </div>
 
+      {/* Filter chips — same set as Collection so the player can scan their
+          library by theme or by type when picking the 12 deck slots. */}
+      <div style={{
+        padding: '0 16px 10px',
+        display: 'flex', flexWrap: 'wrap', gap: 6,
+      }}>
+        {FILTERS.map(f => {
+          const count = countFor(f.id);
+          const active = filter === f.id;
+          const tint = active && f.themeId ? ELEMENTS[f.themeId].color : PALETTE.accent;
+          return (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              disabled={count === 0 && f.id !== 'All'}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '4px 9px',
+                borderRadius: 12,
+                fontSize: 11, fontWeight: 700,
+                background: active ? tint : '#fff',
+                color: active ? '#fff' : (count === 0 && f.id !== 'All' ? PALETTE.textMid : PALETTE.text),
+                opacity: count === 0 && f.id !== 'All' ? 0.45 : 1,
+                border: active ? `1.5px solid ${tint}` : '1.5px solid rgba(58,46,42,.10)',
+                cursor: count === 0 && f.id !== 'All' ? 'default' : 'pointer',
+                fontFamily: 'inherit',
+                boxShadow: active ? `0 2px 8px ${tint}55` : '0 2px 6px rgba(58,46,42,.06)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {f.icon}
+              <span>{f.label}</span>
+              <span style={{ opacity: 0.7, fontWeight: 600 }}>{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Library grid */}
       <div style={{
         flex: 1, overflow: 'auto',
@@ -96,7 +175,7 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         justifyItems: 'center',
         alignContent: 'start',
       }}>
-        {collection.map(card => {
+        {filtered.map(card => {
           const inDeck = deckUids.includes(card.uid);
           const playable = !!card.photo;
           return (
@@ -139,9 +218,9 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
             </div>
           );
         })}
-        {collection.length === 0 && (
+        {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5, padding: 40, fontSize: 13 }}>
-            Open a pack to start building.
+            {collection.length === 0 ? 'Open a pack to start building.' : 'Nothing matches this filter.'}
           </div>
         )}
       </div>
