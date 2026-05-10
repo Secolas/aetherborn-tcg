@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban } from 'lucide-react';
+import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -13,8 +14,9 @@ import {
   type SpellTarget,
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
+import { BONDS } from '../data/bonds';
 import type { BossDef } from '../data/bosses';
-import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/types';
+import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 
@@ -812,6 +814,26 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
   const bossElement = ELEMENTS[boss.themeId];
 
+  // Per-side bond lookups for the heart badge on each card. A card is
+  // 'active' when its partner is also on the same field, 'waiting' when it
+  // is bond-eligible but the partner hasn't landed yet. Players see at a
+  // glance which of their cards is part of a bond and whether it's firing.
+  const bondLookupFor = (p: PlayerState): Record<string, 'active' | 'waiting'> => {
+    const out: Record<string, 'active' | 'waiting'> = {};
+    const fieldIds = new Set(p.field.map(c => c.id));
+    for (const c of p.field) {
+      const involved = BONDS.find(b => b.cardA === c.id || b.cardB === c.id);
+      if (!involved) continue;
+      const partnerId = involved.cardA === c.id ? involved.cardB : involved.cardA;
+      out[c.id] = fieldIds.has(partnerId) ? 'active' : 'waiting';
+    }
+    return out;
+  };
+  const playerBondLookup = bondLookupFor(state.player);
+  const opponentBondLookup = bondLookupFor(state.opponent);
+  const playerActiveBonds = activeBonds(state.player);
+  const opponentActiveBonds = activeBonds(state.opponent);
+
   return (
     <div
       ref={boardRef}
@@ -907,11 +929,13 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
+          bondLookup={opponentBondLookup}
           highlightEmpty={false}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
+        <BondPillStack bonds={opponentActiveBonds} side="opponent" />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -1031,6 +1055,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
+          bondLookup={playerBondLookup}
           highlightEmpty={selectedHandIdx !== null}
           registerEl={registerEl}
           onCardClick={(c) => {
@@ -1042,6 +1067,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           }}
           onCardLongPress={(c) => setInspect(c)}
         />
+        <BondPillStack bonds={playerActiveBonds} side="player" />
       </div>
 
       {/* Bottom spacer */}
@@ -1826,8 +1852,56 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 // engine's actual cap. Three keeps games short and tactical.
 const SLOTS_PER_ROW = 3;
 
+/**
+ * Persistent on-board indicator listing every active bond on a side. Sits
+ * absolutely positioned over the field zone — top-right for the boss, bottom-
+ * right for the player — so the player can tell at a glance "Sunday Dinner
+ * is firing every turn" without waiting for the toast to replay.
+ */
+function BondPillStack({ bonds, side }: { bonds: BondDef[]; side: 'player' | 'opponent' }) {
+  if (bonds.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: 8,
+        top: side === 'opponent' ? 4 : undefined,
+        bottom: side === 'player' ? 4 : undefined,
+        display: 'flex', flexDirection: 'column', gap: 4,
+        alignItems: 'flex-end',
+        zIndex: 7,
+        pointerEvents: 'none',
+      }}
+    >
+      {bonds.map(b => (
+        <div
+          key={b.id}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 5,
+            padding: '3px 8px 3px 6px',
+            borderRadius: 10,
+            background: side === 'player'
+              ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+              : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
+            color: side === 'player' ? '#3a2406' : '#ffe89a',
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+            boxShadow: side === 'player'
+              ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
+              : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
+            fontFamily: '"Fredoka", system-ui',
+          }}
+        >
+          <Heart size={10} fill="currentColor" strokeWidth={0} />
+          <span>{b.name}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function FieldRow({
   side, cards, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
+  bondLookup,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -1843,6 +1917,10 @@ function FieldRow({
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
+  /** Per-card-template bond state. 'active' = partner is on the field too,
+   *  'waiting' = bonded card is here but partner isn't yet. Missing entry =
+   *  card isn't part of any bond at all. */
+  bondLookup: Record<string, 'active' | 'waiting'>;
   /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
   registerEl: (id: string, el: HTMLElement | null) => void;
@@ -1893,6 +1971,7 @@ function FieldRow({
               buff={buffs[c.battleId] ?? null}
               silencedAt={silencedAt[c.battleId] ?? null}
               trigger={triggers[c.battleId] ?? null}
+              bondState={bondLookup[c.id]}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />

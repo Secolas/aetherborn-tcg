@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Heart } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -31,6 +31,10 @@ interface Props {
       creature for ~1.4s the moment it lands so the cause-of-effect is
       visible, not just the effect. */
   trigger?: string | null;
+  /** When this card belongs to a bond, this prop says whether the partner
+   *  is also on the field right now. Drives the persistent corner heart
+   *  icon: gold/glowing when active, dim when waiting for the partner. */
+  bondState?: 'active' | 'waiting';
   highlight?: 'attack' | 'spell' | null;
   onClick?: () => void;
   onLongPress?: () => void;
@@ -40,7 +44,7 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, silencedAt, trigger, highlight,
+  buff, silencedAt, trigger, bondState, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -428,6 +432,37 @@ export function BattlefieldCard({
           }}
         >
           {trigger}
+        </div>
+      )}
+
+      {/* Bond badge — persistent indicator that this card is part of a
+          Bond. Anchored just outside the top-left corner so it doesn't
+          collide with the cost orb (top-left inside), the status pills
+          (top-right inside), or the floating TAUNT / SILENCED / trigger
+          labels (top-center). When the partner is also on the field
+          (`bondState === 'active'`) the heart is gold and pulses; while
+          waiting for the partner it's a dim grey so the player knows the
+          card is bond-eligible but the bond hasn't fired yet. */}
+      {bondState && (
+        <div
+          aria-label={bondState === 'active' ? 'Bond active' : 'Bond waiting'}
+          style={{
+            position: 'absolute',
+            top: -7, left: -7,
+            width: 18, height: 18, borderRadius: '50%',
+            background: bondState === 'active'
+              ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+              : 'rgba(180,170,160,.85)',
+            display: 'grid', placeItems: 'center',
+            boxShadow: bondState === 'active'
+              ? '0 0 0 2px #fff, 0 0 12px rgba(244,208,74,.85), 0 2px 5px rgba(0,0,0,.3)'
+              : '0 0 0 1.5px #fff, 0 1.5px 3px rgba(0,0,0,.25)',
+            color: bondState === 'active' ? '#a8530a' : '#fff',
+            zIndex: 5,
+            pointerEvents: 'none',
+          }}
+        >
+          <Heart size={11} fill="currentColor" strokeWidth={0} />
         </div>
       )}
     </div>
