@@ -84,6 +84,15 @@ function BossCard({
   const reward = Math.round(boss.rewardCoins * profile.rewardMult);
   return (
     <div
+      // Tapping anywhere on the card (banner, intro line, etc.) launches
+      // the fight at the currently-picked tier. The difficulty pills below
+      // call `stopPropagation` so picking a tier doesn't also launch. The
+      // explicit Start button at the bottom is a redundant, unambiguous
+      // path for players who want to see the tier label before tapping.
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(ev) => { if (ev.key === 'Enter' || ev.key === ' ') onClick(); }}
       style={{
         width: '100%',
         background: '#fff',
@@ -93,7 +102,12 @@ function BossCard({
         overflow: 'hidden',
         position: 'relative',
         fontFamily: 'inherit',
+        cursor: 'pointer',
+        transition: 'transform .1s, box-shadow .15s',
       }}
+      onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.995)'; }}
+      onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
     >
       {/* Banner — themed gradient with avatar. The launch action lives in
           the explicit Start button below; the banner is now decorative
@@ -160,7 +174,9 @@ function BossCard({
             return (
               <button
                 key={d}
-                onClick={() => onChangeDifficulty(d)}
+                // Stop propagation so picking a tier doesn't bubble up to
+                // the card's launch handler.
+                onClick={(ev) => { ev.stopPropagation(); onChangeDifficulty(d); }}
                 style={{
                   flex: 1, padding: '7px 0',
                   background: active ? '#fff' : 'transparent',
