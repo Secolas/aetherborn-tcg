@@ -1398,10 +1398,6 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           ? (combat.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
           : combat.defenderId;
         const defenderEl = cardEls.current.get(defenderKey);
-        const defenderCard = !isFace
-          ? (combat.defenderOwner === 'player' ? state.player.field : state.opponent.field)
-              .find(c => c.battleId === combat.defenderId)
-          : null;
         if (!attackerEl || !defenderEl) return null;
 
         const board = boardRef.current.getBoundingClientRect();
@@ -1419,11 +1415,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
         // Place ATK / HP callouts off to the side of each card so they don't
         // overlap with the small stat orbs already on the cards themselves.
-        const aIsLeft = aCx < dCx;
-        const aLabelX = aCx + (aIsLeft ? -50 : 50);
-        const aLabelY = aCy - 6;
-        const dLabelX = dCx + (aIsLeft ? 50 : -50);
-        const dLabelY = dCy - 6;
+        // Stat-callout label positions removed when the ATK/HP popups were
+        // dropped — the BATTLE plate, white-flash, slash, and damage popup
+        // do the talking now.
 
         return (
           <>
@@ -1458,52 +1452,10 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               opacity: 0,
             }} />
 
-            {/* Attacker ATK callout */}
-            <div style={{
-              position: 'absolute', left: aLabelX, top: aLabelY,
-              fontFamily: '"Fredoka", system-ui',
-              fontWeight: 900,
-              animation: `ygoStatPop ${heldMs}ms ease-out forwards`,
-              opacity: 0,
-              pointerEvents: 'none',
-              zIndex: 175,
-              textAlign: 'center', lineHeight: 1.05,
-            }}>
-              <div style={{
-                fontSize: 12, color: '#f4d04a',
-                letterSpacing: '0.15em',
-                textShadow: '0 2px 0 #3a2406, 0 0 12px rgba(244,208,74,.85)',
-              }}>ATK</div>
-              <div style={{
-                fontSize: 32, color: '#fff',
-                textShadow: '0 3px 0 #c8362e, 0 0 16px rgba(244,208,74,.95), 0 0 28px rgba(255,209,102,.7)',
-              }}>{attackerCard.currentAtk}</div>
-            </div>
-
-            {/* Defender callout — HP for creature trades, big damage value
-                for face attacks. */}
-            <div style={{
-              position: 'absolute', left: dLabelX, top: dLabelY,
-              fontFamily: '"Fredoka", system-ui',
-              fontWeight: 900,
-              animation: `ygoStatPop ${heldMs}ms ease-out forwards`,
-              opacity: 0,
-              pointerEvents: 'none',
-              zIndex: 175,
-              textAlign: 'center', lineHeight: 1.05,
-            }}>
-              <div style={{
-                fontSize: 12, color: '#ff8a80',
-                letterSpacing: '0.15em',
-                textShadow: '0 2px 0 #3a0808, 0 0 10px rgba(238,90,82,.7)',
-              }}>{isFace ? 'FACE' : 'HP'}</div>
-              <div style={{
-                fontSize: 32, color: '#fff',
-                textShadow: '0 3px 0 #6e1f1a, 0 0 16px rgba(238,90,82,.95)',
-              }}>{isFace
-                ? (combat.defenderOwner === 'player' ? state.player.hp : state.opponent.hp)
-                : (defenderCard?.currentHp ?? 0)}</div>
-            </div>
+            {/* Attacker ATK / Defender HP callouts removed — they collided
+                with the BATTLE plate, and the existing damage popup over
+                the defender ("−N") + life-total hit on the portrait already
+                tells the player what's happening. */}
 
             {/* Defender white-flash on impact */}
             <div style={{

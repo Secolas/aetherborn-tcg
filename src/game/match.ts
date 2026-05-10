@@ -158,7 +158,23 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   // Untap, clear sickness. Frozen creatures stay frozen through their owner's
   // turn (so the snowflake is visible the whole time the freeze is "active");
   // the freeze actually wears off at the end of that turn. See endTurn below.
+  // Safety net: if a freeze / silence somehow survived beyond its
+  // frozenUntilTurn / silencedUntilTurn (set when the spell resolved),
+  // force-clear it here so the lock can never last more than one full
+  // owner-turn even if endTurn cleanup is skipped for any reason.
   me.field.forEach(c => {
+    if (c.frozenUntilTurn != null && state.turnNumber >= c.frozenUntilTurn) {
+      c.frozen = false;
+      c.frozenUntilTurn = undefined;
+    }
+    if (c.silencedUntilTurn != null && state.turnNumber >= c.silencedUntilTurn && c.silenced) {
+      c.abilityKind = c.originalAbilityKind ?? 'none';
+      c.ability = c.originalAbility ?? '';
+      c.silenced = false;
+      c.silencedUntilTurn = undefined;
+      c.originalAbilityKind = undefined;
+      c.originalAbility = undefined;
+    }
     if (c.frozen) {
       c.tapped = true; // can't act while frozen
     } else {
@@ -207,11 +223,15 @@ export function endTurn(prev: MatchState): MatchState {
   // status icons are gone and the original ability is restored.
   const cleared = clone(prev);
   side(cleared, cleared.turn).field.forEach(c => {
-    if (c.frozen) c.frozen = false;
+    if (c.frozen) {
+      c.frozen = false;
+      c.frozenUntilTurn = undefined;
+    }
     if (c.silenced) {
       c.abilityKind = c.originalAbilityKind ?? 'none';
       c.ability = c.originalAbility ?? '';
       c.silenced = false;
+      c.silencedUntilTurn = undefined;
       c.originalAbilityKind = undefined;
       c.originalAbility = undefined;
     }
@@ -360,7 +380,13 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
   } else if (card.abilityKind === 'spell_freeze' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
-    if (c) c.frozen = true;
+    if (c) {
+      c.frozen = true;
+      // Hard cap: by the time we reach this turn number the freeze MUST
+      // be gone, no matter what. The normal cleanup happens in endTurn
+      // when the owner's turn ends; this is the safety net.
+      c.frozenUntilTurn = state.turnNumber + 2;
+    }
   } else if (card.abilityKind === 'spell_buff' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
@@ -382,6 +408,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.abilityKind = 'none';
       c.ability = '';
       c.silenced = true;
+      c.silencedUntilTurn = state.turnNumber + 2;
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic

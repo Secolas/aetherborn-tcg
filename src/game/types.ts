@@ -64,12 +64,19 @@ export interface BattleCard extends CollectionCard {
   tapped: boolean;
   justPlayed: boolean;
   frozen: boolean;
+  /** Turn number after which the freeze must wear off. Together with the
+      end-of-turn cleanup in match.ts:endTurn this ensures freeze lasts at
+      most one full owner-turn even if some edge case skips the cleanup. */
+  frozenUntilTurn?: number;
   /** True once this creature has been hit by a silence spell. abilityKind
       is set to 'none' on silence, but that's indistinguishable from a
       vanilla creature without this flag — so the UI can keep showing a
       muted "silenced" badge. Silence wears off at the end of the
       silenced creature's owner's turn (parallels freeze). */
   silenced?: boolean;
+  /** Turn number after which silence must wear off — same safety net as
+      frozenUntilTurn. */
+  silencedUntilTurn?: number;
   /** When silence is applied we stash the original ability so we can
       restore it when the silence wears off. */
   originalAbilityKind?: AbilityKind;

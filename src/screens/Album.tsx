@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Camera, Sparkles } from 'lucide-react';
+import { ArrowLeft, Camera, Sparkles, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -17,6 +17,7 @@ interface Props {
 export function Album({ collection, onBack }: Props) {
   const summoned = collection.filter(c => c.photo);
   const [inspect, setInspect] = useState<CollectionCard | null>(null);
+  const [layout, setLayout] = useState<'big' | 'compact'>('big');
 
   // Group by theme so the gallery has rhythm
   const byTheme = (themeId: 'family' | 'work' | 'animals') =>
@@ -44,6 +45,14 @@ export function Album({ collection, onBack }: Props) {
               : `${summoned.length} memory${summoned.length === 1 ? '' : 'ies'} captured`}
           </div>
         </div>
+        <button
+          onClick={() => setLayout(l => l === 'big' ? 'compact' : 'big')}
+          style={{ ...iconBtn, display: 'grid', placeItems: 'center' }}
+          aria-label={layout === 'big' ? 'Compact view' : 'Big view'}
+          title={layout === 'big' ? 'Compact view' : 'Big view'}
+        >
+          {layout === 'big' ? <LayoutGrid size={17} /> : <Rows3 size={17} />}
+        </button>
       </div>
 
       <div style={{
@@ -54,9 +63,10 @@ export function Album({ collection, onBack }: Props) {
           <EmptyState />
         ) : (
           <>
-            <ThemeSection title="Family"  cards={byTheme('family')}  onTap={setInspect} />
-            <ThemeSection title="Work"    cards={byTheme('work')}    onTap={setInspect} />
-            <ThemeSection title="Animals" cards={byTheme('animals')} onTap={setInspect} />
+            <ThemeSection title="Family"  cards={byTheme('family')}  layout={layout} onTap={setInspect} />
+            <ThemeSection title="Work"    cards={byTheme('work')}    layout={layout} onTap={setInspect} />
+            <ThemeSection title="Animals" cards={byTheme('animals')} layout={layout} onTap={setInspect} />
+            <ThemeSection title="Travel"  cards={byTheme('travel' as 'family')} layout={layout} onTap={setInspect} />
           </>
         )}
       </div>
@@ -89,10 +99,11 @@ export function Album({ collection, onBack }: Props) {
 }
 
 function ThemeSection({
-  title, cards, onTap,
+  title, cards, layout, onTap,
 }: {
   title: string;
   cards: CollectionCard[];
+  layout: 'big' | 'compact';
   onTap: (c: CollectionCard) => void;
 }) {
   if (cards.length === 0) return null;
@@ -108,11 +119,11 @@ function ThemeSection({
       </div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 12,
+        gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+        gap: layout === 'compact' ? 6 : 12,
       }}>
         {cards.map((c, i) => (
-          <PolaroidEntry key={c.uid} card={c} idx={i} onClick={() => onTap(c)} />
+          <PolaroidEntry key={c.uid} card={c} idx={i} compact={layout === 'compact'} onClick={() => onTap(c)} />
         ))}
       </div>
     </div>
@@ -120,22 +131,23 @@ function ThemeSection({
 }
 
 function PolaroidEntry({
-  card, idx, onClick,
+  card, idx, compact, onClick,
 }: {
   card: CollectionCard;
   idx: number;
+  compact: boolean;
   onClick: () => void;
 }) {
   const e = ELEMENTS[card.el];
-  const tilt = (idx % 2 === 0 ? -1.2 : 1.2);
+  const tilt = compact ? 0 : (idx % 2 === 0 ? -1.2 : 1.2);
   return (
     <button
       onClick={onClick}
       style={{
         background: '#fff',
         border: 'none',
-        borderRadius: 6,
-        padding: '8px 8px 12px',
+        borderRadius: compact ? 4 : 6,
+        padding: compact ? '4px 4px 6px' : '8px 8px 12px',
         boxShadow: '0 6px 14px rgba(58, 46, 42, .15), 0 1px 0 rgba(58, 46, 42, .06)',
         cursor: 'pointer',
         textAlign: 'left',
@@ -157,13 +169,13 @@ function PolaroidEntry({
           <img src={card.photo} alt={card.name}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         )}
-        <div style={{
+        {!compact && <div style={{
           position: 'absolute', top: 6, left: 6,
           background: e.color, color: '#fff',
           fontSize: 9, fontWeight: 700,
           padding: '2px 6px', borderRadius: 8,
           textTransform: 'uppercase', letterSpacing: '0.05em',
-        }}>{e.name}</div>
+        }}>{e.name}</div>}
         {card.isPlaceholder && (
           <div style={{
             position: 'absolute', top: 6, right: 6,
@@ -178,13 +190,13 @@ function PolaroidEntry({
         )}
       </div>
       <div style={{
-        marginTop: 8, paddingLeft: 2,
-        fontSize: 13, fontWeight: 600, color: PALETTE.text,
+        marginTop: compact ? 4 : 8, paddingLeft: 2,
+        fontSize: compact ? 10 : 13, fontWeight: 600, color: PALETTE.text,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
         {card.nickname || card.name}
       </div>
-      {card.nickname && (
+      {!compact && card.nickname && (
         <div style={{
           fontSize: 10, color: PALETTE.textMid, marginTop: 1,
           paddingLeft: 2,
