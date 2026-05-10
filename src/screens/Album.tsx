@@ -17,7 +17,7 @@ interface Props {
 export function Album({ collection, onBack }: Props) {
   const summoned = collection.filter(c => c.photo);
   const [inspect, setInspect] = useState<CollectionCard | null>(null);
-  const [layout, setLayout] = useState<'big' | 'compact'>('big');
+  const [layout, setLayout] = useState<'big' | 'compact'>('compact');
 
   // Group by theme so the gallery has rhythm
   const byTheme = (themeId: 'family' | 'work' | 'animals') =>

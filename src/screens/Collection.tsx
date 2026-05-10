@@ -33,9 +33,9 @@ interface Props {
 export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onBack }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
   const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
-  /** Big = 2-column with full card detail; Compact = 4-column tighter cards
-      so you can scan a large collection without scrolling forever. */
-  const [layout, setLayout] = useState<'big' | 'compact'>('big');
+  /** Compact = 4-column tighter cards (default — fits ~2x more on screen);
+      Big = 2-column with full card detail when you need to read abilities. */
+  const [layout, setLayout] = useState<'big' | 'compact'>('compact');
   const summoned = collection.filter(c => c.photo).length;
   const total = collection.length;
 
