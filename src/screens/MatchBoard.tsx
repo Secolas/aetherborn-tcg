@@ -89,6 +89,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Per-creature silence flash trigger — bumping the entry replays the
       gray flash + "SILENCED" text on that creature. */
   const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
+  /** Per-creature on-play trigger label ("DRAW +1", "AOE -2"). Pops above
+      the freshly summoned creature so its ability isn't silent. */
+  const [triggers, setTriggers] = useState<Record<string, string>>({});
+  /** Active fatigue popup — a skull-themed callout when a side took damage
+      from drawing an empty deck. Carries the side and the damage amount. */
+  const [fatigueFx, setFatigueFx] = useState<{ side: Owner; dmg: number; tick: number } | null>(null);
   /** True while a tapped-Summon is mid-flight to the field. The preview
       replays a deploy keyframe and we delay the actual play so the card
       visibly travels from the preview position into the field slot. */
@@ -185,10 +191,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     player: Map<string, CreatureSnap>;
     opponent: Map<string, CreatureSnap>;
     handSize: { player: number; opponent: number };
+    fatigue: { player: number; opponent: number };
     turnNumber: number;
   }>({
     player: new Map(), opponent: new Map(),
     handSize: { player: 0, opponent: 0 },
+    fatigue: { player: 0, opponent: 0 },
     turnNumber: state.turnNumber,
   });
   useEffect(() => {
@@ -200,6 +208,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       player: snapshot(state.player.field),
       opponent: snapshot(state.opponent.field),
       handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
+      fatigue: { player: state.player.fatigueCount, opponent: state.opponent.fatigueCount },
       turnNumber: state.turnNumber,
     };
 
@@ -251,23 +260,70 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
       // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
       // Per-turn draws are handled by the dedicated turn-change effect.
+      // We delay these by ~500ms so they fire AFTER the summon's slam +
+      // halo + dust on the source creature (otherwise the flight starts
+      // mid-summon and the player misses the cause).
       if (fresh.turnNumber === prev.turnNumber) {
         const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
         const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
+        const drawDelay = 500;
         for (let i = 0; i < playerDraws; i++) {
           setTimeout(() => {
             setDrawingFor('player');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 700);
-          }, i * 220);
+          }, drawDelay + i * 260);
         }
         for (let i = 0; i < oppDraws; i++) {
           setTimeout(() => {
             setDrawingFor('opponent');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 700);
-          }, i * 220);
+          }, drawDelay + i * 260);
         }
+      }
+
+      // Fatigue spike — when a side's fatigueCount went up, that's "drew
+      // from an empty deck and took escalating damage". Surface it with a
+      // skull-themed callout so the player understands the cause and the
+      // damage amount, instead of just seeing a small unexplained -N popup
+      // after each turn end. The diff already added a regular damage popup
+      // for the HP loss; we override that for the fatigued side so the
+      // message lands as fatigue, not generic damage.
+      const playerFatigueGain = fresh.fatigue.player - prev.fatigue.player;
+      const oppFatigueGain = fresh.fatigue.opponent - prev.fatigue.opponent;
+      if (playerFatigueGain > 0) {
+        const dmg = fresh.fatigue.player; // total fatigue draw is the damage that fired
+        setFatigueFx({ side: 'player', dmg, tick: Date.now() });
+        setTimeout(() => setFatigueFx(f => (f && f.side === 'player' ? null : f)), 1600);
+      } else if (oppFatigueGain > 0) {
+        const dmg = fresh.fatigue.opponent;
+        setFatigueFx({ side: 'opponent', dmg, tick: Date.now() });
+        setTimeout(() => setFatigueFx(f => (f && f.side === 'opponent' ? null : f)), 1600);
+      }
+
+      // On-play trigger banners — when a creature with an on-play ability
+      // appears on the field, surface "DRAW +N" / "AOE -N" / etc. floating
+      // up from the creature itself so the *cause* is unmistakable. Without
+      // this, Tio's bonus card felt like it materialized from nowhere.
+      const fieldsNow = [...state.player.field, ...state.opponent.field];
+      const newTriggers: Record<string, string> = {};
+      for (const c of fieldsNow) {
+        const wasOnField = prev.player.has(c.battleId) || prev.opponent.has(c.battleId);
+        if (wasOnField) continue;
+        if (c.abilityKind === 'draw_on_play' && c.abilityValue) {
+          newTriggers[c.battleId] = `DRAW +${c.abilityValue}`;
+        } else if (c.abilityKind === 'aoe_on_play' && c.abilityValue) {
+          newTriggers[c.battleId] = `AOE −${c.abilityValue}`;
+        }
+      }
+      if (Object.keys(newTriggers).length) {
+        setTriggers(t => ({ ...t, ...newTriggers }));
+        setTimeout(() => setTriggers(t => {
+          const next = { ...t };
+          for (const id of Object.keys(newTriggers)) delete next[id];
+          return next;
+        }), 1400);
       }
     }
     prevSnapRef.current = fresh;
@@ -736,6 +792,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           damages={damages}
           buffs={buffs}
           silencedAt={silencedAt}
+          triggers={triggers}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -857,6 +914,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           damages={damages}
           buffs={buffs}
           silencedAt={silencedAt}
+          triggers={triggers}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -1166,33 +1224,131 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         );
       })()}
 
-      {/* Attack arrow — drawn from attacker center to defender center for the
-          length of the strike animation. Makes "who is hitting what" obvious. */}
+      {/* Attack FX — a glowing projectile arcs from attacker to defender,
+          a guide line traces behind it, a shockwave bursts on impact, and
+          if the defender is the player's face we flash a red vignette
+          around the screen edge so taking damage feels like *taking
+          damage* and not just a number changing. */}
       {arrow && (() => {
         const len = Math.hypot(arrow.x2 - arrow.x1, arrow.y2 - arrow.y1);
+        const isFaceTarget = combat?.defenderId === 'face';
+        const isPlayerFaceHit = isFaceTarget && combat?.defenderOwner === 'player';
         const lineStyle: React.CSSProperties & Record<string, string | number> = {
           strokeDasharray: len,
           animation: 'arrowDraw 0.7s ease-out forwards',
           ['--len' as string]: `${len}px`,
+          filter: 'drop-shadow(0 0 6px rgba(238,90,82,.8))',
+        };
+        // Projectile lives in stage-local CSS pixels via inline vars.
+        const projectileStyle: React.CSSProperties & Record<string, string | number> = {
+          position: 'absolute', top: 0, left: 0,
+          width: 26, height: 26, borderRadius: '50%',
+          background: 'radial-gradient(circle, #fff 0%, #ffd166 35%, #ee5a52 70%, transparent 100%)',
+          boxShadow: '0 0 18px rgba(238,90,82,.95), 0 0 36px rgba(238,90,82,.7)',
+          animation: 'attackProjectile .7s cubic-bezier(.3,.7,.4,1) forwards',
+          pointerEvents: 'none',
+          zIndex: 152,
+          ['--x0' as string]: `${arrow.x1 - 13}px`,
+          ['--y0' as string]: `${arrow.y1 - 13}px`,
+          ['--x1' as string]: `${arrow.x2 - 13}px`,
+          ['--y1' as string]: `${arrow.y2 - 13}px`,
         };
         return (
-          <svg style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            pointerEvents: 'none', zIndex: 150,
-          }}>
-            <defs>
-              <marker id="atkArrowhead" viewBox="0 0 10 10" refX="9" refY="5"
-                      markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ee5a52" />
-              </marker>
-            </defs>
-            <line
-              x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2}
-              stroke="#ee5a52" strokeWidth={4} strokeLinecap="round"
-              markerEnd="url(#atkArrowhead)"
-              style={lineStyle}
-            />
-          </svg>
+          <>
+            <svg style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              pointerEvents: 'none', zIndex: 150,
+            }}>
+              <line
+                x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2}
+                stroke="#ee5a52" strokeWidth={5} strokeLinecap="round"
+                style={lineStyle}
+              />
+            </svg>
+
+            {/* Glowing projectile orb travelling along the line */}
+            <div style={projectileStyle} />
+
+            {/* Big shockwave at the impact point on arrival */}
+            <div style={{
+              position: 'absolute',
+              left: arrow.x2, top: arrow.y2,
+              width: 110, height: 110, borderRadius: '50%',
+              border: '4px solid rgba(255,209,102,.9)',
+              boxShadow: '0 0 30px rgba(255,158,90,.7), inset 0 0 20px rgba(238,90,82,.5)',
+              animation: 'attackShockwave .55s ease-out .35s forwards',
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: 151,
+            }} />
+
+            {/* Red vignette around the screen when the player's face is hit */}
+            {isPlayerFaceHit && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                pointerEvents: 'none',
+                zIndex: 200,
+                background: 'radial-gradient(ellipse at center, transparent 40%, rgba(238,90,82,0) 55%, rgba(238,90,82,.55) 100%)',
+                animation: 'faceHitVignette .7s ease-out .35s forwards',
+                opacity: 0,
+              }} />
+            )}
+          </>
+        );
+      })()}
+
+      {/* Fatigue callout — fires when either side took damage from drawing
+          from an empty deck. Anchors over the affected portrait via the
+          cardEls map (FACE_PLAYER / FACE_OPP) so it pops up exactly where
+          the damage came from. Includes a dark vignette around the screen
+          edge for the player's own fatigue so it's unmissable. */}
+      {fatigueFx && (() => {
+        const key = fatigueFx.side === 'player' ? FACE_PLAYER : FACE_OPP;
+        const el = cardEls.current.get(key);
+        if (!el || !boardRef.current) return null;
+        const board = boardRef.current.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2 - board.left;
+        const y = r.top - board.top;
+        const isPlayer = fatigueFx.side === 'player';
+        return (
+          <>
+            <div
+              key={`fatigue-${fatigueFx.tick}`}
+              style={{
+                position: 'absolute', left: x, top: y - 4,
+                pointerEvents: 'none',
+                zIndex: 210,
+                animation: 'fatiguePopup 1.6s ease-out forwards',
+                fontFamily: '"Fredoka", system-ui',
+                color: '#fff',
+                background: 'linear-gradient(180deg, #6e3a32, #3a1410)',
+                padding: '6px 12px',
+                borderRadius: 14,
+                boxShadow: '0 0 0 2px rgba(255,255,255,.85), 0 0 18px rgba(140,40,40,.85), 0 4px 10px rgba(0,0,0,.45)',
+                whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontWeight: 800,
+              }}
+            >
+              <Skull size={16} strokeWidth={2.6} />
+              <span style={{ fontSize: 11, letterSpacing: '0.18em' }}>FATIGUE</span>
+              <span style={{ fontSize: 16 }}>−{fatigueFx.dmg}</span>
+            </div>
+            {isPlayer && (
+              <div
+                key={`fatigue-vignette-${fatigueFx.tick}`}
+                style={{
+                  position: 'absolute', inset: 0,
+                  pointerEvents: 'none',
+                  zIndex: 199,
+                  background: 'radial-gradient(ellipse at center, transparent 35%, rgba(58,20,16,0) 55%, rgba(58,20,16,.65) 100%)',
+                  animation: 'fatigueVignette 1.4s ease-out forwards',
+                  opacity: 0,
+                }}
+              />
+            )}
+          </>
         );
       })()}
 
@@ -1248,20 +1404,20 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           <div style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 18,
+            gap: 8,
             zIndex: 170,
             pointerEvents: 'none',
-            background: 'rgba(0,0,0,.45)',
+            background: 'radial-gradient(ellipse at center, rgba(20,8,4,.65) 0%, rgba(0,0,0,.85) 100%)',
             animation: `vsReveal ${heldMs}ms ease-out forwards`,
           }}>
-            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms ease-out forwards` }}>
-              <Card card={attackerCard} scale={0.62} hovered />
+            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
+              <Card card={attackerCard} scale={0.85} hovered />
               {attackerDying && (
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
-                  width: 220, height: 7,
+                  width: 280, height: 8,
                   background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
                   animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
                   pointerEvents: 'none',
                   zIndex: 5,
@@ -1269,26 +1425,41 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               )}
             </div>
             <div style={{
-              fontSize: 36, fontWeight: 900, letterSpacing: '0.05em',
+              fontSize: 60, fontWeight: 900, letterSpacing: '0.05em',
               color: '#fff',
-              textShadow: '0 3px 0 #c8362e, 0 0 18px rgba(238,90,82,.6)',
+              textShadow: '0 4px 0 #c8362e, 0 0 28px rgba(238,90,82,.85), 0 0 60px rgba(255,209,102,.6)',
               fontFamily: '"Fredoka", system-ui',
-              transform: 'rotate(-6deg)',
+              opacity: 0,
+              animation: `vsTextStamp ${heldMs}ms ease-out forwards`,
+              flex: '0 0 auto',
+              padding: '0 6px',
             }}>VS</div>
-            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms ease-out forwards` }}>
-              <Card card={defenderCard} scale={0.62} hovered />
+            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
+              <Card card={defenderCard} scale={0.85} hovered />
               {defenderDying && (
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
-                  width: 220, height: 7,
+                  width: 280, height: 8,
                   background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
                   animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
                   pointerEvents: 'none',
                   zIndex: 5,
                 }} />
               )}
             </div>
+
+            {/* Slow-mo impact flash — quick white pulse at strike and a
+                second smaller pulse at the counter so the two hits are
+                felt as separate beats. */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: '#fff',
+              animation: `vsImpactFlash ${heldMs}ms ease-out forwards`,
+              opacity: 0,
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+            }} />
           </div>
         );
       })()}
@@ -1458,7 +1629,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 const SLOTS_PER_ROW = 3;
 
 function FieldRow({
-  side, cards, combat, damages, buffs, silencedAt, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -1469,6 +1640,8 @@ function FieldRow({
   buffs: Record<string, { atk: number; hp: number }>;
   /** Per-creature silence trigger — bumping the value replays the flash. */
   silencedAt: Record<string, number>;
+  /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
+  triggers: Record<string, string>;
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
@@ -1521,6 +1694,7 @@ function FieldRow({
               damage={damages[c.battleId] ?? null}
               buff={buffs[c.battleId] ?? null}
               silencedAt={silencedAt[c.battleId] ?? null}
+              trigger={triggers[c.battleId] ?? null}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />
