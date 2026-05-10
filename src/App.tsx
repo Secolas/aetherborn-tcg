@@ -166,6 +166,7 @@ export default function App() {
         <HomeMenu
           save={save}
           onQuickFill={onQuickFill}
+          onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
             else setScreen(s);
@@ -220,6 +221,7 @@ export default function App() {
         <MatchBoard
           deck={matchDeck}
           boss={activeBoss}
+          playerAvatar={save.playerAvatar}
           onExit={onMatchExit}
         />
       )}

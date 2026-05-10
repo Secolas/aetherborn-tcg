@@ -139,49 +139,60 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
         </div>
       </div>
 
+      {/* Filter chips — icon-only with count badge so all 8 fit on a single
+          row even on a narrow phone. The "All" chip is text-only since it
+          has no icon. Hovering / long-pressing shows the full label via
+          aria-label / title attributes. */}
       <div style={{
-        padding: '4px 16px 12px',
-        display: 'flex', flexWrap: 'wrap', gap: 6,
-      }}>
+        padding: '4px 12px 12px',
+        display: 'flex', gap: 5,
+        overflowX: 'auto',
+        WebkitOverflowScrolling: 'touch',
+      }}
+        className="no-scrollbar"
+      >
         {FILTERS.map(f => {
           const active = f.id === filter;
           const count = countFor(f.id);
           const bg = active
             ? (f.themeId ? ELEMENTS[f.themeId].color : PALETTE.accent)
             : '#fff';
+          const isAll = f.id === 'All';
           return (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              disabled={count === 0 && f.id !== 'All'}
+              disabled={count === 0 && !isAll}
+              aria-label={f.label}
+              title={f.label}
               style={{
-                padding: '6px 11px', borderRadius: 12,
+                padding: isAll ? '6px 10px' : '6px 8px',
+                borderRadius: 12,
                 background: bg,
                 color: active ? '#fff' : PALETTE.text,
-                fontSize: 12, fontWeight: 600,
+                fontSize: 12, fontWeight: 700,
                 border: active ? 'none' : `1.5px solid ${PALETTE.border}`,
                 whiteSpace: 'nowrap',
                 flex: '0 0 auto',
-                cursor: count === 0 && f.id !== 'All' ? 'default' : 'pointer',
+                cursor: count === 0 && !isAll ? 'default' : 'pointer',
                 fontFamily: 'inherit',
-                opacity: count === 0 && f.id !== 'All' ? 0.45 : 1,
+                opacity: count === 0 && !isAll ? 0.45 : 1,
                 boxShadow: active
                   ? '0 4px 10px rgba(255,126,95,.35)'
                   : '0 2px 4px rgba(58,46,42,.06)',
                 transition: 'all .15s',
-                display: 'inline-flex', alignItems: 'center', gap: 5,
+                display: 'inline-flex', alignItems: 'center', gap: 4,
               }}
             >
-              {f.icon && <span style={{ display: 'flex', alignItems: 'center' }}>{f.icon}</span>}
-              <span>{f.label}</span>
-              {f.id !== 'All' && count > 0 && (
-                <span style={{
-                  fontSize: 10, fontWeight: 700,
-                  background: active ? 'rgba(255,255,255,.25)' : 'rgba(58,46,42,.08)',
-                  color: active ? '#fff' : PALETTE.textMid,
-                  padding: '1px 6px', borderRadius: 8,
-                }}>{count}</span>
-              )}
+              {isAll
+                ? <span style={{ fontSize: 11, letterSpacing: '0.06em' }}>ALL</span>
+                : <span style={{ display: 'flex', alignItems: 'center' }}>{f.icon}</span>}
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                background: active ? 'rgba(255,255,255,.25)' : 'rgba(58,46,42,.08)',
+                color: active ? '#fff' : PALETTE.textMid,
+                padding: '1px 5px', borderRadius: 7,
+              }}>{count}</span>
             </button>
           );
         })}

@@ -150,6 +150,106 @@ export const BOSSES: BossDef[] = [
       'trv-05': U('photo-1436491865332-7a61a109cc05'),  // their own airplane window
     },
   },
+
+  // ============================================================
+  // GRANDPA — Family theme. Stories first, attacks second. Slow,
+  // creature-heavy, sustained heals.
+  // ============================================================
+  {
+    id: 'grandpa',
+    name: 'Grandpa',
+    subtitle: 'Tells the stories',
+    themeId: 'family',
+    avatar: 'G',
+    intro: 'Sit down. I have stories.',
+    rewardCoins: 150,
+    deck: [
+      'fam-01',           // Family Pet
+      'fam-02',           // Cousin
+      'fam-03',           // Abuela's Soup
+      'fam-04',           // Tio
+      'fam-07', 'fam-07', // Older Sibling x2 — solid bodies
+      'fam-08', 'fam-08', // Abuela x2 — taunt walls
+      'fam-09',           // Birthday Cake
+      'fam-11',           // Dad
+      'fam-12',           // Sunday Dinner
+    ],
+  },
+
+  // ============================================================
+  // THE INTERN — Work theme. Fast aggro: cheap bodies, ping spells,
+  // closes before the player can stabilize.
+  // ============================================================
+  {
+    id: 'intern_boss',
+    name: 'The Intern',
+    subtitle: 'Eager beaver',
+    themeId: 'work',
+    avatar: 'I',
+    intro: 'I have so many ideas!',
+    rewardCoins: 150,
+    deck: [
+      'wrk-01', 'wrk-01', 'wrk-01', // Intern x3 — flood the field
+      'wrk-02', 'wrk-02',            // Spam Email x2 — chip damage
+      'wrk-03', 'wrk-03',            // Coworker x2
+      'wrk-04',                       // Coffee — buff
+      'wrk-06',                       // Sales Pitch
+      'wrk-08',                       // Senior Engineer
+      'wrk-13',                       // Performance Review — silence
+    ],
+  },
+
+  // ============================================================
+  // THE FALCONER — Animals theme. Watches from above. Small, fast,
+  // evasive birds + traps.
+  // ============================================================
+  {
+    id: 'falconer',
+    name: 'The Falconer',
+    subtitle: 'Watches from above',
+    themeId: 'animals',
+    avatar: 'F',
+    intro: "You can't escape his sight.",
+    rewardCoins: 150,
+    deck: [
+      'ani-01', 'ani-01', // Mouse x2
+      'ani-02',            // Snake Bite
+      'ani-03',            // Rabbit
+      'ani-04',            // Cat — untargetable
+      'ani-06', 'ani-06',  // Owl x2 — draw on play
+      'ani-07',            // Treats
+      'ani-09',            // Bear Trap
+      'ani-10',            // Horse
+      'ani-11',            // Wolf
+      'ani-13',            // Muzzle
+    ],
+  },
+
+  // ============================================================
+  // THE BACKPACKER — Travel theme. Solo wanderer. Heavy untargetable
+  // + draw, slips past defenders rather than fighting.
+  // ============================================================
+  {
+    id: 'backpacker',
+    name: 'The Backpacker',
+    subtitle: 'No room for friends',
+    themeId: 'travel',
+    avatar: 'B',
+    intro: 'Sorry, just passing through.',
+    rewardCoins: 150,
+    deck: [
+      'trv-01', 'trv-01', // Boarding Pass x2
+      'trv-02', 'trv-02', // Carry-On x2 — untargetable
+      'trv-03',            // Suitcase
+      'trv-04',            // Lost Luggage
+      'trv-05',            // Window Seat
+      'trv-06',            // Train Conductor
+      'trv-07',            // Roadmap
+      'trv-09',            // Hotel
+      'trv-10',            // Beach
+      'trv-11',            // First Class
+    ],
+  },
 ];
 
 export function getBoss(id: string): BossDef | undefined {

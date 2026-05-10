@@ -121,4 +121,7 @@ export interface SaveData {
   matchesWon: number;
   matchesLost: number;
   bossesDefeated: string[];
+  /** Optional uploaded player avatar (data URL). When present, the player
+      portrait shows this image instead of the default "Y" letter. */
+  playerAvatar?: string;
 }

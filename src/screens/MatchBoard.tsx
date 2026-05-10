@@ -18,6 +18,9 @@ import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/type
 interface Props {
   deck: CollectionCard[];
   boss: BossDef;
+  /** Optional uploaded player photo (data URL). When set, the player
+      portrait shows this image; otherwise it falls back to the "Y" letter. */
+  playerAvatar?: string;
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
 
@@ -43,7 +46,7 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, boss, onExit }: Props) {
+export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
@@ -939,6 +942,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <PlayerPortrait
             hp={state.player.hp}
+            avatar={playerAvatar}
             highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
             onClick={onMyFaceClick}
             damage={damages[FACE_PLAYER] ?? null}
@@ -1922,8 +1926,9 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   );
 }
 
-function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
+function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
   hp: number;
+  avatar?: string;
   highlight: 'heal' | null;
   onClick: () => void;
   damage: number | null;
@@ -1933,7 +1938,8 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
   const hit = damage != null && damage > 0;
   return (
     <Portrait
-      avatar="Y"
+      avatar={avatar ? '' : 'Y'}
+      avatarPhoto={avatar}
       avatarBg="linear-gradient(160deg, #6e1f1a, #d96658)"
       avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
       hp={hp}
@@ -1954,8 +1960,11 @@ function PlayerPortrait({ hp, highlight, onClick, damage, elRef }: {
  * enough and dropping the names removes the layout asymmetry that the
  * names were creating).
  */
-function Portrait({ avatar, avatarBg, avatarRing, hp, ring, hit, damage, onClick, elRef }: {
+function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, damage, onClick, elRef }: {
   avatar: string;
+  /** Optional uploaded photo (data URL). Renders inside the avatar circle
+      instead of the letter when present. */
+  avatarPhoto?: string;
   avatarBg: string;
   avatarRing: string;
   hp: number;
@@ -1986,7 +1995,7 @@ function Portrait({ avatar, avatarBg, avatarRing, hp, ring, hit, damage, onClick
       }}>
         <div style={{
           width: '100%', height: '100%', borderRadius: '50%',
-          background: avatarBg,
+          background: avatarPhoto ? `url(${avatarPhoto}) center/cover` : avatarBg,
           display: 'grid', placeItems: 'center',
           fontSize: 16, fontWeight: 700, color: '#fff',
           fontFamily: '"Fredoka", system-ui',
@@ -2114,6 +2123,22 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
   drifter: {
     win:  { title: 'You won', line: "They left their address on a napkin. It's blank." },
     loss: { title: 'You lost', line: "By morning they're three time zones away." },
+  },
+  grandpa: {
+    win:  { title: 'You won', line: "He tells everyone in town that you used to be his favorite." },
+    loss: { title: 'You lost', line: "He's still telling the same story. You're in it now." },
+  },
+  intern_boss: {
+    win:  { title: 'You won', line: "He'll synergize this loss into a learning opportunity." },
+    loss: { title: 'You lost', line: "He's already CC'ing leadership about your performance." },
+  },
+  falconer: {
+    win:  { title: 'You won', line: "The bird circles once and lets you walk." },
+    loss: { title: 'You lost', line: "The bird is full. The bird is patient." },
+  },
+  backpacker: {
+    win:  { title: 'You won', line: "You took the photo. They were already gone." },
+    loss: { title: 'You lost', line: "They're posting from a different country by sunrise." },
   },
 };
 
