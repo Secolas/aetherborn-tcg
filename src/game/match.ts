@@ -526,10 +526,13 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
   }
   if (card.abilityKind === 'silence') {
-    // Silence bypasses 'untargetable' on purpose — that's its job.
+    // Silence respects 'untargetable' — that ability is the creature's
+    // protection from spells, and silence is a spell. If you want to
+    // remove the ability, you need a way around the immunity first.
     if (target.kind !== 'creature') return false;
     if (target.owner === owner) return false;
-    return !!side(state, target.owner).field.find(x => x.battleId === target.battleId);
+    const c = side(state, target.owner).field.find(x => x.battleId === target.battleId);
+    return !!c && c.abilityKind !== 'untargetable';
   }
   return false;
 }
