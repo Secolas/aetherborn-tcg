@@ -178,7 +178,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
     };
     const t = setTimeout(tick, 850);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state, flipping]);
+  }, [state, flipping, initialDealing]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
