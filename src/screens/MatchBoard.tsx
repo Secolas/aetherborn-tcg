@@ -1015,6 +1015,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         <FieldRow
           side="opponent"
           cards={state.opponent.field}
+          turn={state.turn}
           combat={combat}
           damages={damages}
           buffs={buffs}
@@ -1141,6 +1142,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         <FieldRow
           side="player"
           cards={state.player.field}
+          turn={state.turn}
           combat={combat}
           damages={damages}
           buffs={buffs}
@@ -2125,12 +2127,15 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, turn, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
   bondLookup,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
+  /** Whose turn is currently active. Player creatures only get the
+   *  attack-ready Swords badge on the player's own turn. */
+  turn: Owner;
   combat: CombatFx | null;
   damages: DamageMap;
   /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
@@ -2180,9 +2185,13 @@ function FieldRow({
               dying={isDying}
               dimWhenExhausted={side === 'player'}
               selected={side === 'player' && selectedAttacker === c.battleId}
+              // Only mark a player creature attack-ready on their OWN turn —
+              // during the opponent's turn the swords badge was lighting up
+              // on every unfought creature, implying the player could swing
+              // when they actually couldn't.
               attackable={
                 side === 'player'
-                  ? !c.tapped && !c.justPlayed
+                  ? turn === 'player' && !c.tapped && !c.justPlayed
                   : !!selectedAttacker
               }
               highlight={
