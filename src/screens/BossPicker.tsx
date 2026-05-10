@@ -260,9 +260,6 @@ function BossPage({
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.05 }}>{boss.name}</div>
-          <div style={{ fontSize: 12, opacity: 0.92, marginTop: 2, fontStyle: 'italic' }}>
-            {boss.subtitle}
-          </div>
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.9 }}>
             <ElementGlyph el={boss.themeId} size={14} />
             <span>{e.name} deck</span>

@@ -14,13 +14,13 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 const THEMED: Record<string, string> = {
   // Family
   'fam-01': U('photo-1543466835-00a7907e9de1'),     // Family Pet → dog
-  'fam-02': U('photo-1574482620745-0b46a4c3e3a8'),  // Cousin → kid
+  'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
   'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
   'fam-05': U('photo-1438761681033-6461ffad8d80'),  // Mom → smiling woman
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
   'fam-07': U('photo-1500648767791-00dcc994a43e'),  // Older Sibling → young adult
-  'fam-08': U('photo-1581579439459-13e44f060f9e'),  // Abuela → grandmother (was rotted, now fixed)
+  'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
   'fam-10': U('photo-1511895426328-dc8714191300'),  // Family Photo → group
   'fam-11': U('photo-1507003211169-0a1dd7228f2d'),  // Dad → man
@@ -53,7 +53,7 @@ const THEMED: Record<string, string> = {
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
   'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Bear Trap → fence/wire
   'ani-10': U('photo-1553284965-83fd3e82fa5a'),     // Horse → horse
-  'ani-11': U('photo-1516934024742-b461fba47600'),  // Wolf → wolf portrait (was a generic husky photo when the previous ID rotated)
+  'ani-11': U('photo-1474511320723-9a56873867b5'),  // Wolf → wolf portrait, mountain backdrop
   'ani-12': U('photo-1546182990-dffeafbe841d'),     // Lion → lion
   'ani-13': U('photo-1601758228041-f3b2795255f1'),  // Muzzle → leashed pet
 
