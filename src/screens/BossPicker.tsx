@@ -92,12 +92,14 @@ function BossCard({ boss, defeated, onClick }: { boss: BossDef; defeated: boolea
         }}>
           <div style={{
             width: '100%', height: '100%', borderRadius: '50%',
-            background: `linear-gradient(160deg, ${e.deep} 0%, ${e.color} 100%)`,
+            background: boss.avatarPhoto
+              ? `url(${boss.avatarPhoto}) center/cover`
+              : `linear-gradient(160deg, ${e.deep} 0%, ${e.color} 100%)`,
             display: 'grid', placeItems: 'center',
             fontSize: 26, fontWeight: 700,
             color: '#fff',
             fontFamily: '"Fredoka", system-ui',
-          }}>{boss.avatar}</div>
+          }}>{!boss.avatarPhoto && boss.avatar}</div>
         </div>
         <div style={{ flex: 1, color: '#fff' }}>
           <div style={{ fontSize: 22, fontWeight: 700, lineHeight: 1.05 }}>{boss.name}</div>

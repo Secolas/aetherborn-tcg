@@ -8,7 +8,7 @@ import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
-  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT,
+  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND,
   type SpellTarget,
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
@@ -69,6 +69,12 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
   /** Pre-match coin flip is animating. While true, the AI driver is paused
       and the player can't interact — keeps the opening uniform either way. */
   const [flipping, setFlipping] = useState(true);
+  /** During the initial deal, hands fly in one card at a time so the start
+      of the match feels like a real card-game opening. UI hides cards in
+      both hands beyond these counts until the deal finishes. */
+  const [playerInitialDealt, setPlayerInitialDealt] = useState(0);
+  const [oppInitialDealt, setOppInitialDealt] = useState(0);
+  const [initialDealing, setInitialDealing] = useState(true);
   /** Give-up confirmation modal. We never quit on the first tap — too easy
       to lose 20 minutes of progress to a misclick. */
   const [confirmGiveUp, setConfirmGiveUp] = useState(false);
@@ -120,6 +126,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
   // ============== AI driver ==============
   useEffect(() => {
     if (flipping) return; // wait until the opening coin flip finishes
+    if (initialDealing) return; // wait for the opening deal animation
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
 
@@ -215,7 +222,10 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       turnNumber: state.turnNumber,
     };
 
-    if (!combat) {
+    // Skip diff-driven popups while the coin flip / opening deal is still
+    // running — prev maps are still empty so we'd fire 4 phantom draw
+    // flights and a wave of "+0" buff popups for every initial creature.
+    if (!combat && !flipping && !initialDealing) {
       const damagePops: Record<string, number> = {};
       const buffPops: Record<string, { atk: number; hp: number }> = {};
       const silenced: Record<string, number> = {};
@@ -330,7 +340,38 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       }
     }
     prevSnapRef.current = fresh;
-  }, [state, combat]);
+  }, [state, combat, flipping, initialDealing]);
+
+  // Initial deal — once the coin flip finishes, animate the opening hand
+  // arriving one card at a time on alternating sides. Hands look empty
+  // until the first card flies in, so the match opens like a real game
+  // ("ok, here come our cards"). After STARTING_HAND × 2 deals, AI driver
+  // unlocks and the first turn starts.
+  useEffect(() => {
+    if (flipping) return;
+    if (state.outcome !== 'ongoing') return;
+    if (!initialDealing) return;
+    let cancelled = false;
+    let i = 0;
+    const totalDeals = STARTING_HAND * 2;
+    const tick = () => {
+      if (cancelled) return;
+      if (i >= totalDeals) {
+        setInitialDealing(false);
+        return;
+      }
+      const side: Owner = i % 2 === 0 ? 'player' : 'opponent';
+      setDrawingFor(side);
+      setDrawTick(t => t + 1);
+      if (side === 'player') setPlayerInitialDealt(d => d + 1);
+      else setOppInitialDealt(d => d + 1);
+      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, 600);
+      i++;
+      setTimeout(tick, 380);
+    };
+    const start = setTimeout(tick, 250);
+    return () => { cancelled = true; clearTimeout(start); };
+  }, [flipping, initialDealing, state.outcome]);
 
   // Card draw flight + mana pulse — fire whenever a new player's turn begins
   // (after turn 1, since the initial hand is dealt by createMatch, not by
@@ -778,7 +819,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       {/* Top spacer — absorbs extra vertical space and hosts the face-down
           opponent hand so it floats between the header and the opp field row. */}
       <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4 }}>
-        <OpponentHand size={state.opponent.hand.length} />
+        <OpponentHand size={initialDealing ? oppInitialDealt : state.opponent.hand.length} />
       </div>
 
       {/* Opponent's creature row */}
@@ -964,7 +1005,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
         position: 'relative',
         pointerEvents: 'none',
       }}>
-        {state.player.hand.map((card, i) => {
+        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand).map((card, i) => {
           const isDragging = drag?.battleId === card.battleId;
           const isCasting = playerSpellReveal?.battleId === card.battleId;
           if (isDragging || isCasting) return null;
@@ -1913,7 +1954,8 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   const hit = damage != null && damage > 0;
   return (
     <Portrait
-      avatar={boss.avatar}
+      avatar={boss.avatarPhoto ? '' : boss.avatar}
+      avatarPhoto={boss.avatarPhoto}
       avatarBg={`linear-gradient(160deg, ${themeDeep}, ${themeColor})`}
       avatarRing={`conic-gradient(from 90deg, ${themeDeep}, ${themeColor}, ${themeDeep})`}
       hp={hp}
@@ -2124,22 +2166,6 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
     win:  { title: 'You won', line: "They left their address on a napkin. It's blank." },
     loss: { title: 'You lost', line: "By morning they're three time zones away." },
   },
-  grandpa: {
-    win:  { title: 'You won', line: "He tells everyone in town that you used to be his favorite." },
-    loss: { title: 'You lost', line: "He's still telling the same story. You're in it now." },
-  },
-  intern_boss: {
-    win:  { title: 'You won', line: "He'll synergize this loss into a learning opportunity." },
-    loss: { title: 'You lost', line: "He's already CC'ing leadership about your performance." },
-  },
-  falconer: {
-    win:  { title: 'You won', line: "The bird circles once and lets you walk." },
-    loss: { title: 'You lost', line: "The bird is full. The bird is patient." },
-  },
-  backpacker: {
-    win:  { title: 'You won', line: "You took the photo. They were already gone." },
-    loss: { title: 'You lost', line: "They're posting from a different country by sunrise." },
-  },
 };
 
 function MatchEnd({ outcome, boss, onExit }: {
@@ -2191,18 +2217,20 @@ function MatchEnd({ outcome, boss, onExit }: {
       }}>
         <div style={{
           width: 96, height: 96, borderRadius: '50%',
-          // Single warm gradient for the avatar — no more boss-theme colors
-          // bleeding into the result palette.
-          background: isWin
-            ? 'linear-gradient(160deg, #ff9f1c, #ee5a52)'
-            : 'linear-gradient(160deg, #6e3a32, #3a2018)',
+          // Boss avatar photo when available; otherwise the warm gradient
+          // + letter fallback.
+          background: boss.avatarPhoto
+            ? `url(${boss.avatarPhoto}) center/cover`
+            : isWin
+              ? 'linear-gradient(160deg, #ff9f1c, #ee5a52)'
+              : 'linear-gradient(160deg, #6e3a32, #3a2018)',
           display: 'grid', placeItems: 'center',
           fontSize: 48, fontWeight: 700, color: '#fff',
           boxShadow: '0 12px 30px rgba(0,0,0,.25), 0 0 0 5px #fff, 0 0 0 7px rgba(255,158,90,.4)',
           fontFamily: '"Fredoka", system-ui',
           filter: isWin ? 'none' : 'grayscale(0.3)',
           transform: isWin ? 'rotate(-4deg)' : 'rotate(2deg)',
-        }}>{boss.avatar}</div>
+        }}>{!boss.avatarPhoto && boss.avatar}</div>
         <div style={{
           marginTop: 14, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase',
           color: '#6e5a52', fontWeight: 700,

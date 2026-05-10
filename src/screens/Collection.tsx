@@ -139,18 +139,13 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
         </div>
       </div>
 
-      {/* Filter chips — icon-only with count badge so all 8 fit on a single
-          row even on a narrow phone. The "All" chip is text-only since it
-          has no icon. Hovering / long-pressing shows the full label via
-          aria-label / title attributes. */}
+      {/* Filter chips — icon-only with count badge. Wraps to two rows on
+          a narrow phone instead of horizontal-scrolling, so every filter
+          stays visible without swiping. */}
       <div style={{
         padding: '4px 12px 12px',
-        display: 'flex', gap: 5,
-        overflowX: 'auto',
-        WebkitOverflowScrolling: 'touch',
-      }}
-        className="no-scrollbar"
-      >
+        display: 'flex', flexWrap: 'wrap', gap: 5,
+      }}>
         {FILTERS.map(f => {
           const active = f.id === filter;
           const count = countFor(f.id);
