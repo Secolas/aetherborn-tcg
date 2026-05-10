@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles, Lock, Camera, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles, Lock, Camera, Trash2, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { iconBtn, PALETTE } from '../components/styles';
 import { ELEMENTS } from '../data/elements';
@@ -33,6 +33,9 @@ interface Props {
 export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onBack }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
   const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
+  /** Big = 2-column with full card detail; Compact = 4-column tighter cards
+      so you can scan a large collection without scrolling forever. */
+  const [layout, setLayout] = useState<'big' | 'compact'>('big');
   const summoned = collection.filter(c => c.photo).length;
   const total = collection.length;
 
@@ -82,6 +85,20 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
             {placeholderCount > 0 && ` · ${placeholderCount} placeholder`}
           </div>
         </div>
+        {/* Layout toggle — switch between the default 2-column big-card view
+            and a 4-column compact view that fits twice as many cards on
+            screen for browsing a large collection. */}
+        <button
+          onClick={() => setLayout(l => l === 'big' ? 'compact' : 'big')}
+          style={{
+            ...iconBtn,
+            display: 'grid', placeItems: 'center',
+          }}
+          aria-label={layout === 'big' ? 'Compact view' : 'Big view'}
+          title={layout === 'big' ? 'Compact view' : 'Big view'}
+        >
+          {layout === 'big' ? <LayoutGrid size={17} /> : <Rows3 size={17} />}
+        </button>
         {dormantCount > 0 && (
           <button
             onClick={onQuickFill}
@@ -183,8 +200,8 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(2, 1fr)',
-            gap: 18,
+            gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+            gap: layout === 'compact' ? 8 : 18,
             justifyItems: 'center',
             alignContent: 'start',
           }}>
@@ -198,7 +215,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
                   }}
                   style={{ cursor: isReplaceable ? 'pointer' : 'default', position: 'relative' }}
                 >
-                  <Card card={card} scale={0.7} />
+                  <Card card={card} scale={layout === 'compact' ? 0.4 : 0.7} />
                   {!card.photo && (
                     <div style={{
                       position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',

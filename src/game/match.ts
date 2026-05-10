@@ -158,7 +158,23 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   // Untap, clear sickness. Frozen creatures stay frozen through their owner's
   // turn (so the snowflake is visible the whole time the freeze is "active");
   // the freeze actually wears off at the end of that turn. See endTurn below.
+  // Safety net: if a freeze / silence somehow survived beyond its
+  // frozenUntilTurn / silencedUntilTurn (set when the spell resolved),
+  // force-clear it here so the lock can never last more than one full
+  // owner-turn even if endTurn cleanup is skipped for any reason.
   me.field.forEach(c => {
+    if (c.frozenUntilTurn != null && state.turnNumber >= c.frozenUntilTurn) {
+      c.frozen = false;
+      c.frozenUntilTurn = undefined;
+    }
+    if (c.silencedUntilTurn != null && state.turnNumber >= c.silencedUntilTurn && c.silenced) {
+      c.abilityKind = c.originalAbilityKind ?? 'none';
+      c.ability = c.originalAbility ?? '';
+      c.silenced = false;
+      c.silencedUntilTurn = undefined;
+      c.originalAbilityKind = undefined;
+      c.originalAbility = undefined;
+    }
     if (c.frozen) {
       c.tapped = true; // can't act while frozen
     } else {
@@ -201,13 +217,24 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
 }
 
 export function endTurn(prev: MatchState): MatchState {
-  // Wear off the active player's freeze tokens at the END of their turn so
-  // the snowflake icon stays visible all turn long while the creature is
-  // skipping it. By the time the opponent's beginTurn fires, frozen has
-  // cleared and the creature looks normal (and can act again next turn).
+  // Wear off freeze + silence tokens on the active player's creatures at
+  // the END of their turn so both icons stay visible the whole turn the
+  // creature is locked. By the time the opponent's beginTurn fires the
+  // status icons are gone and the original ability is restored.
   const cleared = clone(prev);
   side(cleared, cleared.turn).field.forEach(c => {
-    if (c.frozen) c.frozen = false;
+    if (c.frozen) {
+      c.frozen = false;
+      c.frozenUntilTurn = undefined;
+    }
+    if (c.silenced) {
+      c.abilityKind = c.originalAbilityKind ?? 'none';
+      c.ability = c.originalAbility ?? '';
+      c.silenced = false;
+      c.silencedUntilTurn = undefined;
+      c.originalAbilityKind = undefined;
+      c.originalAbility = undefined;
+    }
   });
   return beginTurn(cleared, opp(cleared.turn));
 }
@@ -353,7 +380,13 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
   } else if (card.abilityKind === 'spell_freeze' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
-    if (c) c.frozen = true;
+    if (c) {
+      c.frozen = true;
+      // Hard cap: by the time we reach this turn number the freeze MUST
+      // be gone, no matter what. The normal cleanup happens in endTurn
+      // when the owner's turn ends; this is the safety net.
+      c.frozenUntilTurn = state.turnNumber + 2;
+    }
   } else if (card.abilityKind === 'spell_buff' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
@@ -363,19 +396,19 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.hp += v;
     }
   } else if (card.abilityKind === 'silence' && target?.kind === 'creature') {
-    // Strip the target's ability — taunt creatures lose the redirect, untargetable
-    // creatures become spell-targetable, rush sleepers no longer charge, etc.
-    // Buffs (raw stat increases) are intentionally preserved. The silenced
-    // flag stays set so the UI can keep showing a muted reminder badge —
-    // otherwise after the spell-target burst fades the creature would look
-    // identical to a vanilla creature and the player wouldn't see that the
-    // silence is still in effect.
+    // Strip the target's ability for one turn — taunt creatures lose the
+    // redirect, untargetable creatures become spell-targetable, etc. We
+    // stash the original abilityKind / ability text so endTurn can restore
+    // them when the silence wears off (parallels freeze: a single-turn lock).
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
     if (c) {
+      c.originalAbilityKind = c.abilityKind;
+      c.originalAbility = c.ability;
       c.abilityKind = 'none';
       c.ability = '';
       c.silenced = true;
+      c.silencedUntilTurn = state.turnNumber + 2;
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic
