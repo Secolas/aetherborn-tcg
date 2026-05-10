@@ -160,12 +160,19 @@ function BossCard({
           “{boss.intro}”
         </div>
 
-        {/* Difficulty segment — Normal / Hard / Mythic. Same idiom as the
-            Settings screen and the Album tab bar, so the visual language
-            stays consistent across the app. */}
+        {/* Difficulty segment — Normal / Hard / Mythic. Visible "DIFFICULTY"
+            header above so the player understands these chips control how
+            the boss plays. Active tier gets a coral ring + drop shadow so
+            it pops out from the inactive ones rather than blending into
+            the card body. */}
         <div style={{
-          display: 'flex', gap: 4, padding: 4,
-          background: '#f5ede2', borderRadius: 12,
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+          color: PALETTE.textMid, marginBottom: 6,
+        }}>
+          DIFFICULTY
+        </div>
+        <div style={{
+          display: 'flex', gap: 6,
           marginBottom: 10,
         }}>
           {DIFFICULTIES.map(d => {
@@ -174,23 +181,24 @@ function BossCard({
             return (
               <button
                 key={d}
-                // Stop propagation so picking a tier doesn't bubble up to
-                // the card's launch handler.
                 onClick={(ev) => { ev.stopPropagation(); onChangeDifficulty(d); }}
                 style={{
-                  flex: 1, padding: '7px 0',
-                  background: active ? '#fff' : 'transparent',
+                  flex: 1, padding: '10px 0',
+                  background: active ? '#fff' : '#f7eee0',
                   color: active ? PALETTE.text : PALETTE.textMid,
-                  border: 'none', borderRadius: 9,
-                  fontFamily: 'inherit', fontWeight: 700, fontSize: 11,
+                  border: active ? '2px solid #ee5a52' : '2px solid transparent',
+                  borderRadius: 12,
+                  fontFamily: 'inherit', fontWeight: 800, fontSize: 12,
                   cursor: 'pointer',
                   letterSpacing: '0.04em',
-                  boxShadow: active ? '0 2px 6px rgba(58,46,42,.10)' : 'none',
-                  transition: 'background .15s',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                  boxShadow: active
+                    ? '0 4px 10px rgba(238,90,82,.20), inset 0 -2px 0 rgba(0,0,0,.04)'
+                    : '0 1px 2px rgba(58,46,42,.06)',
+                  transition: 'background .15s, border-color .15s, box-shadow .15s',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}
               >
-                {d === 'mythic' ? <Skull size={12} strokeWidth={2.4} /> : d === 'hard' ? <Flame size={12} strokeWidth={2.4} /> : null}
+                {d === 'mythic' ? <Skull size={13} strokeWidth={2.4} /> : d === 'hard' ? <Flame size={13} strokeWidth={2.4} /> : null}
                 {dp.label}
               </button>
             );
