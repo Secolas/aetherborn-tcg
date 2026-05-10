@@ -472,3 +472,44 @@ input {
   80%  { opacity: 1; transform: translateX(0) rotate(0); }
   100% { opacity: 0; transform: translateX(30px) rotate(3deg); }
 }
+
+/* Bond cinematic — runs across ~3.5s in staged phases so the player can
+   actually read each beat. Each keyframe handles its own slice; a CSS
+   `animation-delay` on the element schedules when the slice fires. */
+@keyframes bondCardFromLeft {
+  0%   { opacity: 0; transform: translateX(-160px) scale(0.85); filter: blur(4px); }
+  60%  { opacity: 1; transform: translateX(8px) scale(1.04); filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+@keyframes bondCardFromRight {
+  0%   { opacity: 0; transform: translateX(160px) scale(0.85); filter: blur(4px); }
+  60%  { opacity: 1; transform: translateX(-8px) scale(1.04); filter: blur(0); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+/* Link icon spawns in the center between the two cards, a pop the player
+   can't miss. Holds at the end so the steady infinite pulse can take over. */
+@keyframes bondLinkSpawn {
+  0%   { opacity: 0; transform: scale(0) rotate(-90deg); }
+  60%  { opacity: 1; transform: scale(1.4) rotate(20deg); }
+  85%  { transform: scale(0.95) rotate(-5deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0); }
+}
+/* Beam — a horizontal gold "energy line" between the two cards drawn
+   left-to-right after the link icon lands. Two-step glow so it feels like
+   "drawing the connection," not a static ribbon. */
+@keyframes bondBeamSweep {
+  0%   { opacity: 0; transform: scaleX(0); }
+  35%  { opacity: 1; transform: scaleX(1); }
+  100% { opacity: 0.55; transform: scaleX(1); }
+}
+/* Bond name + description drop in from a small offset, after the cards and
+   beam have settled. */
+@keyframes bondTextDrop {
+  0%   { opacity: 0; transform: translateY(-12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+/* Container fade-out at the end of the cinematic so it doesn't snap. */
+@keyframes bondCineFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}

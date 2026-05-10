@@ -272,13 +272,14 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
     // Clear the "newly active" flags after the highlight animation finishes
     // so the chips settle into their steady persistent state. Cinematic
-    // clears on its own slightly later so the pill doesn't re-glow while
-    // the cinematic is still on screen.
+    // runs for ~3.4s with staged sub-animations; the pill flag clears
+    // shortly after so the chip's pop animation doesn't fire while the
+    // cinematic is still on screen.
     const tFlags = setTimeout(() => {
       setNewPlayerBonds([]);
       setNewOppBonds([]);
-    }, 1800);
-    const tCine = setTimeout(() => setBondCinematic(null), 1700);
+    }, 3500);
+    const tCine = setTimeout(() => setBondCinematic(null), 3400);
     return () => { clearTimeout(tFlags); clearTimeout(tCine); };
   }, [state.player.field, state.opponent.field]);
 
@@ -901,18 +902,24 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
   const bossElement = ELEMENTS[boss.themeId];
 
-  // Per-side bond lookups for the heart badge on each card. A card is
-  // 'active' when its partner is also on the same field, 'waiting' when it
-  // is bond-eligible but the partner hasn't landed yet. Players see at a
-  // glance which of their cards is part of a bond and whether it's firing.
+  // Per-side bond lookups for the link badge on each card. With first-
+  // bond-wins, a card is 'active' if and only if it appears in one of
+  // the side's CLAIMED bonds (engine-side `claimedBonds`). Otherwise the
+  // card is 'waiting' if it has any potential bond at all — partner not
+  // yet present, or partner is locked into another bond. The visual is
+  // exclusive: each card shows exactly one bond state, mirroring the
+  // engine's exclusive claims.
   const bondLookupFor = (p: PlayerState): Record<string, 'active' | 'waiting'> => {
     const out: Record<string, 'active' | 'waiting'> = {};
-    const fieldIds = new Set(p.field.map(c => c.id));
+    const lockedCards = new Set<string>();
+    for (const b of activeBonds(p)) {
+      lockedCards.add(b.cardA);
+      lockedCards.add(b.cardB);
+    }
     for (const c of p.field) {
-      const involved = BONDS.find(b => b.cardA === c.id || b.cardB === c.id);
-      if (!involved) continue;
-      const partnerId = involved.cardA === c.id ? involved.cardB : involved.cardA;
-      out[c.id] = fieldIds.has(partnerId) ? 'active' : 'waiting';
+      const myBonds = BONDS.filter(b => b.cardA === c.id || b.cardB === c.id);
+      if (myBonds.length === 0) continue;
+      out[c.id] = lockedCards.has(c.id) ? 'active' : 'waiting';
     }
     return out;
   };
@@ -1581,13 +1588,16 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         );
       })()}
 
-      {/* Bond activation cinematic — when a bond first goes live, the two
-          bonded creatures briefly appear at center stage with a glowing
-          link icon between them and the bond name above. Auto-dismisses
-          after ~1.5s. Same yellow/dark color language as the persistent
-          pill so the player can map the cinematic → the chip that stays. */}
+      {/* Bond activation cinematic — staged across ~3.4s so each beat is
+          readable: cards slide in from the sides → link icon spawns in the
+          middle → gold beam draws between them → "BOND ACTIVATED" tag and
+          name drop in → description fades in below. Card scale is small
+          enough (0.55) to fit on phone widths without clipping; the
+          container is clamped at 95vw with reduced gap on narrow screens. */}
       {bondCinematic && (() => {
         const isPlayer = bondCinematic.side === 'player';
+        // Total duration of the cinematic. Auto-dismiss timer in the diff
+        // effect uses ~3.4s; keep these in sync.
         return (
           <div
             key={`bond-cine-${bondCinematic.bond.id}-${bondCinematic.side}`}
@@ -1596,14 +1606,17 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
               display: 'grid', placeItems: 'center',
               zIndex: 230,
               pointerEvents: 'none',
-              background: 'rgba(0,0,0,.35)',
-              animation: 'fadeIn .25s ease-out',
+              background: 'rgba(0,0,0,.45)',
+              animation: 'fadeIn .35s ease-out, bondCineFadeOut .4s ease-in 3s forwards',
+              padding: '8px 12px',
             }}
           >
             <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-              animation: 'cardSummon .55s cubic-bezier(.2,.8,.3,1.3)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 10,
+              maxWidth: '95vw',
             }}>
+              {/* "BOND ACTIVATED" tag — drops in after the cards + beam settle. */}
               <div style={{
                 background: isPlayer
                   ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
@@ -1615,39 +1628,75 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
                 boxShadow: isPlayer
                   ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
                   : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
+                animation: 'bondTextDrop .5s cubic-bezier(.2,.8,.3,1.2) 1.5s both',
               }}>
-                BOND ACTIVATED
+                {isPlayer ? 'BOND ACTIVATED' : `${boss.name.toUpperCase()}'S BOND`}
               </div>
+              {/* Bond name — bigger drop-in just after the tag. */}
               <div style={{
-                fontSize: 30, fontWeight: 800,
+                fontSize: 26, fontWeight: 800,
                 background: 'linear-gradient(180deg, #ff9f1c, #ee5a52)',
                 WebkitBackgroundClip: 'text', backgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 fontFamily: '"Fredoka", system-ui',
                 textShadow: '0 2px 0 rgba(255,255,255,.4)',
                 lineHeight: 1,
+                textAlign: 'center',
+                animation: 'bondTextDrop .5s cubic-bezier(.2,.8,.3,1.2) 1.7s both',
               }}>
                 {bondCinematic.bond.name}
               </div>
+              {/* Cards row — small enough (scale 0.55) to fit two-up on a
+                  phone. The connecting beam is positioned absolutely behind
+                  the link icon so it visually grows from the icon outward. */}
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 18,
-                marginTop: 4,
+                display: 'flex', alignItems: 'center',
+                gap: 10,
+                marginTop: 2,
+                position: 'relative',
               }}>
-                <div style={{ animation: 'vsRevealLeft .55s cubic-bezier(.2,.8,.3,1)' }}>
-                  <Card card={bondCinematic.cardA} hovered scale={0.85} />
+                <div style={{ animation: 'bondCardFromLeft .8s cubic-bezier(.2,.8,.3,1.05) both' }}>
+                  <Card card={bondCinematic.cardA} hovered scale={0.55} />
                 </div>
                 <div style={{
-                  width: 56, height: 56, borderRadius: '50%',
-                  background: 'radial-gradient(circle at 50% 40%, #fff8d8 0%, #ffd166 50%, #e8a93a 100%)',
-                  boxShadow: '0 0 22px rgba(244,208,74,.85), 0 0 0 3px #fff',
-                  display: 'grid', placeItems: 'center',
-                  color: '#a8530a',
-                  animation: 'attackReadyPulse 1.2s ease-in-out infinite',
+                  position: 'relative',
+                  width: 48, height: 48,
+                  flex: '0 0 auto',
                 }}>
-                  <Link2 size={28} strokeWidth={3} />
+                  {/* Beam line — extends LEFT and RIGHT from the icon to
+                      the cards on either side. Two pseudo-divs so the beam
+                      sweeps outward from center. */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%', right: '100%',
+                    width: 56, height: 4,
+                    background: 'linear-gradient(90deg, rgba(244,208,74,0) 0%, #ffd166 100%)',
+                    transformOrigin: 'right center',
+                    boxShadow: '0 0 10px rgba(244,208,74,.7)',
+                    animation: 'bondBeamSweep .55s ease-out 1s both',
+                  }} />
+                  <div style={{
+                    position: 'absolute',
+                    top: '50%', left: '100%',
+                    width: 56, height: 4,
+                    background: 'linear-gradient(90deg, #ffd166 0%, rgba(244,208,74,0) 100%)',
+                    transformOrigin: 'left center',
+                    boxShadow: '0 0 10px rgba(244,208,74,.7)',
+                    animation: 'bondBeamSweep .55s ease-out 1s both',
+                  }} />
+                  <div style={{
+                    width: 48, height: 48, borderRadius: '50%',
+                    background: 'radial-gradient(circle at 50% 40%, #fff8d8 0%, #ffd166 50%, #e8a93a 100%)',
+                    boxShadow: '0 0 22px rgba(244,208,74,.85), 0 0 0 3px #fff',
+                    display: 'grid', placeItems: 'center',
+                    color: '#a8530a',
+                    animation: 'bondLinkSpawn .6s cubic-bezier(.2,.8,.3,1.4) .85s both',
+                  }}>
+                    <Link2 size={24} strokeWidth={3} />
+                  </div>
                 </div>
-                <div style={{ animation: 'vsRevealRight .55s cubic-bezier(.2,.8,.3,1)' }}>
-                  <Card card={bondCinematic.cardB} hovered scale={0.85} />
+                <div style={{ animation: 'bondCardFromRight .8s cubic-bezier(.2,.8,.3,1.05) both' }}>
+                  <Card card={bondCinematic.cardB} hovered scale={0.55} />
                 </div>
               </div>
               <div style={{
@@ -1656,6 +1705,9 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
                 background: 'rgba(0,0,0,.55)',
                 padding: '6px 14px', borderRadius: 12,
                 marginTop: 6,
+                textAlign: 'center',
+                maxWidth: 320,
+                animation: 'bondTextDrop .5s ease-out 2.0s both',
               }}>
                 {bondCinematic.bond.description}
               </div>
@@ -1888,22 +1940,30 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
                 self-documenting. Bond info too, with the partner's name. */}
             <StatusLabels
               card={inspect}
-              bondInfo={(() => {
-                const bond = BONDS.find(b => b.cardA === inspect.id || b.cardB === inspect.id);
-                if (!bond) return null;
-                const partnerId = bond.cardA === inspect.id ? bond.cardB : bond.cardA;
-                // Determine which side the inspected card is actually on
-                // and whether the partner is also on that field.
+              bondInfos={(() => {
+                // Surface every bond this card participates in. With first-
+                // bond-wins, exactly one of these can be 'active'; the rest
+                // are either 'waiting' (partner not on field) or 'blocked'
+                // (partner is on field but locked into another bond).
+                const myBonds = BONDS.filter(b => b.cardA === inspect.id || b.cardB === inspect.id);
+                if (myBonds.length === 0) return [];
                 const onPlayer = state.player.field.some(c => c.battleId === inspect.battleId);
-                const ownerField = onPlayer ? state.player.field : state.opponent.field;
-                const partner = ownerField.find(c => c.id === partnerId);
-                const tpl = TEMPLATES.find(t => t.id === partnerId);
-                return {
-                  name: bond.name,
-                  description: bond.description,
-                  partnerName: tpl?.name ?? partnerId,
-                  active: !!partner,
-                };
+                const ownerSide = onPlayer ? state.player : state.opponent;
+                const fieldIds = new Set(ownerSide.field.map(c => c.id));
+                const claimedBondIds = new Set(ownerSide.claimedBonds ?? []);
+                return myBonds.map(b => {
+                  const partnerId = b.cardA === inspect.id ? b.cardB : b.cardA;
+                  const tpl = TEMPLATES.find(t => t.id === partnerId);
+                  let status: 'active' | 'waiting' | 'blocked' = 'waiting';
+                  if (claimedBondIds.has(b.id)) status = 'active';
+                  else if (fieldIds.has(partnerId)) status = 'blocked';
+                  return {
+                    name: b.name,
+                    description: b.description,
+                    partnerName: tpl?.name ?? partnerId,
+                    status,
+                  };
+                });
               })()}
             />
           </div>
@@ -2169,12 +2229,19 @@ function FieldRow({
  */
 function StatusLabels({
   card,
-  bondInfo,
+  bondInfos = [],
 }: {
   card: BattleCard;
-  /** Bond context for this card (if any). When provided, a row is added
-   *  showing the bond name + partner + whether it's currently firing. */
-  bondInfo?: { name: string; description: string; partnerName: string; active: boolean } | null;
+  /** Every bond this card participates in. With first-bond-wins, a card
+   *  can be in at most ONE active bond at a time; other bonds it would
+   *  otherwise complete read as 'blocked' (partner present but locked) or
+   *  'waiting' (partner not on field). */
+  bondInfos?: {
+    name: string;
+    description: string;
+    partnerName: string;
+    status: 'active' | 'blocked' | 'waiting';
+  }[];
 }) {
   const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
   if (card.frozen) {
@@ -2201,18 +2268,28 @@ function StatusLabels({
     items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
-  if (bondInfo) {
-    // Gold (#e8a93a) for active bonds; muted brown for waiting. Same colour
-    // family the heart badge + pill use, so the player can map between
-    // "the heart is gold on the card" and "the bond row in the long-press
-    // panel is highlighted gold."
+  for (const b of bondInfos) {
+    // Three states under first-bond-wins:
+    //   active  — bond is claimed; gold link icon, full description.
+    //   blocked — partner is on the field but is already locked into a
+    //             different bond. Orange color so the player understands
+    //             "the partner is busy" rather than missing.
+    //   waiting — partner not on the field yet; muted grey.
+    const color =
+      b.status === 'active'  ? '#e8a93a' :
+      b.status === 'blocked' ? '#c8702a' :
+                               '#a89580';
+    const hint =
+      b.status === 'active'
+        ? `Active with ${b.partnerName} — ${b.description}`
+        : b.status === 'blocked'
+          ? `Blocked — ${b.partnerName} is already locked into another bond. Will form when that bond ends.`
+          : `Pairs with ${b.partnerName} — bond will activate when both are on the field.`;
     items.push({
       icon: <Link2 size={14} strokeWidth={2.6} />,
-      color: bondInfo.active ? '#e8a93a' : '#a89580',
-      label: `Bond: ${bondInfo.name}`,
-      hint: bondInfo.active
-        ? `Active with ${bondInfo.partnerName} — ${bondInfo.description}`
-        : `Pairs with ${bondInfo.partnerName} — bond will activate when both are on the field.`,
+      color,
+      label: `Bond: ${b.name}`,
+      hint,
     });
   }
   if (items.length === 0) return null;

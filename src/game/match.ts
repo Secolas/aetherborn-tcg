@@ -80,44 +80,90 @@ function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
 }
 
 function emptyPlayer(): PlayerState {
-  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [], fatigueCount: 0, bondFlags: {} };
+  return {
+    hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [],
+    fatigueCount: 0, bondFlags: {}, claimedBonds: [],
+  };
 }
 
-/** All bonds whose two card-template ids are currently both on `p`'s field.
- *  Same-category invariant is baked into the bond definitions; we just check
- *  for presence. The UI shows every active bond (corner badge + pill stack),
- *  but the *effects* hook through `dominantBondEffects` so two bonds with
- *  the same effect kind don't double-up. */
-export function activeBonds(p: PlayerState): BondDef[] {
+/**
+ * First-bond-wins resolution. When a card lands on the field (or another
+ * leaves), we re-evaluate which bonds are claimed:
+ *
+ *  1. Existing claims survive only if BOTH bonded cards are still present.
+ *     If either has left the field, the claim releases and its cards
+ *     become free to form new bonds.
+ *  2. Already-claimed cards block any other bond they participate in
+ *     from forming. Mom locked in Sunday Dinner with Dad → Generations
+ *     stays dormant even if Abuela is also on the field. Sunday Dinner
+ *     stays the link until Dad leaves.
+ *  3. Newly eligible bonds (both cards present, neither claimed) compete
+ *     by `amount` — higher amount wins the tie, so when all three Family
+ *     creatures land at once, Generations (+2) beats Sunday Dinner (+1).
+ *     Same-amount ties fall back to definition order.
+ *
+ * Both UI and effects read through `activeBonds(p)` which simply returns
+ * the claimed list, so the visual link is always 1:1 with what's actually
+ * firing. No more "two bonds active on the same card."
+ */
+export function recomputeBondClaims(p: PlayerState): void {
   const ids = new Set(p.field.map(c => c.id));
-  return BONDS.filter(b => ids.has(b.cardA) && ids.has(b.cardB));
+  // (1) Drop claims whose bonded cards are no longer both on the field.
+  let claims = (p.claimedBonds ?? []).filter(bondId => {
+    const b = BONDS.find(x => x.id === bondId);
+    return !!b && ids.has(b.cardA) && ids.has(b.cardB);
+  });
+
+  // (2) Build the set of cards currently locked by surviving claims.
+  const lockedCards = new Set<string>();
+  for (const bondId of claims) {
+    const b = BONDS.find(x => x.id === bondId)!;
+    lockedCards.add(b.cardA);
+    lockedCards.add(b.cardB);
+  }
+
+  // (3) Eligible new bonds: both cards on field, neither already locked,
+  // bond not already claimed. Sort by amount desc so a tie of equally-
+  // formed bonds resolves to the strongest one.
+  const eligible = BONDS
+    .filter(b =>
+      ids.has(b.cardA) &&
+      ids.has(b.cardB) &&
+      !lockedCards.has(b.cardA) &&
+      !lockedCards.has(b.cardB) &&
+      !claims.includes(b.id)
+    )
+    .sort((x, y) => (y.effect.amount ?? 0) - (x.effect.amount ?? 0));
+
+  // (4) Greedy claim — strongest first; once a bond claims its cards,
+  // they're locked for the remainder of this pass.
+  for (const b of eligible) {
+    if (lockedCards.has(b.cardA) || lockedCards.has(b.cardB)) continue;
+    claims.push(b.id);
+    lockedCards.add(b.cardA);
+    lockedCards.add(b.cardB);
+  }
+
+  p.claimedBonds = claims;
 }
 
-/** Effects-only view of active bonds — at most one bond per effect kind,
- *  whichever has the highest `amount`. Prevents stacking edge cases like
- *  Mom + Dad + Abuela firing both Sunday Dinner (+1) and Generations (+2)
- *  for a combined +3 HP/turn. With this rule the player still gets +2 from
- *  Generations; Sunday Dinner is shadowed but stays "active" in the UI for
- *  consistency (the link badge still glows on Mom + Dad). Different effect
- *  kinds (e.g. Reporting Line + Top Brass on the Work triple) DO stack
- *  because they do different things. */
-function dominantBondEffects(p: PlayerState): BondDef[] {
-  const byKind = new Map<BondDef['effect']['kind'], BondDef>();
-  for (const b of activeBonds(p)) {
-    const cur = byKind.get(b.effect.kind);
-    if (!cur || (b.effect.amount ?? 0) > (cur.effect.amount ?? 0)) {
-      byKind.set(b.effect.kind, b);
-    }
+/** All bonds currently active on `p`'s side. With first-bond-wins this is
+ *  exactly the claim list — no two active bonds can share a card, so both
+ *  the UI badge and the engine effects see the same set. */
+export function activeBonds(p: PlayerState): BondDef[] {
+  const claims = p.claimedBonds ?? [];
+  const out: BondDef[] = [];
+  for (const id of claims) {
+    const b = BONDS.find(x => x.id === id);
+    if (b) out.push(b);
   }
-  return [...byKind.values()];
+  return out;
 }
 
 /** Returns true if `card` is one of the two creatures in any active bond
- *  whose effect is `kind`. Used by attack() for ATK / Rush / Taunt buffs.
- *  Reads through dominantBondEffects so stat buffs respect the same
- *  no-double-stack rule as triggered effects. */
+ *  whose effect is `kind`. Used by attack() for ATK / Rush / Taunt buffs. */
 function cardHasBondKind(p: PlayerState, card: BattleCard, kind: BondDef['effect']['kind']): BondDef | null {
-  for (const b of dominantBondEffects(p)) {
+  for (const b of activeBonds(p)) {
     if (b.effect.kind !== kind) continue;
     if (card.id === b.cardA || card.id === b.cardB) return b;
   }
@@ -254,7 +300,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   });
 
   // Bond: heal_face_per_turn (Family — Sunday Dinner)
-  for (const b of dominantBondEffects(me)) {
+  for (const b of activeBonds(me)) {
     if (b.effect.kind === 'heal_face_per_turn' && b.effect.amount) {
       const before = me.hp;
       me.hp = Math.min(STARTING_HP, me.hp + b.effect.amount);
@@ -313,9 +359,9 @@ export function endTurn(prev: MatchState): MatchState {
   });
 
   // Bond: damage_at_end_turn (Travel — The Long Way). Fires at the end of
-  // the active player's turn against the enemy face. dominantBondEffects
+  // the active player's turn against the enemy face. activeBonds
   // ensures we don't double-fire if two same-kind bonds were ever added.
-  for (const b of dominantBondEffects(me)) {
+  for (const b of activeBonds(me)) {
     if (b.effect.kind === 'damage_at_end_turn' && b.effect.amount) {
       them.hp -= b.effect.amount;
       cleared.log.push(`Bond: ${b.name} pings the boss for ${b.effect.amount}`);
@@ -359,7 +405,7 @@ export function effectiveCost(p: PlayerState, card: BattleCard): number {
   if (card.type !== 'Spell') return card.cost;
   let discount = 0;
   // Only one cost-reduction bond at a time (whichever discounts more).
-  for (const b of dominantBondEffects(p)) {
+  for (const b of activeBonds(p)) {
     if (b.effect.kind === 'spell_cost_reduction') discount += b.effect.amount ?? 0;
   }
   return Math.max(1, card.cost - discount);
@@ -379,9 +425,11 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
     if (me.field.length >= MAX_FIELD) return { state: prev, ok: false, reason: 'Field is full' };
     me.mana -= cost;
     me.hand.splice(idx, 1);
-    // Pack bond grants Rush — if this creature is part of an active pack
-    // bond as soon as it lands, it can attack the same turn.
     me.field.push(card);
+    // Re-evaluate bond claims now that a new creature has landed — first-
+    // bond-wins decides whether this summon completes a new bond, and
+    // (for pack_atk_rush) whether this creature gets Rush from the bond.
+    recomputeBondClaims(me);
     const packsRush = cardHasBondKind(me, card, 'pack_atk_rush') !== null;
     const hasRush = card.abilityKind === 'rush' || packsRush;
     card.justPlayed = !hasRush;
@@ -485,7 +533,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
   // Spell damage bonus from Top Brass (Senior Engineer + The Boss). One
   // bonus at a time — same-kind shadowing rule.
   let spellBonus = 0;
-  for (const b of dominantBondEffects(me)) {
+  for (const b of activeBonds(me)) {
     if (b.effect.kind === 'spell_damage_bonus') spellBonus += b.effect.amount ?? 0;
   }
   const v = card.abilityValue ?? 0;
@@ -563,6 +611,11 @@ function cleanField(p: PlayerState) {
   const dead = p.field.filter(c => c.currentHp <= 0);
   if (dead.length) p.discard.push(...dead);
   p.field = p.field.filter(c => c.currentHp > 0);
+  // Deaths can release bond claims (Mom locked with Dad → Dad dies → Mom
+  // is freed → Generations re-evaluates if Abuela is alive). Recomputing
+  // here keeps the engine state and UI in sync without the caller having
+  // to remember to do it after every kill.
+  recomputeBondClaims(p);
 }
 
 interface AttackResult {
@@ -622,7 +675,7 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
 
   // Bond: First Class Window — when a bonded creature attacks, draw 1
   // (once per turn).
-  for (const b of dominantBondEffects(me)) {
+  for (const b of activeBonds(me)) {
     if (b.effect.kind !== 'draw_on_attack') continue;
     if (attacker.id !== b.cardA && attacker.id !== b.cardB) continue;
     me.bondFlags = me.bondFlags ?? {};

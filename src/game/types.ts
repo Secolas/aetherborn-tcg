@@ -104,6 +104,15 @@ export interface PlayerState {
   /** Per-turn flags used by bond effects with "once per turn" gating.
       Cleared at the start of every owner-turn. Keyed by bond id. */
   bondFlags?: Record<string, boolean>;
+  /** Currently-claimed bond ids. First-bond-wins: when two creatures
+      that form a bond both reach the field, that bond claims them — its
+      cards are now exclusively bound to it. Other potential bonds that
+      share a card with a claimed bond cannot form until the claim
+      releases (i.e. one of the bonded cards leaves the field). On a tie
+      where multiple bonds become eligible at once, the bond with the
+      higher `amount` wins. Recomputed by recomputeBondClaims after every
+      field change. */
+  claimedBonds?: string[];
 }
 
 export interface MatchState {
