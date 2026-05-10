@@ -39,6 +39,18 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
   /** Card opened from the Active Deck strip — shows preview + Remove button. */
   const [inspectActive, setInspectActive] = useState<CollectionCard | null>(null);
 
+  // Sort the active deck so creatures come before spells, with cost
+  // ascending inside each group. Lets the player see deck composition
+  // at a glance — the green half is creatures, the violet half is spells.
+  const sortedDeckUids = [...deckUids].sort((a, b) => {
+    const ca = collection.find(x => x.uid === a);
+    const cb = collection.find(x => x.uid === b);
+    if (!ca || !cb) return 0;
+    if (ca.type !== cb.type) return ca.type === 'Creature' ? -1 : 1;
+    if (ca.cost !== cb.cost) return ca.cost - cb.cost;
+    return (ca.nickname ?? ca.name).localeCompare(cb.nickname ?? cb.name);
+  });
+
   const filtered = collection.filter(c => {
     switch (filter) {
       case 'Creatures': return c.type === 'Creature';
@@ -111,25 +123,30 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 600 }}>
           Active Deck
         </div>
-        {/* Active-deck grid — auto-fill so the strip wraps to whatever
-            number of columns the viewport can fit (3 on a narrow phone,
-            up to 7 on a wide screen). Each chip is a mini full-card via
-            the Card component so the type color (green = creature, violet
-            = spell) reads at a glance. */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
-          gap: 6,
-          justifyItems: 'center',
-        }}>
-          {deckUids.map(uid => {
+        {/* Active-deck strip — single horizontal scrollable row. Saves
+            vertical space (was a 3-row grid that hogged half the screen)
+            so the library below stays visible while you tweak the deck.
+            Sorted creatures-first then spells, so swiping left → right
+            takes you from green half to violet half. */}
+        <div
+          className="no-scrollbar"
+          style={{
+            display: 'flex',
+            gap: 6,
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            paddingBottom: 2,
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {sortedDeckUids.map(uid => {
             const c = collection.find(x => x.uid === uid);
             if (!c) return null;
             return (
               <div
                 key={uid}
                 onClick={() => setInspectActive(c)}
-                style={{ cursor: 'pointer', position: 'relative' }}
+                style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
               >
                 <Card card={c} scale={0.32} />
               </div>
