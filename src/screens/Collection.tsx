@@ -200,7 +200,9 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
         ) : (
           <div style={{
             display: 'grid',
-            gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+            gridTemplateColumns: layout === 'compact'
+              ? 'repeat(auto-fill, minmax(90px, 1fr))'
+              : 'repeat(auto-fill, minmax(150px, 1fr))',
             gap: layout === 'compact' ? 8 : 18,
             justifyItems: 'center',
             alignContent: 'start',

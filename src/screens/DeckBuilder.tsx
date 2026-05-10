@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
-import { ELEMENTS, TYPE_PALETTE } from '../data/elements';
+import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import type { CollectionCard, ElementId } from '../game/types';
 
@@ -36,6 +36,8 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
       faster when picking the 12 deck slots); Big = 2-column for detail. */
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
   const [filter, setFilter] = useState<Filter>('All');
+  /** Card opened from the Active Deck strip — shows preview + Remove button. */
+  const [inspectActive, setInspectActive] = useState<CollectionCard | null>(null);
 
   const filtered = collection.filter(c => {
     switch (filter) {
@@ -109,11 +111,29 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 600 }}>
           Active Deck
         </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+        {/* Active-deck grid — auto-fill so the strip wraps to whatever
+            number of columns the viewport can fit (3 on a narrow phone,
+            up to 7 on a wide screen). Each chip is a mini full-card via
+            the Card component so the type color (green = creature, violet
+            = spell) reads at a glance. */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+          gap: 6,
+          justifyItems: 'center',
+        }}>
           {deckUids.map(uid => {
             const c = collection.find(x => x.uid === uid);
             if (!c) return null;
-            return <DeckChip key={uid} card={c} onRemove={() => toggle(uid)} />;
+            return (
+              <div
+                key={uid}
+                onClick={() => setInspectActive(c)}
+                style={{ cursor: 'pointer', position: 'relative' }}
+              >
+                <Card card={c} scale={0.32} />
+              </div>
+            );
           })}
           {deckUids.length === 0 && (
             <div style={{ fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic' }}>
@@ -165,12 +185,16 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         })}
       </div>
 
-      {/* Library grid */}
+      {/* Library grid — auto-fill so columns adapt to the viewport instead
+          of forcing a fixed 4-col layout that ran off the right edge on
+          narrow phones. Compact uses ~90px-min cards; big uses ~150px. */}
       <div style={{
         flex: 1, overflow: 'auto',
         padding: '0 16px 30px',
         display: 'grid',
-        gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+        gridTemplateColumns: layout === 'compact'
+          ? 'repeat(auto-fill, minmax(90px, 1fr))'
+          : 'repeat(auto-fill, minmax(150px, 1fr))',
         gap: layout === 'compact' ? 8 : 14,
         justifyItems: 'center',
         alignContent: 'start',
@@ -224,52 +248,65 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
           </div>
         )}
       </div>
+
+      {/* Active-deck preview modal — tap any chip in the active deck strip
+          to see the full card and pull it out of the deck (or just close
+          the preview). Reads-only otherwise. */}
+      {inspectActive && (
+        <div
+          onClick={() => setInspectActive(null)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(8,4,12,.7)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 220,
+            animation: 'fadeIn .2s',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center',
+              gap: 14,
+              animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
+            }}
+          >
+            <Card card={inspectActive} hovered scale={1.0} />
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setInspectActive(null)}
+                style={{
+                  background: '#fff', color: PALETTE.text,
+                  border: `1.5px solid ${PALETTE.border}`,
+                  borderRadius: 18, padding: '10px 18px',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 10px rgba(58,46,42,.15)',
+                }}
+              >Close</button>
+              <button
+                onClick={() => {
+                  toggle(inspectActive.uid);
+                  setInspectActive(null);
+                }}
+                style={{
+                  background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: 18, padding: '10px 22px',
+                  fontSize: 13, fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  boxShadow: '0 4px 14px rgba(200,54,46,.4)',
+                }}
+              >Remove from deck</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function DeckChip({ card, onRemove }: { card: CollectionCard; onRemove: () => void }) {
-  // Active-deck chips are tinted by TYPE rather than theme so the player
-  // can see at a glance how creature- vs spell-heavy their deck is.
-  // Green = creature, violet = spell — same palette the actual cards use.
-  const tp = TYPE_PALETTE[card.type === 'Spell' ? 'Spell' : 'Creature'];
-  const e = ELEMENTS[card.el];
-  return (
-    <div onClick={onRemove} style={{
-      width: 50, height: 68,
-      borderRadius: 8,
-      background: card.photo ? `url(${card.photo}) center/cover, ${tp.top}` : tp.top,
-      boxShadow: `inset 0 0 0 2px ${tp.deep}, 0 2px 6px rgba(0,0,0,.3)`,
-      position: 'relative',
-      cursor: 'pointer',
-      flex: '0 0 auto',
-    }}>
-      <div style={{
-        position: 'absolute', top: 2, left: 2,
-        width: 14, height: 14, borderRadius: '50%',
-        background: '#fef4d8', color: tp.deep,
-        fontSize: 9, fontWeight: 700,
-        display: 'grid', placeItems: 'center',
-      }}>{card.cost}</div>
-      {/* Tiny element glyph in the top-right so the theme is still
-          identifiable (Family / Work / Animals / Travel) — type drives the
-          big color, theme drives this little corner pip. */}
-      <div style={{
-        position: 'absolute', top: 2, right: 2,
-        width: 10, height: 10, borderRadius: '50%',
-        background: e.color,
-        boxShadow: '0 0 0 1px rgba(0,0,0,.2)',
-      }} />
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: `linear-gradient(0deg, ${tp.deep}ee, transparent)`,
-        padding: '8px 3px 3px',
-        fontSize: 7, fontWeight: 700,
-        color: '#fff', textAlign: 'center',
-        textShadow: '0 1px 0 #000',
-        letterSpacing: '0.02em',
-        whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-      }}>{card.nickname || card.name}</div>
-    </div>
-  );
-}
