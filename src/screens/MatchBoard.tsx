@@ -902,25 +902,24 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
   const bossElement = ELEMENTS[boss.themeId];
 
-  // Per-side bond lookups for the link badge on each card. A card is
-  // 'active' when AT LEAST ONE of the bonds it participates in has its
-  // partner on the same field; 'waiting' when the card is bond-eligible
-  // but no partner is currently out. Cards that appear in multiple bonds
-  // (Mom is in Sunday Dinner AND Generations; Senior Engineer is in
-  // Reporting Line AND Top Brass) need ALL of their bonds checked — the
-  // earlier `BONDS.find(...)` only saw the first match, which silently
-  // hid Generations whenever Mom was on the field with Abuela but no Dad.
+  // Per-side bond lookups for the link badge on each card. With first-
+  // bond-wins, a card is 'active' if and only if it appears in one of
+  // the side's CLAIMED bonds (engine-side `claimedBonds`). Otherwise the
+  // card is 'waiting' if it has any potential bond at all — partner not
+  // yet present, or partner is locked into another bond. The visual is
+  // exclusive: each card shows exactly one bond state, mirroring the
+  // engine's exclusive claims.
   const bondLookupFor = (p: PlayerState): Record<string, 'active' | 'waiting'> => {
     const out: Record<string, 'active' | 'waiting'> = {};
-    const fieldIds = new Set(p.field.map(c => c.id));
+    const lockedCards = new Set<string>();
+    for (const b of activeBonds(p)) {
+      lockedCards.add(b.cardA);
+      lockedCards.add(b.cardB);
+    }
     for (const c of p.field) {
       const myBonds = BONDS.filter(b => b.cardA === c.id || b.cardB === c.id);
       if (myBonds.length === 0) continue;
-      const anyActive = myBonds.some(b => {
-        const partnerId = b.cardA === c.id ? b.cardB : b.cardA;
-        return fieldIds.has(partnerId);
-      });
-      out[c.id] = anyActive ? 'active' : 'waiting';
+      out[c.id] = lockedCards.has(c.id) ? 'active' : 'waiting';
     }
     return out;
   };
@@ -1942,23 +1941,27 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
             <StatusLabels
               card={inspect}
               bondInfos={(() => {
-                // Cards can be in multiple bonds (Mom: Sunday Dinner +
-                // Generations). Surface every bond this card participates
-                // in — each gets its own row in the long-press panel so
-                // the player can see all the synergies at once.
+                // Surface every bond this card participates in. With first-
+                // bond-wins, exactly one of these can be 'active'; the rest
+                // are either 'waiting' (partner not on field) or 'blocked'
+                // (partner is on field but locked into another bond).
                 const myBonds = BONDS.filter(b => b.cardA === inspect.id || b.cardB === inspect.id);
                 if (myBonds.length === 0) return [];
                 const onPlayer = state.player.field.some(c => c.battleId === inspect.battleId);
-                const ownerField = onPlayer ? state.player.field : state.opponent.field;
-                const fieldIds = new Set(ownerField.map(c => c.id));
+                const ownerSide = onPlayer ? state.player : state.opponent;
+                const fieldIds = new Set(ownerSide.field.map(c => c.id));
+                const claimedBondIds = new Set(ownerSide.claimedBonds ?? []);
                 return myBonds.map(b => {
                   const partnerId = b.cardA === inspect.id ? b.cardB : b.cardA;
                   const tpl = TEMPLATES.find(t => t.id === partnerId);
+                  let status: 'active' | 'waiting' | 'blocked' = 'waiting';
+                  if (claimedBondIds.has(b.id)) status = 'active';
+                  else if (fieldIds.has(partnerId)) status = 'blocked';
                   return {
                     name: b.name,
                     description: b.description,
                     partnerName: tpl?.name ?? partnerId,
-                    active: fieldIds.has(partnerId),
+                    status,
                   };
                 });
               })()}
@@ -2229,10 +2232,16 @@ function StatusLabels({
   bondInfos = [],
 }: {
   card: BattleCard;
-  /** Every bond this card participates in. One row per bond. A card can
-   *  appear in multiple bonds (Mom is in Sunday Dinner + Generations);
-   *  each bond's active/waiting state is independent. */
-  bondInfos?: { name: string; description: string; partnerName: string; active: boolean }[];
+  /** Every bond this card participates in. With first-bond-wins, a card
+   *  can be in at most ONE active bond at a time; other bonds it would
+   *  otherwise complete read as 'blocked' (partner present but locked) or
+   *  'waiting' (partner not on field). */
+  bondInfos?: {
+    name: string;
+    description: string;
+    partnerName: string;
+    status: 'active' | 'blocked' | 'waiting';
+  }[];
 }) {
   const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
   if (card.frozen) {
@@ -2260,16 +2269,27 @@ function StatusLabels({
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
   for (const b of bondInfos) {
-    // Gold (#e8a93a) for active bonds; muted brown for waiting. Same color
-    // family the link badge + pill use, so the player can map "this row" ↔
-    // "that link icon on the card." Multiple bonds → multiple rows.
+    // Three states under first-bond-wins:
+    //   active  — bond is claimed; gold link icon, full description.
+    //   blocked — partner is on the field but is already locked into a
+    //             different bond. Orange color so the player understands
+    //             "the partner is busy" rather than missing.
+    //   waiting — partner not on the field yet; muted grey.
+    const color =
+      b.status === 'active'  ? '#e8a93a' :
+      b.status === 'blocked' ? '#c8702a' :
+                               '#a89580';
+    const hint =
+      b.status === 'active'
+        ? `Active with ${b.partnerName} — ${b.description}`
+        : b.status === 'blocked'
+          ? `Blocked — ${b.partnerName} is already locked into another bond. Will form when that bond ends.`
+          : `Pairs with ${b.partnerName} — bond will activate when both are on the field.`;
     items.push({
       icon: <Link2 size={14} strokeWidth={2.6} />,
-      color: b.active ? '#e8a93a' : '#a89580',
+      color,
       label: `Bond: ${b.name}`,
-      hint: b.active
-        ? `Active with ${b.partnerName} — ${b.description}`
-        : `Pairs with ${b.partnerName} — bond will activate when both are on the field.`,
+      hint,
     });
   }
   if (items.length === 0) return null;
