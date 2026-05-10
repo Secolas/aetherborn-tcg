@@ -74,7 +74,7 @@ export const BOSSES: BossDef[] = [
     ],
     photoOverrides: {
       'fam-11': U('photo-1539571696357-5a69c17a67c6'),  // her own warm-smile dad
-      'fam-08': U('photo-1581579439459-13e44f060f9e'),  // her own grandmother
+      'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // her own grandmother
       'fam-12': U('photo-1559847844-5315695dadae'),    // her own dinner table
     },
     // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.
@@ -143,7 +143,7 @@ export const BOSSES: BossDef[] = [
     ],
     photoOverrides: {
       'ani-12': U('photo-1546182990-dffeafbe841d'),    // their own apex lion
-      'ani-11': U('photo-1564415051543-c4b21afae0bd'),  // their own wolf
+      'ani-11': U('photo-1474511320723-9a56873867b5'),  // their own wolf
       'ani-05': U('photo-1587300003388-59208cc962cb'),  // their own guard dog
     },
     // Misty pine forest — deep greens, fog, "you're not alone out here."

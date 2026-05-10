@@ -2847,7 +2847,7 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
           marginTop: 14, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase',
           color: '#6e5a52', fontWeight: 700,
         }}>
-          {boss.name} · {boss.subtitle}
+          {boss.name}
         </div>
       </div>
 
