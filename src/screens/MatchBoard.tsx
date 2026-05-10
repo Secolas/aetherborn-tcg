@@ -9,6 +9,7 @@ import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
   attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND,
+  effectiveCost, activeBonds,
   type SpellTarget,
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
@@ -23,9 +24,11 @@ interface Props {
   /** Optional uploaded player photo (data URL). When set, the player
       portrait shows this image; otherwise it falls back to the "Y" letter. */
   playerAvatar?: string;
-  /** Audio + motion preferences. SFX volume gates every cue, animSpeed
-   *  divides every JS-driven match timing constant. */
+  /** Audio preferences. SFX volume gates every cue. */
   settings?: Settings;
+  /** Called when a bond first activates this match. Used to mark it as
+   *  "discovered" in the player's save. */
+  onBondDiscovered?: (bondId: string) => void;
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
 
@@ -51,14 +54,11 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTINGS, onExit }: Props) {
-  // Stash settings in a ref so timing helpers + closures see fresh values
-  // without re-creating effects every render.
+export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onExit }: Props) {
+  // Stash settings in a ref so SFX closures see fresh values without
+  // re-creating effects every render.
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-  /** Scale a JS timing constant by the user's match-speed preference.
-   *  animSpeed=1 → unchanged, 1.5 → ~67%, 2 → 50%. */
-  const scaleMs = (ms: number) => Math.max(40, Math.round(ms / settingsRef.current.animSpeed));
   /** Fire an SFX cue at the user's chosen volume — no-op if muted. */
   const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, settingsRef.current.sfxVolume);
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
@@ -78,6 +78,9 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
+  /** Bond activation toast — slides in once when a new bond becomes active
+   *  on the player's side. */
+  const [bondToast, setBondToast] = useState<{ id: string; name: string; description: string } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -164,7 +167,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
           sfx(step.played.type === 'Spell' ? 'cardPlay' : 'summon');
-          const holdMs = scaleMs(step.played.type === 'Spell' ? 2700 : 1900);
+          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -181,17 +184,17 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
             setState(step.next);
           }, holdMs);
         } else {
-          setTimeout(() => { if (!cancelled) setState(step.next); }, scaleMs(950));
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
         }
       } else {
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => beginTurn(s, 'player'));
-        }, scaleMs(1100));
+        }, 1100);
       }
     };
-    const t = setTimeout(tick, scaleMs(850));
+    const t = setTimeout(tick, 850);
     return () => { cancelled = true; clearTimeout(t); };
   }, [state, flipping, initialDealing]);
 
@@ -203,7 +206,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     if (state.outcome !== 'ongoing') return;
     setTurnBanner(state.turn);
     sfx('turn');
-    const t = setTimeout(() => setTurnBanner(null), scaleMs(1400));
+    const t = setTimeout(() => setTurnBanner(null), 1400);
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
 
@@ -214,6 +217,24 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     outcomePlayedRef.current = true;
     sfx(state.outcome === 'win' ? 'win' : 'lose');
   }, [state.outcome]);
+
+  // Bond activation diff — when a new bond becomes active on the player's
+  // side, slide a toast in once. Tracks the previously-active set so toasts
+  // don't replay on every re-render.
+  const prevBondsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const cur = new Set(activeBonds(state.player).map(b => b.id));
+    const newlyActive = [...cur].filter(id => !prevBondsRef.current.has(id));
+    prevBondsRef.current = cur;
+    if (newlyActive.length === 0) return;
+    const bond = activeBonds(state.player).find(b => b.id === newlyActive[0]);
+    if (!bond) return;
+    setBondToast({ id: bond.id, name: bond.name, description: bond.description });
+    sfx('summon');
+    onBondDiscovered?.(bond.id);
+    const t = setTimeout(() => setBondToast(b => b?.id === bond.id ? null : b), 2400);
+    return () => clearTimeout(t);
+  }, [state.player.field]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
   // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
@@ -389,11 +410,11 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
       setDrawTick(t => t + 1);
       if (side === 'player') setPlayerInitialDealt(d => d + 1);
       else setOppInitialDealt(d => d + 1);
-      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, scaleMs(600));
+      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, 600);
       i++;
-      setTimeout(tick, scaleMs(380));
+      setTimeout(tick, 380);
     };
-    const start = setTimeout(tick, scaleMs(250));
+    const start = setTimeout(tick, 250);
     return () => { cancelled = true; clearTimeout(start); };
   }, [flipping, initialDealing, state.outcome]);
 
@@ -850,11 +871,13 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         <OpponentHand size={initialDealing ? oppInitialDealt : state.opponent.hand.length} />
       </div>
 
-      {/* Opponent's creature row */}
+      {/* Opponent's creature row. Stacked above the divider (zIndex 4) so
+          damage/buff popups that overshoot upward off the card render on top
+          of the divider strip and its End Turn / Give Up buttons. */}
       <div style={{
         flex: '0 0 100px',
         display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
-        zIndex: 3,
+        zIndex: 6,
         position: 'relative',
       }}>
         <FieldRow
@@ -971,7 +994,9 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         style={{
           flex: '0 0 100px',
           display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
-          zIndex: 3,
+          // Above the divider (zIndex 4) so damage/buff popups that extend
+          // upward from a card render on top of the divider's icons.
+          zIndex: 6,
           background: drag?.overField
             ? 'rgba(244,208,74,.10)'
             : 'transparent',
@@ -1040,9 +1065,11 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           const cardCount = state.player.hand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
-          // Unaffordable = not enough mana. We don't tint cards red just
+          // Unaffordable = not enough mana. Bond discounts (Reporting Line)
+          // are baked into effectiveCost so a discounted spell shows as
+          // playable even at its on-card cost. We don't tint cards red just
           // because it's the boss's turn — that'd flash every card every turn.
-          const playableNow = card.cost <= state.player.mana;
+          const playableNow = effectiveCost(state.player, card) <= state.player.mana;
           const baseScale = 0.66;
           const cardW = 220 * baseScale;
           // Tighter stride + per-card rotation = a real fan instead of a
@@ -1122,7 +1149,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           the field doesn't auto-play the card. */}
       {selectedHandIdx !== null && state.player.hand[selectedHandIdx] && !drag && (() => {
         const card = state.player.hand[selectedHandIdx];
-        const playableNow = card.cost <= state.player.mana && state.turn === 'player';
+        const playableNow = effectiveCost(state.player, card) <= state.player.mana && state.turn === 'player';
         const isSpell = card.type === 'Spell';
         const needsTarget = isSpell && !(
           card.abilityKind === 'spell_heal' ||
@@ -1424,6 +1451,37 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           </>
         );
       })()}
+
+      {/* Bond activation toast — pops at the top center the moment a bond
+          becomes active on the player's side. Auto-clears after ~2.4s. */}
+      {bondToast && (
+        <div
+          key={`bond-${bondToast.id}`}
+          style={{
+            position: 'absolute', top: 88, left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 215,
+            pointerEvents: 'none',
+            animation: 'turnBanner 2.4s cubic-bezier(.2,.8,.3,1) forwards',
+          }}
+        >
+          <div style={{
+            background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
+            color: '#3a2406',
+            padding: '8px 16px',
+            borderRadius: 14,
+            fontFamily: '"Fredoka", system-ui',
+            boxShadow: '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          }}>
+            <div style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, opacity: 0.7 }}>
+              BOND ACTIVE
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 800 }}>{bondToast.name}</div>
+            <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{bondToast.description}</div>
+          </div>
+        </div>
+      )}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between

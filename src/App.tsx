@@ -42,15 +42,6 @@ export default function App() {
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
 
-  // Reflect reduced-motion + speed multiplier on the document so CSS rules
-  // can react. The `--anim-mult` var is read by JS for combat timing; the
-  // `data-reduced-motion` attr lets keyframes opt-out via CSS selectors.
-  useEffect(() => {
-    const root = document.documentElement;
-    root.style.setProperty('--anim-mult', String(1 / settings.animSpeed));
-    root.dataset.reducedMotion = settings.reducedMotion ? 'true' : 'false';
-  }, [settings.animSpeed, settings.reducedMotion]);
-
   // Browsers require a user gesture before AudioContext can play. Unlock on
   // the first pointerdown anywhere in the app, then detach.
   useEffect(() => {
@@ -255,6 +246,10 @@ export default function App() {
           boss={activeBoss}
           playerAvatar={save.playerAvatar}
           settings={settings}
+          onBondDiscovered={(id) => setSave(s => {
+            const have = s.discoveredBonds ?? [];
+            return have.includes(id) ? s : { ...s, discoveredBonds: [...have, id] };
+          })}
           onExit={onMatchExit}
         />
       )}

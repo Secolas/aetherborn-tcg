@@ -78,14 +78,17 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
         ) : (
           <div style={{
             flex: 1, overflowY: 'auto',
-            padding: '18px 14px',
+            padding: '14px 12px',
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-            gap: 14,
+            // Compact tiles so a typical match's graveyard (~10–14 cards)
+            // fits without scrolling on phone-size screens. Auto-fill keeps
+            // the grid responsive on tablet/desktop.
+            gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))',
+            gap: 8,
             justifyItems: 'center',
           }}>
             {reversed.map((c) => (
-              <Card key={c.battleId} card={c} scale={0.65} />
+              <Card key={c.battleId} card={c} scale={0.34} />
             ))}
           </div>
         )}

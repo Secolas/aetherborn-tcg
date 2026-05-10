@@ -101,6 +101,9 @@ export interface PlayerState {
       subsequent fatigue draw deals 1 more damage (Hearthstone-style), so
       stalling becomes self-destructive. */
   fatigueCount: number;
+  /** Per-turn flags used by bond effects with "once per turn" gating.
+      Cleared at the start of every owner-turn. Keyed by bond id. */
+  bondFlags?: Record<string, boolean>;
 }
 
 export interface MatchState {
@@ -124,4 +127,7 @@ export interface SaveData {
   /** Optional uploaded player avatar (data URL). When present, the player
       portrait shows this image instead of the default "Y" letter. */
   playerAvatar?: string;
+  /** Bond ids the player has triggered at least once. Used by the Album to
+      reveal locked bonds as they're discovered through play. */
+  discoveredBonds?: string[];
 }
