@@ -230,6 +230,7 @@ export default function App() {
       {screen === 'album' && (
         <Album
           collection={save.collection}
+          discoveredBonds={save.discoveredBonds ?? []}
           onBack={() => setScreen('home')}
         />
       )}
