@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, VolumeX } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -404,12 +404,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     const attackerDying = !!attackerCard && info.damageToAtk >= attackerCard.currentHp;
     const anyDying = defenderDying || attackerDying;
 
-    // Creature trades show the big card-vs-card preview. The trade plays out
-    // across ~2400ms (2900 if anyone dies) so the strike → counter → settle
-    // beats each have time to land. Face attacks keep a snappier ~700ms
-    // timing — there's no preview overlay to wait for.
+    // Yu-Gi-Oh Duel Links pacing — combat plays out across ~3400ms
+    // (3900 if anyone dies) so the BATTLE banner, ATK/HP callouts,
+    // strike → counter, and settle each have visible time. Face attacks
+    // stay snappier (~900ms) since there's no full callout sequence.
     const isTrade = defenderKind === 'creature';
-    const popDelay = isTrade ? 950 : 350;
+    const popDelay = isTrade ? 1300 : 450;
 
     // Damage pops at the strike phase.
     setTimeout(() => {
@@ -420,7 +420,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       // Counter-strike pops noticeably later for trades so the two hits read
       // as separate beats, not one combined flash.
       if (info.damageToAtk > 0) {
-        const counterOffset = isTrade ? 500 : 0;
+        const counterOffset = isTrade ? 700 : 0;
         setTimeout(() => {
           setDamages(d => ({ ...d, [info.attackerId]: info.damageToAtk }));
         }, counterOffset);
@@ -439,11 +439,11 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     // State swap timing — extended for trades so the slice / settle finishes
     // before the cards disappear from state.
     const stateDelay = isTrade
-      ? (anyDying ? 2500 : 2100)
-      : (anyDying ? 1300 : 700);
-    const clearDelay = isTrade
-      ? (anyDying ? 2900 : 2400)
+      ? (anyDying ? 3400 : 2900)
       : (anyDying ? 1500 : 900);
+    const clearDelay = isTrade
+      ? (anyDying ? 3900 : 3400)
+      : (anyDying ? 1700 : 1100);
     setTimeout(() => done(), stateDelay);
     setTimeout(() => {
       setCombat(null);
@@ -1415,7 +1415,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         const attackerDying = dyingIds.includes(combat.attackerId);
         const defenderDying = dyingIds.includes(combat.defenderId);
         const anyDying = attackerDying || defenderDying;
-        const heldMs = anyDying ? 2900 : 2400;
+        const heldMs = anyDying ? 3900 : 3400;
 
         // Place ATK / HP callouts off to the side of each card so they don't
         // overlap with the small stat orbs already on the cards themselves.
@@ -1427,14 +1427,16 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
         return (
           <>
-            {/* "BATTLE!" plate behind the action */}
+            {/* "BATTLE!" plate — anchored 22% from the top of the stage so
+                it sits clearly above the field action and never collides
+                with the stat callouts that pop next to the combatants. */}
             <div style={{
-              position: 'absolute', top: '50%', left: '50%',
-              fontSize: 48, fontWeight: 900, letterSpacing: '0.18em',
+              position: 'absolute', top: '22%', left: '50%',
+              fontSize: 32, fontWeight: 900, letterSpacing: '0.18em',
               color: '#fff',
               background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
-              padding: '6px 28px', borderRadius: 10,
-              boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 8px 28px rgba(0,0,0,.5), 0 0 60px rgba(238,90,82,.6)',
+              padding: '5px 22px', borderRadius: 8,
+              boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 8px 24px rgba(0,0,0,.5), 0 0 50px rgba(238,90,82,.55)',
               fontFamily: '"Fredoka", system-ui',
               textShadow: '0 3px 0 #6e1f1a',
               animation: `ygoBattleBanner ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards`,
@@ -1832,6 +1834,10 @@ function StatusLabels({ card }: { card: BattleCard }) {
   if (card.abilityKind === 'rush') {
     items.push({ icon: <Zap size={14} fill="#fff" strokeWidth={2.4} />, color: '#e8a93a',
       label: 'Rush', hint: 'Can attack the turn it’s played.' });
+  }
+  if (card.silenced) {
+    items.push({ icon: <VolumeX size={14} strokeWidth={2.6} />, color: '#7a6e62',
+      label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
   if (items.length === 0) return null;
   return (

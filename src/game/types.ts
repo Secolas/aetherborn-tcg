@@ -67,8 +67,13 @@ export interface BattleCard extends CollectionCard {
   /** True once this creature has been hit by a silence spell. abilityKind
       is set to 'none' on silence, but that's indistinguishable from a
       vanilla creature without this flag — so the UI can keep showing a
-      muted "silenced" badge as a permanent reminder. */
+      muted "silenced" badge. Silence wears off at the end of the
+      silenced creature's owner's turn (parallels freeze). */
   silenced?: boolean;
+  /** When silence is applied we stash the original ability so we can
+      restore it when the silence wears off. */
+  originalAbilityKind?: AbilityKind;
+  originalAbility?: string;
 }
 
 export type Owner = 'player' | 'opponent';
