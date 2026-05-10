@@ -119,8 +119,11 @@ function ThemeSection({
       </div>
       <div style={{
         display: 'grid',
-        gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+        gridTemplateColumns: layout === 'compact'
+          ? 'repeat(auto-fill, minmax(80px, 1fr))'
+          : 'repeat(auto-fill, minmax(140px, 1fr))',
         gap: layout === 'compact' ? 6 : 12,
+        justifyItems: 'stretch',
       }}>
         {cards.map((c, i) => (
           <PolaroidEntry key={c.uid} card={c} idx={i} compact={layout === 'compact'} onClick={() => onTap(c)} />
