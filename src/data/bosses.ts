@@ -10,6 +10,14 @@ export interface BossDef {
       `avatar` in the picker, the match header, and the win/loss screen. */
   avatarPhoto?: string;
   intro: string;
+  /**
+   * One-sentence playstyle blurb shown on the boss picker. Tells the
+   * player what this boss's deck actually *does* — synergies, threats,
+   * tempo — so they can think about how to counter-build, instead of
+   * giving them a generic "Normal AI does X" line. Stays consistent
+   * across difficulty tiers (those just change AI smarts, not the deck).
+   */
+  playstyle: string;
   rewardCoins: number;
   /**
    * The exact 12 cards this boss plays. Order doesn't matter (the engine
@@ -49,6 +57,7 @@ export const BOSSES: BossDef[] = [
     avatar: 'M',
     avatarPhoto: U('photo-1438761681033-6461ffad8d80'),  // smiling woman portrait
     intro: "You haven't called.",
+    playstyle: "Sunday dinner regulars. Mom heals every turn she stands, and when Dad joins the table the family grows stronger together.",
     rewardCoins: 150,
     deck: [
       'fam-01',          // Family Pet
@@ -83,6 +92,7 @@ export const BOSSES: BossDef[] = [
     avatar: 'M',
     avatarPhoto: U('photo-1573497019940-1c28c88b4f3e'),  // dapper manager portrait
     intro: 'Got a minute? It will only take a minute.',
+    playstyle: "Runs the room from the corner office. Freezes your plays, pings with spam, and promotes loyal staff into spell-amplifying closers.",
     rewardCoins: 150,
     deck: [
       'wrk-01',          // Intern
@@ -116,6 +126,7 @@ export const BOSSES: BossDef[] = [
     avatar: 'A',
     avatarPhoto: U('photo-1516934024742-b461fba47600'),  // wolf portrait
     intro: 'Bare your teeth or run.',
+    playstyle: "Hunts as a pack. Floods the board with small bodies and finishes with apex predators that strike together — Wolf and Lion gain Rush when both are out.",
     rewardCoins: 150,
     deck: [
       'ani-01', 'ani-01',// Mouse x2 — flood the board
@@ -152,6 +163,7 @@ export const BOSSES: BossDef[] = [
     avatar: 'D',
     avatarPhoto: U('photo-1488646953014-85cb44e25828'),  // backpacker silhouette
     intro: "Don't get attached.",
+    playstyle: "Always moving. Cycles cards fast, swings with Rushers the turn they land, and pushes for lethal before you can settle in.",
     rewardCoins: 150,
     deck: [
       'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early

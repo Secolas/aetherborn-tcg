@@ -323,54 +323,61 @@ function BossPage({
         </div>
       </div>
 
-      {/* AI behavior line */}
-      <div style={{
-        fontSize: 12, color: PALETTE.textMid, lineHeight: 1.4,
-        textAlign: 'center',
-        padding: '0 8px',
-      }}>
-        {difficulty === 'normal' && 'Plays straightforward — best card, attack threats.'}
-        {difficulty === 'hard' && 'Plays smart — saves spells, picks threats, refuses bad trades.'}
-        {difficulty === 'mythic' && 'Plays brutal — completes its own bonds, breaks yours.'}
-      </div>
-
-      {/* Spacer — push the Start button toward the bottom so the
-          difficulty pills sit visually in the upper half. */}
+      {/* Spacer — push the playstyle + Start block toward the bottom so
+          the difficulty pills sit visually in the upper half. */}
       <div style={{ flex: '1 0 auto', minHeight: 4 }} />
 
-      {/* Start button */}
-      <button
-        data-no-swipe
-        onClick={onStart}
-        style={{
-          width: '100%', padding: '14px 16px',
-          border: 'none', borderRadius: 14,
-          background: `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`,
-          color: '#fff',
-          fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
-          letterSpacing: '0.04em',
-          cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-          boxShadow: '0 8px 18px rgba(0,0,0,.22)',
-          transition: 'transform .1s, filter .15s',
-        }}
-        onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
-        onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
-        onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
-      >
-        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Swords size={17} strokeWidth={2.6} />
-          Start · {profile.label}
-        </span>
-        <span style={{
-          display: 'flex', alignItems: 'center', gap: 4,
-          background: 'rgba(0,0,0,.18)', padding: '5px 11px', borderRadius: 10,
-          fontSize: 12, fontWeight: 800,
+      {/* Playstyle + Start block — visually grouped so the player reads
+          "what this fight is about" right before tapping Start. Themed
+          color frame keys to the boss's element so each fight feels
+          distinct. The difficulty pills are stylistic AI knobs above;
+          the playstyle blurb is about THIS BOSS and stays consistent
+          across tiers. */}
+      <div data-no-swipe style={{
+        background: '#fff',
+        borderRadius: 16,
+        padding: 4,
+        boxShadow: `0 8px 20px ${e.deep}33, 0 0 0 1.5px ${e.color}33`,
+        display: 'flex', flexDirection: 'column', gap: 4,
+      }}>
+        <div style={{
+          padding: '10px 14px 4px',
+          fontSize: 12, color: PALETTE.text, lineHeight: 1.4,
         }}>
-          <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
-          +{reward}
-        </span>
-      </button>
+          {boss.playstyle}
+        </div>
+        <button
+          onClick={onStart}
+          style={{
+            width: '100%', padding: '14px 16px',
+            border: 'none', borderRadius: 14,
+            background: `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`,
+            color: '#fff',
+            fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
+            letterSpacing: '0.04em',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            boxShadow: '0 6px 14px rgba(0,0,0,.18)',
+            transition: 'transform .1s, filter .15s',
+          }}
+          onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
+          onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+          onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Swords size={17} strokeWidth={2.6} />
+            Start · {profile.label}
+          </span>
+          <span style={{
+            display: 'flex', alignItems: 'center', gap: 4,
+            background: 'rgba(0,0,0,.18)', padding: '5px 11px', borderRadius: 10,
+            fontSize: 12, fontWeight: 800,
+          }}>
+            <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
+            +{reward}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }
