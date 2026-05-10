@@ -260,13 +260,13 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
       // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
       // Per-turn draws are handled by the dedicated turn-change effect.
-      // We delay these by ~500ms so they fire AFTER the summon's slam +
-      // halo + dust on the source creature (otherwise the flight starts
-      // mid-summon and the player misses the cause).
+      // We use a short ~150ms delay so the flight fires right after the
+      // state update (just after the source spell / summon settles) — a
+      // longer gap left players wondering where the new cards came from.
       if (fresh.turnNumber === prev.turnNumber) {
         const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
         const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
-        const drawDelay = 500;
+        const drawDelay = 150;
         for (let i = 0; i < playerDraws; i++) {
           setTimeout(() => {
             setDrawingFor('player');
@@ -1382,85 +1382,171 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         </div>
       )}
 
-      {/* Big card-vs-card preview — shown for the duration of every creature
-          trade so the player sees the matchup, not just two tiny cards on the
-          field. Hidden for face attacks (the small-card lunge is enough).
-          The trade plays out across ~1700ms with a lunge → counter → settle
-          rhythm, and the dying side ends with a brightness flare + slash
-          rather than just disappearing from the field. */}
-      {combat && combat.defenderId !== 'face' && (() => {
+      {/* Yu-Gi-Oh-Duel-Links-style combat callouts — cards stay in their
+          field slots; we overlay big stat numbers next to each combatant
+          (gold ATK over the attacker, red HP/face over the defender), a
+          charge halo on the attacker before they fire, a defender white-
+          flash on impact, and a "BATTLE!" plate behind the action. The
+          existing projectile + lunge handle the strike itself. */}
+      {combat && (() => {
         const attackerCard = (combat.attackerOwner === 'player' ? state.player.field : state.opponent.field)
           .find(c => c.battleId === combat.attackerId);
-        const defenderCard = (combat.defenderOwner === 'player' ? state.player.field : state.opponent.field)
-          .find(c => c.battleId === combat.defenderId);
-        if (!attackerCard || !defenderCard) return null;
+        if (!attackerCard || !boardRef.current) return null;
+        const attackerEl = cardEls.current.get(combat.attackerId);
+        const isFace = combat.defenderId === 'face';
+        const defenderKey = isFace
+          ? (combat.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
+          : combat.defenderId;
+        const defenderEl = cardEls.current.get(defenderKey);
+        const defenderCard = !isFace
+          ? (combat.defenderOwner === 'player' ? state.player.field : state.opponent.field)
+              .find(c => c.battleId === combat.defenderId)
+          : null;
+        if (!attackerEl || !defenderEl) return null;
+
+        const board = boardRef.current.getBoundingClientRect();
+        const aRect = attackerEl.getBoundingClientRect();
+        const dRect = defenderEl.getBoundingClientRect();
+        const aCx = aRect.left + aRect.width / 2 - board.left;
+        const aCy = aRect.top + aRect.height / 2 - board.top;
+        const dCx = dRect.left + dRect.width / 2 - board.left;
+        const dCy = dRect.top + dRect.height / 2 - board.top;
+
         const attackerDying = dyingIds.includes(combat.attackerId);
         const defenderDying = dyingIds.includes(combat.defenderId);
         const anyDying = attackerDying || defenderDying;
         const heldMs = anyDying ? 2900 : 2400;
-        const leftAnim = attackerDying ? 'vsLeftDying' : 'vsLeftLunge';
-        const rightAnim = defenderDying ? 'vsRightDying' : 'vsRightLunge';
+
+        // Place ATK / HP callouts off to the side of each card so they don't
+        // overlap with the small stat orbs already on the cards themselves.
+        const aIsLeft = aCx < dCx;
+        const aLabelX = aCx + (aIsLeft ? -50 : 50);
+        const aLabelY = aCy - 6;
+        const dLabelX = dCx + (aIsLeft ? 50 : -50);
+        const dLabelY = dCy - 6;
+
         return (
-          <div style={{
-            position: 'absolute', inset: 0,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 8,
-            zIndex: 170,
-            pointerEvents: 'none',
-            background: 'radial-gradient(ellipse at center, rgba(20,8,4,.65) 0%, rgba(0,0,0,.85) 100%)',
-            animation: `vsReveal ${heldMs}ms ease-out forwards`,
-          }}>
-            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
-              <Card card={attackerCard} scale={0.85} hovered />
-              {attackerDying && (
-                <div style={{
-                  position: 'absolute', top: '50%', left: '50%',
-                  width: 280, height: 8,
-                  background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
-                  animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
-                  pointerEvents: 'none',
-                  zIndex: 5,
-                }} />
-              )}
-            </div>
+          <>
+            {/* "BATTLE!" plate behind the action */}
             <div style={{
-              fontSize: 60, fontWeight: 900, letterSpacing: '0.05em',
+              position: 'absolute', top: '50%', left: '50%',
+              fontSize: 48, fontWeight: 900, letterSpacing: '0.18em',
               color: '#fff',
-              textShadow: '0 4px 0 #c8362e, 0 0 28px rgba(238,90,82,.85), 0 0 60px rgba(255,209,102,.6)',
+              background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
+              padding: '6px 28px', borderRadius: 10,
+              boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 8px 28px rgba(0,0,0,.5), 0 0 60px rgba(238,90,82,.6)',
               fontFamily: '"Fredoka", system-ui',
+              textShadow: '0 3px 0 #6e1f1a',
+              animation: `ygoBattleBanner ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards`,
               opacity: 0,
-              animation: `vsTextStamp ${heldMs}ms ease-out forwards`,
-              flex: '0 0 auto',
-              padding: '0 6px',
-            }}>VS</div>
-            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
-              <Card card={defenderCard} scale={0.85} hovered />
-              {defenderDying && (
-                <div style={{
-                  position: 'absolute', top: '50%', left: '50%',
-                  width: 280, height: 8,
-                  background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
-                  animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
-                  pointerEvents: 'none',
-                  zIndex: 5,
-                }} />
-              )}
+              pointerEvents: 'none',
+              zIndex: 165,
+              whiteSpace: 'nowrap',
+            }}>BATTLE!</div>
+
+            {/* Charge halo on attacker — pulses outward right before the strike. */}
+            <div style={{
+              position: 'absolute', left: aCx, top: aCy,
+              width: 80, height: 80, borderRadius: '50%',
+              background: 'radial-gradient(circle, rgba(255,209,102,.7) 0%, transparent 70%)',
+              boxShadow: '0 0 30px rgba(244,208,74,.85), 0 0 60px rgba(255,158,90,.6)',
+              animation: `ygoCharge ${heldMs * 0.45}ms ease-out forwards`,
+              pointerEvents: 'none',
+              zIndex: 152,
+              opacity: 0,
+            }} />
+
+            {/* Attacker ATK callout */}
+            <div style={{
+              position: 'absolute', left: aLabelX, top: aLabelY,
+              fontFamily: '"Fredoka", system-ui',
+              fontWeight: 900,
+              animation: `ygoStatPop ${heldMs}ms ease-out forwards`,
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: 175,
+              textAlign: 'center', lineHeight: 1.05,
+            }}>
+              <div style={{
+                fontSize: 12, color: '#f4d04a',
+                letterSpacing: '0.15em',
+                textShadow: '0 2px 0 #3a2406, 0 0 12px rgba(244,208,74,.85)',
+              }}>ATK</div>
+              <div style={{
+                fontSize: 32, color: '#fff',
+                textShadow: '0 3px 0 #c8362e, 0 0 16px rgba(244,208,74,.95), 0 0 28px rgba(255,209,102,.7)',
+              }}>{attackerCard.currentAtk}</div>
             </div>
 
-            {/* Slow-mo impact flash — quick white pulse at strike and a
-                second smaller pulse at the counter so the two hits are
-                felt as separate beats. */}
+            {/* Defender callout — HP for creature trades, big damage value
+                for face attacks. */}
             <div style={{
-              position: 'absolute', inset: 0,
+              position: 'absolute', left: dLabelX, top: dLabelY,
+              fontFamily: '"Fredoka", system-ui',
+              fontWeight: 900,
+              animation: `ygoStatPop ${heldMs}ms ease-out forwards`,
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: 175,
+              textAlign: 'center', lineHeight: 1.05,
+            }}>
+              <div style={{
+                fontSize: 12, color: '#ff8a80',
+                letterSpacing: '0.15em',
+                textShadow: '0 2px 0 #3a0808, 0 0 10px rgba(238,90,82,.7)',
+              }}>{isFace ? 'FACE' : 'HP'}</div>
+              <div style={{
+                fontSize: 32, color: '#fff',
+                textShadow: '0 3px 0 #6e1f1a, 0 0 16px rgba(238,90,82,.95)',
+              }}>{isFace
+                ? (combat.defenderOwner === 'player' ? state.player.hp : state.opponent.hp)
+                : (defenderCard?.currentHp ?? 0)}</div>
+            </div>
+
+            {/* Defender white-flash on impact */}
+            <div style={{
+              position: 'absolute',
+              left: dRect.left - board.left,
+              top: dRect.top - board.top,
+              width: dRect.width, height: dRect.height,
+              borderRadius: isFace ? 30 : 8,
               background: '#fff',
-              animation: `vsImpactFlash ${heldMs}ms ease-out forwards`,
+              animation: `ygoDefenderFlash ${heldMs}ms ease-out forwards`,
               opacity: 0,
               pointerEvents: 'none',
               mixBlendMode: 'screen',
+              zIndex: 153,
             }} />
-          </div>
+
+            {/* Death slash on dying creature — fires in-place on the small
+                field card now (no centered overlay anymore). */}
+            {!isFace && defenderDying && (
+              <div style={{
+                position: 'absolute',
+                left: dCx, top: dCy,
+                width: 110, height: 6,
+                background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
+                boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
+                pointerEvents: 'none',
+                zIndex: 154,
+                transform: 'translate(-50%, -50%)',
+              }} />
+            )}
+            {attackerDying && (
+              <div style={{
+                position: 'absolute',
+                left: aCx, top: aCy,
+                width: 110, height: 6,
+                background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
+                boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
+                pointerEvents: 'none',
+                zIndex: 154,
+                transform: 'translate(-50%, -50%)',
+              }} />
+            )}
+          </>
         );
       })()}
 

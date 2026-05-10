@@ -403,12 +403,37 @@ input {
   90%  { opacity: 1; transform: translateX(-50px) rotate(-3deg) scale(0.92); }
   100% { opacity: 0; transform: translateX(-50px) rotate(-12deg) scale(0.78); }
 }
-/* Big "VS" text drops in with a stamp + slight wobble */
-@keyframes vsTextStamp {
-  0%   { opacity: 0; transform: rotate(-40deg) scale(2.2); }
-  20%  { opacity: 1; transform: rotate(-8deg) scale(1.3); }
-  28%  { transform: rotate(-6deg) scale(1.0); }
-  100% { opacity: 1; transform: rotate(-6deg) scale(1.0); }
+/* Stat callout that pops up next to each combat participant — gold ATK
+   number for attacker, red HP/face number for defender. Yu-Gi-Oh-style
+   "this is the math being done right now". */
+@keyframes ygoStatPop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.5) rotate(-6deg); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1.25) rotate(0deg); }
+  35%  { transform: translate(-50%, -50%) scale(1.0) rotate(0deg); }
+  78%  { opacity: 1; transform: translate(-50%, -50%) scale(1.0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.85) rotate(2deg); }
+}
+/* "BATTLE!" / "STRIKE!" banner — slams in from a slight tilt, shakes,
+   then fades. Sits behind the cards as a phase indicator. */
+@keyframes ygoBattleBanner {
+  0%   { opacity: 0; transform: translate(-50%, -50%) skewX(-12deg) scale(0.5); }
+  18%  { opacity: 1; transform: translate(-50%, -50%) skewX(-12deg) scale(1.15); }
+  28%  { transform: translate(-50%, -50%) skewX(-12deg) scale(1); }
+  72%  { opacity: 0.85; transform: translate(-50%, -50%) skewX(-12deg) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) skewX(-12deg) scale(1.1); }
+}
+/* Charge halo around attacker before they fire — pulses outward briefly. */
+@keyframes ygoCharge {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  40%  { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
+}
+/* Defender white-flash on impact — full-card overlay that fires once. */
+@keyframes ygoDefenderFlash {
+  0%   { opacity: 0; }
+  60%  { opacity: 0; }
+  68%  { opacity: 0.9; }
+  100% { opacity: 0; }
 }
 /* Slow-mo impact flash — full overlay white pulse at strike + counter */
 @keyframes vsImpactFlash {

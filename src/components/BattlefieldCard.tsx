@@ -183,6 +183,10 @@ export function BattlefieldCard({
           {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
           {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {/* Permanent silence reminder — once a creature's ability has been
+              stripped, the muted-X stays so the player knows it's still
+              silenced (the spell-target burst is transient). */}
+          {card.silenced && <StatusPill color="#7a6e62" icon={<span style={{ fontSize: 9, fontWeight: 900, color: '#fff', fontFamily: '"Fredoka", system-ui' }}>S</span>} />}
         </div>
 
         {/* Frozen creatures get a blue ice tint. Tapped/exhausted is handled

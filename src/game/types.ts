@@ -64,6 +64,11 @@ export interface BattleCard extends CollectionCard {
   tapped: boolean;
   justPlayed: boolean;
   frozen: boolean;
+  /** True once this creature has been hit by a silence spell. abilityKind
+      is set to 'none' on silence, but that's indistinguishable from a
+      vanilla creature without this flag — so the UI can keep showing a
+      muted "silenced" badge as a permanent reminder. */
+  silenced?: boolean;
 }
 
 export type Owner = 'player' | 'opponent';

@@ -165,22 +165,6 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
           });
         })()}
 
-        {/* Tiny progress dots so the slideshow feels intentional, not random */}
-        {slideshow.length > 2 && (
-          <div style={{
-            position: 'absolute', bottom: 4, left: 0, right: 0,
-            display: 'flex', justifyContent: 'center', gap: 5,
-            zIndex: 3,
-          }}>
-            {slideshow.map((_, i) => (
-              <span key={i} style={{
-                width: i === slideIdx ? 16 : 5, height: 5, borderRadius: 3,
-                background: i === slideIdx ? PALETTE.accent : 'rgba(58,46,42,.18)',
-                transition: 'width .25s, background .25s',
-              }} />
-            ))}
-          </div>
-        )}
       </div>
 
       {/* Bottom: Play button + nav */}
