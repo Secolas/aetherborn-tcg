@@ -108,8 +108,12 @@ function effectiveAtk(p: PlayerState, card: BattleCard): number {
 }
 
 /** Whether `card` should count as Taunt right now. Either intrinsic taunt or
- *  granted by the House Pets bond. */
+ *  granted by the House Pets bond. Frozen creatures lose Taunt for the
+ *  duration of the freeze — they can't act, so they shouldn't redirect
+ *  attacks either, and the on-card Taunt badge is already hidden while
+ *  frozen so the engine state matches what the player sees. */
 function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
+  if (card.frozen) return false;
   if (card.abilityKind === 'taunt') return true;
   return cardHasBondKind(p, card, 'pair_taunt') !== null;
 }

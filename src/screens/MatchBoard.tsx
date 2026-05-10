@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban } from 'lucide-react';
+import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -13,8 +14,10 @@ import {
   type SpellTarget,
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
+import { BONDS } from '../data/bonds';
+import { TEMPLATES } from '../data/templates';
 import type { BossDef } from '../data/bosses';
-import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/types';
+import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 
@@ -78,9 +81,11 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
-  /** Bond activation toast — slides in once when a new bond becomes active
-   *  on the player's side. */
-  const [bondToast, setBondToast] = useState<{ id: string; name: string; description: string } | null>(null);
+  /** Bond ids that newly activated on each side this tick, used to animate
+   *  the persistent BondPillStack chips into view (a brief scale-and-glow)
+   *  instead of having a separate flying toast. One indicator per fact. */
+  const [newPlayerBonds, setNewPlayerBonds] = useState<string[]>([]);
+  const [newOppBonds, setNewOppBonds] = useState<string[]>([]);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -218,23 +223,38 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     sfx(state.outcome === 'win' ? 'win' : 'lose');
   }, [state.outcome]);
 
-  // Bond activation diff — when a new bond becomes active on the player's
-  // side, slide a toast in once. Tracks the previously-active set so toasts
-  // don't replay on every re-render.
-  const prevBondsRef = useRef<Set<string>>(new Set());
+  // Bond activation diff — flag any newly-active bonds on each side so the
+  // persistent BondPillStack chips can animate themselves in. No separate
+  // toast: the persistent pill IS the indicator, briefly highlighted when
+  // it first appears so the player can't miss it. Same gold/dark color
+  // language for "your bond / boss bond" everywhere it's shown.
+  const prevPlayerBondsRef = useRef<Set<string>>(new Set());
+  const prevOppBondsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const cur = new Set(activeBonds(state.player).map(b => b.id));
-    const newlyActive = [...cur].filter(id => !prevBondsRef.current.has(id));
-    prevBondsRef.current = cur;
-    if (newlyActive.length === 0) return;
-    const bond = activeBonds(state.player).find(b => b.id === newlyActive[0]);
-    if (!bond) return;
-    setBondToast({ id: bond.id, name: bond.name, description: bond.description });
+    const diff = (cur: Set<string>, prev: React.MutableRefObject<Set<string>>) => {
+      const newly = [...cur].filter(id => !prev.current.has(id));
+      prev.current = cur;
+      return newly;
+    };
+    const playerCur = new Set(activeBonds(state.player).map(b => b.id));
+    const oppCur = new Set(activeBonds(state.opponent).map(b => b.id));
+    const newPlayer = diff(playerCur, prevPlayerBondsRef);
+    const newOpp = diff(oppCur, prevOppBondsRef);
+    if (newPlayer.length === 0 && newOpp.length === 0) return;
+
+    if (newPlayer.length) setNewPlayerBonds(newPlayer);
+    if (newOpp.length) setNewOppBonds(newOpp);
     sfx('summon');
-    onBondDiscovered?.(bond.id);
-    const t = setTimeout(() => setBondToast(b => b?.id === bond.id ? null : b), 2400);
+    for (const id of newPlayer) onBondDiscovered?.(id);
+
+    // Clear the "newly active" flags after the highlight animation finishes
+    // so the chips settle into their steady persistent state.
+    const t = setTimeout(() => {
+      setNewPlayerBonds([]);
+      setNewOppBonds([]);
+    }, 1800);
     return () => clearTimeout(t);
-  }, [state.player.field]);
+  }, [state.player.field, state.opponent.field]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
   // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
@@ -796,6 +816,26 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
   const bossElement = ELEMENTS[boss.themeId];
 
+  // Per-side bond lookups for the heart badge on each card. A card is
+  // 'active' when its partner is also on the same field, 'waiting' when it
+  // is bond-eligible but the partner hasn't landed yet. Players see at a
+  // glance which of their cards is part of a bond and whether it's firing.
+  const bondLookupFor = (p: PlayerState): Record<string, 'active' | 'waiting'> => {
+    const out: Record<string, 'active' | 'waiting'> = {};
+    const fieldIds = new Set(p.field.map(c => c.id));
+    for (const c of p.field) {
+      const involved = BONDS.find(b => b.cardA === c.id || b.cardB === c.id);
+      if (!involved) continue;
+      const partnerId = involved.cardA === c.id ? involved.cardB : involved.cardA;
+      out[c.id] = fieldIds.has(partnerId) ? 'active' : 'waiting';
+    }
+    return out;
+  };
+  const playerBondLookup = bondLookupFor(state.player);
+  const opponentBondLookup = bondLookupFor(state.opponent);
+  const playerActiveBonds = activeBonds(state.player);
+  const opponentActiveBonds = activeBonds(state.opponent);
+
   return (
     <div
       ref={boardRef}
@@ -891,11 +931,13 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
+          bondLookup={opponentBondLookup}
           highlightEmpty={false}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
+        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -1015,6 +1057,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
+          bondLookup={playerBondLookup}
           highlightEmpty={selectedHandIdx !== null}
           registerEl={registerEl}
           onCardClick={(c) => {
@@ -1026,6 +1069,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           }}
           onCardLongPress={(c) => setInspect(c)}
         />
+        <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" />
       </div>
 
       {/* Bottom spacer */}
@@ -1452,37 +1496,6 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         );
       })()}
 
-      {/* Bond activation toast — pops at the top center the moment a bond
-          becomes active on the player's side. Auto-clears after ~2.4s. */}
-      {bondToast && (
-        <div
-          key={`bond-${bondToast.id}`}
-          style={{
-            position: 'absolute', top: 88, left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 215,
-            pointerEvents: 'none',
-            animation: 'turnBanner 2.4s cubic-bezier(.2,.8,.3,1) forwards',
-          }}
-        >
-          <div style={{
-            background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
-            color: '#3a2406',
-            padding: '8px 16px',
-            borderRadius: 14,
-            fontFamily: '"Fredoka", system-ui',
-            boxShadow: '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          }}>
-            <div style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, opacity: 0.7 }}>
-              BOND ACTIVE
-            </div>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{bondToast.name}</div>
-            <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{bondToast.description}</div>
-          </div>
-        </div>
-      )}
-
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
           their turn and the boss's. */}
@@ -1704,8 +1717,27 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
             <Card card={inspect} hovered scale={1.1} />
             {/* Status labels — long-press surfaces what every icon on the
                 creature actually means, since the small status pills aren't
-                self-documenting. */}
-            <StatusLabels card={inspect} />
+                self-documenting. Bond info too, with the partner's name. */}
+            <StatusLabels
+              card={inspect}
+              bondInfo={(() => {
+                const bond = BONDS.find(b => b.cardA === inspect.id || b.cardB === inspect.id);
+                if (!bond) return null;
+                const partnerId = bond.cardA === inspect.id ? bond.cardB : bond.cardA;
+                // Determine which side the inspected card is actually on
+                // and whether the partner is also on that field.
+                const onPlayer = state.player.field.some(c => c.battleId === inspect.battleId);
+                const ownerField = onPlayer ? state.player.field : state.opponent.field;
+                const partner = ownerField.find(c => c.id === partnerId);
+                const tpl = TEMPLATES.find(t => t.id === partnerId);
+                return {
+                  name: bond.name,
+                  description: bond.description,
+                  partnerName: tpl?.name ?? partnerId,
+                  active: !!partner,
+                };
+              })()}
+            />
           </div>
           <div style={{
             position: 'absolute', bottom: 50, left: 0, right: 0,
@@ -1799,8 +1831,74 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 // engine's actual cap. Three keeps games short and tactical.
 const SLOTS_PER_ROW = 3;
 
+/**
+ * Persistent on-board indicator listing every active bond on a side.
+ *
+ * One indicator per fact: there is no separate flying toast — when a bond
+ * first activates, its chip animates in (cardSummon: scale-up + bounce)
+ * and the rest of the chips that were already shown stay calm. This keeps
+ * the UI to a single visual language for "bond active": gold gradient for
+ * the player, dark plate for the boss, anchored to that side's field zone.
+ */
+function BondPillStack({
+  bonds, newlyActiveIds, side,
+}: {
+  bonds: BondDef[];
+  newlyActiveIds: string[];
+  side: 'player' | 'opponent';
+}) {
+  if (bonds.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        right: 8,
+        top: side === 'opponent' ? 4 : undefined,
+        bottom: side === 'player' ? 4 : undefined,
+        display: 'flex', flexDirection: 'column', gap: 4,
+        alignItems: 'flex-end',
+        zIndex: 7,
+        pointerEvents: 'none',
+      }}
+    >
+      {bonds.map(b => {
+        const isNewly = newlyActiveIds.includes(b.id);
+        return (
+          <div
+            // Re-keying on the "newly active" flag forces the cardSummon
+            // animation to replay the moment the bond activates, so the
+            // chip lands with a satisfying pop instead of just appearing.
+            key={`${b.id}-${isNewly ? 'new' : 'steady'}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px 3px 6px',
+              borderRadius: 10,
+              background: side === 'player'
+                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
+              color: side === 'player' ? '#3a2406' : '#ffe89a',
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+              boxShadow: side === 'player'
+                ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
+                : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
+              fontFamily: '"Fredoka", system-ui',
+              animation: isNewly
+                ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)'
+                : undefined,
+            }}
+          >
+            <Heart size={10} fill="currentColor" strokeWidth={0} />
+            <span>{b.name}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function FieldRow({
   side, cards, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
+  bondLookup,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -1816,6 +1914,10 @@ function FieldRow({
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
+  /** Per-card-template bond state. 'active' = partner is on the field too,
+   *  'waiting' = bonded card is here but partner isn't yet. Missing entry =
+   *  card isn't part of any bond at all. */
+  bondLookup: Record<string, 'active' | 'waiting'>;
   /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
   registerEl: (id: string, el: HTMLElement | null) => void;
@@ -1866,6 +1968,7 @@ function FieldRow({
               buff={buffs[c.battleId] ?? null}
               silencedAt={silencedAt[c.battleId] ?? null}
               trigger={triggers[c.battleId] ?? null}
+              bondState={bondLookup[c.id]}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />
@@ -1896,7 +1999,15 @@ function FieldRow({
  * by long-pressing the card. Each row shows the icon, its name, and a
  * one-line description.
  */
-function StatusLabels({ card }: { card: BattleCard }) {
+function StatusLabels({
+  card,
+  bondInfo,
+}: {
+  card: BattleCard;
+  /** Bond context for this card (if any). When provided, a row is added
+   *  showing the bond name + partner + whether it's currently firing. */
+  bondInfo?: { name: string; description: string; partnerName: string; active: boolean } | null;
+}) {
   const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
   if (card.frozen) {
     items.push({ icon: <Snowflake size={14} fill="#fff" strokeWidth={2.4} />, color: '#3a8fc4',
@@ -1921,6 +2032,20 @@ function StatusLabels({ card }: { card: BattleCard }) {
   if (card.silenced) {
     items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
+  }
+  if (bondInfo) {
+    // Gold (#e8a93a) for active bonds; muted brown for waiting. Same colour
+    // family the heart badge + pill use, so the player can map between
+    // "the heart is gold on the card" and "the bond row in the long-press
+    // panel is highlighted gold."
+    items.push({
+      icon: <Heart size={14} fill="#fff" strokeWidth={0} />,
+      color: bondInfo.active ? '#e8a93a' : '#a89580',
+      label: `Bond: ${bondInfo.name}`,
+      hint: bondInfo.active
+        ? `Active with ${bondInfo.partnerName} — ${bondInfo.description}`
+        : `Pairs with ${bondInfo.partnerName} — bond will activate when both are on the field.`,
+    });
   }
   if (items.length === 0) return null;
   return (
