@@ -1,4 +1,5 @@
-import { ArrowLeft, Check, Lock } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Check, Lock, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -16,6 +17,9 @@ interface Props {
 }
 
 export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
+  /** Big = 2-column for full card detail; Compact = 4-column smaller cards
+      so you can scan a large library when picking your deck. */
+  const [layout, setLayout] = useState<'big' | 'compact'>('big');
   const toggle = (uid: string) => {
     if (deckUids.includes(uid)) {
       onChange(deckUids.filter(x => x !== uid));
@@ -40,6 +44,15 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
             {deckUids.length} / {DECK_SIZE} cards
           </div>
         </div>
+        {/* Layout toggle — same big / compact switch as Collection + Album. */}
+        <button
+          onClick={() => setLayout(l => l === 'big' ? 'compact' : 'big')}
+          style={{ ...iconBtn, display: 'grid', placeItems: 'center' }}
+          aria-label={layout === 'big' ? 'Compact view' : 'Big view'}
+          title={layout === 'big' ? 'Compact view' : 'Big view'}
+        >
+          {layout === 'big' ? <LayoutGrid size={17} /> : <Rows3 size={17} />}
+        </button>
       </div>
 
       {/* Active deck strip */}
@@ -78,8 +91,8 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         flex: 1, overflow: 'auto',
         padding: '0 16px 30px',
         display: 'grid',
-        gridTemplateColumns: 'repeat(2, 1fr)',
-        gap: 14,
+        gridTemplateColumns: layout === 'compact' ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)',
+        gap: layout === 'compact' ? 8 : 14,
         justifyItems: 'center',
         alignContent: 'start',
       }}>
@@ -96,16 +109,18 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
                 transform: inDeck ? 'scale(0.95)' : 'scale(1)',
                 transition: 'transform .15s',
               }}>
-              <Card card={card} scale={0.65} hovered={inDeck} />
+              <Card card={card} scale={layout === 'compact' ? 0.4 : 0.65} hovered={inDeck} />
               {inDeck && (
                 <div style={{
                   position: 'absolute', top: -4, right: -4,
-                  width: 30, height: 30, borderRadius: '50%',
+                  width: layout === 'compact' ? 22 : 30,
+                  height: layout === 'compact' ? 22 : 30,
+                  borderRadius: '50%',
                   background: PALETTE.accent, color: '#fff',
                   display: 'grid', placeItems: 'center',
                   boxShadow: '0 0 0 3px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
                 }}>
-                  <Check size={18} strokeWidth={3.5} />
+                  <Check size={layout === 'compact' ? 13 : 18} strokeWidth={3.5} />
                 </div>
               )}
               {!playable && (
@@ -114,10 +129,11 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                   background: 'rgba(58,46,42,.55)',
                   borderRadius: 12,
-                  fontSize: 12, fontWeight: 700,
+                  fontSize: layout === 'compact' ? 9 : 12, fontWeight: 700,
                   color: '#fff',
                 }}>
-                  <Lock size={14} strokeWidth={2.5} /> Dormant
+                  <Lock size={layout === 'compact' ? 10 : 14} strokeWidth={2.5} />
+                  {layout === 'compact' ? '' : ' Dormant'}
                 </div>
               )}
             </div>
