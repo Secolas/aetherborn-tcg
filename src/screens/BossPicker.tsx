@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Coins, Flame, Skull } from 'lucide-react';
+import { ArrowLeft, Check, Coins, Flame, Skull, Swords } from 'lucide-react';
 import { BOSSES, type BossDef } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
@@ -95,24 +95,13 @@ function BossCard({
         fontFamily: 'inherit',
       }}
     >
-      {/* Banner — themed gradient with avatar. Tapping the banner picks
-          the fight at the currently-selected difficulty; the difficulty
-          chips below are independent so the player can flip tiers without
-          accidentally launching. */}
-      <button
-        onClick={onClick}
-        style={{
-          display: 'block', width: '100%',
-          background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
-          border: 'none', padding: 0,
-          cursor: 'pointer',
-          textAlign: 'left',
-          fontFamily: 'inherit',
-        }}
-        onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.filter = 'brightness(0.92)'; }}
-        onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.filter = 'brightness(1)'; }}
-        onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.filter = 'brightness(1)'; }}
-      >
+      {/* Banner — themed gradient with avatar. The launch action lives in
+          the explicit Start button below; the banner is now decorative
+          (no nested button so the difficulty pills + Start button are
+          unambiguous). */}
+      <div style={{
+        background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
+      }}>
         <div style={{
           height: 90,
           position: 'relative',
@@ -149,7 +138,7 @@ function BossCard({
             <BeatenBadge tier={beatenAt ?? 'normal'} />
           )}
         </div>
-      </button>
+      </div>
 
       {/* Body */}
       <div style={{ padding: '12px 16px 14px' }}>
@@ -192,33 +181,55 @@ function BossCard({
           })}
         </div>
 
-        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 6 }}>
-          {/* Stat boost line */}
+        {/* Stat boost preview line */}
+        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 4 }}>
           Boss starts at <strong style={{ color: PALETTE.text }}>{profile.bossHp} HP</strong>
           {profile.bossStartMana > 1 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossStartMana - 1} mana</strong></> : null}
           {profile.bossHand > 4 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossHand - 4} card</strong></> : null}
         </div>
-        <div style={{
-          fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4,
-          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        }}>
-          {/* AI behavior line — what kind of opponent the player is
-              actually fighting at this tier. */}
-          <span style={{ flex: 1 }}>
-            {difficulty === 'normal' && <>Plays straightforward — best card, attack threats.</>}
-            {difficulty === 'hard' && <>Plays smart — saves spells, picks threats, refuses bad trades.</>}
-            {difficulty === 'mythic' && <>Plays brutal — completes its own bonds, breaks yours.</>}
+
+        {/* AI behavior line — what kind of opponent the tier represents. */}
+        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 12 }}>
+          {difficulty === 'normal' && <>Plays straightforward — best card, attack threats.</>}
+          {difficulty === 'hard' && <>Plays smart — saves spells, picks threats, refuses bad trades.</>}
+          {difficulty === 'mythic' && <>Plays brutal — completes its own bonds, breaks yours.</>}
+        </div>
+
+        {/* Start button — the unambiguous launch trigger for this fight at
+            the currently-picked tier. Big, full width, includes the
+            difficulty label + reward so the player can see exactly what
+            they're committing to before tapping. */}
+        <button
+          onClick={onClick}
+          style={{
+            width: '100%', padding: '12px 14px',
+            border: 'none', borderRadius: 14,
+            background: `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`,
+            color: '#fff',
+            fontFamily: 'inherit', fontSize: 14, fontWeight: 800,
+            letterSpacing: '0.04em',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
+            boxShadow: '0 6px 14px rgba(0,0,0,.18)',
+            transition: 'transform .1s, filter .15s',
+          }}
+          onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
+          onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+          onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Swords size={16} strokeWidth={2.6} />
+            Start · {profile.label}
           </span>
           <span style={{
             display: 'flex', alignItems: 'center', gap: 4,
+            background: 'rgba(0,0,0,.18)', padding: '4px 10px', borderRadius: 10,
             fontSize: 12, fontWeight: 800,
-            color: '#e85d3c',
-            flex: '0 0 auto', marginLeft: 8,
           }}>
-            <Coins size={14} fill="#ffd166" strokeWidth={2.2} />
+            <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
             +{reward}
           </span>
-        </div>
+        </button>
       </div>
     </div>
   );
