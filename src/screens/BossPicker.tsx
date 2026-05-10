@@ -181,15 +181,9 @@ function BossCard({
           })}
         </div>
 
-        {/* Stat boost preview line */}
-        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 4 }}>
-          Boss starts at <strong style={{ color: PALETTE.text }}>{profile.bossHp} HP</strong>
-          {profile.bossStartMana > 1 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossStartMana - 1} mana</strong></> : null}
-          {profile.bossHand > 4 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossHand - 4} card</strong></> : null}
-        </div>
-
-        {/* AI behavior line — what kind of opponent the tier represents. */}
-        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 12 }}>
+        {/* AI behavior line — same starting stats across all tiers; what
+            actually changes is HOW the boss plays. */}
+        <div style={{ fontSize: 11, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 12 }}>
           {difficulty === 'normal' && <>Plays straightforward — best card, attack threats.</>}
           {difficulty === 'hard' && <>Plays smart — saves spells, picks threats, refuses bad trades.</>}
           {difficulty === 'mythic' && <>Plays brutal — completes its own bonds, breaks yours.</>}
