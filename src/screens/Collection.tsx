@@ -33,6 +33,11 @@ interface Props {
 export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onBack }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
   const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
+  /** Card opened for read-only preview — tapped a real-photo card. The
+   *  modal shows the full card at readable scale so the player can re-read
+   *  ability text or just admire the photo. Separate from `actionFor`
+   *  which is the placeholder-only "replace / discard" menu. */
+  const [preview, setPreview] = useState<CollectionCard | null>(null);
   /** Compact = 4-column tighter cards (default — fits ~2x more on screen);
       Big = 2-column with full card detail when you need to read abilities. */
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
@@ -214,14 +219,18 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
             alignContent: 'start',
           }}>
             {filtered.map(card => {
-              const isReplaceable = !card.photo || card.isPlaceholder;
               return (
                 <div key={card.uid}
                   onClick={() => {
+                    // Dormant card → go capture a photo
                     if (!card.photo) onCapture(card);
+                    // Placeholder photo → small action menu to retake / clear
                     else if (card.isPlaceholder) setActionFor(card);
+                    // Real photo → just preview the card so the player can
+                    // read ability text or look at the full art.
+                    else setPreview(card);
                   }}
-                  style={{ cursor: isReplaceable ? 'pointer' : 'default', position: 'relative' }}
+                  style={{ cursor: 'pointer', position: 'relative' }}
                 >
                   <Card card={card} scale={layout === 'compact' ? 0.4 : 0.7} />
                   {!card.photo && (
@@ -258,6 +267,33 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
           </div>
         )}
       </div>
+
+      {/* Read-only preview — opens when the player taps a real-photo
+          card in the grid. Just a centered Card at readable scale; tap
+          anywhere outside (or the card itself) to dismiss. */}
+      {preview && (
+        <div
+          onClick={() => setPreview(null)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(58, 46, 42, .65)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 200,
+            animation: 'fadeIn .2s',
+          }}
+        >
+          <div style={{ animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)' }}>
+            <Card card={preview} hovered scale={1.1} />
+          </div>
+          <div style={{
+            position: 'absolute', bottom: 50, left: 0, right: 0,
+            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.85,
+            fontStyle: 'italic',
+          }}>
+            tap anywhere to close
+          </div>
+        </div>
+      )}
 
       {actionFor && (
         <div

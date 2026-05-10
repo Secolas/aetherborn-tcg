@@ -602,10 +602,12 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.hp += v;
     }
   } else if (card.abilityKind === 'silence' && target?.kind === 'creature') {
-    // Strip the target's ability for one turn — taunt creatures lose the
-    // redirect, untargetable creatures become spell-targetable, etc. We
-    // stash the original abilityKind / ability text so endTurn can restore
-    // them when the silence wears off (parallels freeze: a single-turn lock).
+    // Strip the target's ability for ONE turn — until the silenced
+    // creature's next begin-turn. Cast silence on a taunt to swing
+    // through; cast on heal_each_turn to skip one heal; cast on bonded
+    // to break the bond effect for the rest of YOUR turn. We stash the
+    // original abilityKind / ability text so beginTurn restores them
+    // when the lock wears off.
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
     if (c) {
@@ -614,7 +616,12 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.abilityKind = 'none';
       c.ability = '';
       c.silenced = true;
-      c.silencedUntilTurn = state.turnNumber + 2;
+      // Expire at the silenced creature's next begin-turn (= state.turnNumber + 1
+      // for cross-side silence, since `beginTurn` increments turnNumber
+      // before its safety-net check fires). Combined with the `>=` check
+      // in beginTurn this gives a strict "this turn only" lifespan from
+      // the caster's perspective.
+      c.silencedUntilTurn = state.turnNumber + 1;
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic
