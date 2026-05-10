@@ -205,6 +205,23 @@ input {
   100% { opacity: 0; }
 }
 
+/* Fatigue popup — slower, scarier rise so it reads as "you ran out of
+   cards" not "you took small damage". Bigger, holds longer. */
+@keyframes fatiguePopup {
+  0%   { transform: translate(-50%, 0) scale(0.4); opacity: 0; }
+  15%  { transform: translate(-50%, -10px) scale(1.2); opacity: 1; }
+  35%  { transform: translate(-50%, -28px) scale(1.05); opacity: 1; }
+  80%  { transform: translate(-50%, -44px) scale(1); opacity: 1; }
+  100% { transform: translate(-50%, -64px) scale(0.85); opacity: 0; }
+}
+/* Dark vignette pulse when fatigue lands — different color than the red
+   face-hit vignette so the player can tell the difference at a glance. */
+@keyframes fatigueVignette {
+  0%   { opacity: 0; }
+  25%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* Turn banner — slides in from the left, holds, slides out to the right. */
 @keyframes turnBanner {
   0%   { transform: translateX(-130%); opacity: 0; }

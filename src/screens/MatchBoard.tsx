@@ -92,6 +92,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Per-creature on-play trigger label ("DRAW +1", "AOE -2"). Pops above
       the freshly summoned creature so its ability isn't silent. */
   const [triggers, setTriggers] = useState<Record<string, string>>({});
+  /** Active fatigue popup — a skull-themed callout when a side took damage
+      from drawing an empty deck. Carries the side and the damage amount. */
+  const [fatigueFx, setFatigueFx] = useState<{ side: Owner; dmg: number; tick: number } | null>(null);
   /** True while a tapped-Summon is mid-flight to the field. The preview
       replays a deploy keyframe and we delay the actual play so the card
       visibly travels from the preview position into the field slot. */
@@ -188,10 +191,12 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
     player: Map<string, CreatureSnap>;
     opponent: Map<string, CreatureSnap>;
     handSize: { player: number; opponent: number };
+    fatigue: { player: number; opponent: number };
     turnNumber: number;
   }>({
     player: new Map(), opponent: new Map(),
     handSize: { player: 0, opponent: 0 },
+    fatigue: { player: 0, opponent: 0 },
     turnNumber: state.turnNumber,
   });
   useEffect(() => {
@@ -203,6 +208,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
       player: snapshot(state.player.field),
       opponent: snapshot(state.opponent.field),
       handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
+      fatigue: { player: state.player.fatigueCount, opponent: state.opponent.fatigueCount },
       turnNumber: state.turnNumber,
     };
 
@@ -275,6 +281,25 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
             setTimeout(() => setDrawingFor(null), 700);
           }, drawDelay + i * 260);
         }
+      }
+
+      // Fatigue spike — when a side's fatigueCount went up, that's "drew
+      // from an empty deck and took escalating damage". Surface it with a
+      // skull-themed callout so the player understands the cause and the
+      // damage amount, instead of just seeing a small unexplained -N popup
+      // after each turn end. The diff already added a regular damage popup
+      // for the HP loss; we override that for the fatigued side so the
+      // message lands as fatigue, not generic damage.
+      const playerFatigueGain = fresh.fatigue.player - prev.fatigue.player;
+      const oppFatigueGain = fresh.fatigue.opponent - prev.fatigue.opponent;
+      if (playerFatigueGain > 0) {
+        const dmg = fresh.fatigue.player; // total fatigue draw is the damage that fired
+        setFatigueFx({ side: 'player', dmg, tick: Date.now() });
+        setTimeout(() => setFatigueFx(f => (f && f.side === 'player' ? null : f)), 1600);
+      } else if (oppFatigueGain > 0) {
+        const dmg = fresh.fatigue.opponent;
+        setFatigueFx({ side: 'opponent', dmg, tick: Date.now() });
+        setTimeout(() => setFatigueFx(f => (f && f.side === 'opponent' ? null : f)), 1600);
       }
 
       // On-play trigger banners — when a creature with an on-play ability
@@ -1267,6 +1292,61 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
                 animation: 'faceHitVignette .7s ease-out .35s forwards',
                 opacity: 0,
               }} />
+            )}
+          </>
+        );
+      })()}
+
+      {/* Fatigue callout — fires when either side took damage from drawing
+          from an empty deck. Anchors over the affected portrait via the
+          cardEls map (FACE_PLAYER / FACE_OPP) so it pops up exactly where
+          the damage came from. Includes a dark vignette around the screen
+          edge for the player's own fatigue so it's unmissable. */}
+      {fatigueFx && (() => {
+        const key = fatigueFx.side === 'player' ? FACE_PLAYER : FACE_OPP;
+        const el = cardEls.current.get(key);
+        if (!el || !boardRef.current) return null;
+        const board = boardRef.current.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2 - board.left;
+        const y = r.top - board.top;
+        const isPlayer = fatigueFx.side === 'player';
+        return (
+          <>
+            <div
+              key={`fatigue-${fatigueFx.tick}`}
+              style={{
+                position: 'absolute', left: x, top: y - 4,
+                pointerEvents: 'none',
+                zIndex: 210,
+                animation: 'fatiguePopup 1.6s ease-out forwards',
+                fontFamily: '"Fredoka", system-ui',
+                color: '#fff',
+                background: 'linear-gradient(180deg, #6e3a32, #3a1410)',
+                padding: '6px 12px',
+                borderRadius: 14,
+                boxShadow: '0 0 0 2px rgba(255,255,255,.85), 0 0 18px rgba(140,40,40,.85), 0 4px 10px rgba(0,0,0,.45)',
+                whiteSpace: 'nowrap',
+                display: 'flex', alignItems: 'center', gap: 6,
+                fontWeight: 800,
+              }}
+            >
+              <Skull size={16} strokeWidth={2.6} />
+              <span style={{ fontSize: 11, letterSpacing: '0.18em' }}>FATIGUE</span>
+              <span style={{ fontSize: 16 }}>−{fatigueFx.dmg}</span>
+            </div>
+            {isPlayer && (
+              <div
+                key={`fatigue-vignette-${fatigueFx.tick}`}
+                style={{
+                  position: 'absolute', inset: 0,
+                  pointerEvents: 'none',
+                  zIndex: 199,
+                  background: 'radial-gradient(ellipse at center, transparent 35%, rgba(58,20,16,0) 55%, rgba(58,20,16,.65) 100%)',
+                  animation: 'fatigueVignette 1.4s ease-out forwards',
+                  opacity: 0,
+                }}
+              />
             )}
           </>
         );
