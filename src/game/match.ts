@@ -365,12 +365,17 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
   } else if (card.abilityKind === 'silence' && target?.kind === 'creature') {
     // Strip the target's ability — taunt creatures lose the redirect, untargetable
     // creatures become spell-targetable, rush sleepers no longer charge, etc.
-    // Buffs (raw stat increases) are intentionally preserved.
+    // Buffs (raw stat increases) are intentionally preserved. The silenced
+    // flag stays set so the UI can keep showing a muted reminder badge —
+    // otherwise after the spell-target burst fades the creature would look
+    // identical to a vanilla creature and the player wouldn't see that the
+    // silence is still in effect.
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
     if (c) {
       c.abilityKind = 'none';
       c.ability = '';
+      c.silenced = true;
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic
