@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, VolumeX } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -1833,7 +1833,7 @@ function StatusLabels({ card }: { card: BattleCard }) {
       label: 'Rush', hint: 'Can attack the turn it’s played.' });
   }
   if (card.silenced) {
-    items.push({ icon: <VolumeX size={14} strokeWidth={2.6} />, color: '#7a6e62',
+    items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
   if (items.length === 0) return null;
