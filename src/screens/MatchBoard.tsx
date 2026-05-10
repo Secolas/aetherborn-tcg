@@ -162,6 +162,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (initialDealing) return; // wait for the opening deal animation
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
+    // If a bond just activated on either side, freeze the AI driver until
+    // the cinematic finishes — otherwise the AI's next attack/play
+    // animation would render on top of the bond reveal and the player
+    // can't read either. Cinematic clears itself after ~3.4s (see the
+    // bond diff effect) and the change to `bondCinematic === null`
+    // re-runs this effect, which then schedules the next tick.
+    if (bondCinematic) return;
 
     let cancelled = false;
     const tick = () => {
@@ -200,19 +207,29 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             setState(step.next);
           }, holdMs);
         } else {
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
+          // Plain non-animated action (e.g. attack on a creature/face;
+          // playAttackAnimation handles its own timing). Bumped from 950 →
+          // 1200 so back-to-back actions feel like decisions, not reflexes.
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 1200);
         }
       } else {
+        // No more steps — pass the turn back. Slightly longer hold so
+        // the player can register the boss is done before "Your turn"
+        // banner slides in.
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => beginTurn(s, 'player'));
-        }, 1100);
+        }, 1300);
       }
     };
-    const t = setTimeout(tick, 850);
+    // Initial think delay before any AI action — gives the player a beat
+    // to register the turn change before the boss starts moving. Each
+    // sub-action (play, attack, end-turn) has its own follow-up delay
+    // below, so the boss feels deliberate, not twitchy.
+    const t = setTimeout(tick, 1100);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state, flipping, initialDealing]);
+  }, [state, flipping, initialDealing, bondCinematic]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
