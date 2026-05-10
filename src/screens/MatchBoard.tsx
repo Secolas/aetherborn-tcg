@@ -1404,20 +1404,20 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           <div style={{
             position: 'absolute', inset: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            gap: 18,
+            gap: 8,
             zIndex: 170,
             pointerEvents: 'none',
-            background: 'rgba(0,0,0,.45)',
+            background: 'radial-gradient(ellipse at center, rgba(20,8,4,.65) 0%, rgba(0,0,0,.85) 100%)',
             animation: `vsReveal ${heldMs}ms ease-out forwards`,
           }}>
-            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms ease-out forwards` }}>
-              <Card card={attackerCard} scale={0.62} hovered />
+            <div style={{ position: 'relative', animation: `${leftAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
+              <Card card={attackerCard} scale={0.85} hovered />
               {attackerDying && (
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
-                  width: 220, height: 7,
+                  width: 280, height: 8,
                   background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
                   animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
                   pointerEvents: 'none',
                   zIndex: 5,
@@ -1425,26 +1425,41 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
               )}
             </div>
             <div style={{
-              fontSize: 36, fontWeight: 900, letterSpacing: '0.05em',
+              fontSize: 60, fontWeight: 900, letterSpacing: '0.05em',
               color: '#fff',
-              textShadow: '0 3px 0 #c8362e, 0 0 18px rgba(238,90,82,.6)',
+              textShadow: '0 4px 0 #c8362e, 0 0 28px rgba(238,90,82,.85), 0 0 60px rgba(255,209,102,.6)',
               fontFamily: '"Fredoka", system-ui',
-              transform: 'rotate(-6deg)',
+              opacity: 0,
+              animation: `vsTextStamp ${heldMs}ms ease-out forwards`,
+              flex: '0 0 auto',
+              padding: '0 6px',
             }}>VS</div>
-            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms ease-out forwards` }}>
-              <Card card={defenderCard} scale={0.62} hovered />
+            <div style={{ position: 'relative', animation: `${rightAnim} ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards` }}>
+              <Card card={defenderCard} scale={0.85} hovered />
               {defenderDying && (
                 <div style={{
                   position: 'absolute', top: '50%', left: '50%',
-                  width: 220, height: 7,
+                  width: 280, height: 8,
                   background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
-                  boxShadow: '0 0 12px #fff, 0 0 24px #f4d04a, 0 0 36px #ff7e5f',
+                  boxShadow: '0 0 14px #fff, 0 0 28px #f4d04a, 0 0 44px #ff7e5f',
                   animation: `vsCardSlice ${heldMs}ms ease-out forwards`,
                   pointerEvents: 'none',
                   zIndex: 5,
                 }} />
               )}
             </div>
+
+            {/* Slow-mo impact flash — quick white pulse at strike and a
+                second smaller pulse at the counter so the two hits are
+                felt as separate beats. */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: '#fff',
+              animation: `vsImpactFlash ${heldMs}ms ease-out forwards`,
+              opacity: 0,
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+            }} />
           </div>
         );
       })()}
