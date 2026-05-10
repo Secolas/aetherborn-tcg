@@ -15,6 +15,7 @@ import {
 } from '../game/match';
 import { ELEMENTS } from '../data/elements';
 import { BONDS } from '../data/bonds';
+import { TEMPLATES } from '../data/templates';
 import type { BossDef } from '../data/bosses';
 import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState } from '../game/types';
 import { playSfx } from '../audio/sfx';
@@ -80,11 +81,11 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
-  /** Bond activation toast — slides in once when a new bond becomes active.
-   *  `side` controls styling: friendly bonds get a warm yellow plate, boss
-   *  bonds get a dark plate so the player can tell whose bond just fired
-   *  (you wouldn't want to confuse "I'm healing" with "the boss is healing"). */
-  const [bondToast, setBondToast] = useState<{ id: string; name: string; description: string; side: Owner } | null>(null);
+  /** Bond ids that newly activated on each side this tick, used to animate
+   *  the persistent BondPillStack chips into view (a brief scale-and-glow)
+   *  instead of having a separate flying toast. One indicator per fact. */
+  const [newPlayerBonds, setNewPlayerBonds] = useState<string[]>([]);
+  const [newOppBonds, setNewOppBonds] = useState<string[]>([]);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -222,35 +223,36 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     sfx(state.outcome === 'win' ? 'win' : 'lose');
   }, [state.outcome]);
 
-  // Bond activation diff — when a new bond becomes active on either side,
-  // slide a toast in once. Tracks each side's previously-active set
-  // separately so a player and boss bond can fire independently. The boss
-  // toast is critical for the player to understand "wait, why did Mom heal
-  // 1 HP?" — without it, the bond is invisible.
+  // Bond activation diff — flag any newly-active bonds on each side so the
+  // persistent BondPillStack chips can animate themselves in. No separate
+  // toast: the persistent pill IS the indicator, briefly highlighted when
+  // it first appears so the player can't miss it. Same gold/dark color
+  // language for "your bond / boss bond" everywhere it's shown.
   const prevPlayerBondsRef = useRef<Set<string>>(new Set());
   const prevOppBondsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const fire = (owner: Owner, prevRef: typeof prevPlayerBondsRef) => {
-      const me = owner === 'player' ? state.player : state.opponent;
-      const cur = new Set(activeBonds(me).map(b => b.id));
-      const newlyActive = [...cur].filter(id => !prevRef.current.has(id));
-      prevRef.current = cur;
-      if (newlyActive.length === 0) return null;
-      const bond = activeBonds(me).find(b => b.id === newlyActive[0]);
-      if (!bond) return null;
-      return bond;
+    const diff = (cur: Set<string>, prev: React.MutableRefObject<Set<string>>) => {
+      const newly = [...cur].filter(id => !prev.current.has(id));
+      prev.current = cur;
+      return newly;
     };
-    const playerBond = fire('player', prevPlayerBondsRef);
-    const oppBond = fire('opponent', prevOppBondsRef);
-    // Prefer showing the player's bond first if both fire on the same tick;
-    // the opp toast will land on the next state change.
-    const toShow = playerBond ?? oppBond;
-    if (!toShow) return;
-    const side: Owner = toShow === playerBond ? 'player' : 'opponent';
-    setBondToast({ id: toShow.id, name: toShow.name, description: toShow.description, side });
+    const playerCur = new Set(activeBonds(state.player).map(b => b.id));
+    const oppCur = new Set(activeBonds(state.opponent).map(b => b.id));
+    const newPlayer = diff(playerCur, prevPlayerBondsRef);
+    const newOpp = diff(oppCur, prevOppBondsRef);
+    if (newPlayer.length === 0 && newOpp.length === 0) return;
+
+    if (newPlayer.length) setNewPlayerBonds(newPlayer);
+    if (newOpp.length) setNewOppBonds(newOpp);
     sfx('summon');
-    if (side === 'player') onBondDiscovered?.(toShow.id);
-    const t = setTimeout(() => setBondToast(b => b?.id === toShow.id ? null : b), 2400);
+    for (const id of newPlayer) onBondDiscovered?.(id);
+
+    // Clear the "newly active" flags after the highlight animation finishes
+    // so the chips settle into their steady persistent state.
+    const t = setTimeout(() => {
+      setNewPlayerBonds([]);
+      setNewOppBonds([]);
+    }, 1800);
     return () => clearTimeout(t);
   }, [state.player.field, state.opponent.field]);
 
@@ -935,7 +937,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
-        <BondPillStack bonds={opponentActiveBonds} side="opponent" />
+        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -1067,7 +1069,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           }}
           onCardLongPress={(c) => setInspect(c)}
         />
-        <BondPillStack bonds={playerActiveBonds} side="player" />
+        <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" />
       </div>
 
       {/* Bottom spacer */}
@@ -1494,48 +1496,6 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         );
       })()}
 
-      {/* Bond activation toast — pops at the top center (player) or just
-          below the opponent header (boss) so each is visually attached to
-          the side that owns the bond. Yellow plate for friendly, dark plate
-          for boss. Auto-clears after ~2.4s. */}
-      {bondToast && (() => {
-        const isPlayer = bondToast.side === 'player';
-        return (
-          <div
-            key={`bond-${bondToast.id}-${bondToast.side}`}
-            style={{
-              position: 'absolute',
-              top: isPlayer ? 88 : 64,
-              left: '50%',
-              transform: 'translateX(-50%)',
-              zIndex: 215,
-              pointerEvents: 'none',
-              animation: 'turnBanner 2.4s cubic-bezier(.2,.8,.3,1) forwards',
-            }}
-          >
-            <div style={{
-              background: isPlayer
-                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-              color: isPlayer ? '#3a2406' : '#ffe89a',
-              padding: '8px 16px',
-              borderRadius: 14,
-              fontFamily: '"Fredoka", system-ui',
-              boxShadow: isPlayer
-                ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
-                : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            }}>
-              <div style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, opacity: 0.75 }}>
-                {isPlayer ? 'BOND ACTIVE' : `${boss.name.toUpperCase()}'S BOND`}
-              </div>
-              <div style={{ fontSize: 15, fontWeight: 800 }}>{bondToast.name}</div>
-              <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{bondToast.description}</div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
           their turn and the boss's. */}
@@ -1757,8 +1717,27 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
             <Card card={inspect} hovered scale={1.1} />
             {/* Status labels — long-press surfaces what every icon on the
                 creature actually means, since the small status pills aren't
-                self-documenting. */}
-            <StatusLabels card={inspect} />
+                self-documenting. Bond info too, with the partner's name. */}
+            <StatusLabels
+              card={inspect}
+              bondInfo={(() => {
+                const bond = BONDS.find(b => b.cardA === inspect.id || b.cardB === inspect.id);
+                if (!bond) return null;
+                const partnerId = bond.cardA === inspect.id ? bond.cardB : bond.cardA;
+                // Determine which side the inspected card is actually on
+                // and whether the partner is also on that field.
+                const onPlayer = state.player.field.some(c => c.battleId === inspect.battleId);
+                const ownerField = onPlayer ? state.player.field : state.opponent.field;
+                const partner = ownerField.find(c => c.id === partnerId);
+                const tpl = TEMPLATES.find(t => t.id === partnerId);
+                return {
+                  name: bond.name,
+                  description: bond.description,
+                  partnerName: tpl?.name ?? partnerId,
+                  active: !!partner,
+                };
+              })()}
+            />
           </div>
           <div style={{
             position: 'absolute', bottom: 50, left: 0, right: 0,
@@ -1853,12 +1832,21 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 const SLOTS_PER_ROW = 3;
 
 /**
- * Persistent on-board indicator listing every active bond on a side. Sits
- * absolutely positioned over the field zone — top-right for the boss, bottom-
- * right for the player — so the player can tell at a glance "Sunday Dinner
- * is firing every turn" without waiting for the toast to replay.
+ * Persistent on-board indicator listing every active bond on a side.
+ *
+ * One indicator per fact: there is no separate flying toast — when a bond
+ * first activates, its chip animates in (cardSummon: scale-up + bounce)
+ * and the rest of the chips that were already shown stay calm. This keeps
+ * the UI to a single visual language for "bond active": gold gradient for
+ * the player, dark plate for the boss, anchored to that side's field zone.
  */
-function BondPillStack({ bonds, side }: { bonds: BondDef[]; side: 'player' | 'opponent' }) {
+function BondPillStack({
+  bonds, newlyActiveIds, side,
+}: {
+  bonds: BondDef[];
+  newlyActiveIds: string[];
+  side: 'player' | 'opponent';
+}) {
   if (bonds.length === 0) return null;
   return (
     <div
@@ -1873,28 +1861,37 @@ function BondPillStack({ bonds, side }: { bonds: BondDef[]; side: 'player' | 'op
         pointerEvents: 'none',
       }}
     >
-      {bonds.map(b => (
-        <div
-          key={b.id}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '3px 8px 3px 6px',
-            borderRadius: 10,
-            background: side === 'player'
-              ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-              : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-            color: side === 'player' ? '#3a2406' : '#ffe89a',
-            fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
-            boxShadow: side === 'player'
-              ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
-              : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
-            fontFamily: '"Fredoka", system-ui',
-          }}
-        >
-          <Heart size={10} fill="currentColor" strokeWidth={0} />
-          <span>{b.name}</span>
-        </div>
-      ))}
+      {bonds.map(b => {
+        const isNewly = newlyActiveIds.includes(b.id);
+        return (
+          <div
+            // Re-keying on the "newly active" flag forces the cardSummon
+            // animation to replay the moment the bond activates, so the
+            // chip lands with a satisfying pop instead of just appearing.
+            key={`${b.id}-${isNewly ? 'new' : 'steady'}`}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              padding: '3px 8px 3px 6px',
+              borderRadius: 10,
+              background: side === 'player'
+                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
+              color: side === 'player' ? '#3a2406' : '#ffe89a',
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
+              boxShadow: side === 'player'
+                ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
+                : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
+              fontFamily: '"Fredoka", system-ui',
+              animation: isNewly
+                ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)'
+                : undefined,
+            }}
+          >
+            <Heart size={10} fill="currentColor" strokeWidth={0} />
+            <span>{b.name}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -2002,7 +1999,15 @@ function FieldRow({
  * by long-pressing the card. Each row shows the icon, its name, and a
  * one-line description.
  */
-function StatusLabels({ card }: { card: BattleCard }) {
+function StatusLabels({
+  card,
+  bondInfo,
+}: {
+  card: BattleCard;
+  /** Bond context for this card (if any). When provided, a row is added
+   *  showing the bond name + partner + whether it's currently firing. */
+  bondInfo?: { name: string; description: string; partnerName: string; active: boolean } | null;
+}) {
   const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
   if (card.frozen) {
     items.push({ icon: <Snowflake size={14} fill="#fff" strokeWidth={2.4} />, color: '#3a8fc4',
@@ -2027,6 +2032,20 @@ function StatusLabels({ card }: { card: BattleCard }) {
   if (card.silenced) {
     items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
+  }
+  if (bondInfo) {
+    // Gold (#e8a93a) for active bonds; muted brown for waiting. Same colour
+    // family the heart badge + pill use, so the player can map between
+    // "the heart is gold on the card" and "the bond row in the long-press
+    // panel is highlighted gold."
+    items.push({
+      icon: <Heart size={14} fill="#fff" strokeWidth={0} />,
+      color: bondInfo.active ? '#e8a93a' : '#a89580',
+      label: `Bond: ${bondInfo.name}`,
+      hint: bondInfo.active
+        ? `Active with ${bondInfo.partnerName} — ${bondInfo.description}`
+        : `Pairs with ${bondInfo.partnerName} — bond will activate when both are on the field.`,
+    });
   }
   if (items.length === 0) return null;
   return (
