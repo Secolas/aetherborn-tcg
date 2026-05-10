@@ -134,10 +134,28 @@ export interface MatchState {
  *  picker; scales the boss's starting HP / hand / mana and the coin reward. */
 export type Difficulty = 'normal' | 'hard' | 'mythic';
 
+/** A named, saved deck slot. Players can have multiple decks for
+ *  different playstyles (e.g. a Family heal deck and an Animals aggro
+ *  deck) and swap which one is active at any time. */
+export interface DeckSlot {
+  id: string;
+  name: string;
+  uids: string[];
+}
+
 export interface SaveData {
   version: number;
   collection: CollectionCard[];
+  /** Legacy field — the original "single active deck" representation.
+   *  Still present for older saves; migrated into `decks` on load. New
+   *  code should use `decks` + `activeDeckId` instead. */
   deckUids: string[];
+  /** Up to MAX_DECKS named deck slots. Empty for legacy saves until the
+   *  first load migrates `deckUids` into a single "My Deck" slot. */
+  decks?: DeckSlot[];
+  /** Id of the currently-active deck slot. Initial migration sets this
+   *  to the migrated slot's id. */
+  activeDeckId?: string;
   coins: number;
   packsOpened: number;
   matchesWon: number;

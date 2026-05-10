@@ -13,7 +13,14 @@ import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
 import type { BossDef } from './data/bosses';
-import type { CollectionCard, SaveData, Difficulty } from './game/types';
+import type { CollectionCard, SaveData, Difficulty, DeckSlot } from './game/types';
+
+const MAX_DECKS = 5;
+let _deckIdCounter = 0;
+function newDeckId(): string {
+  _deckIdCounter++;
+  return `deck-${Date.now().toString(36)}-${_deckIdCounter}`;
+}
 import { difficultyProfile } from './game/match';
 import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings';
 import { unlockAudio } from './audio/sfx';
@@ -53,6 +60,20 @@ export default function App() {
     };
     window.addEventListener('pointerdown', onFirstTap, { once: true });
     return () => window.removeEventListener('pointerdown', onFirstTap);
+  }, []);
+
+  // Migrate the legacy single-deck representation (`deckUids`) into the
+  // multi-deck `decks` array on first boot of the new schema. Existing
+  // players don't lose their built deck — it becomes "My Deck" and stays
+  // active. Subsequent boots see `decks` already populated and skip.
+  useEffect(() => {
+    setSave(s => {
+      if (s.decks && s.decks.length > 0) return s;
+      const id = newDeckId();
+      const slot: DeckSlot = { id, name: 'My Deck', uids: s.deckUids ?? [] };
+      return { ...s, decks: [slot], activeDeckId: id };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Migrate placeholder photos on load. The samplePhotos table gets curated
@@ -96,7 +117,7 @@ export default function App() {
    * Quick Play: fill every dormant card with a thematic placeholder photo
    * and auto-build a starter deck so the player can play immediately
    * without taking real photos. Each placeholder is marked so they can
-   * see what to replace later.
+   * see what to replace later. Operates on the currently-active deck.
    */
   const onQuickFill = () => {
     setSave(s => {
@@ -106,33 +127,46 @@ export default function App() {
           : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
       );
       const playable = filled.filter(c => !!c.photo);
-      // Auto-fill to a 12-card deck so the player matches the boss decks
-      // (also 12). With fewer cards the AI used to draw more cards over the
-      // course of a match, which felt unfair.
-      let deckUids = s.deckUids.filter(uid => filled.find(c => c.uid === uid && c.photo));
-      if (deckUids.length < 12) {
-        const sorted = [...playable].sort((a, b) => a.cost - b.cost); // cheap first for a sane curve
-        for (const c of sorted) {
-          if (deckUids.length >= 12) break;
-          if (!deckUids.includes(c.uid)) deckUids.push(c.uid);
+      // Find the active deck (or first deck) and fill it to 12.
+      const decks = (s.decks && s.decks.length > 0)
+        ? s.decks
+        : [{ id: newDeckId(), name: 'My Deck', uids: s.deckUids ?? [] }];
+      const activeId = s.activeDeckId ?? decks[0].id;
+      const updatedDecks = decks.map(d => {
+        if (d.id !== activeId) return d;
+        let uids = d.uids.filter(uid => filled.find(c => c.uid === uid && c.photo));
+        if (uids.length < 12) {
+          const sorted = [...playable].sort((a, b) => a.cost - b.cost);
+          for (const c of sorted) {
+            if (uids.length >= 12) break;
+            if (!uids.includes(c.uid)) uids.push(c.uid);
+          }
         }
-      }
-      return { ...s, collection: filled, deckUids };
+        return { ...d, uids };
+      });
+      const activeUids = updatedDecks.find(d => d.id === activeId)?.uids ?? [];
+      return { ...s, collection: filled, decks: updatedDecks, activeDeckId: activeId, deckUids: activeUids };
     });
   };
 
   /**
    * Clear a card's photo so the player can retake it. Also drops it from
-   * the active deck since dormant cards can't be played.
+   * EVERY deck since dormant cards can't be played in any of them.
    */
   const onClearPhoto = (uid: string) => {
-    setSave(s => ({
-      ...s,
-      collection: s.collection.map(c =>
-        c.uid === uid ? { ...c, photo: null, isPlaceholder: false } : c
-      ),
-      deckUids: s.deckUids.filter(x => x !== uid),
-    }));
+    setSave(s => {
+      const decks = (s.decks ?? []).map(d => ({ ...d, uids: d.uids.filter(x => x !== uid) }));
+      const activeUids = decks.find(d => d.id === s.activeDeckId)?.uids
+        ?? s.deckUids.filter(x => x !== uid);
+      return {
+        ...s,
+        collection: s.collection.map(c =>
+          c.uid === uid ? { ...c, photo: null, isPlaceholder: false } : c
+        ),
+        decks,
+        deckUids: activeUids,
+      };
+    });
   };
 
   const onPackOpened = (cards: CollectionCard[], coinsSpent: number) => {
@@ -144,8 +178,62 @@ export default function App() {
     }));
   };
 
-  const onDeckChange = (uids: string[]) => {
-    setSave(s => ({ ...s, deckUids: uids }));
+  /** Helper: rewrite a specific deck slot's uids. Mirrors the active
+   *  deck's uids back into the legacy `deckUids` field so any code still
+   *  reading the old shape stays in sync. */
+  const writeDeck = (deckId: string, uids: string[]) => {
+    setSave(s => {
+      const decks = (s.decks ?? []).map(d => d.id === deckId ? { ...d, uids } : d);
+      const activeUids = decks.find(d => d.id === s.activeDeckId)?.uids ?? s.deckUids;
+      return { ...s, decks, deckUids: activeUids };
+    });
+  };
+
+  const onDeckChange = (deckId: string, uids: string[]) => writeDeck(deckId, uids);
+
+  const onCreateDeck = () => {
+    setSave(s => {
+      const decks = s.decks ?? [];
+      if (decks.length >= MAX_DECKS) return s;
+      const id = newDeckId();
+      const slot: DeckSlot = { id, name: `Deck ${decks.length + 1}`, uids: [] };
+      const next = [...decks, slot];
+      return { ...s, decks: next, activeDeckId: id, deckUids: [] };
+    });
+  };
+
+  const onRenameDeck = (deckId: string, name: string) => {
+    const trimmed = name.trim().slice(0, 24) || 'Untitled';
+    setSave(s => ({
+      ...s,
+      decks: (s.decks ?? []).map(d => d.id === deckId ? { ...d, name: trimmed } : d),
+    }));
+  };
+
+  const onDeleteDeck = (deckId: string) => {
+    setSave(s => {
+      const decks = (s.decks ?? []).filter(d => d.id !== deckId);
+      // Always keep at least one deck slot — if the player deleted the
+      // last one, recreate an empty default so the rest of the app
+      // (matchDeck lookup, DeckBuilder, etc.) has something to render.
+      const safe = decks.length > 0 ? decks : [{ id: newDeckId(), name: 'My Deck', uids: [] }];
+      // Move active to first remaining deck if we just deleted the
+      // currently-active slot.
+      const activeId = s.activeDeckId === deckId || !safe.find(d => d.id === s.activeDeckId)
+        ? safe[0].id
+        : s.activeDeckId;
+      const activeUids = safe.find(d => d.id === activeId)?.uids ?? [];
+      return { ...s, decks: safe, activeDeckId: activeId, deckUids: activeUids };
+    });
+  };
+
+  const onSetActiveDeck = (deckId: string) => {
+    setSave(s => {
+      const decks = s.decks ?? [];
+      if (!decks.find(d => d.id === deckId)) return s;
+      const activeUids = decks.find(d => d.id === deckId)?.uids ?? [];
+      return { ...s, activeDeckId: deckId, deckUids: activeUids };
+    });
   };
 
   const onPickBoss = (boss: BossDef, difficulty: Difficulty) => {
@@ -190,7 +278,13 @@ export default function App() {
     setScreen('home');
   };
 
-  const matchDeck = save.deckUids
+  // Resolve the active deck for the match. Prefer the multi-deck shape
+  // (`decks` + `activeDeckId`); fall back to the legacy `deckUids` for
+  // saves loaded before the migration effect has run.
+  const activeDeckUids = (save.decks && save.activeDeckId)
+    ? (save.decks.find(d => d.id === save.activeDeckId)?.uids ?? save.deckUids)
+    : save.deckUids;
+  const matchDeck = activeDeckUids
     .map(uid => save.collection.find(c => c.uid === uid))
     .filter((c): c is CollectionCard => !!c && !!c.photo);
 
@@ -234,8 +328,14 @@ export default function App() {
       {screen === 'deck' && (
         <DeckBuilder
           collection={save.collection}
-          deckUids={save.deckUids}
+          decks={save.decks ?? []}
+          activeDeckId={save.activeDeckId ?? (save.decks?.[0]?.id ?? '')}
+          maxDecks={MAX_DECKS}
           onChange={onDeckChange}
+          onSetActive={onSetActiveDeck}
+          onCreate={onCreateDeck}
+          onRename={onRenameDeck}
+          onDelete={onDeleteDeck}
           onBack={() => setScreen('home')}
         />
       )}

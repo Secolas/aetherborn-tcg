@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
-import type { CollectionCard, ElementId } from '../game/types';
+import type { CollectionCard, DeckSlot, ElementId } from '../game/types';
 
 type Filter =
   | 'All'
@@ -26,18 +26,39 @@ const DECK_SIZE = 12;
 
 interface Props {
   collection: CollectionCard[];
-  deckUids: string[];
-  onChange: (uids: string[]) => void;
+  /** All saved deck slots. Always at least one (App.tsx guarantees this).
+   *  The deck currently being edited is `activeDeckId` — every change
+   *  this screen makes flows back through `onChange(deckId, uids)`. */
+  decks: DeckSlot[];
+  activeDeckId: string;
+  /** Max number of saved decks the player can keep. Drives the disabled
+   *  state on the "+" pill in the switcher. */
+  maxDecks: number;
+  onChange: (deckId: string, uids: string[]) => void;
+  onSetActive: (deckId: string) => void;
+  onCreate: () => void;
+  onRename: (deckId: string, name: string) => void;
+  onDelete: (deckId: string) => void;
   onBack: () => void;
 }
 
-export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
+export function DeckBuilder({
+  collection, decks, activeDeckId, maxDecks,
+  onChange, onSetActive, onCreate, onRename, onDelete, onBack,
+}: Props) {
   /** Compact = 4-column smaller cards (default — scans a large library
       faster when picking the 12 deck slots); Big = 2-column for detail. */
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
   const [filter, setFilter] = useState<Filter>('All');
   /** Card opened from the Active Deck strip — shows preview + Remove button. */
   const [inspectActive, setInspectActive] = useState<CollectionCard | null>(null);
+  /** Deck-management modal state — null = closed; deckId = editing that deck. */
+  const [managing, setManaging] = useState<string | null>(null);
+
+  // Resolve the active deck. Fallback to first deck if activeDeckId is
+  // somehow stale (defensive — App.tsx keeps this in sync).
+  const activeDeck = decks.find(d => d.id === activeDeckId) ?? decks[0];
+  const deckUids = activeDeck?.uids ?? [];
 
   // Sort the active deck so creatures come before spells, with cost
   // ascending inside each group. Lets the player see deck composition
@@ -76,10 +97,11 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
   };
 
   const toggle = (uid: string) => {
+    if (!activeDeck) return;
     if (deckUids.includes(uid)) {
-      onChange(deckUids.filter(x => x !== uid));
+      onChange(activeDeck.id, deckUids.filter(x => x !== uid));
     } else if (deckUids.length < DECK_SIZE) {
-      onChange([...deckUids, uid]);
+      onChange(activeDeck.id, [...deckUids, uid]);
     }
   };
 
@@ -91,10 +113,10 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
       fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ padding: '52px 20px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Deck</div>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{activeDeck?.name ?? 'Deck'}</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
             {deckUids.length} / {DECK_SIZE} cards
           </div>
@@ -109,6 +131,145 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
           {layout === 'big' ? <LayoutGrid size={17} /> : <Rows3 size={17} />}
         </button>
       </div>
+
+      {/* Deck switcher — horizontal pills, one per saved slot, plus a
+          trailing "+" to create a new deck. Tap a pill to switch the
+          active deck (the rest of the screen retargets to its uids). Tap
+          the active pill again to open a small Manage modal where you can
+          rename or delete it. */}
+      <div style={{
+        padding: '0 12px 8px',
+        display: 'flex', gap: 6,
+        overflowX: 'auto',
+      }} className="no-scrollbar">
+        {decks.map(d => {
+          const active = d.id === activeDeckId;
+          return (
+            <button
+              key={d.id}
+              onClick={() => active ? setManaging(d.id) : onSetActive(d.id)}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 12,
+                border: 'none',
+                background: active ? '#fff' : 'rgba(255,255,255,.55)',
+                color: active ? PALETTE.text : PALETTE.textMid,
+                fontFamily: 'inherit',
+                fontWeight: 700, fontSize: 12,
+                whiteSpace: 'nowrap',
+                cursor: 'pointer',
+                boxShadow: active
+                  ? '0 4px 10px rgba(255, 126, 95, .18), 0 0 0 1.5px rgba(238,90,82,.55)'
+                  : '0 1px 3px rgba(58,46,42,.06)',
+                display: 'flex', alignItems: 'center', gap: 6,
+                transition: 'background .15s, box-shadow .15s',
+              }}
+            >
+              {active && <Check size={11} strokeWidth={3} color="#ee5a52" />}
+              {d.name}
+              <span style={{ fontSize: 10, color: PALETTE.textLight, fontWeight: 600 }}>
+                {d.uids.length}
+              </span>
+            </button>
+          );
+        })}
+        <button
+          onClick={onCreate}
+          disabled={decks.length >= maxDecks}
+          aria-label="New deck"
+          title={decks.length >= maxDecks ? `Max ${maxDecks} decks` : 'New deck'}
+          style={{
+            padding: '8px 10px',
+            borderRadius: 12,
+            border: '1.5px dashed rgba(58,46,42,.25)',
+            background: 'transparent',
+            color: PALETTE.textMid,
+            fontFamily: 'inherit',
+            fontWeight: 700, fontSize: 12,
+            cursor: decks.length >= maxDecks ? 'not-allowed' : 'pointer',
+            opacity: decks.length >= maxDecks ? 0.4 : 1,
+            display: 'flex', alignItems: 'center', gap: 4,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <Plus size={13} strokeWidth={2.6} /> New
+        </button>
+      </div>
+
+      {/* Deck-management modal — opens when the player taps the
+          currently-active deck pill. Lets them rename or delete that
+          slot. Renames close the modal automatically; delete asks for
+          confirmation by hitting the button twice. */}
+      {managing && (() => {
+        const d = decks.find(x => x.id === managing);
+        if (!d) { setManaging(null); return null; }
+        const canDelete = decks.length > 1;
+        return (
+          <div
+            onClick={() => setManaging(null)}
+            style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(0,0,0,.55)', zIndex: 200,
+              display: 'grid', placeItems: 'center',
+              animation: 'fadeIn .2s',
+            }}
+          >
+            <div
+              onClick={(ev) => ev.stopPropagation()}
+              style={{
+                background: '#fff', borderRadius: 18,
+                padding: '20px 22px',
+                width: '88%', maxWidth: 320,
+                boxShadow: '0 18px 40px rgba(0,0,0,.4)',
+                animation: 'cardSummon .3s cubic-bezier(.2,.8,.3,1)',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: PALETTE.text }}>Manage deck</div>
+                <button onClick={() => setManaging(null)} style={{
+                  width: 28, height: 28, borderRadius: '50%',
+                  background: 'transparent', border: '1.5px solid rgba(58,46,42,.15)',
+                  display: 'grid', placeItems: 'center',
+                  cursor: 'pointer', color: PALETTE.text,
+                }}>
+                  <X size={14} strokeWidth={2.4} />
+                </button>
+              </div>
+              <DeckRenameField
+                key={d.id}
+                initial={d.name}
+                onCommit={(name) => { onRename(d.id, name); setManaging(null); }}
+              />
+              <button
+                onClick={() => {
+                  if (!canDelete) return;
+                  onDelete(d.id);
+                  setManaging(null);
+                }}
+                disabled={!canDelete}
+                style={{
+                  width: '100%', marginTop: 12,
+                  padding: '11px 14px',
+                  background: canDelete ? '#fff' : '#f5ede2',
+                  color: canDelete ? '#c8362e' : PALETTE.textLight,
+                  border: `1.5px solid ${canDelete ? 'rgba(200,54,46,.4)' : 'rgba(58,46,42,.1)'}`,
+                  borderRadius: 12,
+                  fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+                  cursor: canDelete ? 'pointer' : 'not-allowed',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}
+              >
+                <Trash2 size={14} strokeWidth={2.4} /> Delete deck
+              </button>
+              {!canDelete && (
+                <div style={{ fontSize: 10, color: PALETTE.textLight, marginTop: 6, textAlign: 'center' }}>
+                  Can't delete your last deck.
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Active deck strip */}
       <div style={{
@@ -333,6 +494,62 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Rename input + Save button used inside the manage-deck modal. Local
+ * state so typing doesn't fire a save on every keystroke; commits on
+ * Save click or Enter.
+ */
+function DeckRenameField({ initial, onCommit }: { initial: string; onCommit: (name: string) => void }) {
+  const [value, setValue] = useState(initial);
+  const trimmed = value.trim();
+  const dirty = trimmed.length > 0 && trimmed !== initial;
+  return (
+    <div>
+      <label style={{
+        display: 'block', fontSize: 10, color: PALETTE.textMid,
+        letterSpacing: '0.15em', textTransform: 'uppercase',
+        fontWeight: 700, marginBottom: 6,
+      }}>
+        Deck name
+      </label>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <input
+          autoFocus
+          value={value}
+          maxLength={24}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && dirty) onCommit(trimmed); }}
+          style={{
+            flex: 1,
+            padding: '10px 12px',
+            border: '1.5px solid rgba(58,46,42,.18)',
+            borderRadius: 10,
+            fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
+            color: PALETTE.text,
+            outline: 'none',
+            background: '#fef8f0',
+          }}
+        />
+        <button
+          onClick={() => onCommit(trimmed)}
+          disabled={!dirty}
+          style={{
+            padding: '10px 16px',
+            background: dirty ? 'linear-gradient(180deg, #ffa07a 0%, #ee5a52 100%)' : '#f5ede2',
+            color: dirty ? '#fff' : PALETTE.textLight,
+            border: 'none', borderRadius: 10,
+            fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+            cursor: dirty ? 'pointer' : 'not-allowed',
+          }}
+        >
+          <Pencil size={13} strokeWidth={2.6} style={{ marginRight: 6, verticalAlign: -2 }} />
+          Save
+        </button>
+      </div>
     </div>
   );
 }
