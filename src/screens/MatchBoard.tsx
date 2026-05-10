@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, VolumeX } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban } from 'lucide-react';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { CardBack } from '../components/CardBack';
@@ -14,6 +14,8 @@ import {
 import { ELEMENTS } from '../data/elements';
 import type { BossDef } from '../data/bosses';
 import type { BattleCard, CollectionCard, MatchState, Owner } from '../game/types';
+import { playSfx } from '../audio/sfx';
+import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 
 interface Props {
   deck: CollectionCard[];
@@ -21,6 +23,9 @@ interface Props {
   /** Optional uploaded player photo (data URL). When set, the player
       portrait shows this image; otherwise it falls back to the "Y" letter. */
   playerAvatar?: string;
+  /** Audio + motion preferences. SFX volume gates every cue, animSpeed
+   *  divides every JS-driven match timing constant. */
+  settings?: Settings;
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
 
@@ -46,7 +51,16 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
+export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTINGS, onExit }: Props) {
+  // Stash settings in a ref so timing helpers + closures see fresh values
+  // without re-creating effects every render.
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  /** Scale a JS timing constant by the user's match-speed preference.
+   *  animSpeed=1 → unchanged, 1.5 → ~67%, 2 → 50%. */
+  const scaleMs = (ms: number) => Math.max(40, Math.round(ms / settingsRef.current.animSpeed));
+  /** Fire an SFX cue at the user's chosen volume — no-op if muted. */
+  const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, settingsRef.current.sfxVolume);
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
@@ -149,7 +163,8 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
           // otherwise resolve invisibly. Spells get a longer hold than
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
-          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
+          sfx(step.played.type === 'Spell' ? 'cardPlay' : 'summon');
+          const holdMs = scaleMs(step.played.type === 'Spell' ? 2700 : 1900);
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -166,17 +181,17 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
             setState(step.next);
           }, holdMs);
         } else {
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
+          setTimeout(() => { if (!cancelled) setState(step.next); }, scaleMs(950));
         }
       } else {
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => beginTurn(s, 'player'));
-        }, 1100);
+        }, scaleMs(1100));
       }
     };
-    const t = setTimeout(tick, 850);
+    const t = setTimeout(tick, scaleMs(850));
     return () => { cancelled = true; clearTimeout(t); };
   }, [state, flipping, initialDealing]);
 
@@ -187,9 +202,18 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
     if (firstTurnRef.current) { firstTurnRef.current = false; return; }
     if (state.outcome !== 'ongoing') return;
     setTurnBanner(state.turn);
-    const t = setTimeout(() => setTurnBanner(null), 1400);
+    sfx('turn');
+    const t = setTimeout(() => setTurnBanner(null), scaleMs(1400));
     return () => clearTimeout(t);
   }, [state.turn, state.outcome]);
+
+  // Win/lose stinger fires once when the match resolves.
+  const outcomePlayedRef = useRef(false);
+  useEffect(() => {
+    if (state.outcome === 'ongoing' || outcomePlayedRef.current) return;
+    outcomePlayedRef.current = true;
+    sfx(state.outcome === 'win' ? 'win' : 'lose');
+  }, [state.outcome]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
   // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
@@ -365,11 +389,11 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       setDrawTick(t => t + 1);
       if (side === 'player') setPlayerInitialDealt(d => d + 1);
       else setOppInitialDealt(d => d + 1);
-      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, 600);
+      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, scaleMs(600));
       i++;
-      setTimeout(tick, 380);
+      setTimeout(tick, scaleMs(380));
     };
-    const start = setTimeout(tick, 250);
+    const start = setTimeout(tick, scaleMs(250));
     return () => { cancelled = true; clearTimeout(start); };
   }, [flipping, initialDealing, state.outcome]);
 
@@ -436,6 +460,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       damageToDef: info.damageToDef,
       damageToAtk: info.damageToAtk,
     });
+    sfx('attack');
 
     // Detect lethals so we can play the slice animation and hold state.
     const defenderField = info.defenderOwner === 'player' ? state.player.field : state.opponent.field;
@@ -461,6 +486,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
         ? (info.defenderOwner === 'player' ? FACE_PLAYER : FACE_OPP)
         : (defenderId as string);
       setDamages(d => ({ ...d, [defKey]: info.damageToDef }));
+      if (info.damageToDef > 0) sfx('damage');
       // Counter-strike pops noticeably later for trades so the two hits read
       // as separate beats, not one combined flash.
       if (info.damageToAtk > 0) {
@@ -540,6 +566,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
     setPlayerSpellReveal(card);
     setSelectedHandIdx(null);
     setPendingSpell(null);
+    sfx('cardPlay');
 
     // Burst the target ~600ms in (right before state applies) so the spell
     // visibly "lands" on whatever it was aimed at.
@@ -611,7 +638,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
     if (card.type === 'Creature') {
       if (drag.overField) {
         const r = playCard(state, 'player', card.battleId);
-        if (r.ok) setState(r.state);
+        if (r.ok) { setState(r.state); sfx('summon'); }
         else flashMsg(r.reason ?? 'Cannot play');
       }
     } else {
@@ -649,6 +676,7 @@ export function MatchBoard({ deck, boss, playerAvatar, onExit }: Props) {
       if (r.ok) {
         setState(r.state);
         setSelectedHandIdx(null);
+        sfx('summon');
       } else {
         flashMsg(r.reason ?? 'Cannot play');
       }
@@ -1833,7 +1861,7 @@ function StatusLabels({ card }: { card: BattleCard }) {
       label: 'Rush', hint: 'Can attack the turn it’s played.' });
   }
   if (card.silenced) {
-    items.push({ icon: <VolumeX size={14} strokeWidth={2.6} />, color: '#7a6e62',
+    items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
   if (items.length === 0) return null;

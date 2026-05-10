@@ -472,3 +472,17 @@ input {
   80%  { opacity: 1; transform: translateX(0) rotate(0); }
   100% { opacity: 0; transform: translateX(30px) rotate(3deg); }
 }
+
+/* Reduced motion override — set on <html> when the user enables it from
+   Settings. We collapse every running animation/transition to "instant"
+   without removing them entirely (so state changes still flush correctly,
+   listeners still fire, layout doesn't break). Combat damage popups and
+   the BATTLE banner still appear, just without the long settle. */
+:root[data-reduced-motion="true"] *,
+:root[data-reduced-motion="true"] *::before,
+:root[data-reduced-motion="true"] *::after {
+  animation-duration: 0.001s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+}

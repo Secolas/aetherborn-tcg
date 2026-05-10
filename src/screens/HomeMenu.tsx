@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles } from 'lucide-react';
+import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -7,7 +7,7 @@ import type { CardTemplate, CollectionCard, SaveData } from '../game/types';
 
 interface Props {
   save: SaveData;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album') => void;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings') => void;
   onQuickFill: () => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
@@ -129,15 +129,33 @@ export function HomeMenu({ save, onNav, onQuickFill, onSetAvatar }: Props) {
             </div>
           </div>
         </div>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 6,
-          background: '#fff',
-          padding: '6px 12px', borderRadius: 16,
-          boxShadow: '0 3px 8px rgba(58,46,42,.08)',
-          border: `1.5px solid ${PALETTE.border}`,
-        }}>
-          <Coins size={16} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
-          <span style={{ fontSize: 14, fontWeight: 700, color: PALETTE.text }}>{save.coins}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: '#fff',
+            padding: '6px 12px', borderRadius: 16,
+            boxShadow: '0 3px 8px rgba(58,46,42,.08)',
+            border: `1.5px solid ${PALETTE.border}`,
+          }}>
+            <Coins size={16} color="#e8a93a" fill="#ffd166" strokeWidth={2.2} />
+            <span style={{ fontSize: 14, fontWeight: 700, color: PALETTE.text }}>{save.coins}</span>
+          </div>
+          <button
+            onClick={() => onNav('settings')}
+            aria-label="Settings"
+            style={{
+              width: 36, height: 36, borderRadius: '50%',
+              background: '#fff',
+              border: `1.5px solid ${PALETTE.border}`,
+              boxShadow: '0 3px 8px rgba(58,46,42,.08)',
+              display: 'grid', placeItems: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              color: PALETTE.text,
+            }}
+          >
+            <SettingsIcon size={18} strokeWidth={2.2} />
+          </button>
         </div>
       </div>
 

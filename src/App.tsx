@@ -8,11 +8,14 @@ import { PackOpening } from './screens/PackOpening';
 import { MatchBoard } from './screens/MatchBoard';
 import { BossPicker } from './screens/BossPicker';
 import { Album } from './screens/Album';
+import { SettingsScreen } from './screens/Settings';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
 import type { BossDef } from './data/bosses';
 import type { CollectionCard, SaveData } from './game/types';
+import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings';
+import { unlockAudio } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
 
@@ -30,13 +33,34 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
+  const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
   const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
+
+  // Reflect reduced-motion + speed multiplier on the document so CSS rules
+  // can react. The `--anim-mult` var is read by JS for combat timing; the
+  // `data-reduced-motion` attr lets keyframes opt-out via CSS selectors.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty('--anim-mult', String(1 / settings.animSpeed));
+    root.dataset.reducedMotion = settings.reducedMotion ? 'true' : 'false';
+  }, [settings.animSpeed, settings.reducedMotion]);
+
+  // Browsers require a user gesture before AudioContext can play. Unlock on
+  // the first pointerdown anywhere in the app, then detach.
+  useEffect(() => {
+    const onFirstTap = () => {
+      unlockAudio();
+      window.removeEventListener('pointerdown', onFirstTap);
+    };
+    window.addEventListener('pointerdown', onFirstTap, { once: true });
+    return () => window.removeEventListener('pointerdown', onFirstTap);
+  }, []);
 
   // Migrate placeholder photos on load. The samplePhotos table gets curated
   // over time (e.g. fam-08 Abuela's URL was rotated when the original ID
@@ -169,8 +193,16 @@ export default function App() {
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
+            else if (s === 'settings') setScreen('settings');
             else setScreen(s);
           }}
+        />
+      )}
+      {screen === 'settings' && (
+        <SettingsScreen
+          settings={settings}
+          onChange={setSettings}
+          onBack={() => setScreen('home')}
         />
       )}
       {screen === 'collection' && (
@@ -222,6 +254,7 @@ export default function App() {
           deck={matchDeck}
           boss={activeBoss}
           playerAvatar={save.playerAvatar}
+          settings={settings}
           onExit={onMatchExit}
         />
       )}

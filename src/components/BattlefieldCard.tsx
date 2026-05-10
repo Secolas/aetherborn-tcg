@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon, Swords, VolumeX } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -186,7 +186,7 @@ export function BattlefieldCard({
           {/* Silence indicator — muted-speaker icon stays the entire turn
               the creature's ability is stripped. Visually distinct from
               the snowflake so freeze and silence don't blur together. */}
-          {card.silenced && <StatusPill color="#7a6e62" icon={<VolumeX size={10} strokeWidth={2.6} />} />}
+          {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
         </div>
 
         {/* Frozen creatures get a blue ice tint. Tapped/exhausted is handled
