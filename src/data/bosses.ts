@@ -24,6 +24,15 @@ export interface BossDef {
    * distinct from the generic AI photo for that template.
    */
   photoOverrides?: Record<string, string>;
+  /**
+   * Optional themed backdrop image rendered behind the field during the
+   * match. Heavily blurred + de-saturated in the UI so cards still pop.
+   * Sets the "stage" of where this duel is happening — Mom's kitchen,
+   * the Manager's conference room, the wolf's forest, etc. Using a
+   * realistic photograph instead of a stylized illustration makes the
+   * scene feel like a place, not just a backdrop.
+   */
+  backdrop?: string;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -59,6 +68,8 @@ export const BOSSES: BossDef[] = [
       'fam-08': U('photo-1581579439459-13e44f060f9e'),  // her own grandmother
       'fam-12': U('photo-1559847844-5315695dadae'),    // her own dinner table
     },
+    // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.
+    backdrop: U('photo-1556909114-f6e7ad7d3136'),
   },
 
   // ============================================================
@@ -90,6 +101,8 @@ export const BOSSES: BossDef[] = [
       'wrk-07': U('photo-1580489944761-15a19d654956'),  // his own HR rep
       'wrk-09': U('photo-1542744173-8e7e53415bb0'),    // his own conference room
     },
+    // Empty conference room — cold blues / fluorescent / rows of chairs.
+    backdrop: U('photo-1497366216548-37526070297c'),
   },
 
   // ============================================================
@@ -122,6 +135,8 @@ export const BOSSES: BossDef[] = [
       'ani-11': U('photo-1564415051543-c4b21afae0bd'),  // their own wolf
       'ani-05': U('photo-1587300003388-59208cc962cb'),  // their own guard dog
     },
+    // Misty pine forest — deep greens, fog, "you're not alone out here."
+    backdrop: U('photo-1448375240586-882707db888b'),
   },
 
   // ============================================================
@@ -156,6 +171,8 @@ export const BOSSES: BossDef[] = [
       'trv-09': U('photo-1566073771259-6a8506099945'),  // their own hotel facade
       'trv-05': U('photo-1436491865332-7a61a109cc05'),  // their own airplane window
     },
+    // Airport gate at dawn — gradient sky behind the runway, "leaving."
+    backdrop: U('photo-1436491865332-7a61a109cc05'),
   },
 ];
 
