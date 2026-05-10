@@ -296,6 +296,16 @@ export function endTurn(prev: MatchState): MatchState {
       them.hp -= b.effect.amount;
       cleared.log.push(`Bond: ${b.name} pings the boss for ${b.effect.amount}`);
     }
+    // Family — The Kids: top off a low hand at end of turn so a control
+    // family deck doesn't run dry.
+    if (b.effect.kind === 'draw_at_end_if_low_hand') {
+      if (me.hand.length < 3 && me.deck.length && me.hand.length < MAX_HAND) {
+        const c = me.deck.shift()!;
+        c.tapped = false;
+        me.hand.push(c);
+        cleared.log.push(`Bond: ${b.name} tops up your hand`);
+      }
+    }
   }
   checkOutcome(cleared);
   if (cleared.outcome !== 'ongoing') return cleared;

@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2 } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -9,7 +9,7 @@ import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
-  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND,
+  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND, STARTING_HP,
   effectiveCost, activeBonds,
   type SpellTarget,
 } from '../game/match';
@@ -86,6 +86,13 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
    *  instead of having a separate flying toast. One indicator per fact. */
   const [newPlayerBonds, setNewPlayerBonds] = useState<string[]>([]);
   const [newOppBonds, setNewOppBonds] = useState<string[]>([]);
+  /** Brief cinematic when a bond first activates: the two bonded creatures
+   *  appear side-by-side at center stage with a glowing link icon, the
+   *  bond name above, then fade out. Auto-clears ~1.5s later. Only one at
+   *  a time — if multiple bonds fire same tick, the second waits its turn. */
+  const [bondCinematic, setBondCinematic] = useState<{
+    bond: BondDef; cardA: BattleCard; cardB: BattleCard; side: Owner;
+  } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -247,13 +254,32 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     sfx('summon');
     for (const id of newPlayer) onBondDiscovered?.(id);
 
+    // Cinematic — the first newly-active bond on either side opens a brief
+    // center-stage "link up" preview so the activation lands as A Moment,
+    // not just a quiet HUD update. Player bonds win priority over boss
+    // bonds (one tick can only feature one cinematic).
+    const cinematicSide: Owner | null = newPlayer.length ? 'player' : (newOpp.length ? 'opponent' : null);
+    if (cinematicSide) {
+      const newId = (cinematicSide === 'player' ? newPlayer : newOpp)[0];
+      const me = cinematicSide === 'player' ? state.player : state.opponent;
+      const bond = activeBonds(me).find(b => b.id === newId);
+      const cardA = bond ? me.field.find(c => c.id === bond.cardA) : null;
+      const cardB = bond ? me.field.find(c => c.id === bond.cardB) : null;
+      if (bond && cardA && cardB) {
+        setBondCinematic({ bond, cardA, cardB, side: cinematicSide });
+      }
+    }
+
     // Clear the "newly active" flags after the highlight animation finishes
-    // so the chips settle into their steady persistent state.
-    const t = setTimeout(() => {
+    // so the chips settle into their steady persistent state. Cinematic
+    // clears on its own slightly later so the pill doesn't re-glow while
+    // the cinematic is still on screen.
+    const tFlags = setTimeout(() => {
       setNewPlayerBonds([]);
       setNewOppBonds([]);
     }, 1800);
-    return () => clearTimeout(t);
+    const tCine = setTimeout(() => setBondCinematic(null), 1700);
+    return () => { clearTimeout(tFlags); clearTimeout(tCine); };
   }, [state.player.field, state.opponent.field]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
@@ -267,11 +293,16 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     opponent: Map<string, CreatureSnap>;
     handSize: { player: number; opponent: number };
     fatigue: { player: number; opponent: number };
+    /** Snapshot of each side's face HP. Used to attribute non-combat HP
+     *  changes to the bond that caused them (heal_face_per_turn at start
+     *  of a turn, damage_at_end_turn at end). */
+    hp: { player: number; opponent: number };
     turnNumber: number;
   }>({
     player: new Map(), opponent: new Map(),
     handSize: { player: 0, opponent: 0 },
     fatigue: { player: 0, opponent: 0 },
+    hp: { player: STARTING_HP, opponent: STARTING_HP },
     turnNumber: state.turnNumber,
   });
   useEffect(() => {
@@ -284,6 +315,7 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
       opponent: snapshot(state.opponent.field),
       handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
       fatigue: { player: state.player.fatigueCount, opponent: state.opponent.fatigueCount },
+      hp: { player: state.player.hp, opponent: state.opponent.hp },
       turnNumber: state.turnNumber,
     };
 
@@ -395,6 +427,50 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
           newTriggers[c.battleId] = `AOE −${c.abilityValue}`;
         }
       }
+      // Bond face popups — when a turn flips, attribute non-combat face HP
+      // changes to the bond that caused them. heal_face_per_turn fires at
+      // the START of the active player's turn (so when turn went up + the
+      // new active side gained HP, the heal popup goes over their face).
+      // damage_at_end_turn fires at the END (so when turn flipped TO the
+      // opponent and they LOST HP without any combat happening, we credit
+      // the player's bond). The pop uses the same green/red damage popup
+      // language already used elsewhere.
+      const turnFlipped = fresh.turnNumber > prev.turnNumber;
+      if (turnFlipped) {
+        const bondPops: Record<string, number> = {};
+        // Heal at start of active side's turn
+        const activeSide: Owner = state.turn;
+        const activeBefore = activeSide === 'player' ? prev.hp.player : prev.hp.opponent;
+        const activeAfter = activeSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
+        const activeBonds_ = activeBonds(activeSide === 'player' ? state.player : state.opponent);
+        if (activeBonds_.some(b => b.effect.kind === 'heal_face_per_turn') && activeAfter > activeBefore) {
+          const key = activeSide === 'player' ? FACE_PLAYER : FACE_OPP;
+          bondPops[key] = -(activeAfter - activeBefore); // negative = heal popup (green)
+        }
+        // Damage at end of just-finished side's turn → opposite side took the dmg
+        const endedSide: Owner = activeSide === 'player' ? 'opponent' : 'player';
+        const endedBondsActive = activeBonds(endedSide === 'player' ? state.player : state.opponent);
+        if (endedBondsActive.some(b => b.effect.kind === 'damage_at_end_turn')) {
+          const victim = activeSide; // damage hits the player whose turn just began
+          const before = victim === 'player' ? prev.hp.player : prev.hp.opponent;
+          const after = victim === 'player' ? fresh.hp.player : fresh.hp.opponent;
+          if (after < before) {
+            const key = victim === 'player' ? FACE_PLAYER : FACE_OPP;
+            // If a heal popup landed at the same key (rare — both sides could fire)
+            // sum into a net swing so the player sees one number, not two stacked.
+            bondPops[key] = (bondPops[key] ?? 0) + (before - after);
+          }
+        }
+        if (Object.keys(bondPops).length) {
+          setDamages(d => ({ ...d, ...bondPops }));
+          setTimeout(() => setDamages(d => {
+            const next = { ...d };
+            for (const id of Object.keys(bondPops)) delete next[id];
+            return next;
+          }), 1100);
+        }
+      }
+
       if (Object.keys(newTriggers).length) {
         setTriggers(t => ({ ...t, ...newTriggers }));
         setTimeout(() => setTriggers(t => {
@@ -811,7 +887,16 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
 
   // ============== Game over ==============
   if (state.outcome !== 'ongoing') {
-    return <MatchEnd outcome={state.outcome} boss={boss} onExit={onExit} />;
+    return (
+      <MatchEnd
+        outcome={state.outcome}
+        boss={boss}
+        playerHp={state.player.hp}
+        opponentHp={state.opponent.hp}
+        turnLimitReached={state.turnNumber > TURN_LIMIT}
+        onExit={onExit}
+      />
+    );
   }
 
   const bossElement = ELEMENTS[boss.themeId];
@@ -1496,6 +1581,89 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         );
       })()}
 
+      {/* Bond activation cinematic — when a bond first goes live, the two
+          bonded creatures briefly appear at center stage with a glowing
+          link icon between them and the bond name above. Auto-dismisses
+          after ~1.5s. Same yellow/dark color language as the persistent
+          pill so the player can map the cinematic → the chip that stays. */}
+      {bondCinematic && (() => {
+        const isPlayer = bondCinematic.side === 'player';
+        return (
+          <div
+            key={`bond-cine-${bondCinematic.bond.id}-${bondCinematic.side}`}
+            style={{
+              position: 'absolute', inset: 0,
+              display: 'grid', placeItems: 'center',
+              zIndex: 230,
+              pointerEvents: 'none',
+              background: 'rgba(0,0,0,.35)',
+              animation: 'fadeIn .25s ease-out',
+            }}
+          >
+            <div style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
+              animation: 'cardSummon .55s cubic-bezier(.2,.8,.3,1.3)',
+            }}>
+              <div style={{
+                background: isPlayer
+                  ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+                  : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
+                color: isPlayer ? '#3a2406' : '#ffe89a',
+                padding: '6px 14px', borderRadius: 14,
+                fontFamily: '"Fredoka", system-ui',
+                fontSize: 11, letterSpacing: '0.25em', fontWeight: 800,
+                boxShadow: isPlayer
+                  ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
+                  : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
+              }}>
+                BOND ACTIVATED
+              </div>
+              <div style={{
+                fontSize: 30, fontWeight: 800,
+                background: 'linear-gradient(180deg, #ff9f1c, #ee5a52)',
+                WebkitBackgroundClip: 'text', backgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                fontFamily: '"Fredoka", system-ui',
+                textShadow: '0 2px 0 rgba(255,255,255,.4)',
+                lineHeight: 1,
+              }}>
+                {bondCinematic.bond.name}
+              </div>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 18,
+                marginTop: 4,
+              }}>
+                <div style={{ animation: 'vsRevealLeft .55s cubic-bezier(.2,.8,.3,1)' }}>
+                  <Card card={bondCinematic.cardA} hovered scale={0.85} />
+                </div>
+                <div style={{
+                  width: 56, height: 56, borderRadius: '50%',
+                  background: 'radial-gradient(circle at 50% 40%, #fff8d8 0%, #ffd166 50%, #e8a93a 100%)',
+                  boxShadow: '0 0 22px rgba(244,208,74,.85), 0 0 0 3px #fff',
+                  display: 'grid', placeItems: 'center',
+                  color: '#a8530a',
+                  animation: 'attackReadyPulse 1.2s ease-in-out infinite',
+                }}>
+                  <Link2 size={28} strokeWidth={3} />
+                </div>
+                <div style={{ animation: 'vsRevealRight .55s cubic-bezier(.2,.8,.3,1)' }}>
+                  <Card card={bondCinematic.cardB} hovered scale={0.85} />
+                </div>
+              </div>
+              <div style={{
+                fontSize: 12, color: '#fff',
+                fontFamily: '"Fredoka", system-ui',
+                background: 'rgba(0,0,0,.55)',
+                padding: '6px 14px', borderRadius: 12,
+                marginTop: 6,
+              }}>
+                {bondCinematic.bond.description}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
           their turn and the boss's. */}
@@ -1887,7 +2055,7 @@ function BondPillStack({
                 : undefined,
             }}
           >
-            <Heart size={10} fill="currentColor" strokeWidth={0} />
+            <Link2 size={10} strokeWidth={3} />
             <span>{b.name}</span>
           </div>
         );
@@ -2039,7 +2207,7 @@ function StatusLabels({
     // "the heart is gold on the card" and "the bond row in the long-press
     // panel is highlighted gold."
     items.push({
-      icon: <Heart size={14} fill="#fff" strokeWidth={0} />,
+      icon: <Link2 size={14} strokeWidth={2.6} />,
       color: bondInfo.active ? '#e8a93a' : '#a89580',
       label: `Bond: ${bondInfo.name}`,
       hint: bondInfo.active
@@ -2379,9 +2547,14 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
   },
 };
 
-function MatchEnd({ outcome, boss, onExit }: {
+function MatchEnd({ outcome, boss, playerHp, opponentHp, turnLimitReached, onExit }: {
   outcome: 'win' | 'loss';
   boss: BossDef;
+  playerHp: number;
+  opponentHp: number;
+  /** True when the match ended because we hit TURN_LIMIT, not because
+   *  someone hit 0 HP. Drives the "why" sentence under the title. */
+  turnLimitReached: boolean;
   onExit: (o: 'win' | 'loss' | 'quit') => void;
 }) {
   const isWin = outcome === 'win';
@@ -2390,6 +2563,19 @@ function MatchEnd({ outcome, boss, onExit }: {
     line: isWin ? 'Well played.' : 'Better luck next time.',
   };
   const reward = isWin ? 75 : 20;
+  // Build a one-sentence reason so the player understands HOW the match
+  // ended — especially important for turn-limit losses where neither side
+  // hit 0 HP and the result reads as confusing without context.
+  const reason = (() => {
+    if (turnLimitReached) {
+      if (isWin) return `Turn limit reached — you outlasted ${boss.name} (${playerHp} HP vs ${opponentHp}).`;
+      if (playerHp === opponentHp) return `Turn limit reached — tied at ${playerHp} HP. Ties go to the boss.`;
+      return `Turn limit reached — ${boss.name} had more HP (${opponentHp} vs ${playerHp}).`;
+    }
+    if (playerHp <= 0 && opponentHp <= 0) return 'You both fell on the same turn — ties go to the boss.';
+    if (isWin) return `You took ${boss.name} down to 0 HP.`;
+    return `${boss.name} took you down to 0 HP.`;
+  })();
 
   // Single contrast-safe palette regardless of which boss we just played —
   // the old version used the boss's theme color for the background, so
@@ -2468,9 +2654,22 @@ function MatchEnd({ outcome, boss, onExit }: {
       }}>{dialogue.title}</div>
       <div style={{
         fontSize: 14, color: '#3a2e2a', fontStyle: 'italic',
-        marginBottom: 24, maxWidth: 320, lineHeight: 1.45,
+        marginBottom: 16, maxWidth: 320, lineHeight: 1.45,
       }}>
         “{dialogue.line}”
+      </div>
+
+      {/* Reason — the "why" of this outcome. Especially helpful on turn-
+          limit endings where neither side hit 0 HP. */}
+      <div style={{
+        fontSize: 12, color: '#6e5a52', fontWeight: 500,
+        marginBottom: 22, maxWidth: 320, lineHeight: 1.4,
+        padding: '8px 14px',
+        background: 'rgba(255,255,255,.55)',
+        borderRadius: 12,
+        border: '1px solid rgba(58,46,42,.08)',
+      }}>
+        {reason}
       </div>
 
       <div style={{
