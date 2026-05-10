@@ -89,6 +89,9 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
   /** Per-creature silence flash trigger — bumping the entry replays the
       gray flash + "SILENCED" text on that creature. */
   const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
+  /** Per-creature on-play trigger label ("DRAW +1", "AOE -2"). Pops above
+      the freshly summoned creature so its ability isn't silent. */
+  const [triggers, setTriggers] = useState<Record<string, string>>({});
   /** True while a tapped-Summon is mid-flight to the field. The preview
       replays a deploy keyframe and we delay the actual play so the card
       visibly travels from the preview position into the field slot. */
@@ -251,23 +254,51 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 
       // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
       // Per-turn draws are handled by the dedicated turn-change effect.
+      // We delay these by ~500ms so they fire AFTER the summon's slam +
+      // halo + dust on the source creature (otherwise the flight starts
+      // mid-summon and the player misses the cause).
       if (fresh.turnNumber === prev.turnNumber) {
         const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
         const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
+        const drawDelay = 500;
         for (let i = 0; i < playerDraws; i++) {
           setTimeout(() => {
             setDrawingFor('player');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 700);
-          }, i * 220);
+          }, drawDelay + i * 260);
         }
         for (let i = 0; i < oppDraws; i++) {
           setTimeout(() => {
             setDrawingFor('opponent');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 700);
-          }, i * 220);
+          }, drawDelay + i * 260);
         }
+      }
+
+      // On-play trigger banners — when a creature with an on-play ability
+      // appears on the field, surface "DRAW +N" / "AOE -N" / etc. floating
+      // up from the creature itself so the *cause* is unmistakable. Without
+      // this, Tio's bonus card felt like it materialized from nowhere.
+      const fieldsNow = [...state.player.field, ...state.opponent.field];
+      const newTriggers: Record<string, string> = {};
+      for (const c of fieldsNow) {
+        const wasOnField = prev.player.has(c.battleId) || prev.opponent.has(c.battleId);
+        if (wasOnField) continue;
+        if (c.abilityKind === 'draw_on_play' && c.abilityValue) {
+          newTriggers[c.battleId] = `DRAW +${c.abilityValue}`;
+        } else if (c.abilityKind === 'aoe_on_play' && c.abilityValue) {
+          newTriggers[c.battleId] = `AOE −${c.abilityValue}`;
+        }
+      }
+      if (Object.keys(newTriggers).length) {
+        setTriggers(t => ({ ...t, ...newTriggers }));
+        setTimeout(() => setTriggers(t => {
+          const next = { ...t };
+          for (const id of Object.keys(newTriggers)) delete next[id];
+          return next;
+        }), 1400);
       }
     }
     prevSnapRef.current = fresh;
@@ -736,6 +767,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           damages={damages}
           buffs={buffs}
           silencedAt={silencedAt}
+          triggers={triggers}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -857,6 +889,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
           damages={damages}
           buffs={buffs}
           silencedAt={silencedAt}
+          triggers={triggers}
           dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
@@ -1166,33 +1199,76 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
         );
       })()}
 
-      {/* Attack arrow — drawn from attacker center to defender center for the
-          length of the strike animation. Makes "who is hitting what" obvious. */}
+      {/* Attack FX — a glowing projectile arcs from attacker to defender,
+          a guide line traces behind it, a shockwave bursts on impact, and
+          if the defender is the player's face we flash a red vignette
+          around the screen edge so taking damage feels like *taking
+          damage* and not just a number changing. */}
       {arrow && (() => {
         const len = Math.hypot(arrow.x2 - arrow.x1, arrow.y2 - arrow.y1);
+        const isFaceTarget = combat?.defenderId === 'face';
+        const isPlayerFaceHit = isFaceTarget && combat?.defenderOwner === 'player';
         const lineStyle: React.CSSProperties & Record<string, string | number> = {
           strokeDasharray: len,
           animation: 'arrowDraw 0.7s ease-out forwards',
           ['--len' as string]: `${len}px`,
+          filter: 'drop-shadow(0 0 6px rgba(238,90,82,.8))',
+        };
+        // Projectile lives in stage-local CSS pixels via inline vars.
+        const projectileStyle: React.CSSProperties & Record<string, string | number> = {
+          position: 'absolute', top: 0, left: 0,
+          width: 26, height: 26, borderRadius: '50%',
+          background: 'radial-gradient(circle, #fff 0%, #ffd166 35%, #ee5a52 70%, transparent 100%)',
+          boxShadow: '0 0 18px rgba(238,90,82,.95), 0 0 36px rgba(238,90,82,.7)',
+          animation: 'attackProjectile .7s cubic-bezier(.3,.7,.4,1) forwards',
+          pointerEvents: 'none',
+          zIndex: 152,
+          ['--x0' as string]: `${arrow.x1 - 13}px`,
+          ['--y0' as string]: `${arrow.y1 - 13}px`,
+          ['--x1' as string]: `${arrow.x2 - 13}px`,
+          ['--y1' as string]: `${arrow.y2 - 13}px`,
         };
         return (
-          <svg style={{
-            position: 'absolute', inset: 0, width: '100%', height: '100%',
-            pointerEvents: 'none', zIndex: 150,
-          }}>
-            <defs>
-              <marker id="atkArrowhead" viewBox="0 0 10 10" refX="9" refY="5"
-                      markerWidth="5" markerHeight="5" orient="auto">
-                <path d="M 0 0 L 10 5 L 0 10 z" fill="#ee5a52" />
-              </marker>
-            </defs>
-            <line
-              x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2}
-              stroke="#ee5a52" strokeWidth={4} strokeLinecap="round"
-              markerEnd="url(#atkArrowhead)"
-              style={lineStyle}
-            />
-          </svg>
+          <>
+            <svg style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              pointerEvents: 'none', zIndex: 150,
+            }}>
+              <line
+                x1={arrow.x1} y1={arrow.y1} x2={arrow.x2} y2={arrow.y2}
+                stroke="#ee5a52" strokeWidth={5} strokeLinecap="round"
+                style={lineStyle}
+              />
+            </svg>
+
+            {/* Glowing projectile orb travelling along the line */}
+            <div style={projectileStyle} />
+
+            {/* Big shockwave at the impact point on arrival */}
+            <div style={{
+              position: 'absolute',
+              left: arrow.x2, top: arrow.y2,
+              width: 110, height: 110, borderRadius: '50%',
+              border: '4px solid rgba(255,209,102,.9)',
+              boxShadow: '0 0 30px rgba(255,158,90,.7), inset 0 0 20px rgba(238,90,82,.5)',
+              animation: 'attackShockwave .55s ease-out .35s forwards',
+              opacity: 0,
+              pointerEvents: 'none',
+              zIndex: 151,
+            }} />
+
+            {/* Red vignette around the screen when the player's face is hit */}
+            {isPlayerFaceHit && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                pointerEvents: 'none',
+                zIndex: 200,
+                background: 'radial-gradient(ellipse at center, transparent 40%, rgba(238,90,82,0) 55%, rgba(238,90,82,.55) 100%)',
+                animation: 'faceHitVignette .7s ease-out .35s forwards',
+                opacity: 0,
+              }} />
+            )}
+          </>
         );
       })()}
 
@@ -1458,7 +1534,7 @@ export function MatchBoard({ deck, boss, onExit }: Props) {
 const SLOTS_PER_ROW = 3;
 
 function FieldRow({
-  side, cards, combat, damages, buffs, silencedAt, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -1469,6 +1545,8 @@ function FieldRow({
   buffs: Record<string, { atk: number; hp: number }>;
   /** Per-creature silence trigger — bumping the value replays the flash. */
   silencedAt: Record<string, number>;
+  /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
+  triggers: Record<string, string>;
   dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
@@ -1521,6 +1599,7 @@ function FieldRow({
               damage={damages[c.battleId] ?? null}
               buff={buffs[c.battleId] ?? null}
               silencedAt={silencedAt[c.battleId] ?? null}
+              trigger={triggers[c.battleId] ?? null}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />

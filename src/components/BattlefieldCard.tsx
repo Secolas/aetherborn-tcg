@@ -27,6 +27,10 @@ interface Props {
   /** Silence trigger timestamp — when present, plays a gray flash + label
       to make the ability strip readable. */
   silencedAt?: number | null;
+  /** On-play trigger label (e.g. "DRAW +1", "AOE −2") — pops above the
+      creature for ~1.4s the moment it lands so the cause-of-effect is
+      visible, not just the effect. */
+  trigger?: string | null;
   highlight?: 'attack' | 'spell' | null;
   onClick?: () => void;
   onLongPress?: () => void;
@@ -36,7 +40,7 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, silencedAt, highlight,
+  buff, silencedAt, trigger, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -396,6 +400,31 @@ export function BattlefieldCard({
             SILENCED
           </div>
         </>
+      )}
+
+      {/* On-play trigger banner — yellow chip pops above the creature so
+          the cause of "where did this card / damage come from" is obvious
+          (e.g. summoning Tio shows DRAW +1 over Tio itself, not just an
+          unexplained card flying into the hand). */}
+      {trigger && (
+        <div
+          key={`trigger-${card.battleId}-${trigger}`}
+          style={{
+            position: 'absolute', top: -22, left: '50%',
+            background: 'linear-gradient(180deg, #ffe89a, #f4d04a)',
+            color: '#3a2406',
+            padding: '3px 8px', borderRadius: 8,
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.08em',
+            boxShadow: '0 0 0 2px rgba(255,255,255,.85), 0 0 12px rgba(244,208,74,.7), 0 3px 6px rgba(0,0,0,.3)',
+            fontFamily: '"Fredoka", system-ui',
+            whiteSpace: 'nowrap',
+            pointerEvents: 'none',
+            zIndex: 60,
+            animation: 'damagePopup 1.3s ease-out forwards',
+          }}
+        >
+          {trigger}
+        </div>
       )}
     </div>
   );

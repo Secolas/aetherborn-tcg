@@ -168,12 +168,41 @@ input {
   100% { transform: translate(14px, 22px) rotate(18deg); opacity: 0; }
 }
 
-/* Attack arrow — stroke draws from attacker to defender. */
+/* Attack arrow — stroke draws from attacker to defender. The arrowhead
+   marker would otherwise pop in immediately at the destination point;
+   we keep the line opacity 0 until the dashoffset starts collapsing so
+   the line + arrowhead read as one swooping motion, not "point appears,
+   then line catches up". */
 @keyframes arrowDraw {
   0%   { stroke-dashoffset: var(--len, 200); opacity: 0; }
-  20%  { opacity: 1; }
-  60%  { stroke-dashoffset: 0; opacity: 1; }
+  10%  { opacity: 0; }
+  15%  { opacity: 0.95; }
+  55%  { stroke-dashoffset: 0; opacity: 1; }
   100% { stroke-dashoffset: 0; opacity: 0; }
+}
+/* Projectile — small glowing orb that flies from attacker to defender
+   over the duration of the strike, leaving a trail behind it. The CSS
+   variables --x0/--y0/--x1/--y1 are set inline so a single keyframe
+   handles every attack direction. */
+@keyframes attackProjectile {
+  0%   { opacity: 0; transform: translate(var(--x0), var(--y0)) scale(0.4); }
+  15%  { opacity: 1; transform: translate(var(--x0), var(--y0)) scale(1.2); }
+  60%  { opacity: 1; transform: translate(var(--x1), var(--y1)) scale(1.3); }
+  100% { opacity: 0; transform: translate(var(--x1), var(--y1)) scale(2.4); }
+}
+/* Big impact shockwave at the defender on arrival — for face attacks
+   especially, the existing 60×60 burst was too small to read. */
+@keyframes attackShockwave {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  35%  { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
+}
+/* Red vignette flash around the screen edge when the PLAYER's face is
+   hit — sells "you took damage" without dimming the board. */
+@keyframes faceHitVignette {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* Turn banner — slides in from the left, holds, slides out to the right. */
