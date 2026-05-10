@@ -304,6 +304,13 @@ input {
   0%, 100% { transform: translateX(-2px); }
   50%      { transform: translateX(2px); }
 }
+/* Boss-deck marquee — endless horizontal scroll of the boss's 12 cards
+   on the picker page. We duplicate the card row inline and translate by
+   exactly -50% so the loop is seamless. Pure GPU transform = cheap. */
+@keyframes deckMarquee {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
 
 /* Summon dust — one-shot ring of light beneath a creature the moment it
    lands on the field, reinforcing the existing cardSlam keyframe. */

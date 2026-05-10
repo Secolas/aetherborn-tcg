@@ -2,9 +2,12 @@ import { useRef, useState } from 'react';
 import { ArrowLeft, Check, Coins, Flame, Skull, Swords, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BOSSES, type BossDef } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
+import { TEMPLATES } from '../data/templates';
+import { aiPhoto } from '../data/samplePhotos';
+import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { iconBtn, PALETTE } from '../components/styles';
-import type { Difficulty } from '../game/types';
+import type { CollectionCard, Difficulty } from '../game/types';
 import { difficultyProfile } from '../game/match';
 
 interface Props {
@@ -323,9 +326,15 @@ function BossPage({
         </div>
       </div>
 
-      {/* Spacer — push the playstyle + Start block toward the bottom so
-          the difficulty pills sit visually in the upper half. */}
-      <div style={{ flex: '1 0 auto', minHeight: 4 }} />
+      {/* Boss deck preview — a continuously scrolling marquee of all 12
+          cards the boss plays, using the same AI photos the engine will
+          show during the match. Fills the empty gap between difficulty
+          pills and the Start block, and gives the player something
+          concrete to recognise ("oh, she runs Abuela's Soup"). The
+          marquee is purely cosmetic; nothing to click. */}
+      <div style={{ flex: '1 0 auto', minHeight: 4, display: 'flex', alignItems: 'center' }}>
+        <BossDeckPreview boss={boss} />
+      </div>
 
       {/* Playstyle + Start block — visually grouped so the player reads
           "what this fight is about" right before tapping Start. Themed
@@ -377,6 +386,67 @@ function BossPage({
             +{reward}
           </span>
         </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Continuously-scrolling preview of the boss's deck. Renders all 12 cards
+ * the boss will play (using the same AI photos the match engine uses,
+ * with `photoOverrides` honoured) at small scale in a horizontal row that
+ * marquees right-to-left forever. Duplicated inline so the loop is
+ * seamless. Soft fade-edges hint that more cards exist off-screen.
+ */
+function BossDeckPreview({ boss }: { boss: BossDef }) {
+  // Resolve each deck template id into a CollectionCard the Card
+  // component can render. Memoise inline: this only recomputes when the
+  // boss object changes, which only happens when the player swipes.
+  const cards: CollectionCard[] = boss.deck.map((tid, i) => {
+    const tpl = TEMPLATES.find(t => t.id === tid);
+    if (!tpl) return null;
+    const photo = boss.photoOverrides?.[tid] ?? aiPhoto(tid);
+    const c: CollectionCard = {
+      ...tpl,
+      uid: `preview-${boss.id}-${i}`,
+      photo,
+      nickname: undefined,
+      isPlaceholder: true,
+    };
+    return c;
+  }).filter((c): c is CollectionCard => !!c);
+
+  if (cards.length === 0) return null;
+
+  // Slow scroll (~22s for the full cycle) so the player can actually
+  // read individual cards as they pass. Pauses on pointer hover so they
+  // can inspect anything that catches their eye.
+  const duration = 22;
+  const doubled = [...cards, ...cards];
+
+  return (
+    <div style={{
+      width: '100%',
+      position: 'relative',
+      overflow: 'hidden',
+      // Soft cream fade at the left + right edges so cards seem to drift
+      // in / out of view instead of hard-clipping at the container edge.
+      maskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+    }}>
+      <div style={{
+        display: 'flex',
+        gap: 8,
+        width: 'max-content',
+        animation: `deckMarquee ${duration}s linear infinite`,
+        willChange: 'transform',
+        padding: '6px 0',
+      }}>
+        {doubled.map((c, i) => (
+          <div key={`${c.uid}-${i}`} style={{ flex: '0 0 auto' }}>
+            <Card card={c} scale={0.32} />
+          </div>
+        ))}
       </div>
     </div>
   );
