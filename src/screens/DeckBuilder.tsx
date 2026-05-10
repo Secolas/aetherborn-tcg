@@ -164,39 +164,53 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
         Library · only summoned cards are playable
       </div>
 
-      {/* Filter chips — same set as Collection so the player can scan their
-          library by theme or by type when picking the 12 deck slots. */}
-      <div style={{
-        padding: '0 16px 10px',
-        display: 'flex', flexWrap: 'wrap', gap: 6,
-      }}>
+      {/* Filter chips — icon-only with count so all 7 fit on one row. */}
+      <div
+        className="no-scrollbar"
+        style={{
+          padding: '0 12px 10px',
+          display: 'flex', gap: 5,
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
+      >
         {FILTERS.map(f => {
           const count = countFor(f.id);
           const active = filter === f.id;
           const tint = active && f.themeId ? ELEMENTS[f.themeId].color : PALETTE.accent;
+          const isAll = f.id === 'All';
           return (
             <button
               key={f.id}
               onClick={() => setFilter(f.id)}
-              disabled={count === 0 && f.id !== 'All'}
+              disabled={count === 0 && !isAll}
+              aria-label={f.label}
+              title={f.label}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: '4px 9px',
+                padding: isAll ? '5px 10px' : '5px 8px',
                 borderRadius: 12,
                 fontSize: 11, fontWeight: 700,
                 background: active ? tint : '#fff',
-                color: active ? '#fff' : (count === 0 && f.id !== 'All' ? PALETTE.textMid : PALETTE.text),
-                opacity: count === 0 && f.id !== 'All' ? 0.45 : 1,
+                color: active ? '#fff' : (count === 0 && !isAll ? PALETTE.textMid : PALETTE.text),
+                opacity: count === 0 && !isAll ? 0.45 : 1,
                 border: active ? `1.5px solid ${tint}` : '1.5px solid rgba(58,46,42,.10)',
-                cursor: count === 0 && f.id !== 'All' ? 'default' : 'pointer',
+                cursor: count === 0 && !isAll ? 'default' : 'pointer',
                 fontFamily: 'inherit',
                 boxShadow: active ? `0 2px 8px ${tint}55` : '0 2px 6px rgba(58,46,42,.06)',
                 whiteSpace: 'nowrap',
+                flex: '0 0 auto',
               }}
             >
-              {f.icon}
-              <span>{f.label}</span>
-              <span style={{ opacity: 0.7, fontWeight: 600 }}>{count}</span>
+              {isAll
+                ? <span style={{ fontSize: 11, letterSpacing: '0.06em' }}>ALL</span>
+                : <span style={{ display: 'flex', alignItems: 'center' }}>{f.icon}</span>}
+              <span style={{
+                fontSize: 10, fontWeight: 700,
+                background: active ? 'rgba(255,255,255,.25)' : 'rgba(58,46,42,.08)',
+                color: active ? '#fff' : PALETTE.textMid,
+                padding: '1px 5px', borderRadius: 7,
+              }}>{count}</span>
             </button>
           );
         })}
