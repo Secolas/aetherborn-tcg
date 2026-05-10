@@ -85,16 +85,39 @@ function emptyPlayer(): PlayerState {
 
 /** All bonds whose two card-template ids are currently both on `p`'s field.
  *  Same-category invariant is baked into the bond definitions; we just check
- *  for presence. */
+ *  for presence. The UI shows every active bond (corner badge + pill stack),
+ *  but the *effects* hook through `dominantBondEffects` so two bonds with
+ *  the same effect kind don't double-up. */
 export function activeBonds(p: PlayerState): BondDef[] {
   const ids = new Set(p.field.map(c => c.id));
   return BONDS.filter(b => ids.has(b.cardA) && ids.has(b.cardB));
 }
 
-/** Returns true if `card` is one of the two creatures in any active bond
- *  whose effect is `kind`. Used by attack() for ATK / Rush / Taunt buffs. */
-function cardHasBondKind(p: PlayerState, card: BattleCard, kind: BondDef['effect']['kind']): BondDef | null {
+/** Effects-only view of active bonds — at most one bond per effect kind,
+ *  whichever has the highest `amount`. Prevents stacking edge cases like
+ *  Mom + Dad + Abuela firing both Sunday Dinner (+1) and Generations (+2)
+ *  for a combined +3 HP/turn. With this rule the player still gets +2 from
+ *  Generations; Sunday Dinner is shadowed but stays "active" in the UI for
+ *  consistency (the link badge still glows on Mom + Dad). Different effect
+ *  kinds (e.g. Reporting Line + Top Brass on the Work triple) DO stack
+ *  because they do different things. */
+function dominantBondEffects(p: PlayerState): BondDef[] {
+  const byKind = new Map<BondDef['effect']['kind'], BondDef>();
   for (const b of activeBonds(p)) {
+    const cur = byKind.get(b.effect.kind);
+    if (!cur || (b.effect.amount ?? 0) > (cur.effect.amount ?? 0)) {
+      byKind.set(b.effect.kind, b);
+    }
+  }
+  return [...byKind.values()];
+}
+
+/** Returns true if `card` is one of the two creatures in any active bond
+ *  whose effect is `kind`. Used by attack() for ATK / Rush / Taunt buffs.
+ *  Reads through dominantBondEffects so stat buffs respect the same
+ *  no-double-stack rule as triggered effects. */
+function cardHasBondKind(p: PlayerState, card: BattleCard, kind: BondDef['effect']['kind']): BondDef | null {
+  for (const b of dominantBondEffects(p)) {
     if (b.effect.kind !== kind) continue;
     if (card.id === b.cardA || card.id === b.cardB) return b;
   }
@@ -231,7 +254,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   });
 
   // Bond: heal_face_per_turn (Family — Sunday Dinner)
-  for (const b of activeBonds(me)) {
+  for (const b of dominantBondEffects(me)) {
     if (b.effect.kind === 'heal_face_per_turn' && b.effect.amount) {
       const before = me.hp;
       me.hp = Math.min(STARTING_HP, me.hp + b.effect.amount);
@@ -290,11 +313,22 @@ export function endTurn(prev: MatchState): MatchState {
   });
 
   // Bond: damage_at_end_turn (Travel — The Long Way). Fires at the end of
-  // the active player's turn against the enemy face.
-  for (const b of activeBonds(me)) {
+  // the active player's turn against the enemy face. dominantBondEffects
+  // ensures we don't double-fire if two same-kind bonds were ever added.
+  for (const b of dominantBondEffects(me)) {
     if (b.effect.kind === 'damage_at_end_turn' && b.effect.amount) {
       them.hp -= b.effect.amount;
       cleared.log.push(`Bond: ${b.name} pings the boss for ${b.effect.amount}`);
+    }
+    // Family — The Kids: top off a low hand at end of turn so a control
+    // family deck doesn't run dry.
+    if (b.effect.kind === 'draw_at_end_if_low_hand') {
+      if (me.hand.length < 3 && me.deck.length && me.hand.length < MAX_HAND) {
+        const c = me.deck.shift()!;
+        c.tapped = false;
+        me.hand.push(c);
+        cleared.log.push(`Bond: ${b.name} tops up your hand`);
+      }
     }
   }
   checkOutcome(cleared);
@@ -324,7 +358,8 @@ export type SpellTarget =
 export function effectiveCost(p: PlayerState, card: BattleCard): number {
   if (card.type !== 'Spell') return card.cost;
   let discount = 0;
-  for (const b of activeBonds(p)) {
+  // Only one cost-reduction bond at a time (whichever discounts more).
+  for (const b of dominantBondEffects(p)) {
     if (b.effect.kind === 'spell_cost_reduction') discount += b.effect.amount ?? 0;
   }
   return Math.max(1, card.cost - discount);
@@ -447,9 +482,10 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
 function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?: SpellTarget) {
   const me = side(state, owner);
   const them = side(state, opp(owner));
-  // Spell damage bonus from Top Brass (Senior Engineer + The Boss).
+  // Spell damage bonus from Top Brass (Senior Engineer + The Boss). One
+  // bonus at a time — same-kind shadowing rule.
   let spellBonus = 0;
-  for (const b of activeBonds(me)) {
+  for (const b of dominantBondEffects(me)) {
     if (b.effect.kind === 'spell_damage_bonus') spellBonus += b.effect.amount ?? 0;
   }
   const v = card.abilityValue ?? 0;
@@ -586,7 +622,7 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
 
   // Bond: First Class Window — when a bonded creature attacks, draw 1
   // (once per turn).
-  for (const b of activeBonds(me)) {
+  for (const b of dominantBondEffects(me)) {
     if (b.effect.kind !== 'draw_on_attack') continue;
     if (attacker.id !== b.cardA && attacker.id !== b.cardB) continue;
     me.bondFlags = me.bondFlags ?? {};

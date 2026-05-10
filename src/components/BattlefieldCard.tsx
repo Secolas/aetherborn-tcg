@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Heart } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Link2 } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -163,9 +163,9 @@ export function BattlefieldCard({
           background: `linear-gradient(180deg, ${tp.top}66 0%, transparent 30%, ${tp.deep}cc 100%)`,
         }} />
 
-        {/* Cost — pushed down when the TAUNT label is showing */}
+        {/* Cost — top-left orb */}
         <div style={{
-          position: 'absolute', top: isTaunt ? 14 : 4, left: 4,
+          position: 'absolute', top: 4, left: 4,
           minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8,
           background: '#fef4d8', color: tp.deep,
           fontSize: 10, fontWeight: 800,
@@ -174,22 +174,19 @@ export function BattlefieldCard({
           zIndex: 2,
         }}>{card.cost}</div>
 
-        {/* Status badges (top-right stack) — also pushed down when TAUNT shows */}
+        {/* Status badges (top-right stack). Every status — Taunt included —
+            renders here as a small circular pill. Standardized so the player
+            sees a consistent vocabulary: same shape, same size, same place,
+            different icon + color. */}
         <div style={{
-          position: 'absolute', top: isTaunt ? 14 : 4, right: 4,
+          position: 'absolute', top: 4, right: 4,
           display: 'flex', flexDirection: 'column', gap: 2,
           zIndex: 2,
         }}>
-          {/* Status pills — frozen, untargetable (spell-immune), sleeping. The
-              untargetable pill uses ShieldHalf rather than the lightning bolt
-              that previously shipped here; lightning read as "fast / electric"
-              instead of "spell-immune". */}
           {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {isTaunt && <StatusPill color="#3d8e57" icon={<Target size={10} strokeWidth={2.8} />} />}
           {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {/* Silence indicator — muted-speaker icon stays the entire turn
-              the creature's ability is stripped. Visually distinct from
-              the snowflake so freeze and silence don't blur together. */}
           {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
         </div>
 
@@ -232,24 +229,6 @@ export function BattlefieldCard({
           </>
         )}
 
-        {/* TAUNT label across the top — impossible to miss */}
-        {isTaunt && (
-          <div style={{
-            position: 'absolute', top: 0, left: 0, right: 0,
-            background: 'linear-gradient(180deg, #5ea863, #3d8e57)',
-            color: '#fff',
-            fontSize: 7.5, fontWeight: 800,
-            letterSpacing: '0.18em',
-            textAlign: 'center',
-            padding: '1.5px 4px',
-            textTransform: 'uppercase',
-            textShadow: '0 1px 1px rgba(0,0,0,.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
-            boxShadow: '0 1px 3px rgba(0,0,0,.25)',
-          }}>
-            <Target size={9} strokeWidth={2.6} /> Taunt
-          </div>
-        )}
       </div>
 
       {/* Death — red tint + bright diagonal slash. Plays before the card is
@@ -462,7 +441,7 @@ export function BattlefieldCard({
             pointerEvents: 'none',
           }}
         >
-          <Heart size={11} fill="currentColor" strokeWidth={0} />
+          <Link2 size={11} strokeWidth={3} />
         </div>
       )}
     </div>

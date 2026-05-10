@@ -19,7 +19,8 @@ export type BondEffectKind =
   | 'pack_atk_rush'
   | 'pair_taunt'
   | 'draw_on_attack'
-  | 'damage_at_end_turn';
+  | 'damage_at_end_turn'
+  | 'draw_at_end_if_low_hand';
 
 export interface BondDef {
   id: string;
@@ -49,6 +50,26 @@ export const BONDS: BondDef[] = [
     description: 'Heal +1 HP at the start of your turn.',
     flavor: 'Everyone showed up.',
     effect: { kind: 'heal_face_per_turn', amount: 1 },
+  },
+  {
+    id: 'generations',
+    name: 'Generations',
+    themeId: 'family',
+    cardA: 'fam-08', // Abuela
+    cardB: 'fam-05', // Mom
+    description: 'Heal +2 HP at the start of your turn.',
+    flavor: 'She raised the woman who raised you.',
+    effect: { kind: 'heal_face_per_turn', amount: 2 },
+  },
+  {
+    id: 'the-kids',
+    name: 'The Kids',
+    themeId: 'family',
+    cardA: 'fam-02', // Cousin
+    cardB: 'fam-07', // Older Sibling
+    description: 'Draw a card at end of your turn if your hand has fewer than 3.',
+    flavor: 'They always knew where the snacks were.',
+    effect: { kind: 'draw_at_end_if_low_hand' },
   },
 
   // ============================================================

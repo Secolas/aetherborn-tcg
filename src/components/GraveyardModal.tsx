@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { Card } from './Card';
 import type { BattleCard } from '../game/types';
@@ -13,11 +14,13 @@ interface Props {
 /**
  * Scrollable modal listing every card in a graveyard pile. Cards are shown
  * newest-first so the most recently used spell / killed creature is up top —
- * that's almost always the one the player wanted to look up.
+ * that's almost always the one the player wanted to look up. Tapping a card
+ * opens a centered preview at full readable scale so the player can re-read
+ * the ability text — graveyard tiles themselves are too small for that.
  */
 export function GraveyardModal({ cards, title, onClose }: Props) {
-  // Newest entries are appended in match.ts; reverse for display.
   const reversed = [...cards].reverse();
+  const [preview, setPreview] = useState<BattleCard | null>(null);
   return (
     <div
       onClick={onClose}
@@ -80,19 +83,52 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
             flex: 1, overflowY: 'auto',
             padding: '14px 12px',
             display: 'grid',
-            // Compact tiles so a typical match's graveyard (~10–14 cards)
-            // fits without scrolling on phone-size screens. Auto-fill keeps
-            // the grid responsive on tablet/desktop.
             gridTemplateColumns: 'repeat(auto-fill, minmax(78px, 1fr))',
             gap: 8,
             justifyItems: 'center',
           }}>
             {reversed.map((c) => (
-              <Card key={c.battleId} card={c} scale={0.34} />
+              <button
+                key={c.battleId}
+                onClick={() => setPreview(c)}
+                aria-label={`Preview ${c.nickname || c.name}`}
+                style={{
+                  background: 'transparent', border: 'none',
+                  padding: 0, cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'block',
+                }}
+              >
+                <Card card={c} scale={0.34} />
+              </button>
             ))}
           </div>
         )}
       </div>
+
+      {/* Preview overlay — centered card at readable scale. Tap anywhere
+          (including the dimmed backdrop) to dismiss. We stop propagation
+          on the card itself so a tap on the preview doesn't double-fire
+          the outer onClose. */}
+      {preview && (
+        <div
+          onClick={(e) => { e.stopPropagation(); setPreview(null); }}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(0,0,0,.7)',
+            zIndex: 260,
+            display: 'grid', placeItems: 'center',
+            animation: 'fadeIn .15s',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)' }}
+          >
+            <Card card={preview} hovered scale={1.05} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
