@@ -256,6 +256,7 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef, diffi
     turnNumber: 1,
     log: [`Match begins — ${first === 'player' ? 'you' : 'the boss'} go first`],
     outcome: 'ongoing',
+    difficulty,
   };
 }
 

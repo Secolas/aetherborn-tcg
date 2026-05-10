@@ -192,20 +192,32 @@ function BossCard({
           })}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.35 }}>
-            Boss starts at <strong style={{ color: PALETTE.text }}>{profile.bossHp} HP</strong>
-            {profile.bossStartMana > 1 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossStartMana - 1} mana</strong></> : null}
-            {profile.bossHand > 4 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossHand - 4} card</strong></> : null}
-          </div>
-          <div style={{
+        <div style={{ fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4, marginBottom: 6 }}>
+          {/* Stat boost line */}
+          Boss starts at <strong style={{ color: PALETTE.text }}>{profile.bossHp} HP</strong>
+          {profile.bossStartMana > 1 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossStartMana - 1} mana</strong></> : null}
+          {profile.bossHand > 4 ? <> · <strong style={{ color: PALETTE.text }}>+{profile.bossHand - 4} card</strong></> : null}
+        </div>
+        <div style={{
+          fontSize: 10, color: PALETTE.textMid, lineHeight: 1.4,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          {/* AI behavior line — what kind of opponent the player is
+              actually fighting at this tier. */}
+          <span style={{ flex: 1 }}>
+            {difficulty === 'normal' && <>Plays straightforward — best card, attack threats.</>}
+            {difficulty === 'hard' && <>Plays smart — saves spells, picks threats, refuses bad trades.</>}
+            {difficulty === 'mythic' && <>Plays brutal — completes its own bonds, breaks yours.</>}
+          </span>
+          <span style={{
             display: 'flex', alignItems: 'center', gap: 4,
             fontSize: 12, fontWeight: 800,
             color: '#e85d3c',
+            flex: '0 0 auto', marginLeft: 8,
           }}>
             <Coins size={14} fill="#ffd166" strokeWidth={2.2} />
             +{reward}
-          </div>
+          </span>
         </div>
       </div>
     </div>

@@ -122,6 +122,12 @@ export interface MatchState {
   turnNumber: number;
   log: string[];
   outcome: 'ongoing' | 'win' | 'loss';
+  /** Difficulty tier this match was created at. Read by the AI to scale
+      its decision-making — Normal plays the baseline heuristics, Hard
+      adds threat targeting + spell efficiency + smarter lethal, Mythic
+      additionally tries to complete its own bonds and break the
+      player's. */
+  difficulty: Difficulty;
 }
 
 /** Difficulty tier for a single match. Picked by the player on the boss
