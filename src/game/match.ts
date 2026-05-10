@@ -1,5 +1,6 @@
 import { TEMPLATES, getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
+import { BONDS, type BondDef } from './../data/bonds';
 import type { BossDef } from '../data/bosses';
 import type {
   BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
@@ -79,7 +80,38 @@ function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
 }
 
 function emptyPlayer(): PlayerState {
-  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [], fatigueCount: 0 };
+  return { hp: STARTING_HP, mana: 1, maxMana: 1, hand: [], field: [], deck: [], discard: [], fatigueCount: 0, bondFlags: {} };
+}
+
+/** All bonds whose two card-template ids are currently both on `p`'s field.
+ *  Same-category invariant is baked into the bond definitions; we just check
+ *  for presence. */
+export function activeBonds(p: PlayerState): BondDef[] {
+  const ids = new Set(p.field.map(c => c.id));
+  return BONDS.filter(b => ids.has(b.cardA) && ids.has(b.cardB));
+}
+
+/** Returns true if `card` is one of the two creatures in any active bond
+ *  whose effect is `kind`. Used by attack() for ATK / Rush / Taunt buffs. */
+function cardHasBondKind(p: PlayerState, card: BattleCard, kind: BondDef['effect']['kind']): BondDef | null {
+  for (const b of activeBonds(p)) {
+    if (b.effect.kind !== kind) continue;
+    if (card.id === b.cardA || card.id === b.cardB) return b;
+  }
+  return null;
+}
+
+/** Effective ATK for a creature in combat — includes pack_atk_rush bonus. */
+function effectiveAtk(p: PlayerState, card: BattleCard): number {
+  const bond = cardHasBondKind(p, card, 'pack_atk_rush');
+  return card.currentAtk + (bond?.effect.amount ?? 0);
+}
+
+/** Whether `card` should count as Taunt right now. Either intrinsic taunt or
+ *  granted by the House Pets bond. */
+function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
+  if (card.abilityKind === 'taunt') return true;
+  return cardHasBondKind(p, card, 'pair_taunt') !== null;
 }
 
 export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
@@ -151,6 +183,9 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   state.turnNumber += 1;
   const me = side(state, owner);
 
+  // Reset per-turn bond flags (e.g. First Class Window's "draw once per turn").
+  me.bondFlags = {};
+
   // Mana ramp
   me.maxMana = Math.min(MAX_MANA, me.maxMana + 1);
   me.mana = me.maxMana;
@@ -191,6 +226,17 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     }
   });
 
+  // Bond: heal_face_per_turn (Family — Sunday Dinner)
+  for (const b of activeBonds(me)) {
+    if (b.effect.kind === 'heal_face_per_turn' && b.effect.amount) {
+      const before = me.hp;
+      me.hp = Math.min(STARTING_HP, me.hp + b.effect.amount);
+      if (me.hp > before) {
+        state.log.push(`Bond: ${b.name} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${me.hp - before}`);
+      }
+    }
+  }
+
   // Draw — escalating fatigue when the deck runs out, so games can't drag
   // forever even if both sides are healing. First fatigue = 1 dmg, second = 2,
   // third = 3, etc.
@@ -222,7 +268,9 @@ export function endTurn(prev: MatchState): MatchState {
   // creature is locked. By the time the opponent's beginTurn fires the
   // status icons are gone and the original ability is restored.
   const cleared = clone(prev);
-  side(cleared, cleared.turn).field.forEach(c => {
+  const me = side(cleared, cleared.turn);
+  const them = side(cleared, opp(cleared.turn));
+  me.field.forEach(c => {
     if (c.frozen) {
       c.frozen = false;
       c.frozenUntilTurn = undefined;
@@ -236,6 +284,18 @@ export function endTurn(prev: MatchState): MatchState {
       c.originalAbility = undefined;
     }
   });
+
+  // Bond: damage_at_end_turn (Travel — The Long Way). Fires at the end of
+  // the active player's turn against the enemy face.
+  for (const b of activeBonds(me)) {
+    if (b.effect.kind === 'damage_at_end_turn' && b.effect.amount) {
+      them.hp -= b.effect.amount;
+      cleared.log.push(`Bond: ${b.name} pings the boss for ${b.effect.amount}`);
+    }
+  }
+  checkOutcome(cleared);
+  if (cleared.outcome !== 'ongoing') return cleared;
+
   return beginTurn(cleared, opp(cleared.turn));
 }
 
@@ -254,6 +314,18 @@ export type SpellTarget =
   | { kind: 'face'; owner: Owner }
   | { kind: 'creature'; owner: Owner; battleId: string };
 
+/** Effective cost of a card given the player's currently active bonds.
+ *  Spells get a discount from `spell_cost_reduction` bonds (e.g. Reporting
+ *  Line). Floor of 1. */
+export function effectiveCost(p: PlayerState, card: BattleCard): number {
+  if (card.type !== 'Spell') return card.cost;
+  let discount = 0;
+  for (const b of activeBonds(p)) {
+    if (b.effect.kind === 'spell_cost_reduction') discount += b.effect.amount ?? 0;
+  }
+  return Math.max(1, card.cost - discount);
+}
+
 export function playCard(prev: MatchState, owner: Owner, battleId: string, target?: SpellTarget): PlayResult {
   const state = clone(prev);
   const me = side(state, owner);
@@ -261,16 +333,30 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
   const idx = me.hand.findIndex(c => c.battleId === battleId);
   if (idx < 0) return { state: prev, ok: false, reason: 'Not in hand' };
   const card = me.hand[idx];
-  if (card.cost > me.mana) return { state: prev, ok: false, reason: 'Not enough mana' };
+  const cost = effectiveCost(me, card);
+  if (cost > me.mana) return { state: prev, ok: false, reason: 'Not enough mana' };
 
   if (card.type === 'Creature') {
     if (me.field.length >= MAX_FIELD) return { state: prev, ok: false, reason: 'Field is full' };
-    me.mana -= card.cost;
+    me.mana -= cost;
     me.hand.splice(idx, 1);
-    card.justPlayed = card.abilityKind !== 'rush';
-    card.tapped = card.abilityKind !== 'rush'; // rush creatures can attack
+    // Pack bond grants Rush — if this creature is part of an active pack
+    // bond as soon as it lands, it can attack the same turn.
     me.field.push(card);
+    const packsRush = cardHasBondKind(me, card, 'pack_atk_rush') !== null;
+    const hasRush = card.abilityKind === 'rush' || packsRush;
+    card.justPlayed = !hasRush;
+    card.tapped = !hasRush;
     state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} summon ${displayName(card)}`);
+    // The partner creature might also now gain Rush (it landed earlier and
+    // is currently sleeping). Wake it up.
+    if (packsRush) {
+      me.field.forEach(c => {
+        if (c.battleId !== card.battleId && cardHasBondKind(me, c, 'pack_atk_rush')) {
+          if (c.justPlayed) { c.justPlayed = false; c.tapped = false; }
+        }
+      });
+    }
 
     // On-play triggers
     resolveOnPlay(state, owner, card);
@@ -279,7 +365,7 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
     if (!isValidSpellTarget(state, owner, card, target)) {
       return { state: prev, ok: false, reason: 'Invalid target' };
     }
-    me.mana -= card.cost;
+    me.mana -= cost;
     me.hand.splice(idx, 1);
     state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} cast ${displayName(card)}`);
     resolveSpell(state, owner, card, target);
@@ -357,17 +443,23 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
 function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?: SpellTarget) {
   const me = side(state, owner);
   const them = side(state, opp(owner));
+  // Spell damage bonus from Top Brass (Senior Engineer + The Boss).
+  let spellBonus = 0;
+  for (const b of activeBonds(me)) {
+    if (b.effect.kind === 'spell_damage_bonus') spellBonus += b.effect.amount ?? 0;
+  }
   const v = card.abilityValue ?? 0;
 
   if (card.abilityKind === 'spell_damage' && target) {
+    const dmg = v + spellBonus;
     if (target.kind === 'face') {
       const t = side(state, target.owner);
-      t.hp -= v;
+      t.hp -= dmg;
     } else {
       const t = side(state, target.owner);
       const c = t.field.find(x => x.battleId === target.battleId);
       if (c) {
-        c.currentHp -= v;
+        c.currentHp -= dmg;
         cleanField(t);
       }
     }
@@ -455,31 +547,54 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
   if (!attacker) return { state: prev, ok: false, reason: 'No attacker' };
   if (attacker.tapped || attacker.justPlayed) return { state: prev, ok: false, reason: 'Cannot attack yet' };
 
-  // Taunt rule: if any taunters on enemy, must attack one of them
-  const taunters = them.field.filter(c => c.abilityKind === 'taunt');
+  // Taunt rule: intrinsic Taunt + House Pets bond Taunt both count.
+  const taunters = them.field.filter(c => effectiveTaunt(them, c));
   if (target.kind === 'face' && taunters.length > 0) {
     return { state: prev, ok: false, reason: 'Must attack taunt first' };
   }
   if (target.kind === 'creature' && taunters.length > 0) {
     const targetCreature = them.field.find(c => c.battleId === target.battleId);
-    if (targetCreature && targetCreature.abilityKind !== 'taunt') {
+    if (targetCreature && !effectiveTaunt(them, targetCreature)) {
       return { state: prev, ok: false, reason: 'Must attack taunt first' };
     }
   }
 
+  // Pack bond: attacker's effective ATK gets a +N bonus while both bonded
+  // creatures are on the field. Defender's counter uses *their* effective
+  // ATK (also potentially bond-boosted on the opposing side).
+  const atkValue = effectiveAtk(me, attacker);
+
   if (target.kind === 'face') {
-    them.hp -= attacker.currentAtk;
-    state.log.push(`${displayName(attacker)} hits face for ${attacker.currentAtk}`);
+    them.hp -= atkValue;
+    state.log.push(`${displayName(attacker)} hits face for ${atkValue}`);
     attacker.tapped = true;
   } else {
     const defender = them.field.find(c => c.battleId === target.battleId);
     if (!defender) return { state: prev, ok: false, reason: 'No defender' };
-    defender.currentHp -= attacker.currentAtk;
-    attacker.currentHp -= defender.currentAtk;
+    const defValue = effectiveAtk(them, defender);
+    defender.currentHp -= atkValue;
+    attacker.currentHp -= defValue;
     state.log.push(`${displayName(attacker)} ⚔ ${displayName(defender)}`);
     attacker.tapped = true;
     cleanField(me);
     cleanField(them);
+  }
+
+  // Bond: First Class Window — when a bonded creature attacks, draw 1
+  // (once per turn).
+  for (const b of activeBonds(me)) {
+    if (b.effect.kind !== 'draw_on_attack') continue;
+    if (attacker.id !== b.cardA && attacker.id !== b.cardB) continue;
+    me.bondFlags = me.bondFlags ?? {};
+    if (me.bondFlags[b.id]) break;
+    me.bondFlags[b.id] = true;
+    if (me.deck.length && me.hand.length < MAX_HAND) {
+      const c = me.deck.shift()!;
+      c.tapped = false;
+      me.hand.push(c);
+      state.log.push(`Bond: ${b.name} draws a card`);
+    }
+    break;
   }
 
   checkOutcome(state);

@@ -1,5 +1,5 @@
 import {
-  attack, playCard, readyAttackers, displayName,
+  attack, playCard, readyAttackers, displayName, effectiveCost,
   type AttackTarget, type SpellTarget,
 } from './match';
 import type { BattleCard, MatchState, Owner } from './types';
@@ -43,9 +43,11 @@ export function aiStep(state: MatchState): AiStepResult | null {
   const lethal = findLethal(state);
   if (lethal) return lethal;
 
-  // 2. Play the best card we can afford
+  // 2. Play the best card we can afford. Use effectiveCost so the AI sees
+  // bond-driven spell discounts (e.g. Reporting Line) the same way the
+  // player does.
   const playable = me.hand
-    .filter(c => c.cost <= me.mana)
+    .filter(c => effectiveCost(me, c) <= me.mana)
     .sort((a, b) => scoreCard(b, state) - scoreCard(a, state));
 
   for (const card of playable) {
