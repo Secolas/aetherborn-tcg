@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
@@ -9,9 +9,23 @@ interface Props {
   save: SaveData;
   onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album') => void;
   onQuickFill: () => void;
+  onSetAvatar: (dataUrl: string | undefined) => void;
 }
 
-export function HomeMenu({ save, onNav, onQuickFill }: Props) {
+export function HomeMenu({ save, onNav, onQuickFill, onSetAvatar }: Props) {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result;
+      if (typeof dataUrl === 'string') onSetAvatar(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    // reset so picking the same file twice still fires
+    e.target.value = '';
+  };
   const dormant = TEMPLATES.find(t => t.id === 'fam-11')!; // Dad — iconic
   const playableInDeck = save.deckUids.filter(uid => {
     const c = save.collection.find(x => x.uid === uid);
@@ -77,14 +91,37 @@ export function HomeMenu({ save, onNav, onQuickFill }: Props) {
         position: 'relative', zIndex: 2,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%',
-            background: 'linear-gradient(135deg, #ff9f1c, #ee5a52)',
-            display: 'grid', placeItems: 'center',
-            fontSize: 18, fontWeight: 700,
-            color: '#fff',
-            boxShadow: '0 4px 10px rgba(238, 90, 82, .35)',
-          }}>Y</div>
+          {/* Tap-to-upload player avatar — falls back to a "Y" letter on
+              the orange gradient when no photo has been chosen. */}
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            onChange={handleAvatarUpload}
+            style={{ display: 'none' }}
+            aria-label="Upload avatar"
+          />
+          <button
+            onClick={() => fileRef.current?.click()}
+            style={{
+              width: 40, height: 40, borderRadius: '50%',
+              background: save.playerAvatar
+                ? `url(${save.playerAvatar}) center/cover`
+                : 'linear-gradient(135deg, #ff9f1c, #ee5a52)',
+              display: 'grid', placeItems: 'center',
+              fontSize: 18, fontWeight: 700,
+              color: '#fff',
+              boxShadow: '0 4px 10px rgba(238, 90, 82, .35), inset 0 0 0 2px rgba(255,255,255,.5)',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              fontFamily: 'inherit',
+            }}
+            aria-label={save.playerAvatar ? 'Change avatar' : 'Upload avatar'}
+            title={save.playerAvatar ? 'Tap to change avatar' : 'Tap to upload your avatar'}
+          >
+            {!save.playerAvatar && 'Y'}
+          </button>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>You</div>
             <div style={{ fontSize: 10, letterSpacing: '0.05em', color: PALETTE.textMid, marginTop: 1 }}>
