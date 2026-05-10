@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles } from 'lucide-react';
 import { Card } from '../components/Card';
-import { ELEMENTS } from '../data/elements';
+import { ELEMENTS, TYPE_PALETTE } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import type { CollectionCard, ElementId } from '../game/types';
 
@@ -32,9 +32,9 @@ interface Props {
 }
 
 export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
-  /** Big = 2-column for full card detail; Compact = 4-column smaller cards
-      so you can scan a large library when picking your deck. */
-  const [layout, setLayout] = useState<'big' | 'compact'>('big');
+  /** Compact = 4-column smaller cards (default — scans a large library
+      faster when picking the 12 deck slots); Big = 2-column for detail. */
+  const [layout, setLayout] = useState<'big' | 'compact'>('compact');
   const [filter, setFilter] = useState<Filter>('All');
 
   const filtered = collection.filter(c => {
@@ -229,13 +229,17 @@ export function DeckBuilder({ collection, deckUids, onChange, onBack }: Props) {
 }
 
 function DeckChip({ card, onRemove }: { card: CollectionCard; onRemove: () => void }) {
+  // Active-deck chips are tinted by TYPE rather than theme so the player
+  // can see at a glance how creature- vs spell-heavy their deck is.
+  // Green = creature, violet = spell — same palette the actual cards use.
+  const tp = TYPE_PALETTE[card.type === 'Spell' ? 'Spell' : 'Creature'];
   const e = ELEMENTS[card.el];
   return (
     <div onClick={onRemove} style={{
       width: 50, height: 68,
       borderRadius: 8,
-      background: card.photo ? `url(${card.photo}) center/cover, ${e.color}` : e.color,
-      boxShadow: `inset 0 0 0 1.5px ${e.glow}, 0 2px 6px rgba(0,0,0,.3)`,
+      background: card.photo ? `url(${card.photo}) center/cover, ${tp.top}` : tp.top,
+      boxShadow: `inset 0 0 0 2px ${tp.deep}, 0 2px 6px rgba(0,0,0,.3)`,
       position: 'relative',
       cursor: 'pointer',
       flex: '0 0 auto',
@@ -243,13 +247,22 @@ function DeckChip({ card, onRemove }: { card: CollectionCard; onRemove: () => vo
       <div style={{
         position: 'absolute', top: 2, left: 2,
         width: 14, height: 14, borderRadius: '50%',
-        background: '#fef4d8', color: e.deep,
+        background: '#fef4d8', color: tp.deep,
         fontSize: 9, fontWeight: 700,
         display: 'grid', placeItems: 'center',
       }}>{card.cost}</div>
+      {/* Tiny element glyph in the top-right so the theme is still
+          identifiable (Family / Work / Animals / Travel) — type drives the
+          big color, theme drives this little corner pip. */}
+      <div style={{
+        position: 'absolute', top: 2, right: 2,
+        width: 10, height: 10, borderRadius: '50%',
+        background: e.color,
+        boxShadow: '0 0 0 1px rgba(0,0,0,.2)',
+      }} />
       <div style={{
         position: 'absolute', bottom: 0, left: 0, right: 0,
-        background: `linear-gradient(0deg, ${e.deep}ee, transparent)`,
+        background: `linear-gradient(0deg, ${tp.deep}ee, transparent)`,
         padding: '8px 3px 3px',
         fontSize: 7, fontWeight: 700,
         color: '#fff', textAlign: 'center',
