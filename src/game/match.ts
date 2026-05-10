@@ -4,7 +4,30 @@ import { BONDS, type BondDef } from './../data/bonds';
 import type { BossDef } from '../data/bosses';
 import type {
   BattleCard, CollectionCard, MatchState, Owner, PlayerState, CardTemplate, AbilityKind,
+  Difficulty,
 } from './types';
+
+/**
+ * Per-difficulty tweaks applied to the BOSS's starting state. Higher
+ * tiers give the boss more HP, a bigger opening hand, and a head-start on
+ * mana — same deck, harder fight. Player stats are unchanged so the
+ * difficulty curve is purely about how much the AI can throw at you.
+ */
+const DIFFICULTY_PROFILE: Record<Difficulty, {
+  bossHp: number;
+  bossHand: number;
+  bossStartMana: number;
+  /** Multiplier on `boss.rewardCoins`. Same shape used in App.tsx for
+   *  the post-match payout. */
+  rewardMult: number;
+  label: string;
+}> = {
+  normal: { bossHp: 20, bossHand: 4, bossStartMana: 1, rewardMult: 1.0, label: 'Normal' },
+  hard:   { bossHp: 25, bossHand: 5, bossStartMana: 1, rewardMult: 1.5, label: 'Hard' },
+  mythic: { bossHp: 30, bossHand: 5, bossStartMana: 2, rewardMult: 2.0, label: 'Mythic' },
+};
+
+export function difficultyProfile(d: Difficulty) { return DIFFICULTY_PROFILE[d]; }
 
 export const STARTING_HP = 20;
 export const STARTING_HAND = 4;
@@ -187,7 +210,8 @@ function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
   return cardHasBondKind(p, card, 'pair_taunt') !== null;
 }
 
-export function createMatch(playerCards: CollectionCard[], boss?: BossDef): MatchState {
+export function createMatch(playerCards: CollectionCard[], boss?: BossDef, difficulty: Difficulty = 'normal'): MatchState {
+  const profile = DIFFICULTY_PROFILE[difficulty];
   const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
   let oppDeck = shuffle(buildOpponentDeck(boss)).map(toBattleCard);
 
@@ -201,6 +225,11 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef): Matc
 
   const player = emptyPlayer();
   const opponent = emptyPlayer();
+  // Difficulty boosts only the boss — extra HP, fatter opening hand,
+  // optional mana head-start. Player stays on the standard ramp.
+  opponent.hp = profile.bossHp;
+  opponent.maxMana = profile.bossStartMana;
+  opponent.mana = profile.bossStartMana;
 
   // Initial draw
   for (let i = 0; i < STARTING_HAND && playerDeck.length; i++) {
@@ -208,7 +237,7 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef): Matc
     c.tapped = false;
     player.hand.push(c);
   }
-  for (let i = 0; i < STARTING_HAND && oppDeck.length; i++) {
+  for (let i = 0; i < profile.bossHand && oppDeck.length; i++) {
     const c = oppDeck.shift()!;
     c.tapped = false;
     opponent.hand.push(c);

@@ -13,7 +13,8 @@ import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
 import type { BossDef } from './data/bosses';
-import type { CollectionCard, SaveData } from './game/types';
+import type { CollectionCard, SaveData, Difficulty } from './game/types';
+import { difficultyProfile } from './game/match';
 import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings';
 import { unlockAudio } from './audio/sfx';
 
@@ -41,6 +42,7 @@ export default function App() {
   const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
+  const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('normal');
 
   // Browsers require a user gesture before AudioContext can play. Unlock on
   // the first pointerdown anywhere in the app, then detach.
@@ -146,22 +148,39 @@ export default function App() {
     setSave(s => ({ ...s, deckUids: uids }));
   };
 
-  const onPickBoss = (boss: BossDef) => {
+  const onPickBoss = (boss: BossDef, difficulty: Difficulty) => {
     setActiveBoss(boss);
+    setActiveDifficulty(difficulty);
     setScreen('match');
   };
 
   const onMatchExit = (outcome: 'win' | 'loss' | 'quit') => {
     const boss = activeBoss;
+    const difficulty = activeDifficulty;
     if (outcome === 'win') {
       setSave(s => {
         const firstTime = boss && !s.bossesDefeated.includes(boss.id);
-        const bonus = firstTime ? boss.rewardCoins : 0;
+        const mult = difficultyProfile(difficulty).rewardMult;
+        // First-time bonus respects the difficulty multiplier — beating
+        // Mom on Mythic should pay better than beating her on Normal.
+        const bonus = firstTime ? Math.round(boss.rewardCoins * mult) : 0;
+        const winReward = Math.round(MATCH_WIN_REWARD * mult);
+        // Track highest difficulty cleared per boss so the picker can
+        // surface a "beaten on Hard" badge later.
+        const beaten = { ...(s.bossesBeatenAt ?? {}) };
+        if (boss) {
+          const order: Difficulty[] = ['normal', 'hard', 'mythic'];
+          const prev = beaten[boss.id];
+          if (!prev || order.indexOf(difficulty) > order.indexOf(prev)) {
+            beaten[boss.id] = difficulty;
+          }
+        }
         return {
           ...s,
-          coins: s.coins + MATCH_WIN_REWARD + bonus,
+          coins: s.coins + winReward + bonus,
           matchesWon: s.matchesWon + 1,
           bossesDefeated: firstTime ? [...s.bossesDefeated, boss.id] : s.bossesDefeated,
+          bossesBeatenAt: beaten,
         };
       });
     } else if (outcome === 'loss') {
@@ -237,6 +256,7 @@ export default function App() {
       {screen === 'boss-picker' && (
         <BossPicker
           defeatedIds={save.bossesDefeated}
+          beatenAt={save.bossesBeatenAt ?? {}}
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
         />
@@ -245,6 +265,7 @@ export default function App() {
         <MatchBoard
           deck={matchDeck}
           boss={activeBoss}
+          difficulty={activeDifficulty}
           playerAvatar={save.playerAvatar}
           settings={settings}
           onBondDiscovered={(id) => setSave(s => {

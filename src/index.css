@@ -297,6 +297,13 @@ input {
   30%  { transform: scale(1.18); box-shadow: 0 0 28px #3a8fc4, 0 4px 10px rgba(58,46,42,.12); }
   100% { transform: scale(1); box-shadow: 0 4px 10px rgba(58,46,42,.12); }
 }
+/* Mana liquid surface — slow horizontal wobble at the meniscus so the
+   liquid in the vial reads as alive between turns. Cheap (transform-only,
+   GPU-friendly) and infinite so it just plays in the background. */
+@keyframes manaWave {
+  0%, 100% { transform: translateX(-2px); }
+  50%      { transform: translateX(2px); }
+}
 
 /* Summon dust — one-shot ring of light beneath a creature the moment it
    lands on the field, reinforcing the existing cardSlam keyframe. */

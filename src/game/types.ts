@@ -124,6 +124,10 @@ export interface MatchState {
   outcome: 'ongoing' | 'win' | 'loss';
 }
 
+/** Difficulty tier for a single match. Picked by the player on the boss
+ *  picker; scales the boss's starting HP / hand / mana and the coin reward. */
+export type Difficulty = 'normal' | 'hard' | 'mythic';
+
 export interface SaveData {
   version: number;
   collection: CollectionCard[];
@@ -139,4 +143,8 @@ export interface SaveData {
   /** Bond ids the player has triggered at least once. Used by the Album to
       reveal locked bonds as they're discovered through play. */
   discoveredBonds?: string[];
+  /** Per-boss highest difficulty tier the player has *defeated*. Surfaces
+      on the boss picker as a small medal. Bosses not yet beaten on Normal
+      have no entry. */
+  bossesBeatenAt?: Record<string, Difficulty>;
 }

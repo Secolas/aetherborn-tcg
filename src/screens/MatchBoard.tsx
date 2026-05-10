@@ -17,13 +17,17 @@ import { ELEMENTS } from '../data/elements';
 import { BONDS } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
 import type { BossDef } from '../data/bosses';
-import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState } from '../game/types';
+import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState, Difficulty } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 
 interface Props {
   deck: CollectionCard[];
   boss: BossDef;
+  /** Difficulty tier the player chose on the boss picker. Drives the
+   *  boss's starting HP / hand / mana inside createMatch. Defaults to
+   *  Normal so existing callsites without an explicit pick still work. */
+  difficulty?: Difficulty;
   /** Optional uploaded player photo (data URL). When set, the player
       portrait shows this image; otherwise it falls back to the "Y" letter. */
   playerAvatar?: string;
@@ -57,14 +61,14 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   /** Fire an SFX cue at the user's chosen volume — no-op if muted. */
   const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, settingsRef.current.sfxVolume);
-  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss));
+  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss, difficulty));
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
   const [selectedHandIdx, setSelectedHandIdx] = useState<number | null>(null);
@@ -937,8 +941,12 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
       onDragStart={(e) => e.preventDefault()}
       style={{
         width: '100%', height: '100%',
+        // Tinted base gradient by boss element so each fight has a slightly
+        // different ambient hue. Specific scene comes from the backdrop
+        // image layer below; this gradient is the bedrock.
         background: `
-          radial-gradient(ellipse at 50% 50%, #fef3e0 0%, #ffe0bf 50%, #f8c89c 100%)
+          radial-gradient(ellipse at 50% 50%, #fef3e0 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
+          linear-gradient(180deg, #fef3e0 0%, #ffe0bf 60%, #f8c89c 100%)
         `,
         position: 'relative', overflow: 'hidden',
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
@@ -952,6 +960,39 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         display: 'flex', flexDirection: 'column',
       }}
     >
+      {/* Themed boss backdrop — heavily blurred + de-saturated photo of
+          where this duel is happening. Sits behind everything else (zIndex
+          0) and never catches pointer events. Falls back to nothing when
+          the boss has no `backdrop` defined — the base gradient still
+          carries the theme tint. */}
+      {boss.backdrop && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: `url(${boss.backdrop})`,
+          backgroundSize: 'cover', backgroundPosition: 'center',
+          filter: 'blur(14px) saturate(0.7) brightness(1.05)',
+          opacity: 0.32,
+          zIndex: 0,
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {/* Stage texture — a faint repeating grid + radial vignette suggesting
+          a duel mat under the field. Pure CSS, no image asset, very low
+          contrast so it never competes with cards. Sits above the backdrop
+          but below all gameplay content. */}
+      <div style={{
+        position: 'absolute', inset: 0,
+        backgroundImage: `
+          radial-gradient(ellipse at 50% 50%, transparent 30%, rgba(58,46,42,.10) 100%),
+          repeating-linear-gradient(0deg, rgba(58,46,42,.035) 0 1px, transparent 1px 8px),
+          repeating-linear-gradient(90deg, rgba(58,46,42,.025) 0 1px, transparent 1px 16px)
+        `,
+        zIndex: 0,
+        pointerEvents: 'none',
+        mixBlendMode: 'multiply',
+      }} />
+
       {/* Pre-match coin flip — runs once at mount, then unblocks the rest of
           the game. The actual first-turn decision lives in createMatch; this
           is just the cosmetic reveal. */}
@@ -2584,27 +2625,53 @@ function DeckChip({ count, handSize }: { count: number; handSize: number }) {
 }
 
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
-  // Compact "5 / 7" pill plus a single decorative crystal so the chip stays
-  // a fixed width regardless of how much mana the player has. The chip
-  // remounts on every pulseKey change, replaying the manaGain keyframe so
-  // the player can see the mana ramp at the start of their turn.
+  // Compact "5 / 7" pill with a vertical "vial" showing the actual fill
+  // level as a rising liquid. A CSS height transition handles the fill
+  // animation when mana changes; a wave overlay at the meniscus keeps the
+  // surface alive between turns. The chip remounts on every pulseKey
+  // change so the manaGain pop replays at the start of the player's turn.
+  const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;
   return (
     <div
       key={pulseKey}
       style={{
-      display: 'flex', alignItems: 'center', gap: 5,
-      background: '#fff',
-      padding: '5px 10px', borderRadius: 14,
-      boxShadow: '0 4px 10px rgba(58,46,42,.12)',
-      fontFamily: '"Fredoka", "Inter", system-ui',
-      animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
-    }}>
+        display: 'flex', alignItems: 'center', gap: 6,
+        background: '#fff',
+        padding: '5px 10px 5px 8px', borderRadius: 14,
+        boxShadow: '0 4px 10px rgba(58,46,42,.12)',
+        fontFamily: '"Fredoka", "Inter", system-ui',
+        animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
+      }}
+    >
+      {/* Liquid vial — diamond shape, transparent shell, fill rises from
+          the bottom. The wave is a small radial gradient that wobbles
+          horizontally so the surface looks like real liquid. */}
       <div style={{
-        width: 14, height: 18,
-        clipPath: 'polygon(50% 0, 100% 30%, 80% 100%, 20% 100%, 0 30%)',
-        background: 'linear-gradient(180deg, #9ed6f7, #3a8fc4)',
-        boxShadow: '0 0 6px #3a8fc488',
-      }} />
+        position: 'relative',
+        width: 16, height: 22,
+        clipPath: 'polygon(50% 0, 100% 30%, 82% 100%, 18% 100%, 0 30%)',
+        background: 'rgba(58,143,196,.18)',
+        overflow: 'hidden',
+        boxShadow: 'inset 0 0 0 1px rgba(28,84,120,.2)',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          height: `${fillPct * 100}%`,
+          background: 'linear-gradient(180deg, #6ec8ff 0%, #3a8fc4 60%, #1c5478 100%)',
+          // Smooth height transition fires automatically when mana rises
+          // (or drops, after a play). Cubic-bezier matches the manaGain pop.
+          transition: 'height .6s cubic-bezier(.2,.8,.3,1)',
+          boxShadow: 'inset 0 4px 6px rgba(255,255,255,.35)',
+        }}>
+          {/* Meniscus highlight + lateral wobble for "alive" feel. */}
+          <div style={{
+            position: 'absolute', top: -2, left: -3, right: -3, height: 4,
+            background: 'radial-gradient(ellipse 50% 100% at 50% 100%, #9ed6f7 0%, transparent 70%)',
+            animation: 'manaWave 2.4s ease-in-out infinite',
+            opacity: fillPct > 0 ? 1 : 0,
+          }} />
+        </div>
+      </div>
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
