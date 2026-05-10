@@ -10,9 +10,10 @@ import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
   attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND, STARTING_HP,
-  effectiveCost, activeBonds,
+  effectiveCost, activeBonds, difficultyProfile,
   type SpellTarget,
 } from '../game/match';
+import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD } from '../game/pack';
 import { ELEMENTS } from '../data/elements';
 import { BONDS } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
@@ -36,6 +37,10 @@ interface Props {
   /** Called when a bond first activates this match. Used to mark it as
    *  "discovered" in the player's save. */
   onBondDiscovered?: (bondId: string) => void;
+  /** True when the player has already defeated this boss before, so the
+   *  match-end screen knows not to advertise the first-time bonus. App
+   *  computes this from `save.bossesDefeated`. */
+  alreadyBeaten?: boolean;
   onExit: (outcome: 'win' | 'loss' | 'quit') => void;
 }
 
@@ -61,7 +66,7 @@ type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -291,18 +296,37 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
     }
 
-    // Clear the "newly active" flags after the highlight animation finishes
-    // so the chips settle into their steady persistent state. Cinematic
-    // runs for ~3.4s with staged sub-animations; the pill flag clears
-    // shortly after so the chip's pop animation doesn't fire while the
-    // cinematic is still on screen.
-    const tFlags = setTimeout(() => {
-      setNewPlayerBonds([]);
-      setNewOppBonds([]);
-    }, 3500);
-    const tCine = setTimeout(() => setBondCinematic(null), 3400);
-    return () => { clearTimeout(tFlags); clearTimeout(tCine); };
+    // NOTE: the auto-clear timers for the cinematic + new-bond flags
+    // live in dedicated effects below (keyed on bondCinematic /
+    // newPlayerBonds / newOppBonds respectively). Earlier they were
+    // scheduled inside THIS effect, but state changes on the field
+    // re-ran this effect every tick and the cleanup cancelled the
+    // pending timers — so once a state change happened mid-cinematic,
+    // the cinematic stayed up forever and froze the AI driver.
   }, [state.player.field, state.opponent.field]);
+
+  // Auto-clear the cinematic after its full ~3.4s run completes.
+  // Tied to bondCinematic alone so it survives unrelated state changes
+  // (opp playing another card, attacks landing, etc.) — the timer only
+  // resets if a NEW cinematic replaces this one.
+  useEffect(() => {
+    if (!bondCinematic) return;
+    const t = setTimeout(() => setBondCinematic(null), 3400);
+    return () => clearTimeout(t);
+  }, [bondCinematic]);
+
+  // Auto-clear the newly-active bond flags after the chip pop completes.
+  // Same isolation — survives field changes during the highlight.
+  useEffect(() => {
+    if (newPlayerBonds.length === 0) return;
+    const t = setTimeout(() => setNewPlayerBonds([]), 1800);
+    return () => clearTimeout(t);
+  }, [newPlayerBonds]);
+  useEffect(() => {
+    if (newOppBonds.length === 0) return;
+    const t = setTimeout(() => setNewOppBonds([]), 1800);
+    return () => clearTimeout(t);
+  }, [newOppBonds]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
   // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
@@ -913,6 +937,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       <MatchEnd
         outcome={state.outcome}
         boss={boss}
+        difficulty={difficulty}
+        alreadyBeaten={alreadyBeaten}
         playerHp={state.player.hp}
         opponentHp={state.opponent.hp}
         turnLimitReached={state.turnNumber > TURN_LIMIT}
@@ -1981,13 +2007,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       )}
 
-      {/* Long-press inspect modal */}
+      {/* Long-press inspect modal — light cream + blurred backdrop instead
+          of the dark dim that read as "loading screen" / "error modal." */}
       {inspect && (
         <div
           onClick={() => setInspect(null)}
           style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(0,0,0,.7)',
+            background: 'rgba(254, 243, 224, 0.82)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
@@ -2717,9 +2746,13 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
   },
 };
 
-function MatchEnd({ outcome, boss, playerHp, opponentHp, turnLimitReached, onExit }: {
+function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, onExit }: {
   outcome: 'win' | 'loss';
   boss: BossDef;
+  difficulty: Difficulty;
+  /** True when the player has already defeated this boss before — drops
+   *  the first-time-bonus from the displayed reward. */
+  alreadyBeaten: boolean;
   playerHp: number;
   opponentHp: number;
   /** True when the match ended because we hit TURN_LIMIT, not because
@@ -2732,7 +2765,19 @@ function MatchEnd({ outcome, boss, playerHp, opponentHp, turnLimitReached, onExi
     title: isWin ? 'You won' : 'You lost',
     line: isWin ? 'Well played.' : 'Better luck next time.',
   };
-  const reward = isWin ? 75 : 20;
+  // Reward calculation mirrors App.tsx's onMatchExit so what we DISPLAY
+  // matches what the player actually receives. Wins scale with the
+  // difficulty multiplier; the first-time-boss bonus is also multiplied
+  // (so Mythic first-time pays substantially more than Normal first-time).
+  // Losses are flat (MATCH_LOSS_REWARD) since "you lost" isn't a tier.
+  const isWin_ = outcome === 'win';
+  const reward = (() => {
+    if (!isWin_) return MATCH_LOSS_REWARD;
+    const mult = difficultyProfile(difficulty).rewardMult;
+    const win = Math.round(MATCH_WIN_REWARD * mult);
+    const bonus = alreadyBeaten ? 0 : Math.round(boss.rewardCoins * mult);
+    return win + bonus;
+  })();
   // Build a one-sentence reason so the player understands HOW the match
   // ended — especially important for turn-limit losses where neither side
   // hit 0 HP and the result reads as confusing without context.

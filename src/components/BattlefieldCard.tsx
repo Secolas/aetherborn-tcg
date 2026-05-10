@@ -61,11 +61,18 @@ export function BattlefieldCard({
     return () => clearTimeout(t);
   }, []);
   const showSummonFx = card.justPlayed || justMounted;
-  // Taunt creatures get a permanent green ring so they're impossible to miss.
+  // Ring colors are kept to four well-defined states so the card chrome
+  // stays standardised — anything outside these reads as "default":
+  //   selected            : yellow (you tapped this creature)
+  //   highlight = attack  : red    (current attacker is looking at it)
+  //   highlight = spell   : blue   (legal spell target)
+  //   intrinsic Taunt     : green  (force-attack-me indicator)
+  // Plain attack-ready creatures intentionally have NO ring — the
+  // Swords corner badge already signals "this can attack now" without
+  // adding a competing yellow outline to every Rush / untapped creature.
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
     : highlight === 'spell'  ? '#9ed6f7'
-    : attackable             ? '#f4d04a'
     : isTaunt                ? '#5ea863'
     : null;
 
@@ -102,16 +109,16 @@ export function BattlefieldCard({
     if (!longFired.current && onClick) onClick();
   };
 
-  // Player's own creatures that can act this turn (untapped, not sleeping,
-  // no spell pending) get a pulsing yellow glow that actively invites a tap.
-  // Opponent creatures that are spell/attack targets are excluded — they
-  // already have their own red/blue highlight ring.
+  // Attack-ready cards used to also run a pulsing yellow glow halo
+  // around the whole card. That halo competed visually with the Rush /
+  // Bond / Taunt indicators ("why is this card yellow?") so we dropped
+  // it — the dedicated Swords corner badge already signals readiness
+  // with a single small icon that doesn't tint the whole sprite.
   const isAttackReady = !!attackable && !selected && !highlight && !lunging && !shaking && !card.frozen && !showSummonFx;
   const animation = lunging === 'up' ? 'lungeUp .75s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .75s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
     : showSummonFx ? 'cardSlam .5s'
-    : isAttackReady ? 'attackReadyPulse 1.6s ease-in-out infinite'
     : 'none';
 
   return (

@@ -366,6 +366,7 @@ export default function App() {
           deck={matchDeck}
           boss={activeBoss}
           difficulty={activeDifficulty}
+          alreadyBeaten={save.bossesDefeated.includes(activeBoss.id)}
           playerAvatar={save.playerAvatar}
           settings={settings}
           onBondDiscovered={(id) => setSave(s => {
