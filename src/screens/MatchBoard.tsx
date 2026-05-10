@@ -78,9 +78,11 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
   const [turnBanner, setTurnBanner] = useState<Owner | null>(null);
-  /** Bond activation toast — slides in once when a new bond becomes active
-   *  on the player's side. */
-  const [bondToast, setBondToast] = useState<{ id: string; name: string; description: string } | null>(null);
+  /** Bond activation toast — slides in once when a new bond becomes active.
+   *  `side` controls styling: friendly bonds get a warm yellow plate, boss
+   *  bonds get a dark plate so the player can tell whose bond just fired
+   *  (you wouldn't want to confuse "I'm healing" with "the boss is healing"). */
+  const [bondToast, setBondToast] = useState<{ id: string; name: string; description: string; side: Owner } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -218,23 +220,37 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
     sfx(state.outcome === 'win' ? 'win' : 'lose');
   }, [state.outcome]);
 
-  // Bond activation diff — when a new bond becomes active on the player's
-  // side, slide a toast in once. Tracks the previously-active set so toasts
-  // don't replay on every re-render.
-  const prevBondsRef = useRef<Set<string>>(new Set());
+  // Bond activation diff — when a new bond becomes active on either side,
+  // slide a toast in once. Tracks each side's previously-active set
+  // separately so a player and boss bond can fire independently. The boss
+  // toast is critical for the player to understand "wait, why did Mom heal
+  // 1 HP?" — without it, the bond is invisible.
+  const prevPlayerBondsRef = useRef<Set<string>>(new Set());
+  const prevOppBondsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    const cur = new Set(activeBonds(state.player).map(b => b.id));
-    const newlyActive = [...cur].filter(id => !prevBondsRef.current.has(id));
-    prevBondsRef.current = cur;
-    if (newlyActive.length === 0) return;
-    const bond = activeBonds(state.player).find(b => b.id === newlyActive[0]);
-    if (!bond) return;
-    setBondToast({ id: bond.id, name: bond.name, description: bond.description });
+    const fire = (owner: Owner, prevRef: typeof prevPlayerBondsRef) => {
+      const me = owner === 'player' ? state.player : state.opponent;
+      const cur = new Set(activeBonds(me).map(b => b.id));
+      const newlyActive = [...cur].filter(id => !prevRef.current.has(id));
+      prevRef.current = cur;
+      if (newlyActive.length === 0) return null;
+      const bond = activeBonds(me).find(b => b.id === newlyActive[0]);
+      if (!bond) return null;
+      return bond;
+    };
+    const playerBond = fire('player', prevPlayerBondsRef);
+    const oppBond = fire('opponent', prevOppBondsRef);
+    // Prefer showing the player's bond first if both fire on the same tick;
+    // the opp toast will land on the next state change.
+    const toShow = playerBond ?? oppBond;
+    if (!toShow) return;
+    const side: Owner = toShow === playerBond ? 'player' : 'opponent';
+    setBondToast({ id: toShow.id, name: toShow.name, description: toShow.description, side });
     sfx('summon');
-    onBondDiscovered?.(bond.id);
-    const t = setTimeout(() => setBondToast(b => b?.id === bond.id ? null : b), 2400);
+    if (side === 'player') onBondDiscovered?.(toShow.id);
+    const t = setTimeout(() => setBondToast(b => b?.id === toShow.id ? null : b), 2400);
     return () => clearTimeout(t);
-  }, [state.player.field]);
+  }, [state.player.field, state.opponent.field]);
 
   // Surface silent state changes — non-combat HP loss (Lion's AOE),
   // creature buffs (Coffee / Family Photo / Promotion / etc.), silence
@@ -1452,36 +1468,47 @@ export function MatchBoard({ deck, boss, playerAvatar, settings = DEFAULT_SETTIN
         );
       })()}
 
-      {/* Bond activation toast — pops at the top center the moment a bond
-          becomes active on the player's side. Auto-clears after ~2.4s. */}
-      {bondToast && (
-        <div
-          key={`bond-${bondToast.id}`}
-          style={{
-            position: 'absolute', top: 88, left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 215,
-            pointerEvents: 'none',
-            animation: 'turnBanner 2.4s cubic-bezier(.2,.8,.3,1) forwards',
-          }}
-        >
-          <div style={{
-            background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
-            color: '#3a2406',
-            padding: '8px 16px',
-            borderRadius: 14,
-            fontFamily: '"Fredoka", system-ui',
-            boxShadow: '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-          }}>
-            <div style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, opacity: 0.7 }}>
-              BOND ACTIVE
+      {/* Bond activation toast — pops at the top center (player) or just
+          below the opponent header (boss) so each is visually attached to
+          the side that owns the bond. Yellow plate for friendly, dark plate
+          for boss. Auto-clears after ~2.4s. */}
+      {bondToast && (() => {
+        const isPlayer = bondToast.side === 'player';
+        return (
+          <div
+            key={`bond-${bondToast.id}-${bondToast.side}`}
+            style={{
+              position: 'absolute',
+              top: isPlayer ? 88 : 64,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 215,
+              pointerEvents: 'none',
+              animation: 'turnBanner 2.4s cubic-bezier(.2,.8,.3,1) forwards',
+            }}
+          >
+            <div style={{
+              background: isPlayer
+                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
+                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
+              color: isPlayer ? '#3a2406' : '#ffe89a',
+              padding: '8px 16px',
+              borderRadius: 14,
+              fontFamily: '"Fredoka", system-ui',
+              boxShadow: isPlayer
+                ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
+                : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            }}>
+              <div style={{ fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, opacity: 0.75 }}>
+                {isPlayer ? 'BOND ACTIVE' : `${boss.name.toUpperCase()}'S BOND`}
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 800 }}>{bondToast.name}</div>
+              <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{bondToast.description}</div>
             </div>
-            <div style={{ fontSize: 15, fontWeight: 800 }}>{bondToast.name}</div>
-            <div style={{ fontSize: 10, fontWeight: 500, opacity: 0.85 }}>{bondToast.description}</div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
