@@ -804,24 +804,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // (which is gone from the DOM by the time the diff runs).
   useLayoutEffect(() => {
     if (!boardRef.current) return;
+    // Freeze BOTH refs while combat is animating. The state swap that
+    // removes a combat-killed creature fires before `setCombat(null)`,
+    // so its DOM unmounts mid-combat. If we let `lastRectsRef` rebuild
+    // from the post-combat DOM during the combat-gated tick, the next
+    // tick (combat null) would shift that already-empty map into
+    // `prevRectsRef` and the death ghost would have no source rect to
+    // fly from — leaving combat-killed cards to vanish flat.
+    //
+    // Cards don't physically move during combat (they stay in their
+    // slots), so freezing both refs costs nothing and guarantees the
+    // post-combat tick sees pre-combat positions for the death ghost.
+    if (combat) return;
     const board = boardRef.current.getBoundingClientRect();
     // Step 1: shift the CURRENT lastRectsRef into prevRectsRef before
     // overwriting. This lets the diff useEffect (which runs after this)
     // find the rect a creature occupied in the PREVIOUS render — exactly
     // what we need for death ghosts, since the dead creature's DOM is
     // already gone by then.
-    //
-    // While combat is animating we DON'T shift — the state-diff effect
-    // is gated on `!combat`, so the post-combat tick is what actually
-    // launches the death ghost. If we let prevRectsRef advance during
-    // the gated tick, the dead creature's rect would already be gone
-    // (the live card unmounts when state updates), and the ghost would
-    // have no position to fly from — leaving combat-killed cards to
-    // vanish flat. Freezing the shift mirrors how we freeze the
-    // prevFieldRef snapshot above.
-    if (!combat) {
-      prevRectsRef.current = lastRectsRef.current;
-    }
+    prevRectsRef.current = lastRectsRef.current;
     const next = new Map<string, { x: number; y: number; w: number; h: number }>();
     for (const [id, el] of cardEls.current) {
       const r = el.getBoundingClientRect();
