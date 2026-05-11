@@ -1,4 +1,4 @@
-import { Heart, Briefcase, PawPrint, Plane } from 'lucide-react';
+import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import type { ElementId } from '../game/types';
 
@@ -14,6 +14,7 @@ const ICON = {
   work:    Briefcase,
   animals: PawPrint,
   travel:  Plane,
+  food:    UtensilsCrossed,
 } as const;
 
 export function ElementGlyph({ el, size = 18, bare = false }: Props) {

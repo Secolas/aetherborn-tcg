@@ -20,7 +20,10 @@ export type BondEffectKind =
   | 'pair_taunt'
   | 'draw_on_attack'
   | 'damage_at_end_turn'
-  | 'draw_at_end_if_low_hand';
+  | 'draw_at_end_if_low_hand'
+  // Food — Breakfast Combo: heal each of your creatures by `amount` at
+  // start of your turn. Board-heal counterpart to Family's heal_face_per_turn.
+  | 'heal_creatures_per_turn';
 
 export interface BondDef {
   id: string;
@@ -118,6 +121,20 @@ export const BONDS: BondDef[] = [
     description: 'Both gain Taunt.',
     flavor: 'They were both yours first.',
     effect: { kind: 'pair_taunt' },
+  },
+
+  // ============================================================
+  // FOOD — sustain / nourish
+  // ============================================================
+  {
+    id: 'breakfast-combo',
+    name: 'Breakfast Combo',
+    themeId: 'food',
+    cardA: 'fd-01', // Coffee Mug
+    cardB: 'fd-04', // Breakfast Plate
+    description: 'Heal each of your creatures +1 HP at the start of your turn.',
+    flavor: "Coffee in one hand, plate in the other.",
+    effect: { kind: 'heal_creatures_per_turn', amount: 1 },
   },
 
   // ============================================================

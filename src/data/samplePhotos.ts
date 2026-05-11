@@ -70,6 +70,20 @@ const THEMED: Record<string, string> = {
   'trv-10': U('photo-1507525428034-b723cf961d3e'),  // Beach → tropical shore
   'trv-11': U('photo-1540339832862-474599807836'),  // First Class → luxury cabin
   'trv-12': U('photo-1464822759023-fed622ff2c3b'),  // Mountain Summit → peak panorama
+
+  // Food — meals, snacks, coffee, kitchen.
+  'fd-01': U('photo-1495474472287-4d71bcdd2085'),  // Coffee Mug → steaming mug
+  'fd-02': U('photo-1547592180-85f173990554'),     // Hot Soup → bowl of soup
+  'fd-03': U('photo-1599490659213-e2b9527bd087'),  // Snack → chips / bowl of snacks
+  'fd-04': U('photo-1490645935967-10de6ba17061'),  // Breakfast Plate → eggs / pancakes
+  'fd-05': U('photo-1565299507177-b0ac66763828'),  // Lunch Box → packed meal box
+  'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Slow Cooker → kitchen stove
+  'fd-07': U('photo-1455619452474-d2be8b1e70cd'),  // Recipe Card → handwritten recipe
+  'fd-08': U('photo-1414235077428-338989a2e8c0'),  // Share the Meal → table set for many
+  'fd-09': U('photo-1567620905732-2d1ec7ab7445'),  // Comfort Food → pancake stack
+  'fd-10': U('photo-1568571780765-9276ac8b75a2'),  // Grandma's Pie → homemade pie
+  'fd-11': U('photo-1583394293214-28ded15ee548'),  // The Cook → chef at the stove
+  'fd-12': U('photo-1542010589005-d1eacc3918f2'),  // Family Feast → big spread
 };
 
 /**

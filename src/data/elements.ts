@@ -23,6 +23,8 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
              blurb: 'pets, wildlife, the creatures around you' },
   travel:  { name: 'Travel',  color: '#3aa8c4', deep: '#155a73', glow: '#a8dde8',
              blurb: 'planes, trains, hotels, the road' },
+  food:    { name: 'Food',    color: '#d99a3a', deep: '#6e4818', glow: '#f4d59a',
+             blurb: 'meals, snacks, coffee — what fuels your day' },
 };
 
 /**

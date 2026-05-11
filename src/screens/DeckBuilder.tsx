@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -7,7 +7,7 @@ import type { CollectionCard, DeckSlot, ElementId } from '../game/types';
 
 type Filter =
   | 'All'
-  | 'Family' | 'Work' | 'Animals' | 'Travel'
+  | 'Family' | 'Work' | 'Animals' | 'Travel' | 'Food'
   | 'Creatures' | 'Spells';
 
 const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme' | 'type'; themeId?: ElementId }[] = [
@@ -16,6 +16,7 @@ const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme
   { id: 'Work',      label: 'Work',      icon: <Briefcase size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'work' },
   { id: 'Animals',   label: 'Animals',   icon: <PawPrint  size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'animals' },
   { id: 'Travel',    label: 'Travel',    icon: <Plane     size={11} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'travel' },
+  { id: 'Food',      label: 'Food',      icon: <UtensilsCrossed size={11} strokeWidth={2.4} />, tone: 'theme', themeId: 'food' },
   { id: 'Creatures', label: 'Creatures', icon: <Swords    size={11} strokeWidth={2.4} />, tone: 'type' },
   { id: 'Spells',    label: 'Spells',    icon: <Sparkles  size={11} strokeWidth={2.4} />, tone: 'type' },
 ];
@@ -80,6 +81,7 @@ export function DeckBuilder({
       case 'Work':      return c.el === 'work';
       case 'Animals':   return c.el === 'animals';
       case 'Travel':    return c.el === 'travel';
+      case 'Food':      return c.el === 'food';
       default:          return true;
     }
   });
@@ -93,6 +95,7 @@ export function DeckBuilder({
       case 'Work':      return collection.filter(c => c.el === 'work').length;
       case 'Animals':   return collection.filter(c => c.el === 'animals').length;
       case 'Travel':    return collection.filter(c => c.el === 'travel').length;
+      case 'Food':      return collection.filter(c => c.el === 'food').length;
     }
   };
 

@@ -117,6 +117,7 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
               <ThemeSection title="Work"    cards={byTheme('work')}    layout={layout} onTap={setInspect} />
               <ThemeSection title="Animals" cards={byTheme('animals')} layout={layout} onTap={setInspect} />
               <ThemeSection title="Travel"  cards={byTheme('travel')}  layout={layout} onTap={setInspect} />
+              <ThemeSection title="Food"    cards={byTheme('food')}    layout={layout} onTap={setInspect} />
             </>
           )
         ) : (
@@ -307,6 +308,7 @@ function BondsTab({
     { id: 'work',    label: 'Work'    },
     { id: 'animals', label: 'Animals' },
     { id: 'travel',  label: 'Travel'  },
+    { id: 'food',    label: 'Food'    },
   ];
   return (
     <div>
