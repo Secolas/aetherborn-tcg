@@ -129,11 +129,7 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
           onClick={() => setInspect(null)}
           style={{
             position: 'absolute', inset: 0,
-            // Warm + blurred dim instead of the dark brown overlay — same
-            // language used by Collection's preview modal.
-            background: 'rgba(254, 243, 224, 0.78)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(8, 4, 12, 0.72)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
@@ -144,7 +140,7 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
           </div>
           <div style={{
             position: 'absolute', bottom: 50, left: 0, right: 0,
-            textAlign: 'center', fontSize: 11, color: PALETTE.textMid, opacity: 0.85,
+            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.85,
             fontStyle: 'italic',
           }}>
             tap anywhere to close

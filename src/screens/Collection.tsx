@@ -276,14 +276,10 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
           onClick={() => setPreview(null)}
           style={{
             position: 'absolute', inset: 0,
-            // Soft warm dim that matches the app palette instead of the
-            // dark-brown 65% overlay (which read as "loading screen" /
-            // "error modal" to playtesters). A faint blur de-emphasises
-            // the grid behind so the preview card pops without feeling
-            // like the screen has been blacked out.
-            background: 'rgba(254, 243, 224, 0.78)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            // Dark backdrop so the card pops; same dim language used by
+            // the in-match long-press inspect and the Album / Graveyard
+            // previews across the app.
+            background: 'rgba(8, 4, 12, 0.72)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
@@ -294,7 +290,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
           </div>
           <div style={{
             position: 'absolute', bottom: 50, left: 0, right: 0,
-            textAlign: 'center', fontSize: 11, color: PALETTE.textMid, opacity: 0.85,
+            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.85,
             fontStyle: 'italic',
           }}>
             tap anywhere to close

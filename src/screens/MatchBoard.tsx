@@ -83,6 +83,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [damages, setDamages] = useState<DamageMap>({});
   /** Battle ids of creatures whose slice/death animation is currently playing. */
   const [dyingIds, setDyingIds] = useState<string[]>([]);
+  /** Ghost copies of creatures that recently left the field outside of
+   *  combat — AOE-killed, spell-killed, etc. Rendered as fading slice
+   *  animations at the dead creature's owner's field row so the player
+   *  sees what died rather than just "the field shrank by one." Each
+   *  entry auto-clears after ~750ms. */
+  const [deathFx, setDeathFx] = useState<{ card: BattleCard; side: Owner; key: number }[]>([]);
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
@@ -136,9 +142,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** Per-creature silence flash trigger — bumping the entry replays the
       gray flash + "SILENCED" text on that creature. */
   const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
-  /** Per-creature on-play trigger label ("DRAW +1", "AOE -2"). Pops above
-      the freshly summoned creature so its ability isn't silent. */
-  const [triggers, setTriggers] = useState<Record<string, string>>({});
+  /** Legacy per-creature on-play trigger labels. Kept as a read-only
+      state so the BattlefieldCard `trigger` prop still wires up — but
+      we no longer populate it. Real effects (damage popups, card-back
+      flights) carry the message instead. */
+  const [triggers] = useState<Record<string, string>>({});
   /** Active fatigue popup — a skull-themed callout when a side took damage
       from drawing an empty deck. Carries the side and the damage amount. */
   const [fatigueFx, setFatigueFx] = useState<{ side: Owner; dmg: number; tick: number } | null>(null);
@@ -195,7 +203,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
           sfx(step.played.type === 'Spell' ? 'cardPlay' : 'summon');
-          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
+          // Hold the centered card-reveal longer when it's about to do
+          // something on the board (spell, draw, AOE) so the player has
+          // time to read the card BEFORE the actual effect fires after
+          // state advance. Plain bodies get the short hold.
+          const isImpactful =
+            step.played.type === 'Spell' ||
+            step.played.abilityKind === 'aoe_on_play' ||
+            step.played.abilityKind === 'draw_on_play';
+          const holdMs = step.played.type === 'Spell' ? 2700
+            : isImpactful ? 2300
+            : 1900;
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -334,6 +352,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // Owl, Train Conductor, Suitcase) and spell draws — so the player
   // sees what changed instead of guessing.
   interface CreatureSnap { atk: number; hp: number; ability: string }
+  /** Parallel ref of full BattleCards keyed by battleId per side. Lets
+   *  the state-diff effect resurrect a "ghost" of a creature that just
+   *  left the field (AOE kill, spell kill, etc.) so we can render the
+   *  slice animation on its corpse. The CreatureSnap map above is for
+   *  cheap atk/hp/ability comparisons; this one keeps the full data. */
+  const prevFieldRef = useRef<{ player: Map<string, BattleCard>; opponent: Map<string, BattleCard> }>({
+    player: new Map(), opponent: new Map(),
+  });
   const prevSnapRef = useRef<{
     player: Map<string, CreatureSnap>;
     opponent: Map<string, CreatureSnap>;
@@ -389,13 +415,52 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       checkSide(fresh.player, prev.player);
       checkSide(fresh.opponent, prev.opponent);
 
+      // Death detection — any creature in the prev field that's no
+      // longer in the fresh field died. Combat deaths already have
+      // their own slice animation via `dyingIds`, so we skip any
+      // battleId already in that list to avoid doubling up. For
+      // everything else (AOE-killed, spell-killed, on-play AOE) we
+      // revive a ghost copy at the dead creature's owner's field row
+      // and play the slice + fade. The ref gives us the full
+      // BattleCard so we can render its photo + stats.
+      const detectDeaths = (
+        prevCards: Map<string, BattleCard>,
+        freshIds: Set<string>,
+        side: Owner,
+      ): { card: BattleCard; side: Owner; key: number }[] => {
+        const out: { card: BattleCard; side: Owner; key: number }[] = [];
+        for (const [id, card] of prevCards) {
+          if (freshIds.has(id)) continue;
+          if (dyingIds.includes(id)) continue; // combat handles this one
+          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000) });
+        }
+        return out;
+      };
+      const freshPlayerIds = new Set(state.player.field.map(c => c.battleId));
+      const freshOppIds = new Set(state.opponent.field.map(c => c.battleId));
+      const newDeaths = [
+        ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player'),
+        ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
+      ];
+      if (newDeaths.length) {
+        // Stagger slightly so deaths can land just after damage popups
+        // ("you saw the -2, now the body slumps"). The deathFx auto-
+        // clears via the dedicated effect below.
+        setTimeout(() => setDeathFx(d => [...d, ...newDeaths]), 350);
+      }
+
       if (Object.keys(damagePops).length) {
-        setDamages(d => ({ ...d, ...damagePops }));
+        // Stage the damage pops slightly AFTER the state update settles so
+        // the player first sees the new creature land, then the damage
+        // appear on each affected enemy. Keep them on screen for a full
+        // ~1.8s so the player can count "-2, -2, -2" instead of catching
+        // a 1100ms blink. Family-friendly pacing > esports pacing.
+        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), 250);
         setTimeout(() => setDamages(d => {
           const next = { ...d };
           for (const id of Object.keys(damagePops)) delete next[id];
           return next;
-        }), 1100);
+        }), 250 + 1800);
       }
       if (Object.keys(buffPops).length) {
         setBuffs(b => ({ ...b, ...buffPops }));
@@ -458,21 +523,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setTimeout(() => setFatigueFx(f => (f && f.side === 'opponent' ? null : f)), 1600);
       }
 
-      // On-play trigger banners — when a creature with an on-play ability
-      // appears on the field, surface "DRAW +N" / "AOE -N" / etc. floating
-      // up from the creature itself so the *cause* is unmistakable. Without
-      // this, Tio's bonus card felt like it materialized from nowhere.
-      const fieldsNow = [...state.player.field, ...state.opponent.field];
-      const newTriggers: Record<string, string> = {};
-      for (const c of fieldsNow) {
-        const wasOnField = prev.player.has(c.battleId) || prev.opponent.has(c.battleId);
-        if (wasOnField) continue;
-        if (c.abilityKind === 'draw_on_play' && c.abilityValue) {
-          newTriggers[c.battleId] = `DRAW +${c.abilityValue}`;
-        } else if (c.abilityKind === 'aoe_on_play' && c.abilityValue) {
-          newTriggers[c.battleId] = `AOE −${c.abilityValue}`;
-        }
-      }
+      // We deliberately DON'T surface "DRAW +N" / "AOE -N" text chips
+      // anymore. The actual effects already have their own animations:
+      //  - draw_on_play  → the card-back flight from deck → hand fires
+      //                    via the handSize diff a few lines down.
+      //  - aoe_on_play   → damage popups land on each affected enemy
+      //                    via the damagePops diff above.
+      // Doubling up with a label chip was redundant and felt rushed
+      // since both effects fired the same instant. Letting the damage
+      // popups and draw flights speak for themselves keeps the game
+      // family-friendly readable.
+
       // Bond face popups — when a turn flips, attribute non-combat face HP
       // changes to the bond that caused them. heal_face_per_turn fires at
       // the START of the active player's turn (so when turn went up + the
@@ -517,17 +578,26 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
 
-      if (Object.keys(newTriggers).length) {
-        setTriggers(t => ({ ...t, ...newTriggers }));
-        setTimeout(() => setTriggers(t => {
-          const next = { ...t };
-          for (const id of Object.keys(newTriggers)) delete next[id];
-          return next;
-        }), 1400);
-      }
     }
     prevSnapRef.current = fresh;
+    // Keep a parallel snapshot of full BattleCards per side so the next
+    // tick can resurrect ghosts for any creature that disappears.
+    prevFieldRef.current = {
+      player: new Map(state.player.field.map(c => [c.battleId, c])),
+      opponent: new Map(state.opponent.field.map(c => [c.battleId, c])),
+    };
   }, [state, combat, flipping, initialDealing]);
+
+  // Auto-clear death FX entries after their slice + fade plays out
+  // (~750ms is roughly twice the slice's 0.55s + a bit of buffer).
+  useEffect(() => {
+    if (deathFx.length === 0) return;
+    const keys = new Set(deathFx.map(d => d.key));
+    const t = setTimeout(() => {
+      setDeathFx(d => d.filter(x => !keys.has(x.key)));
+    }, 750);
+    return () => clearTimeout(t);
+  }, [deathFx]);
 
   // Initial deal — once the coin flip finishes, animate the opening hand
   // arriving one card at a time on alternating sides. Hands look empty
@@ -1115,6 +1185,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardLongPress={(c) => setInspect(c)}
         />
         <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" />
+        <DeathFxOverlay deaths={deathFx} side="opponent" />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -1248,6 +1319,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardLongPress={(c) => setInspect(c)}
         />
         <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" />
+        <DeathFxOverlay deaths={deathFx} side="player" />
       </div>
 
       {/* Bottom spacer */}
@@ -2007,16 +2079,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       )}
 
-      {/* Long-press inspect modal — light cream + blurred backdrop instead
-          of the dark dim that read as "loading screen" / "error modal." */}
+      {/* Long-press inspect modal — dark dim so the card pops as the
+          only thing on screen. Same dark language as the summon-preview
+          dim layer; both are about "focus on this one card." */}
       {inspect && (
         <div
           onClick={() => setInspect(null)}
           style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(254, 243, 224, 0.82)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(8, 4, 12, 0.72)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
@@ -2157,6 +2228,50 @@ const SLOTS_PER_ROW = 3;
  * the UI to a single visual language for "bond active": gold gradient for
  * the player, dark plate for the boss, anchored to that side's field zone.
  */
+/**
+ * Renders ghost copies of creatures that just left this side's field
+ * (AOE / spell kill). The engine removes them from `state.field`
+ * immediately so the slot disappears; this overlay paints them back for
+ * ~0.75s with a slice + fade so the player sees what died instead of
+ * just "the row got shorter." Combat deaths use the existing BattlefieldCard
+ * `dying` prop on the still-mounted card and skip this path.
+ */
+function DeathFxOverlay({
+  deaths, side,
+}: {
+  deaths: { card: BattleCard; side: Owner; key: number }[];
+  side: 'player' | 'opponent';
+}) {
+  const mine = deaths.filter(d => d.side === side);
+  if (mine.length === 0) return null;
+  return (
+    <div
+      style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        gap: 6,
+        pointerEvents: 'none',
+        zIndex: 8,
+      }}
+    >
+      {mine.map(d => (
+        <div
+          key={d.key}
+          style={{
+            position: 'relative',
+            // Match BattlefieldCard's 64x88 slot footprint exactly so
+            // the ghost reads as "the creature that WAS here."
+            width: 64, height: 88,
+            animation: 'cardSummon .55s ease-out reverse',
+          }}
+        >
+          <BattlefieldCard card={d.card} dying />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function BondPillStack({
   bonds, newlyActiveIds, side,
 }: {
@@ -2605,7 +2720,7 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
           fontSize: 22, fontWeight: 900,
           color: damage > 0 ? '#ee5a52' : '#06d6a0',
           textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
-          animation: 'damagePopup .9s ease-out forwards',
+          animation: 'damagePopup 1.6s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
           whiteSpace: 'nowrap',
