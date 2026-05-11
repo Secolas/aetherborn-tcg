@@ -323,6 +323,17 @@ input {
   92%  { transform: translate(calc(var(--gx, 0px) * .92), calc(var(--gy, 0px) * .92)) scale(0.22) rotate(-38deg); opacity: 0.55; }
   100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.05) rotate(-50deg); opacity: 0; }
 }
+/* Combat death-fly variant — same arc + spin + tuck, but without the
+   slice "hold in place" phase. Combat already played the slice on the
+   live BattlefieldCard before state advanced, so its ghost can lift
+   off immediately. ~1.0s shorter overall than deathFlyToGrave. */
+@keyframes combatFlyToGrave {
+  0%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  20%  { transform: translate(0, -28px) scale(1.05) rotate(-6deg); opacity: 1; }
+  55%  { transform: translate(calc(var(--gx, 0px) * .45), calc(var(--gy, 0px) * .45 - 14px)) scale(0.55) rotate(-22deg); opacity: 0.95; }
+  85%  { transform: translate(calc(var(--gx, 0px) * .92), calc(var(--gy, 0px) * .92)) scale(0.22) rotate(-40deg); opacity: 0.55; }
+  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.05) rotate(-52deg); opacity: 0; }
+}
 /* Graveyard receive pulse — fires on the graveyard icon when a card
    lands, so the player gets confirmation of arrival without having to
    look away from the field. Small scale-up + warm glow ring. */
