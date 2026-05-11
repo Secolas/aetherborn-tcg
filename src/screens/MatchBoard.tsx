@@ -88,25 +88,29 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [damages, setDamages] = useState<DamageMap>({});
   /** Battle ids of creatures whose slice/death animation is currently playing. */
   const [dyingIds, setDyingIds] = useState<string[]>([]);
-  /** Ghost copies of creatures that recently left the field outside of
-   *  combat — AOE-killed, spell-killed, etc. Rendered as fading slice
-   *  animations at the EXACT board-local position the creature occupied
-   *  before unmount (captured via lastRectsRef). Each entry auto-clears
-   *  after ~750ms. */
-  const [deathFx, setDeathFx] = useState<{
+  /** Creatures that have just died and are mid-flight to the graveyard.
+   *  Keyed by battleId so each dying card stays pinned to its FieldRow
+   *  slot while the flyToGrave keyframe runs on the live BattlefieldCard
+   *  itself — no overlay ghost, no vanish-then-appear gap. The slot
+   *  stays reserved (slotMap retains the entry) for the duration of the
+   *  animation, then the entry expires and the slot opens up.
+   *
+   *  gx / gy are the (board-local) translate offsets from the card's
+   *  death slot to the side's graveyard icon, captured at the moment
+   *  the death is detected. delayMs staggers multi-deaths so they land
+   *  as a clean 1-2-3 sequence instead of overlapping. */
+  const [dying, setDying] = useState<Record<string, {
     card: BattleCard;
     side: Owner;
-    key: number;
-    rect: { x: number; y: number; w: number; h: number };
-    /** ms delay before this ghost's animation starts. Used to stagger
-     *  multi-deaths so 3 AOE-kills land as a clear 1-2-3 sequence
-     *  instead of overlapping into mush. */
+    /** Slot index (0..2) the creature occupied at the moment of death,
+     *  captured BEFORE the slot reconcile drops the entry. FieldRow
+     *  reads this directly so the dying card stays pinned even if
+     *  slotMap no longer has it. */
+    slot: number;
+    gx: number;
+    gy: number;
     delayMs: number;
-    /** True when this death came from combat. The slice already played
-     *  on the live BattlefieldCard, so the ghost skips the slice phase
-     *  and goes straight to the fly-to-graveyard arc. */
-    fromCombat: boolean;
-  }[]>([]);
+  }>>({});
   /** Bumps every time a death-ghost is scheduled to arrive at a given
    *  graveyard. The GraveyardButton listens via key to replay the
    *  receive-pulse keyframe. Separate keys per side so player + boss
@@ -244,6 +248,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const reconcile = (
       cur: Record<string, number>,
       field: BattleCard[],
+      side: Owner,
       maxSlots = 3,
     ): Record<string, number> => {
       const next: Record<string, number> = {};
@@ -254,6 +259,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           next[c.battleId] = cur[c.battleId];
           used.add(cur[c.battleId]);
         }
+      }
+      // Block slots currently occupied by creatures mid-flight to the
+      // graveyard. Their stored `slot` is authoritative — even if the
+      // previous reconcile dropped the slotMap entry, the dying card is
+      // still rendered there by FieldRow, so no freshly-summoned
+      // creature can claim that slot until the flight finishes.
+      for (const id of Object.keys(dying)) {
+        if (dying[id].side !== side) continue;
+        used.add(dying[id].slot);
       }
       // Assign new battleIds to the lowest free slot.
       for (const c of field) {
@@ -268,9 +282,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
       return next;
     };
-    setPlayerSlots(s => reconcile(s, state.player.field));
-    setOpponentSlots(s => reconcile(s, state.opponent.field));
-  }, [state.player.field, state.opponent.field]);
+    setPlayerSlots(s => reconcile(s, state.player.field, 'player'));
+    setOpponentSlots(s => reconcile(s, state.opponent.field, 'opponent'));
+  }, [state.player.field, state.opponent.field, dying]);
 
   // ============== AI driver ==============
   useEffect(() => {
@@ -538,36 +552,39 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       checkSide(fresh.opponent, prev.opponent);
 
       // Death detection — any creature in the prev field that's no
-      // longer in the fresh field died. Combat deaths already have
-      // their own slice animation via `dyingIds`, so we skip any
-      // battleId already in that list to avoid doubling up. For
-      // everything else (AOE-killed, spell-killed, on-play AOE) we
-      // revive a ghost copy at the dead creature's owner's field row
-      // and play the slice + fade. The ref gives us the full
-      // BattleCard so we can render its photo + stats.
+      // longer in the fresh field died. Same path for combat and
+      // non-combat deaths: we hand each dead battleId to the `dying`
+      // map with a (gx, gy) translate vector pointing from its slot
+      // rect to the side's graveyard icon. FieldRow keeps rendering
+      // the card in its slot and applies flyToGrave, so the LIVE
+      // BattlefieldCard arcs into the graveyard — no overlay ghost,
+      // no vanish-then-appear gap.
       const detectDeaths = (
         prevCards: Map<string, BattleCard>,
         freshIds: Set<string>,
         side: Owner,
-      ): { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number }; fromCombat: boolean }[] => {
-        const out: { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number }; fromCombat: boolean }[] = [];
+        slotsForSide: Record<string, number>,
+      ): { id: string; card: BattleCard; side: Owner; slot: number; gx: number; gy: number }[] => {
+        const out: { id: string; card: BattleCard; side: Owner; slot: number; gx: number; gy: number }[] = [];
+        const graveKey = side === 'player' ? GRAVE_PLAYER : GRAVE_OPP;
+        const graveRect = lastRectsRef.current.get(graveKey) ?? prevRectsRef.current.get(graveKey);
         for (const [id, card] of prevCards) {
           if (freshIds.has(id)) continue;
-          // dyingIds means this creature was sliced during combat
-          // BEFORE state advanced; we mark it `fromCombat` so the ghost
-          // can skip the slice-replay and just fly to the graveyard.
-          const fromCombat = dyingIds.includes(id);
           const rect = prevRectsRef.current.get(id);
           if (!rect) continue;
-          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect, fromCombat });
+          const slot = slotsForSide[id];
+          if (slot == null) continue;
+          const gx = graveRect ? (graveRect.x + graveRect.w / 2) - (rect.x + rect.w / 2) : 0;
+          const gy = graveRect ? (graveRect.y + graveRect.h / 2) - (rect.y + rect.h / 2) : 0;
+          out.push({ id, card, side, slot, gx, gy });
         }
         return out;
       };
       const freshPlayerIds = new Set(state.player.field.map(c => c.battleId));
       const freshOppIds = new Set(state.opponent.field.map(c => c.battleId));
       const newDeathsRaw = [
-        ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player'),
-        ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
+        ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player', playerSlots),
+        ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent', opponentSlots),
       ];
       // Sequential animation queue for everything the diff effect
       // schedules — damage popups → deaths flying to graveyard → draws
@@ -592,17 +609,44 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
       if (newDeathsRaw.length) {
         const STAGGER = 180;
-        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
         const at = pipeDelay;
-        setTimeout(() => setDeathFx(d => [...d, ...newDeaths]), at);
-        for (const d of newDeaths) {
-          // Pulse at ~92% of the 1.1s flyToGrave keyframe.
+        // Pin the dying card to its old slot RIGHT NOW (same commit as
+        // the state change) so the slot reconcile can't reuse the slot
+        // for a freshly-summoned creature. The CSS animationDelay (= the
+        // queue position) defers when flyToGrave starts visually — until
+        // then the card sits in its slot, eats its damage popup, and
+        // waits its turn in the queue.
+        const newDying: Record<string, { card: BattleCard; side: Owner; slot: number; gx: number; gy: number; delayMs: number }> = {};
+        newDeathsRaw.forEach((d, i) => {
+          newDying[d.id] = {
+            card: d.card,
+            side: d.side,
+            slot: d.slot,
+            gx: d.gx,
+            gy: d.gy,
+            delayMs: at + i * STAGGER,
+          };
+        });
+        setDying(prev => ({ ...prev, ...newDying }));
+        newDeathsRaw.forEach((d, i) => {
+          const start = at + i * STAGGER;
+          // Pulse the graveyard icon as the card lands (~92% of the
+          // 1.1s flyToGrave keyframe).
           setTimeout(() => {
             setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
-          }, at + d.delayMs + 1000);
-        }
+          }, start + 1000);
+          // Free the slot once the flight is done.
+          setTimeout(() => {
+            setDying(prev => {
+              if (!prev[d.id]) return prev;
+              const next = { ...prev };
+              delete next[d.id];
+              return next;
+            });
+          }, start + 1150);
+        });
         // All deaths finished = last stagger + flight duration.
-        const lastDeathEnds = (newDeaths.length - 1) * STAGGER + 1100;
+        const lastDeathEnds = (newDeathsRaw.length - 1) * STAGGER + 1100;
         pipeDelay += lastDeathEnds;
       }
 
@@ -741,19 +785,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }
   }, [state, combat, flipping, initialDealing]);
 
-  // Auto-clear death FX entries after their slice + fade plays out
-  // (~750ms is roughly twice the slice's 0.55s + a bit of buffer).
-  useEffect(() => {
-    if (deathFx.length === 0) return;
-    const keys = new Set(deathFx.map(d => d.key));
-    // 1.1s flyToGrave + the largest per-ghost stagger delay + a small
-    // tail so the last-in-line ghost finishes its arc before unmount.
-    const maxDelay = deathFx.reduce((m, x) => Math.max(m, x.delayMs), 0);
-    const t = setTimeout(() => {
-      setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 1200 + maxDelay);
-    return () => clearTimeout(t);
-  }, [deathFx]);
+  // Dying entries are self-cleaning — each insertion in the state-diff
+  // effect schedules its own removal once the flyToGrave keyframe ends.
+  // No bulk sweeper needed here.
 
   // Initial deal — once the coin flip finishes, animate the opening hand
   // arriving one card at a time on alternating sides. Hands look empty
@@ -938,11 +972,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const clearDelay = isTrade
       ? (anyDying ? 3900 : 3400)
       : (anyDying ? 1700 : 1100);
-    setTimeout(() => done(), stateDelay);
+    // When a creature dies in combat, clear `combat` at the SAME instant
+    // state advances. The state-diff effect is gated on `!combat`, so any
+    // gap between state-swap and combat-clear leaves the dead creature's
+    // slot empty (live card unmounted, ghost not yet launched) — the
+    // player sees a vanish → reappear → fly sequence. Firing both
+    // together lets the diff effect run on the very same tick, spawning
+    // the flyToGrave ghost at the moment the live card unmounts.
+    //
+    // When NO one dies we keep the original 500ms gap so the combat
+    // callouts (ATK/HP numbers, charge halo) have a moment to fade after
+    // state advances — there's no ghost in flight, so the gap is purely
+    // visual polish.
     setTimeout(() => {
-      setCombat(null);
-      setDyingIds([]);
-    }, clearDelay);
+      done();
+      if (anyDying) {
+        setCombat(null);
+        setDyingIds([]);
+      }
+    }, stateDelay);
+    if (!anyDying) {
+      setTimeout(() => {
+        setCombat(null);
+        setDyingIds([]);
+      }, clearDelay);
+    }
   };
 
   // Fire a colored burst FX over a spell's target. Reads the target's DOM
@@ -1365,6 +1419,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         <FieldRow
           side="opponent"
           cards={state.opponent.field}
+          dying={dying}
           turn={state.turn}
           combat={combat}
           damages={damages}
@@ -1492,6 +1547,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         <FieldRow
           side="player"
           cards={state.player.field}
+          dying={dying}
           turn={state.turn}
           combat={combat}
           damages={damages}
@@ -2077,43 +2133,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Non-combat death ghosts — paint the slice + red-tint anim at
-          the exact slot the dead creature occupied, then fly the
-          remains into THAT side's graveyard icon. The slice and the
-          fly are sequenced by the deathFlyToGrave keyframe: holds in
-          place 0-50%, then translates toward the graveyard rect using
-          CSS vars set inline. */}
-      {deathFx.map(d => {
-        const graveKey = d.side === 'player' ? GRAVE_PLAYER : GRAVE_OPP;
-        // Last known rect of the graveyard icon (captured into
-        // prev/lastRectsRef via the layout effect). If unavailable —
-        // unmounted, first render — we fall back to a near-zero
-        // displacement so the ghost just fades in place.
-        const graveRect = lastRectsRef.current.get(graveKey) ?? prevRectsRef.current.get(graveKey);
-        const gx = graveRect ? (graveRect.x + graveRect.w / 2) - (d.rect.x + d.rect.w / 2) : 0;
-        const gy = graveRect ? (graveRect.y + graveRect.h / 2) - (d.rect.y + d.rect.h / 2) : 0;
-        return (
-          <div
-            key={d.key}
-            style={{
-              position: 'absolute',
-              left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
-              pointerEvents: 'none',
-              zIndex: 8,
-              // Unified death animation for combat AND non-combat kills.
-              // No slice halves — the card just lifts off the field and
-              // arcs into the side's graveyard. Family-friendly tone:
-              // no shredding, just "this card goes to memory now."
-              animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
-              animationDelay: `${d.delayMs}ms`,
-              ['--gx' as string]: `${gx}px`,
-              ['--gy' as string]: `${gy}px`,
-            }}
-          >
-            <BattlefieldCard card={d.card} />
-          </div>
-        );
-      })}
+      {/* Death animation runs INLINE in the FieldRow — see the `dying`
+          prop and the wrapper styles inside FieldRow. No overlay ghost. */}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
@@ -2526,12 +2547,17 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
+  side, cards, dying, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
+  /** Creatures currently mid-flight to the graveyard. Keyed by battleId.
+   *  We continue rendering them in their old slot and apply flyToGrave
+   *  on the live BattlefieldCard so the card itself arcs out — no
+   *  overlay ghost. After the flight ends MatchBoard removes them. */
+  dying: Record<string, { card: BattleCard; side: Owner; slot: number; gx: number; gy: number; delayMs: number }>;
   /** Whose turn is currently active. Player creatures only get the
    *  attack-ready Swords badge on the player's own turn. */
   turn: Owner;
@@ -2562,11 +2588,26 @@ function FieldRow({
   // Build a fixed 3-slot row. slots[i] holds the card whose slotMap
   // entry === i, or null if the slot is empty. This keeps positions
   // stable: a creature stays where it was summoned even when others
-  // around it die.
+  // around it die. Cards mid-flight to the graveyard are still
+  // rendered in their original slot until their animation ends — see
+  // the wrapper styles below.
   const slots: (BattleCard | null)[] = [null, null, null];
   for (const c of cards) {
     const idx = slotMap[c.battleId];
     if (idx != null && idx >= 0 && idx < SLOTS_PER_ROW) slots[idx] = c;
+  }
+  // Layer in dying cards on this side. The dying entry stores its own
+  // slot index — slotMap may have already dropped the battleId (the
+  // reconcile runs before the dying entry lands), so this is the
+  // authoritative source. A freshly-summoned creature can't land in
+  // the same slot because the reconcile blocks any slot reserved by
+  // `dying` (see MatchBoard).
+  for (const id of Object.keys(dying)) {
+    const entry = dying[id];
+    if (entry.side !== side) continue;
+    if (entry.slot < 0 || entry.slot >= SLOTS_PER_ROW) continue;
+    if (slots[entry.slot]) continue;
+    slots[entry.slot] = entry.card;
   }
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
@@ -2591,15 +2632,28 @@ function FieldRow({
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
         const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
-        // The live BattlefieldCard never plays the slice animation
-        // anymore — every death runs the same fly-to-graveyard arc on
-        // the ghost overlay after state advances, so there's nothing
-        // for the live card to do once the damage popup fires.
+        const dyingEntry = dying[c.battleId];
+        // The live BattlefieldCard plays NO slice animation. When a
+        // creature dies, its slot wrapper plays flyToGrave (translating
+        // the live card up and into the graveyard icon via CSS vars).
+        // Same path for combat AND non-combat deaths.
         return (
           <div
             key={c.battleId}
             ref={(el) => registerEl(c.battleId, el)}
-            style={{ display: 'flex', flex: '0 0 auto' }}
+            style={{
+              display: 'flex',
+              flex: '0 0 auto',
+              ...(dyingEntry ? {
+                animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
+                animationDelay: `${dyingEntry.delayMs}ms`,
+                pointerEvents: 'none',
+                zIndex: 8,
+                position: 'relative',
+                ['--gx' as string]: `${dyingEntry.gx}px`,
+                ['--gy' as string]: `${dyingEntry.gy}px`,
+              } : null),
+            }}
           >
             <BattlefieldCard
               card={c}
