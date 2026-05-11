@@ -44,7 +44,7 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, silencedAt, trigger, bondState, highlight,
+  buff, trigger, bondState, highlight,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -118,7 +118,7 @@ export function BattlefieldCard({
   const animation = lunging === 'up' ? 'lungeUp .75s cubic-bezier(.4,.6,.5,1.4)'
     : lunging === 'down' ? 'lungeDown .75s cubic-bezier(.4,.6,.5,1.4)'
     : shaking ? 'shake .4s'
-    : showSummonFx ? 'cardSlam .5s'
+    : showSummonFx ? 'cardSlam .8s cubic-bezier(.3,.7,.4,1.2)'
     : 'none';
 
   return (
@@ -255,7 +255,7 @@ export function BattlefieldCard({
             width: 90, height: 5,
             background: 'linear-gradient(90deg, transparent 0%, #fff 25%, #fffbd0 50%, #fff 75%, transparent 100%)',
             boxShadow: '0 0 8px #fff, 0 0 16px #f4d04a',
-            animation: 'sliceFlash 0.55s ease-out forwards',
+            animation: 'sliceFlash 0.85s ease-out forwards',
             zIndex: 45,
             pointerEvents: 'none',
           }} />
@@ -268,7 +268,7 @@ export function BattlefieldCard({
           position: 'absolute', top: '50%', left: '50%',
           width: 60, height: 60, borderRadius: '50%',
           background: 'radial-gradient(circle, #f4d04a 0%, transparent 70%)',
-          animation: 'impactBurst .5s ease-out forwards',
+          animation: 'impactBurst .8s ease-out forwards',
           pointerEvents: 'none',
           zIndex: 40,
         }} />
@@ -305,7 +305,7 @@ export function BattlefieldCard({
             width: 110, height: 22, borderRadius: '50%',
             background: 'radial-gradient(ellipse, rgba(244,208,74,.65), rgba(255,158,90,.3) 50%, transparent 80%)',
             filter: 'blur(2px)',
-            animation: 'summonDust .7s ease-out forwards',
+            animation: 'summonDust 1s ease-out forwards',
             pointerEvents: 'none',
             zIndex: 1,
           }} />
@@ -317,7 +317,7 @@ export function BattlefieldCard({
             width: 80, height: 80, borderRadius: '50%',
             border: '3px solid #ffd166',
             boxShadow: '0 0 18px rgba(255,209,102,.85), inset 0 0 12px rgba(255,209,102,.6)',
-            animation: 'summonHalo .65s ease-out forwards',
+            animation: 'summonHalo .95s ease-out forwards',
             pointerEvents: 'none',
             zIndex: 2,
           }} />
@@ -367,39 +367,12 @@ export function BattlefieldCard({
         </div>
       )}
 
-      {/* Silence flash — gray-flash overlay + "SILENCED" label fired when
-          the creature's ability is stripped, so the loss-of-power isn't
-          something you only notice retroactively. */}
-      {silencedAt != null && (
-        <>
-          <div
-            key={`silence-fx-${silencedAt}`}
-            style={{
-              position: 'absolute', inset: 0, borderRadius: 'inherit',
-              background: 'rgba(120,110,98,.55)',
-              animation: 'spellTargetBurst .9s ease-out forwards',
-              pointerEvents: 'none',
-              zIndex: 30,
-            }}
-          />
-          <div
-            key={`silence-text-${silencedAt}`}
-            style={{
-              position: 'absolute', top: -10, left: '50%',
-              fontSize: 11, fontWeight: 900, letterSpacing: '0.2em',
-              color: '#fff',
-              textShadow: '0 2px 0 #3a2e2a, 0 0 8px rgba(0,0,0,.7)',
-              fontFamily: '"Fredoka", system-ui',
-              animation: 'damagePopup 1s ease-out forwards',
-              pointerEvents: 'none',
-              zIndex: 51,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            SILENCED
-          </div>
-        </>
-      )}
+      {/* Silence: visually represented by the persistent Ban pill in the
+          top-right status stack (see the StatusPill render above). The
+          earlier gray-flash overlay + "SILENCED" label felt heavy and
+          competed with damage popups; the on-card pill is enough — when
+          a creature gets silenced, the Ban icon just appears in its
+          corner and stays until the silence wears off. */}
 
       {/* On-play trigger banner — yellow chip pops above the creature so
           the cause of "where did this card / damage come from" is obvious

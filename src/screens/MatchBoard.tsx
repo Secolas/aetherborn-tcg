@@ -502,19 +502,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
         const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
         const drawDelay = 150;
+        // Spacing must be >= flight duration (1.1s) so successive card
+        // flights don't overwrite each other on screen — previously they
+        // were spaced 260ms apart with a 1100ms flight, so a 2-card
+        // draw_on_play looked like ONE card had been drawn (the second
+        // flight clobbered the first). 1200ms gives a tiny buffer.
+        const drawStep = 1200;
         for (let i = 0; i < playerDraws; i++) {
           setTimeout(() => {
             setDrawingFor('player');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 1100);
-          }, drawDelay + i * 260);
+          }, drawDelay + i * drawStep);
         }
         for (let i = 0; i < oppDraws; i++) {
           setTimeout(() => {
             setDrawingFor('opponent');
             setDrawTick(t => t + 1);
             setTimeout(() => setDrawingFor(null), 1100);
-          }, drawDelay + i * 260);
+          }, drawDelay + i * drawStep);
         }
       }
 
@@ -609,7 +615,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const keys = new Set(deathFx.map(d => d.key));
     const t = setTimeout(() => {
       setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 750);
+    }, 1100);
     return () => clearTimeout(t);
   }, [deathFx]);
 
