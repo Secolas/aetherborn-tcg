@@ -559,15 +559,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
         setDeathFx(d => [...d, ...newDeaths]);
         for (const d of newDeaths) {
-          // Pulse fires at the 92% mark of whichever keyframe this ghost
-          // is using — 1500ms for non-combat (1.6s anim), 1000ms for
-          // combat (1.1s anim). Lands as the card disappears into the
-          // icon, confirming the receive without forcing the eye away
-          // from the field.
-          const pulseAt = d.fromCombat ? 1000 : 1500;
+          // Pulse fires at ~92% of the 1.1s flyToGrave keyframe (~1.0s),
+          // so the graveyard icon scales as the card disappears into it.
           setTimeout(() => {
             setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
-          }, d.delayMs + pulseAt);
+          }, d.delayMs + 1000);
         }
       }
 
@@ -708,13 +704,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (deathFx.length === 0) return;
     const keys = new Set(deathFx.map(d => d.key));
-    // Match the deathFlyToGrave keyframe duration (1.6s) + the largest
-    // per-ghost stagger delay so even the last-in-line ghost finishes
-    // its arc before getting unmounted.
+    // 1.1s flyToGrave + the largest per-ghost stagger delay + a small
+    // tail so the last-in-line ghost finishes its arc before unmount.
     const maxDelay = deathFx.reduce((m, x) => Math.max(m, x.delayMs), 0);
     const t = setTimeout(() => {
       setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 1700 + maxDelay);
+    }, 1200 + maxDelay);
     return () => clearTimeout(t);
   }, [deathFx]);
 
@@ -1322,7 +1317,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           buffs={buffs}
           silencedAt={silencedAt}
           triggers={triggers}
-          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={opponentBondLookup}
@@ -1450,7 +1444,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           buffs={buffs}
           silencedAt={silencedAt}
           triggers={triggers}
-          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
@@ -2053,24 +2046,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
               pointerEvents: 'none',
               zIndex: 8,
-              // Two timings:
-              //  Non-combat (AOE / spell): 1.6s including the slice hold
-              //  at start, since the engine removed the creature without
-              //  it ever playing a slice on the live card.
-              //  Combat: 1.1s, no slice hold — the slice already ran on
-              //  the live BattlefieldCard before state advanced, so the
-              //  ghost just lifts off and flies straight to the grave.
-              animation: d.fromCombat
-                ? 'combatFlyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both'
-                : 'deathFlyToGrave 1.6s cubic-bezier(.55,.05,.85,.4) both',
+              // Unified death animation for combat AND non-combat kills.
+              // No slice halves — the card just lifts off the field and
+              // arcs into the side's graveyard. Family-friendly tone:
+              // no shredding, just "this card goes to memory now."
+              animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
               animationDelay: `${d.delayMs}ms`,
               ['--gx' as string]: `${gx}px`,
               ['--gy' as string]: `${gy}px`,
             }}
           >
-            {/* Combat ghost skips dying= true (no slice replay); plain
-                BattlefieldCard with all visual chrome. */}
-            <BattlefieldCard card={d.card} dying={!d.fromCombat} />
+            <BattlefieldCard card={d.card} />
           </div>
         );
       })}
@@ -2486,7 +2472,7 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, turn, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
+  side, cards, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
@@ -2503,7 +2489,6 @@ function FieldRow({
   silencedAt: Record<string, number>;
   /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
   triggers: Record<string, string>;
-  dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
   /** Per-card-template bond state. 'active' = partner is on the field too,
@@ -2529,10 +2514,6 @@ function FieldRow({
     const idx = slotMap[c.battleId];
     if (idx != null && idx >= 0 && idx < SLOTS_PER_ROW) slots[idx] = c;
   }
-  // Creature trades render slice + recoil on the big VS preview overlay, not
-  // on the tiny battlefield card. We only let the small slice play for face
-  // attacks (no preview) and for AI plays that don't go through combat.
-  const inTrade = !!combat && combat.defenderId !== 'face';
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
@@ -2556,7 +2537,10 @@ function FieldRow({
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
         const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
-        const isDying = !inTrade && dyingIds.includes(c.battleId);
+        // The live BattlefieldCard never plays the slice animation
+        // anymore — every death runs the same fly-to-graveyard arc on
+        // the ghost overlay after state advances, so there's nothing
+        // for the live card to do once the damage popup fires.
         return (
           <div
             key={c.battleId}
@@ -2565,8 +2549,8 @@ function FieldRow({
           >
             <BattlefieldCard
               card={c}
-              shaking={isCombatDefender && !isDying}
-              dying={isDying}
+              shaking={isCombatDefender}
+              dying={false}
               dimWhenExhausted={side === 'player'}
               selected={side === 'player' && selectedAttacker === c.battleId}
               attackable={
