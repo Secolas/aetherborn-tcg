@@ -132,13 +132,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [spellFx, setSpellFx] = useState<
     { x: number; y: number; kind: 'damage' | 'freeze' | 'buff' | 'silence' | 'face' } | null
   >(null);
-  /** Side that just drew a card at the start of their turn — fires the draw
-      flight overlay (a card-back animating from the deck chip into the hand). */
-  const [drawingFor, setDrawingFor] = useState<Owner | null>(null);
-  /** Bumps on every fired draw so the keyframe replays even when the same
-      side draws multiple cards back-to-back (e.g. Suitcase draws 2, Tio
-      drew 1 on the same turn-start). */
-  const [drawTick, setDrawTick] = useState(0);
+  /** Active card-back flights from deck → hand. Array-based so multiple
+   *  draws on the same side can be airborne at the same time — a
+   *  draw-on-play of 2 (Suitcase) shows two distinct card-backs trailing
+   *  each other, the same way the opening deal feels. Each entry
+   *  auto-removes after the flight animation completes. */
+  const [drawFlights, setDrawFlights] = useState<{ id: number; side: Owner }[]>([]);
+  const drawIdRef = useRef(0);
+  /** Fire a single card-back flight for `side` after `delay` ms. The
+   *  flight ID is unique per call so React keys the animation
+   *  independently and we never overwrite a flight in progress. */
+  const fireDraw = (side: Owner, delay: number) => {
+    setTimeout(() => {
+      drawIdRef.current += 1;
+      const id = drawIdRef.current;
+      setDrawFlights(f => [...f, { id, side }]);
+      // Match the keyframe duration (1.1s) plus a tiny tail.
+      setTimeout(() => setDrawFlights(f => f.filter(x => x.id !== id)), 1200);
+    }, delay);
+  };
   /** Bumps every time the active player's mana ramps so the chip can pulse. */
   const [manaPulse, setManaPulse] = useState(0);
   /** Per-creature buff popup: shows "+atk/+hp" in green over the creature
@@ -501,27 +513,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       if (fresh.turnNumber === prev.turnNumber) {
         const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
         const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
+        // Stagger card-backs by ~420ms — slightly slower than the
+        // opening deal's 380ms so a same-side multi-draw (Suitcase = 2)
+        // reads as a deliberate two-step. Each flight is its own entry
+        // in `drawFlights`, so multiple can be airborne concurrently and
+        // the second card-back doesn't overwrite the first.
+        const drawStep = 420;
         const drawDelay = 150;
-        // Spacing must be >= flight duration (1.1s) so successive card
-        // flights don't overwrite each other on screen — previously they
-        // were spaced 260ms apart with a 1100ms flight, so a 2-card
-        // draw_on_play looked like ONE card had been drawn (the second
-        // flight clobbered the first). 1200ms gives a tiny buffer.
-        const drawStep = 1200;
-        for (let i = 0; i < playerDraws; i++) {
-          setTimeout(() => {
-            setDrawingFor('player');
-            setDrawTick(t => t + 1);
-            setTimeout(() => setDrawingFor(null), 1100);
-          }, drawDelay + i * drawStep);
-        }
-        for (let i = 0; i < oppDraws; i++) {
-          setTimeout(() => {
-            setDrawingFor('opponent');
-            setDrawTick(t => t + 1);
-            setTimeout(() => setDrawingFor(null), 1100);
-          }, drawDelay + i * drawStep);
-        }
+        for (let i = 0; i < playerDraws; i++) fireDraw('player', drawDelay + i * drawStep);
+        for (let i = 0; i < oppDraws; i++) fireDraw('opponent', drawDelay + i * drawStep);
       }
 
       // Fatigue spike — when a side's fatigueCount went up, that's "drew
@@ -638,11 +638,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         return;
       }
       const side: Owner = i % 2 === 0 ? 'player' : 'opponent';
-      setDrawingFor(side);
-      setDrawTick(t => t + 1);
+      fireDraw(side, 0);
       if (side === 'player') setPlayerInitialDealt(d => d + 1);
       else setOppInitialDealt(d => d + 1);
-      setTimeout(() => { if (!cancelled) setDrawingFor(null); }, 600);
       i++;
       setTimeout(tick, 380);
     };
@@ -657,11 +655,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (flipping || state.outcome !== 'ongoing') return;
     if (state.turnNumber <= 1) return; // first turn — no draw happened
-    setDrawingFor(state.turn);
-    setDrawTick(t => t + 1);
+    fireDraw(state.turn, 0);
     setManaPulse(p => p + 1);
-    const t = setTimeout(() => setDrawingFor(null), 1100);
-    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.turn, state.turnNumber, flipping, state.outcome]);
 
   // Recompute the attack-arrow endpoints whenever combat starts. We read the
@@ -1597,18 +1593,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Card draw flight — when a turn starts, animate a card-back flying
-          out of the active player's deck chip toward their hand zone. The
-          end position is approximated relative to the chip's location. */}
-      {drawingFor === 'player' && (
+      {/* Card draw flights — one DOM node per in-flight card-back so that
+          a multi-draw (Suitcase = 2, Reflecting Pool = 2) shows TWO
+          distinct cards trailing each other, the same way the opening
+          deal felt. Each entry's React key is the unique flight id so
+          its animation never gets overwritten by a sibling. */}
+      {drawFlights.map(f => f.side === 'player' ? (
         <div
-          key={`draw-p-${drawTick}`}
+          key={`draw-p-${f.id}`}
           style={{
-            // Larger card-back (scale 0.5) and a longer arc (1.1s) so
-            // the player actually catches the "you drew a card" beat
-            // when it's triggered by an ability — Tio, Suitcase,
-            // First Class Window bond, etc. Old scale 0.32 / 0.7s was
-            // too small and too fast to register.
             position: 'absolute', bottom: 70, right: 30,
             animation: 'drawFlyPlayer 1.1s cubic-bezier(.3,.7,.4,1) forwards',
             pointerEvents: 'none',
@@ -1618,10 +1611,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         >
           <CardBack scale={0.5} />
         </div>
-      )}
-      {drawingFor === 'opponent' && (
+      ) : (
         <div
-          key={`draw-o-${drawTick}`}
+          key={`draw-o-${f.id}`}
           style={{
             position: 'absolute', top: 30, right: 30,
             animation: 'drawFlyOpp 1.1s cubic-bezier(.3,.7,.4,1) forwards',
@@ -1632,7 +1624,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         >
           <CardBack scale={0.5} />
         </div>
-      )}
+      ))}
 
       {/* Spell-target burst — colored ring + glow that lands on whichever
           creature (or face) a spell was aimed at, just as the spell resolves. */}
