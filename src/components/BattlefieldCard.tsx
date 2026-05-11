@@ -324,13 +324,16 @@ export function BattlefieldCard({
         </>
       )}
 
-      {/* Damage popup */}
+      {/* Damage popup. Uses the standardised numeric-popup style — coral
+          for damage, green for heals/buffs, dark single-line drop shadow
+          to read on any backdrop, no white outline. Same look as the
+          face / bond popups elsewhere. */}
       {damage != null && damage !== 0 && (
         <div style={{
           position: 'absolute', top: -6, left: '50%',
           fontSize: 24, fontWeight: 900,
-          color: damage > 0 ? '#ff5a5a' : '#5ea863',
-          textShadow: '0 2px 0 #1a0408, 0 0 8px rgba(0,0,0,.6)',
+          color: damage > 0 ? '#e85a52' : '#06d6a0',
+          textShadow: '0 2px 4px rgba(0,0,0,.55)',
           fontFamily: '"Fredoka", system-ui',
           animation: 'damagePopup 1.6s ease-out forwards',
           pointerEvents: 'none',
@@ -350,7 +353,9 @@ export function BattlefieldCard({
             position: 'absolute', top: -6, left: '50%',
             fontSize: 18, fontWeight: 900,
             color: '#06d6a0',
-            textShadow: '0 2px 0 #0a4030, 0 0 10px rgba(6,214,160,.5)',
+            // Match the damage popup language — single dark drop shadow,
+            // no white halo. Same visual as the face / bond popups.
+            textShadow: '0 2px 4px rgba(0,0,0,.55)',
             fontFamily: '"Fredoka", system-ui',
             animation: 'damagePopup 1.8s ease-out forwards',
             pointerEvents: 'none',
