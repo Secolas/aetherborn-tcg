@@ -328,6 +328,88 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'You made it to the top.',
     abilityKind: 'rush',
     rarity: 'legendary', suggested: 'a peak, summit, or panoramic mountain view' },
+
+  // ============================================================
+  // FOOD — sustain / nourish / recovery / one-shot ramp
+  //
+  // Owns the "keep your board alive" lane: creature-level healing
+  // (nourish, share_meal, feast), one-shot mana prep (ramp without
+  // snowballing), and recovery (leftovers — return a spell from your
+  // discard when a creature dies). Slower than Animals, less spell-y
+  // than Work, doesn't heal-the-face like Family — its own identity.
+  // ============================================================
+
+  { id: 'fd-01', name: 'Coffee Mug', el: 'food', cost: 1, atk: 1, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'The first sip of the day.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a coffee cup, latte, or steaming mug' },
+
+  { id: 'fd-02', name: 'Hot Soup', el: 'food', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +0/+2 HP.',
+    flavor: 'The cure for almost everything.',
+    abilityKind: 'spell_nourish', abilityValue: 2,
+    rarity: 'common', suggested: 'a bowl of soup or stew' },
+
+  { id: 'fd-03', name: 'Snack', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Just a little something.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'a chip bag, granola bar, or finger food' },
+
+  { id: 'fd-04', name: 'Breakfast Plate', el: 'food', cost: 2, atk: 1, hp: 3, type: 'Creature',
+    ability: 'On play: draw a card.',
+    flavor: 'Most important meal of the day.',
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'eggs, pancakes, a full breakfast spread' },
+
+  { id: 'fd-05', name: 'Lunch Box', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
+    ability: 'When this dies, return a random Spell from your graveyard to your hand.',
+    flavor: 'You can always go back for more.',
+    abilityKind: 'recover_on_death',
+    rarity: 'rare', suggested: 'a lunch box, takeout container, or packed meal' },
+
+  { id: 'fd-06', name: 'Slow Cooker', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
+    ability: 'On play: gain +1 mana next turn.',
+    flavor: 'It will be ready when it is ready.',
+    abilityKind: 'mana_prep', abilityValue: 1,
+    rarity: 'rare', suggested: 'a crockpot, slow cooker, or simmering pot' },
+
+  { id: 'fd-07', name: 'Recipe Card', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +1/+1.',
+    flavor: 'Pinch of salt, ten more minutes.',
+    abilityKind: 'spell_buff', abilityValue: 1,
+    rarity: 'common', suggested: 'a handwritten recipe or cookbook page' },
+
+  { id: 'fd-08', name: 'Share the Meal', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Heal each of your creatures +2 HP.',
+    flavor: 'Nobody eats alone tonight.',
+    abilityKind: 'spell_share_meal', abilityValue: 2,
+    rarity: 'rare', suggested: 'a shared plate, family-style dinner, friends eating' },
+
+  { id: 'fd-09', name: 'Comfort Food', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 4 HP.',
+    flavor: 'Tastes like a hug.',
+    abilityKind: 'spell_heal', abilityValue: 4,
+    rarity: 'common', suggested: 'mac and cheese, mashed potatoes, your favorite' },
+
+  { id: 'fd-10', name: 'Grandma\'s Pie', el: 'food', cost: 4, atk: 2, hp: 6, type: 'Creature',
+    ability: 'Taunt.',
+    flavor: 'Don\'t you dare leave without a slice.',
+    abilityKind: 'taunt',
+    rarity: 'rare', suggested: 'a homemade pie, fruit crumble, or dessert' },
+
+  { id: 'fd-11', name: 'The Cook', el: 'food', cost: 4, atk: 3, hp: 4, type: 'Creature',
+    ability: 'On play: heal each of your creatures +1 HP.',
+    flavor: 'They taste-tested every plate.',
+    abilityKind: 'spell_share_meal', abilityValue: 1,
+    rarity: 'epic', suggested: 'a chef at work, or someone cooking at the stove' },
+
+  { id: 'fd-12', name: 'Family Feast', el: 'food', cost: 6, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 8 HP and heal each of your creatures +4 HP.',
+    flavor: 'Everyone leaves the table fuller.',
+    abilityKind: 'spell_feast', abilityValue: 8,
+    rarity: 'legendary', suggested: 'a holiday spread, big dinner table, feast scene' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {

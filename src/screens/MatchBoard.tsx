@@ -1561,7 +1561,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           highlightEmpty={selectedHandIdx !== null}
           registerEl={registerEl}
           onCardClick={(c) => {
-            if (pendingSpell?.abilityKind === 'spell_buff') {
+            const ak = pendingSpell?.abilityKind;
+            if (ak === 'spell_buff' || ak === 'spell_nourish') {
               castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
             } else {
               onMyCreatureClick(c);
@@ -1705,6 +1706,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const isSpell = card.type === 'Spell';
         const needsTarget = isSpell && !(
           card.abilityKind === 'spell_heal' ||
+          card.abilityKind === 'spell_share_meal' ||
+          card.abilityKind === 'spell_feast' ||
           card.abilityKind === 'draw_on_play' ||
           card.id === 'ti-05'
         );
@@ -2631,7 +2634,7 @@ function FieldRow({
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
-        const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
+        const friendlySpell = side === 'player' && (pendingSpell?.abilityKind === 'spell_buff' || pendingSpell?.abilityKind === 'spell_nourish');
         const dyingEntry = dying[c.battleId];
         // The live BattlefieldCard plays NO slice animation. When a
         // creature dies, its slot wrapper plays flyToGrave (translating
@@ -2866,6 +2869,7 @@ function spellTargetHint(card: BattleCard): string {
     case 'spell_damage': return `Tap an enemy creature or boss to deal ${card.abilityValue ?? 0}`;
     case 'spell_freeze': return 'Tap an enemy creature to freeze it';
     case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
+    case 'spell_nourish':return `Tap your creature for +0/+${card.abilityValue ?? 0} HP`;
     case 'silence':      return 'Tap an enemy creature to silence it';
     default:             return 'Tap a target';
   }
@@ -2875,8 +2879,11 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   if (!spell) return false;
   // Silence ignores 'untargetable' on purpose — that's its job.
   if (spell.abilityKind === 'silence') return owner === 'opponent';
-  if (c.abilityKind === 'untargetable' && spell.abilityKind !== 'spell_buff') return false;
-  if (spell.abilityKind === 'spell_buff') return owner === 'player';
+  // Friendly buffs (spell_buff, spell_nourish) ignore untargetable since
+  // the friendly creature isn't being attacked.
+  const isFriendlyBuff = spell.abilityKind === 'spell_buff' || spell.abilityKind === 'spell_nourish';
+  if (c.abilityKind === 'untargetable' && !isFriendlyBuff) return false;
+  if (isFriendlyBuff) return owner === 'player';
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return true;
   return false;

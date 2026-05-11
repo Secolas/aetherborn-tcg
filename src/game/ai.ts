@@ -316,11 +316,37 @@ function chooseSpellTarget(card: BattleCard, state: MatchState, c: AiCaps): Spel
     return { kind: 'creature', owner: 'opponent', battleId: tgt.battleId };
   }
 
-  if (card.abilityKind === 'spell_heal') {
+  if (card.abilityKind === 'spell_nourish') {
+    // HP-only buff. Bias toward the lowest-HP friendly creature (the one
+    // most at risk of trading badly next turn).
+    const pool = me.field.filter(x => x.currentHp < x.hp);
+    if (pool.length === 0) {
+      // No damaged creatures — pad the biggest body so it survives more trades.
+      const fallback = me.field[0];
+      if (!fallback) return undefined;
+      const biggest = me.field.sort((a, b) => b.currentHp - a.currentHp)[0];
+      return { kind: 'creature', owner: 'opponent', battleId: biggest.battleId };
+    }
+    const tgt = pool.sort((a, b) => a.currentHp - b.currentHp)[0];
+    return { kind: 'creature', owner: 'opponent', battleId: tgt.battleId };
+  }
+
+  if (card.abilityKind === 'spell_heal' || card.abilityKind === 'spell_feast') {
     // Patient heal: Hard+ waits until the threshold is meaningful so the
-    // heal isn't wasted on capped HP. Normal heals at <18 (current logic).
-    const threshold = c.patientCasts ? 14 : 18;
+    // heal isn't wasted on capped HP. Feast is expensive so reserve it
+    // for genuine emergencies (HP under half).
+    const threshold = card.abilityKind === 'spell_feast'
+      ? 10
+      : (c.patientCasts ? 14 : 18);
     if (me.hp >= threshold) return undefined;
+    return { kind: 'face', owner: 'opponent' };
+  }
+
+  if (card.abilityKind === 'spell_share_meal') {
+    // Heal the board. Only cast when at least 2 creatures are damaged —
+    // otherwise the value is too low for the mana spent.
+    const damaged = me.field.filter(x => x.currentHp < x.hp).length;
+    if (damaged < 2) return undefined;
     return { kind: 'face', owner: 'opponent' };
   }
 
@@ -396,6 +422,13 @@ function scoreCard(card: BattleCard, state: MatchState, c: AiCaps): number {
     if (card.abilityKind === 'rush') s += 1;
     if (card.abilityKind === 'taunt' && me.hp < 14) s += 2;
     if (card.abilityKind === 'untargetable') s += 1;
+    // Leftovers (recover_on_death): trading in a recovery body is fine
+    // because you get value back. Modest nudge so AI prefers it over a
+    // vanilla body of equal stats.
+    if (card.abilityKind === 'recover_on_death') s += 1.5;
+    // Mana prep: only valuable early (so the next turn's curve jumps).
+    // Past turn 6 the +1 is irrelevant since you're already at high mana.
+    if (card.abilityKind === 'mana_prep' && state.turnNumber <= 5) s += 1.5;
 
     // Bond completion (Mythic): if summoning this card would activate an
     // AI bond, prioritize the play. Big +score so it beats other
@@ -423,10 +456,19 @@ function scoreCard(card: BattleCard, state: MatchState, c: AiCaps): number {
     if (card.abilityKind === 'spell_freeze') s += 2;
     if (card.abilityKind === 'silence') s += 2;
     if (card.abilityKind === 'draw_on_play') s += 2;
+    if (card.abilityKind === 'spell_nourish' && me.field.some(x => x.currentHp < x.hp)) s += 2;
+    if (card.abilityKind === 'spell_share_meal') {
+      const damaged = me.field.filter(x => x.currentHp < x.hp).length;
+      s += damaged * 1.5;
+    }
+    if (card.abilityKind === 'spell_feast' && me.hp < 12) s += 5;
 
     // Patient casts: don't fire spells that would do nothing right now.
     if (c.patientCasts) {
       if (card.abilityKind === 'spell_buff' && me.field.length === 0) s -= 5;
+      if (card.abilityKind === 'spell_nourish' && me.field.length === 0) s -= 5;
+      if (card.abilityKind === 'spell_share_meal' && me.field.filter(x => x.currentHp < x.hp).length < 2) s -= 4;
+      if (card.abilityKind === 'spell_feast' && me.hp >= 16) s -= 5;
       if (card.abilityKind === 'spell_freeze' && state.player.field.length === 0) s -= 5;
       if (card.abilityKind === 'silence' && !state.player.field.some(x =>
         x.abilityKind === 'taunt' || x.abilityKind === 'untargetable' || x.abilityKind === 'rush'

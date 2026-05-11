@@ -288,6 +288,14 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   // Mana ramp
   me.maxMana = Math.min(MAX_MANA, me.maxMana + 1);
   me.mana = me.maxMana;
+  // One-shot ramp from `mana_prep` creatures (Slow Cooker etc.). Adds to
+  // THIS turn's spendable mana only — doesn't raise maxMana — so the
+  // boost can't snowball across multiple turns. Cleared after applying.
+  if (me.manaBonusNextTurn && me.manaBonusNextTurn > 0) {
+    me.mana += me.manaBonusNextTurn;
+    state.log.push(`${owner === 'player' ? 'You gain' : 'The Boss gains'} +${me.manaBonusNextTurn} mana this turn`);
+    me.manaBonusNextTurn = 0;
+  }
 
   // Untap, clear sickness. Frozen creatures stay frozen through their owner's
   // turn (so the snowflake is visible the whole time the freeze is "active");
@@ -332,6 +340,18 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
       me.hp = Math.min(STARTING_HP, me.hp + b.effect.amount);
       if (me.hp > before) {
         state.log.push(`Bond: ${b.name} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${me.hp - before}`);
+      }
+    }
+    // Bond: heal_creatures_per_turn (Food — Breakfast Combo)
+    if (b.effect.kind === 'heal_creatures_per_turn' && b.effect.amount) {
+      let totalHealed = 0;
+      for (const c of me.field) {
+        const before = c.currentHp;
+        c.currentHp = Math.min(c.hp, c.currentHp + b.effect.amount);
+        totalHealed += (c.currentHp - before);
+      }
+      if (totalHealed > 0) {
+        state.log.push(`Bond: ${b.name} heals your creatures for ${totalHealed}`);
       }
     }
   }
@@ -500,7 +520,7 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
 
 function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, target?: SpellTarget): boolean {
   // Spells that don't need a target
-  const noTarget: AbilityKind[] = ['draw_on_play', 'spell_heal'];
+  const noTarget: AbilityKind[] = ['draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast'];
   if (noTarget.includes(card.abilityKind)) return true;
 
   if (!target) return false;
@@ -521,6 +541,13 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     return !!c && c.abilityKind !== 'untargetable';
   }
   if (card.abilityKind === 'spell_buff') {
+    if (target.kind !== 'creature') return false;
+    if (target.owner !== owner) return false;
+    return !!side(state, owner).field.find(x => x.battleId === target.battleId);
+  }
+  if (card.abilityKind === 'spell_nourish') {
+    // Food's defensive buff: HP-only, friendly creature only. Mirrors
+    // spell_buff's targeting rules.
     if (target.kind !== 'creature') return false;
     if (target.owner !== owner) return false;
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
@@ -553,6 +580,22 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
       }
     }
     state.log.push(`${displayName(card)} draws ${card.abilityValue}`);
+  } else if (card.abilityKind === 'mana_prep') {
+    // One-shot ramp — caches a +1 onto next turn. Stacks if multiple
+    // `mana_prep` creatures are played in the same turn (rare; cost
+    // makes it expensive to do).
+    const amt = card.abilityValue ?? 1;
+    me.manaBonusNextTurn = (me.manaBonusNextTurn ?? 0) + amt;
+    state.log.push(`${displayName(card)} preps +${amt} mana for next turn`);
+  } else if (card.abilityKind === 'spell_share_meal' && card.type === 'Creature') {
+    // The Cook (Food creature) heals its own creatures on-play. Uses the
+    // same kind as the spell variant — applying it via on-play instead
+    // of a target keeps the ability table compact.
+    const amt = card.abilityValue ?? 1;
+    for (const c of me.field) {
+      c.currentHp = Math.min(c.hp, c.currentHp + amt);
+    }
+    state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
   }
 }
 
@@ -586,6 +629,33 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
   } else if (card.abilityKind === 'spell_heal') {
     me.hp = Math.min(STARTING_HP, me.hp + v);
+  } else if (card.abilityKind === 'spell_nourish' && target?.kind === 'creature') {
+    // HP-only buff on a friendly creature. Doesn't raise ATK — Food's
+    // identity is sustain, not power. Increases both currentHp and max
+    // hp so the bonus persists through later damage / spell_buff.
+    const t = side(state, target.owner);
+    const c = t.field.find(x => x.battleId === target.battleId);
+    if (c) {
+      c.currentHp += v;
+      c.hp += v;
+    }
+  } else if (card.abilityKind === 'spell_share_meal') {
+    // Board-wide creature heal. Only owner's creatures, capped at their
+    // max hp so it can't stack into a heal-into-buff loop.
+    for (const c of me.field) {
+      c.currentHp = Math.min(c.hp, c.currentHp + v);
+    }
+    state.log.push(`${displayName(card)} feeds your creatures +${v}`);
+  } else if (card.abilityKind === 'spell_feast') {
+    // The deck's late-game stabilizer. Heals owner's face by `abilityValue`
+    // and creatures by half of that (rounded down). Single number on the
+    // template keeps the data simple.
+    me.hp = Math.min(STARTING_HP, me.hp + v);
+    const creatureHeal = Math.max(1, Math.floor(v / 2));
+    for (const c of me.field) {
+      c.currentHp = Math.min(c.hp, c.currentHp + creatureHeal);
+    }
+    state.log.push(`${displayName(card)} restores ${v} HP and feeds your creatures +${creatureHeal}`);
   } else if (card.abilityKind === 'spell_freeze' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
@@ -645,6 +715,25 @@ function cleanField(p: PlayerState) {
   // Move dead creatures into the graveyard instead of dropping them on the
   // floor. The player can review what was killed via the graveyard button.
   const dead = p.field.filter(c => c.currentHp <= 0);
+  // `recover_on_death` (Food theme): when a creature with this ability
+  // dies, pull a random Spell out of the existing discard back into the
+  // owner's hand BEFORE the creature itself joins the pile (so it can't
+  // recover itself). One Spell per death; if the discard has no spells,
+  // nothing happens. The dying creature still goes to the graveyard
+  // normally — the recovery is value on top, not a substitute.
+  for (const c of dead) {
+    if (c.abilityKind !== 'recover_on_death') continue;
+    if (p.hand.length >= MAX_HAND) continue;
+    const spellIdxs: number[] = [];
+    for (let i = 0; i < p.discard.length; i++) {
+      if (p.discard[i].type === 'Spell') spellIdxs.push(i);
+    }
+    if (!spellIdxs.length) continue;
+    const pickIdx = spellIdxs[Math.floor(Math.random() * spellIdxs.length)];
+    const [recovered] = p.discard.splice(pickIdx, 1);
+    recovered.tapped = false;
+    p.hand.push(recovered);
+  }
   if (dead.length) p.discard.push(...dead);
   p.field = p.field.filter(c => c.currentHp > 0);
   // Deaths can release bond claims (Mom locked with Dad → Dad dies → Mom

@@ -186,6 +186,48 @@ export const BOSSES: BossDef[] = [
     // Airport gate at dawn — gradient sky behind the runway, "leaving."
     backdrop: U('photo-1436491865332-7a61a109cc05'),
   },
+
+  // ============================================================
+  // THE COOK — Food theme. Sustain / nourish / outlast-focused.
+  // Patient deck. Heals the board, recovers spells from the graveyard,
+  // ramps one turn ahead, and finishes by feasting back to full HP.
+  // Doesn't race — wins by refusing to die.
+  // ============================================================
+  {
+    id: 'cook',
+    name: 'The Cook',
+    subtitle: 'Always more on the stove',
+    themeId: 'food',
+    avatar: 'C',
+    // Chef portrait — apron, kitchen, warm light.
+    avatarPhoto: U('photo-1583394293214-28ded15ee548'),
+    intro: 'Pull up a chair. Plate\'s almost ready.',
+    playstyle: "Outlasts you. Heals her board every turn the breakfast combo is up, recovers spells when Lunch Box dies, and stabilizes any near-death turn with Family Feast.",
+    rewardCoins: 150,
+    deck: [
+      'fd-01', 'fd-01',  // Coffee Mug x2 — early body + Breakfast Combo enabler
+      'fd-02',           // Hot Soup — defensive buff
+      'fd-03',           // Snack — early rush body
+      'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
+      'fd-05',           // Lunch Box — recover_on_death
+      'fd-06',           // Slow Cooker — ramp
+      'fd-07',           // Recipe Card — small buff
+      'fd-08',           // Share the Meal — board heal
+      'fd-09',           // Comfort Food — face heal
+      'fd-10',           // Grandma's Pie — taunt
+      'fd-11',           // The Cook — on-play heal
+      'fd-12',           // Family Feast — finisher
+    ],
+    photoOverrides: {
+      // Her own iconic plates — distinct photos for the cards she's
+      // famous for so the deck reads like a kitchen, not random food.
+      'fd-04': U('photo-1490645935967-10de6ba17061'),  // her own breakfast plate
+      'fd-10': U('photo-1568571780765-9276ac8b75a2'),  // her own pie
+      'fd-12': U('photo-1414235077428-338989a2e8c0'),  // her own feast table
+    },
+    // Warm restaurant kitchen — copper pans, low light, food prep counter.
+    backdrop: U('photo-1517248135467-4c7edcad34c4'),
+  },
 ];
 
 export function getBoss(id: string): BossDef | undefined {

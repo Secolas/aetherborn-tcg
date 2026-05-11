@@ -1,5 +1,5 @@
 /** Themes are the deck-organizing axis. Each theme is a photo prompt set. */
-export type ElementId = 'family' | 'work' | 'animals' | 'travel';
+export type ElementId = 'family' | 'work' | 'animals' | 'travel' | 'food';
 
 export type CardType = 'Creature' | 'Spell';
 
@@ -23,7 +23,13 @@ export type AbilityKind =
   | 'spell_heal'     // (Spell) heal owner X
   | 'spell_buff'     // (Spell) +X/+X to a friendly creature
   | 'spell_freeze'   // (Spell) tap an enemy creature
-  | 'silence';       // (Spell) strip all abilities from an enemy creature
+  | 'silence'        // (Spell) strip all abilities from an enemy creature
+  // ---- Food theme additions ----
+  | 'spell_nourish'      // (Spell) +0/+2 HP to a friendly creature (defensive buff)
+  | 'spell_share_meal'   // (Spell) heal all your creatures by X
+  | 'spell_feast'        // (Spell) heal owner X face HP AND your creatures by Y
+  | 'recover_on_death'   // when this creature dies, return a random Spell from your discard to your hand
+  | 'mana_prep';         // on play: gain +1 mana NEXT turn only (one-shot ramp)
 
 export interface CardTemplate {
   id: string;
@@ -113,6 +119,11 @@ export interface PlayerState {
       higher `amount` wins. Recomputed by recomputeBondClaims after every
       field change. */
   claimedBonds?: string[];
+  /** Carry-over mana for next turn. Spent down by beginTurn (added once,
+      then cleared). Set by `mana_prep` creatures (Slow Cooker) and any
+      future one-shot ramp effect. Doesn't raise maxMana — only the
+      immediate spend for the upcoming turn — so ramp can't snowball. */
+  manaBonusNextTurn?: number;
 }
 
 export interface MatchState {
