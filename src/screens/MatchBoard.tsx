@@ -723,13 +723,22 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
 
     }
-    prevSnapRef.current = fresh;
-    // Keep a parallel snapshot of full BattleCards per side so the next
-    // tick can resurrect ghosts for any creature that disappears.
-    prevFieldRef.current = {
-      player: new Map(state.player.field.map(c => [c.battleId, c])),
-      opponent: new Map(state.opponent.field.map(c => [c.battleId, c])),
-    };
+    // Freeze the prev snapshots while combat is animating. `setState` for
+    // the post-combat field fires BEFORE `setCombat(null)`, so if we let
+    // these refs advance during the combat-gated tick, the follow-up tick
+    // (after combat clears) would compare same-to-same and miss the
+    // creature that died in combat — the ghost would never fire and the
+    // card would just disappear flat. Keeping refs frozen until combat
+    // ends means the death-detection sees the pre-combat field and
+    // launches a flyToGrave ghost for every combat kill, matching how
+    // spell / AOE kills already work.
+    if (!combat) {
+      prevSnapRef.current = fresh;
+      prevFieldRef.current = {
+        player: new Map(state.player.field.map(c => [c.battleId, c])),
+        opponent: new Map(state.opponent.field.map(c => [c.battleId, c])),
+      };
+    }
   }, [state, combat, flipping, initialDealing]);
 
   // Auto-clear death FX entries after their slice + fade plays out
@@ -801,7 +810,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // find the rect a creature occupied in the PREVIOUS render — exactly
     // what we need for death ghosts, since the dead creature's DOM is
     // already gone by then.
-    prevRectsRef.current = lastRectsRef.current;
+    //
+    // While combat is animating we DON'T shift — the state-diff effect
+    // is gated on `!combat`, so the post-combat tick is what actually
+    // launches the death ghost. If we let prevRectsRef advance during
+    // the gated tick, the dead creature's rect would already be gone
+    // (the live card unmounts when state updates), and the ghost would
+    // have no position to fly from — leaving combat-killed cards to
+    // vanish flat. Freezing the shift mirrors how we freeze the
+    // prevFieldRef snapshot above.
+    if (!combat) {
+      prevRectsRef.current = lastRectsRef.current;
+    }
     const next = new Map<string, { x: number; y: number; w: number; h: number }>();
     for (const [id, el] of cardEls.current) {
       const r = el.getBoundingClientRect();
