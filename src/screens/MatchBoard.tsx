@@ -65,6 +65,11 @@ interface CombatFx {
 type DamageMap = Record<string, number>;
 const FACE_PLAYER = '__face_player__';
 const FACE_OPP = '__face_opp__';
+/** Synthetic ids used in the cardEls + rect maps so the death-fly
+ *  animation can resolve "where is the graveyard?" per side without
+ *  needing extra ref plumbing. */
+const GRAVE_PLAYER = '__grave_player__';
+const GRAVE_OPP = '__grave_opp__';
 
 export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
@@ -628,9 +633,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (deathFx.length === 0) return;
     const keys = new Set(deathFx.map(d => d.key));
+    // Match the deathFlyToGrave keyframe duration (1.6s) plus a tiny tail
+    // so the ghost stays mounted through the full slice → fly arc.
     const t = setTimeout(() => {
       setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 1100);
+    }, 1700);
     return () => clearTimeout(t);
   }, [deathFx]);
 
@@ -1205,7 +1212,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
-          <GraveyardButton count={state.opponent.discard.length} onClick={() => setGraveyardOpen('opponent')} />
+          <GraveyardButton
+            count={state.opponent.discard.length}
+            onClick={() => setGraveyardOpen('opponent')}
+            elRef={(el) => registerEl(GRAVE_OPP, el)}
+          />
         </div>
       </div>
 
@@ -1396,7 +1407,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
-          <GraveyardButton count={state.player.discard.length} onClick={() => setGraveyardOpen('player')} />
+          <GraveyardButton
+            count={state.player.discard.length}
+            onClick={() => setGraveyardOpen('player')}
+            elRef={(el) => registerEl(GRAVE_PLAYER, el)}
+          />
         </div>
       </div>
 
@@ -1934,26 +1949,41 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Non-combat death ghosts — for AOE / spell deaths, the engine
-          removes the creature from state.field immediately so the slot
-          unmounts. We paint a ghost at the exact rect the dead creature
-          occupied (captured via lastRectsRef in useLayoutEffect), with
-          the dying prop on BattlefieldCard so the SAME slice + red-tint
-          animation combat trades use plays here. The ghost auto-clears
-          in ~750ms. */}
-      {deathFx.map(d => (
-        <div
-          key={d.key}
-          style={{
-            position: 'absolute',
-            left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
-            pointerEvents: 'none',
-            zIndex: 8,
-          }}
-        >
-          <BattlefieldCard card={d.card} dying />
-        </div>
-      ))}
+      {/* Non-combat death ghosts — paint the slice + red-tint anim at
+          the exact slot the dead creature occupied, then fly the
+          remains into THAT side's graveyard icon. The slice and the
+          fly are sequenced by the deathFlyToGrave keyframe: holds in
+          place 0-50%, then translates toward the graveyard rect using
+          CSS vars set inline. */}
+      {deathFx.map(d => {
+        const graveKey = d.side === 'player' ? GRAVE_PLAYER : GRAVE_OPP;
+        // Last known rect of the graveyard icon (captured into
+        // prev/lastRectsRef via the layout effect). If unavailable —
+        // unmounted, first render — we fall back to a near-zero
+        // displacement so the ghost just fades in place.
+        const graveRect = lastRectsRef.current.get(graveKey) ?? prevRectsRef.current.get(graveKey);
+        const gx = graveRect ? (graveRect.x + graveRect.w / 2) - (d.rect.x + d.rect.w / 2) : 0;
+        const gy = graveRect ? (graveRect.y + graveRect.h / 2) - (d.rect.y + d.rect.h / 2) : 0;
+        return (
+          <div
+            key={d.key}
+            style={{
+              position: 'absolute',
+              left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
+              pointerEvents: 'none',
+              zIndex: 8,
+              // Total runtime ~1.6s. First half = slice (the dying
+              // BattlefieldCard inside handles its own keyframes).
+              // Second half = fly to graveyard.
+              animation: 'deathFlyToGrave 1.6s cubic-bezier(.55,.05,.85,.4) forwards',
+              ['--gx' as string]: `${gx}px`,
+              ['--gy' as string]: `${gy}px`,
+            }}
+          >
+            <BattlefieldCard card={d.card} dying />
+          </div>
+        );
+      })}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
@@ -2574,9 +2604,16 @@ function StatusLabels({
 }
 
 /** Skull-icon pill that opens the graveyard modal for one player's pile. */
-function GraveyardButton({ count, onClick }: { count: number; onClick: () => void }) {
+function GraveyardButton({ count, onClick, elRef }: {
+  count: number;
+  onClick: () => void;
+  /** Forwarded so MatchBoard can capture this button's position into
+   *  the cardEls map and use it as the destination for the death-fly
+   *  animation. */
+  elRef?: (el: HTMLButtonElement | null) => void;
+}) {
   return (
-    <button onClick={onClick} aria-label="Graveyard" style={{
+    <button ref={elRef} onClick={onClick} aria-label="Graveyard" style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       background: '#fff',
       padding: '5px 9px', borderRadius: 14,

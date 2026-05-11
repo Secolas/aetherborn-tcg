@@ -304,6 +304,17 @@ input {
   0%, 100% { transform: translateX(-2px); }
   50%      { transform: translateX(2px); }
 }
+/* Death-fly — runs on the death-ghost wrapper AFTER the slice animation
+   inside the BattlefieldCard plays. Holds at the slot position for the
+   slice (0-50%), then translates the remains toward the graveyard icon
+   and shrinks to nothing. Uses CSS variables (--gx, --gy) set inline so
+   each death animates toward THIS side's graveyard. */
+@keyframes deathFlyToGrave {
+  0%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  50%  { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  85%  { transform: translate(calc(var(--gx, 0px) * .8), calc(var(--gy, 0px) * .8)) scale(0.35) rotate(-12deg); opacity: 0.85; }
+  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.15) rotate(-18deg); opacity: 0; }
+}
 /* Boss-deck marquee — endless horizontal scroll of the boss's 12 cards
    on the picker page. We duplicate the card row inline and translate by
    exactly -50% so the loop is seamless. Pure GPU transform = cheap. */
