@@ -181,12 +181,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
   const cardEls = useRef<Map<string, HTMLElement>>(new Map());
   /** Last-known board-local rect for every creature, refreshed on every
-   *  render via a useLayoutEffect. We capture this so that when a
-   *  creature is removed from state.field (AOE / spell death) we can
-   *  still render its death ghost at the exact slot it was in — by the
-   *  time the diff effect runs the original DOM node has unmounted and
-   *  cardEls no longer has it. */
+   *  render via a useLayoutEffect. */
   const lastRectsRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
+  /** PREVIOUS render's rects, preserved so we can look up the slot a
+   *  creature was in when it died. By the time the diff useEffect runs,
+   *  the creature's DOM node has already unmounted and `lastRectsRef`
+   *  no longer has its rect — so we keep a one-render-old copy here. */
+  const prevRectsRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
   const registerEl = (id: string, el: HTMLElement | null) => {
     if (el) cardEls.current.set(id, el);
     else cardEls.current.delete(id);
@@ -388,6 +389,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     player: Map<string, CreatureSnap>;
     opponent: Map<string, CreatureSnap>;
     handSize: { player: number; opponent: number };
+    /** Hand contents as a Set<battleId> per side. Lets us detect the
+     *  exact number of NEW cards added each tick by set-diffing — net
+     *  hand-size change miscounts when a spell that draws cards also
+     *  removes itself from hand (Suitcase: draw 2 ⇒ net +1, but two
+     *  cards were genuinely drawn). */
+    handIds: { player: Set<string>; opponent: Set<string> };
     fatigue: { player: number; opponent: number };
     /** Snapshot of each side's face HP. Used to attribute non-combat HP
      *  changes to the bond that caused them (heal_face_per_turn at start
@@ -397,6 +404,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   }>({
     player: new Map(), opponent: new Map(),
     handSize: { player: 0, opponent: 0 },
+    handIds: { player: new Set(), opponent: new Set() },
     fatigue: { player: 0, opponent: 0 },
     hp: { player: STARTING_HP, opponent: STARTING_HP },
     turnNumber: state.turnNumber,
@@ -410,6 +418,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       player: snapshot(state.player.field),
       opponent: snapshot(state.opponent.field),
       handSize: { player: state.player.hand.length, opponent: state.opponent.hand.length },
+      handIds: {
+        player: new Set(state.player.hand.map(c => c.battleId)),
+        opponent: new Set(state.opponent.hand.map(c => c.battleId)),
+      },
       fatigue: { player: state.player.fatigueCount, opponent: state.opponent.fatigueCount },
       hp: { player: state.player.hp, opponent: state.opponent.hp },
       turnNumber: state.turnNumber,
@@ -456,7 +468,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         for (const [id, card] of prevCards) {
           if (freshIds.has(id)) continue;
           if (dyingIds.includes(id)) continue; // combat handles this one
-          const rect = lastRectsRef.current.get(id);
+          // Use prevRectsRef (the PREVIOUS render's rects) — the dead
+          // creature's DOM is already unmounted from lastRectsRef.
+          const rect = prevRectsRef.current.get(id);
           if (!rect) continue; // never had a known position; skip
           out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect });
         }
@@ -469,10 +483,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
       ];
       if (newDeaths.length) {
-        // Stagger slightly so deaths can land just after damage popups
-        // ("you saw the -2, now the body slumps"). The deathFx auto-
-        // clears via the dedicated effect below.
-        setTimeout(() => setDeathFx(d => [...d, ...newDeaths]), 350);
+        // Render the ghost IMMEDIATELY (no delay) so it visually replaces
+        // the dying creature at the same instant — same beat as combat,
+        // not a "creature disappears, then a slice appears in empty
+        // space" gap. The slice + red-tint animation lasts ~0.85s on
+        // top of the deathFx 1.1s lifetime.
+        setDeathFx(d => [...d, ...newDeaths]);
       }
 
       if (Object.keys(damagePops).length) {
@@ -511,17 +527,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // state update (just after the source spell / summon settles) — a
       // longer gap left players wondering where the new cards came from.
       if (fresh.turnNumber === prev.turnNumber) {
-        const playerDraws = Math.max(0, fresh.handSize.player - prev.handSize.player);
-        const oppDraws = Math.max(0, fresh.handSize.opponent - prev.handSize.opponent);
-        // Stagger card-backs by ~420ms — slightly slower than the
-        // opening deal's 380ms so a same-side multi-draw (Suitcase = 2)
-        // reads as a deliberate two-step. Each flight is its own entry
-        // in `drawFlights`, so multiple can be airborne concurrently and
-        // the second card-back doesn't overwrite the first.
+        // Count NEW battleIds in each hand rather than net hand-size
+        // change. A draw-2 spell like Suitcase removes itself from hand
+        // and adds 2 — net +1, but two cards were actually drawn. Set
+        // diff captures the real number every time.
+        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
+        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
         const drawStep = 420;
         const drawDelay = 150;
-        for (let i = 0; i < playerDraws; i++) fireDraw('player', drawDelay + i * drawStep);
-        for (let i = 0; i < oppDraws; i++) fireDraw('opponent', drawDelay + i * drawStep);
+        for (let i = 0; i < newPlayerCards; i++) fireDraw('player', drawDelay + i * drawStep);
+        for (let i = 0; i < newOppCards; i++) fireDraw('opponent', drawDelay + i * drawStep);
       }
 
       // Fatigue spike — when a side's fatigueCount went up, that's "drew
@@ -669,6 +684,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useLayoutEffect(() => {
     if (!boardRef.current) return;
     const board = boardRef.current.getBoundingClientRect();
+    // Step 1: shift the CURRENT lastRectsRef into prevRectsRef before
+    // overwriting. This lets the diff useEffect (which runs after this)
+    // find the rect a creature occupied in the PREVIOUS render — exactly
+    // what we need for death ghosts, since the dead creature's DOM is
+    // already gone by then.
+    prevRectsRef.current = lastRectsRef.current;
     const next = new Map<string, { x: number; y: number; w: number; h: number }>();
     for (const [id, el] of cardEls.current) {
       const r = el.getBoundingClientRect();
