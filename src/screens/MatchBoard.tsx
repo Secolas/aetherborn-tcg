@@ -85,10 +85,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [dyingIds, setDyingIds] = useState<string[]>([]);
   /** Ghost copies of creatures that recently left the field outside of
    *  combat — AOE-killed, spell-killed, etc. Rendered as fading slice
-   *  animations at the dead creature's owner's field row so the player
-   *  sees what died rather than just "the field shrank by one." Each
-   *  entry auto-clears after ~750ms. */
-  const [deathFx, setDeathFx] = useState<{ card: BattleCard; side: Owner; key: number }[]>([]);
+   *  animations at the EXACT board-local position the creature occupied
+   *  before unmount (captured via lastRectsRef). Each entry auto-clears
+   *  after ~750ms. */
+  const [deathFx, setDeathFx] = useState<{
+    card: BattleCard;
+    side: Owner;
+    key: number;
+    rect: { x: number; y: number; w: number; h: number };
+  }[]>([]);
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
@@ -163,6 +168,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** DOM nodes of every creature on the field + the two faces, keyed by battleId
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
   const cardEls = useRef<Map<string, HTMLElement>>(new Map());
+  /** Last-known board-local rect for every creature, refreshed on every
+   *  render via a useLayoutEffect. We capture this so that when a
+   *  creature is removed from state.field (AOE / spell death) we can
+   *  still render its death ghost at the exact slot it was in — by the
+   *  time the diff effect runs the original DOM node has unmounted and
+   *  cardEls no longer has it. */
+  const lastRectsRef = useRef<Map<string, { x: number; y: number; w: number; h: number }>>(new Map());
   const registerEl = (id: string, el: HTMLElement | null) => {
     if (el) cardEls.current.set(id, el);
     else cardEls.current.delete(id);
@@ -427,12 +439,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         prevCards: Map<string, BattleCard>,
         freshIds: Set<string>,
         side: Owner,
-      ): { card: BattleCard; side: Owner; key: number }[] => {
-        const out: { card: BattleCard; side: Owner; key: number }[] = [];
+      ): { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number } }[] => {
+        const out: { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number } }[] = [];
         for (const [id, card] of prevCards) {
           if (freshIds.has(id)) continue;
           if (dyingIds.includes(id)) continue; // combat handles this one
-          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000) });
+          const rect = lastRectsRef.current.get(id);
+          if (!rect) continue; // never had a known position; skip
+          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect });
         }
         return out;
       };
@@ -492,14 +506,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setTimeout(() => {
             setDrawingFor('player');
             setDrawTick(t => t + 1);
-            setTimeout(() => setDrawingFor(null), 700);
+            setTimeout(() => setDrawingFor(null), 1100);
           }, drawDelay + i * 260);
         }
         for (let i = 0; i < oppDraws; i++) {
           setTimeout(() => {
             setDrawingFor('opponent');
             setDrawTick(t => t + 1);
-            setTimeout(() => setDrawingFor(null), 700);
+            setTimeout(() => setDrawingFor(null), 1100);
           }, drawDelay + i * 260);
         }
       }
@@ -640,11 +654,32 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setDrawingFor(state.turn);
     setDrawTick(t => t + 1);
     setManaPulse(p => p + 1);
-    const t = setTimeout(() => setDrawingFor(null), 700);
+    const t = setTimeout(() => setDrawingFor(null), 1100);
     return () => clearTimeout(t);
   }, [state.turn, state.turnNumber, flipping, state.outcome]);
 
   // Recompute the attack-arrow endpoints whenever combat starts. We read the
+  // Cache last-known board-local rect for every creature element after
+  // every render. Runs synchronously in layout phase so we catch the
+  // positions BEFORE any unmount in the next tick. The diff effect uses
+  // these to render death ghosts at the exact slot the creature died in
+  // (which is gone from the DOM by the time the diff runs).
+  useLayoutEffect(() => {
+    if (!boardRef.current) return;
+    const board = boardRef.current.getBoundingClientRect();
+    const next = new Map<string, { x: number; y: number; w: number; h: number }>();
+    for (const [id, el] of cardEls.current) {
+      const r = el.getBoundingClientRect();
+      next.set(id, {
+        x: r.left - board.left,
+        y: r.top - board.top,
+        w: r.width,
+        h: r.height,
+      });
+    }
+    lastRectsRef.current = next;
+  });
+
   // DOM positions of the attacker and defender (or the face portrait) and
   // hand them to the SVG overlay below.
   useLayoutEffect(() => {
@@ -1185,7 +1220,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardLongPress={(c) => setInspect(c)}
         />
         <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" />
-        <DeathFxOverlay deaths={deathFx} side="opponent" />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -1319,7 +1353,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardLongPress={(c) => setInspect(c)}
         />
         <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" />
-        <DeathFxOverlay deaths={deathFx} side="player" />
       </div>
 
       {/* Bottom spacer */}
@@ -1428,10 +1461,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         <div
           onClick={() => setSelectedHandIdx(null)}
           style={{
+            // Transparent click-catcher that captures taps outside the
+            // centered preview to dismiss. No background tint — the
+            // earlier dim layer read as "a dark box appeared behind my
+            // card" rather than helpful focus.
             position: 'absolute', top: 0, left: 0, right: 0, bottom: 220,
-            background: 'rgba(8,4,12,.42)',
+            background: 'transparent',
             zIndex: 88,
-            animation: 'fadeIn .15s',
             cursor: 'pointer',
           }}
           aria-label="Cancel preview"
@@ -1562,14 +1598,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         <div
           key={`draw-p-${drawTick}`}
           style={{
+            // Larger card-back (scale 0.5) and a longer arc (1.1s) so
+            // the player actually catches the "you drew a card" beat
+            // when it's triggered by an ability — Tio, Suitcase,
+            // First Class Window bond, etc. Old scale 0.32 / 0.7s was
+            // too small and too fast to register.
             position: 'absolute', bottom: 70, right: 30,
-            animation: 'drawFlyPlayer .7s cubic-bezier(.3,.7,.4,1) forwards',
+            animation: 'drawFlyPlayer 1.1s cubic-bezier(.3,.7,.4,1) forwards',
             pointerEvents: 'none',
             zIndex: 95,
-            filter: 'drop-shadow(0 6px 14px rgba(58,46,42,.4))',
+            filter: 'drop-shadow(0 8px 18px rgba(58,46,42,.5))',
           }}
         >
-          <CardBack scale={0.32} />
+          <CardBack scale={0.5} />
         </div>
       )}
       {drawingFor === 'opponent' && (
@@ -1577,13 +1618,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           key={`draw-o-${drawTick}`}
           style={{
             position: 'absolute', top: 30, right: 30,
-            animation: 'drawFlyOpp .7s cubic-bezier(.3,.7,.4,1) forwards',
+            animation: 'drawFlyOpp 1.1s cubic-bezier(.3,.7,.4,1) forwards',
             pointerEvents: 'none',
             zIndex: 95,
-            filter: 'drop-shadow(0 6px 14px rgba(58,46,42,.4))',
+            filter: 'drop-shadow(0 8px 18px rgba(58,46,42,.5))',
           }}
         >
-          <CardBack scale={0.32} />
+          <CardBack scale={0.5} />
         </div>
       )}
 
@@ -1873,6 +1914,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           </div>
         );
       })()}
+
+      {/* Non-combat death ghosts — for AOE / spell deaths, the engine
+          removes the creature from state.field immediately so the slot
+          unmounts. We paint a ghost at the exact rect the dead creature
+          occupied (captured via lastRectsRef in useLayoutEffect), with
+          the dying prop on BattlefieldCard so the SAME slice + red-tint
+          animation combat trades use plays here. The ghost auto-clears
+          in ~750ms. */}
+      {deathFx.map(d => (
+        <div
+          key={d.key}
+          style={{
+            position: 'absolute',
+            left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
+            pointerEvents: 'none',
+            zIndex: 8,
+          }}
+        >
+          <BattlefieldCard card={d.card} dying />
+        </div>
+      ))}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
@@ -2228,50 +2290,6 @@ const SLOTS_PER_ROW = 3;
  * the UI to a single visual language for "bond active": gold gradient for
  * the player, dark plate for the boss, anchored to that side's field zone.
  */
-/**
- * Renders ghost copies of creatures that just left this side's field
- * (AOE / spell kill). The engine removes them from `state.field`
- * immediately so the slot disappears; this overlay paints them back for
- * ~0.75s with a slice + fade so the player sees what died instead of
- * just "the row got shorter." Combat deaths use the existing BattlefieldCard
- * `dying` prop on the still-mounted card and skip this path.
- */
-function DeathFxOverlay({
-  deaths, side,
-}: {
-  deaths: { card: BattleCard; side: Owner; key: number }[];
-  side: 'player' | 'opponent';
-}) {
-  const mine = deaths.filter(d => d.side === side);
-  if (mine.length === 0) return null;
-  return (
-    <div
-      style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        gap: 6,
-        pointerEvents: 'none',
-        zIndex: 8,
-      }}
-    >
-      {mine.map(d => (
-        <div
-          key={d.key}
-          style={{
-            position: 'relative',
-            // Match BattlefieldCard's 64x88 slot footprint exactly so
-            // the ghost reads as "the creature that WAS here."
-            width: 64, height: 88,
-            animation: 'cardSummon .55s ease-out reverse',
-          }}
-        >
-          <BattlefieldCard card={d.card} dying />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function BondPillStack({
   bonds, newlyActiveIds, side,
 }: {
@@ -2716,10 +2734,13 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
       </div>
       {damage != null && damage !== 0 && (
         <div style={{
+          // Standardised numeric popup — same coral / green / dark-shadow
+          // language as the BattlefieldCard popups. White outlines were
+          // confusing players ("why are the numbers all different?").
           position: 'absolute', top: -10, left: '50%',
           fontSize: 22, fontWeight: 900,
-          color: damage > 0 ? '#ee5a52' : '#06d6a0',
-          textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
+          color: damage > 0 ? '#e85a52' : '#06d6a0',
+          textShadow: '0 2px 4px rgba(0,0,0,.55)',
           animation: 'damagePopup 1.6s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
