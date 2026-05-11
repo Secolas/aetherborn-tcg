@@ -136,9 +136,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** Per-creature silence flash trigger — bumping the entry replays the
       gray flash + "SILENCED" text on that creature. */
   const [silencedAt, setSilencedAt] = useState<Record<string, number>>({});
-  /** Per-creature on-play trigger label ("DRAW +1", "AOE -2"). Pops above
-      the freshly summoned creature so its ability isn't silent. */
-  const [triggers, setTriggers] = useState<Record<string, string>>({});
+  /** Legacy per-creature on-play trigger labels. Kept as a read-only
+      state so the BattlefieldCard `trigger` prop still wires up — but
+      we no longer populate it. Real effects (damage popups, card-back
+      flights) carry the message instead. */
+  const [triggers] = useState<Record<string, string>>({});
   /** Active fatigue popup — a skull-themed callout when a side took damage
       from drawing an empty deck. Carries the side and the damage amount. */
   const [fatigueFx, setFatigueFx] = useState<{ side: Owner; dmg: number; tick: number } | null>(null);
@@ -195,7 +197,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // creatures so the player has time to actually read the ability.
           setOpponentReveal(step.played);
           sfx(step.played.type === 'Spell' ? 'cardPlay' : 'summon');
-          const holdMs = step.played.type === 'Spell' ? 2700 : 1900;
+          // Hold the centered card-reveal longer when it's about to do
+          // something on the board (spell, draw, AOE) so the player has
+          // time to read the card BEFORE the actual effect fires after
+          // state advance. Plain bodies get the short hold.
+          const isImpactful =
+            step.played.type === 'Spell' ||
+            step.played.abilityKind === 'aoe_on_play' ||
+            step.played.abilityKind === 'draw_on_play';
+          const holdMs = step.played.type === 'Spell' ? 2700
+            : isImpactful ? 2300
+            : 1900;
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -390,12 +402,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       checkSide(fresh.opponent, prev.opponent);
 
       if (Object.keys(damagePops).length) {
-        setDamages(d => ({ ...d, ...damagePops }));
+        // Stage the damage pops slightly AFTER the state update settles so
+        // the player first sees the new creature land, then the damage
+        // appear on each affected enemy. Keep them on screen for a full
+        // ~1.8s so the player can count "-2, -2, -2" instead of catching
+        // a 1100ms blink. Family-friendly pacing > esports pacing.
+        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), 250);
         setTimeout(() => setDamages(d => {
           const next = { ...d };
           for (const id of Object.keys(damagePops)) delete next[id];
           return next;
-        }), 1100);
+        }), 250 + 1800);
       }
       if (Object.keys(buffPops).length) {
         setBuffs(b => ({ ...b, ...buffPops }));
@@ -458,21 +475,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setTimeout(() => setFatigueFx(f => (f && f.side === 'opponent' ? null : f)), 1600);
       }
 
-      // On-play trigger banners — when a creature with an on-play ability
-      // appears on the field, surface "DRAW +N" / "AOE -N" / etc. floating
-      // up from the creature itself so the *cause* is unmistakable. Without
-      // this, Tio's bonus card felt like it materialized from nowhere.
-      const fieldsNow = [...state.player.field, ...state.opponent.field];
-      const newTriggers: Record<string, string> = {};
-      for (const c of fieldsNow) {
-        const wasOnField = prev.player.has(c.battleId) || prev.opponent.has(c.battleId);
-        if (wasOnField) continue;
-        if (c.abilityKind === 'draw_on_play' && c.abilityValue) {
-          newTriggers[c.battleId] = `DRAW +${c.abilityValue}`;
-        } else if (c.abilityKind === 'aoe_on_play' && c.abilityValue) {
-          newTriggers[c.battleId] = `AOE −${c.abilityValue}`;
-        }
-      }
+      // We deliberately DON'T surface "DRAW +N" / "AOE -N" text chips
+      // anymore. The actual effects already have their own animations:
+      //  - draw_on_play  → the card-back flight from deck → hand fires
+      //                    via the handSize diff a few lines down.
+      //  - aoe_on_play   → damage popups land on each affected enemy
+      //                    via the damagePops diff above.
+      // Doubling up with a label chip was redundant and felt rushed
+      // since both effects fired the same instant. Letting the damage
+      // popups and draw flights speak for themselves keeps the game
+      // family-friendly readable.
+
       // Bond face popups — when a turn flips, attribute non-combat face HP
       // changes to the bond that caused them. heal_face_per_turn fires at
       // the START of the active player's turn (so when turn went up + the
@@ -517,14 +530,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
 
-      if (Object.keys(newTriggers).length) {
-        setTriggers(t => ({ ...t, ...newTriggers }));
-        setTimeout(() => setTriggers(t => {
-          const next = { ...t };
-          for (const id of Object.keys(newTriggers)) delete next[id];
-          return next;
-        }), 1400);
-      }
     }
     prevSnapRef.current = fresh;
   }, [state, combat, flipping, initialDealing]);
@@ -2007,16 +2012,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       )}
 
-      {/* Long-press inspect modal — light cream + blurred backdrop instead
-          of the dark dim that read as "loading screen" / "error modal." */}
+      {/* Long-press inspect modal — dark dim so the card pops as the
+          only thing on screen. Same dark language as the summon-preview
+          dim layer; both are about "focus on this one card." */}
       {inspect && (
         <div
           onClick={() => setInspect(null)}
           style={{
             position: 'absolute', inset: 0,
-            background: 'rgba(254, 243, 224, 0.82)',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            background: 'rgba(8, 4, 12, 0.72)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
@@ -2605,7 +2609,7 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
           fontSize: 22, fontWeight: 900,
           color: damage > 0 ? '#ee5a52' : '#06d6a0',
           textShadow: '0 2px 0 #fff, 0 0 8px rgba(0,0,0,.3)',
-          animation: 'damagePopup .9s ease-out forwards',
+          animation: 'damagePopup 1.6s ease-out forwards',
           pointerEvents: 'none',
           fontFamily: '"Fredoka", system-ui',
           whiteSpace: 'nowrap',
