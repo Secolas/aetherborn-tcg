@@ -165,6 +165,20 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  each other, the same way the opening deal feels. Each entry
    *  auto-removes after the flight animation completes. */
   const [drawFlights, setDrawFlights] = useState<{ id: number; side: Owner }[]>([]);
+  /** Timestamp (ms via Date.now()) at which the currently-queued
+   *  animations finish. Used as a serializer: the AI driver waits until
+   *  Date.now() >= this value before taking its next action, so a
+   *  death-fly + draw-flight + damage-popup chain finishes BEFORE the
+   *  boss summons its next card. Updated by `holdAnim(ms)` from
+   *  anywhere that schedules a visual. */
+  const animBusyUntilRef = useRef<number>(0);
+  const holdAnim = (ms: number) => {
+    const target = Date.now() + ms;
+    if (target > animBusyUntilRef.current) animBusyUntilRef.current = target;
+  };
+  /** Bumps any time a hold is extended, so the AI driver re-runs and
+   *  re-schedules its tick against the latest deadline. */
+  const [animTick, setAnimTick] = useState(0);
   const drawIdRef = useRef(0);
   /** Fire a single card-back flight for `side` after `delay` ms. The
    *  flight ID is unique per call so React keys the animation
@@ -221,7 +235,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   };
   const [arrow, setArrow] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
-  // ============== AI driver ==============
   // Maintain stable slot positions. Every time a side's field changes,
   // (a) drop entries for battleIds no longer present, (b) assign any new
   // battleId to the lowest currently-free slot. This makes a death at
@@ -259,19 +272,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setOpponentSlots(s => reconcile(s, state.opponent.field));
   }, [state.player.field, state.opponent.field]);
 
-  // AI driver
+  // ============== AI driver ==============
   useEffect(() => {
     if (flipping) return; // wait until the opening coin flip finishes
     if (initialDealing) return; // wait for the opening deal animation
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
-    // If a bond just activated on either side, freeze the AI driver until
-    // the cinematic finishes — otherwise the AI's next attack/play
-    // animation would render on top of the bond reveal and the player
-    // can't read either. Cinematic clears itself after ~3.4s (see the
-    // bond diff effect) and the change to `bondCinematic === null`
-    // re-runs this effect, which then schedules the next tick.
+    // Pause for the bond cinematic so it doesn't overlap with the next
+    // AI action. Cleared after ~3.4s; the bondCinematic dep retriggers
+    // this effect, which then schedules the next tick.
     if (bondCinematic) return;
+    // Serializer: hold the AI's next action until the visual pipeline
+    // (damage popups, death flights, draws) finishes. animBusyUntilRef
+    // is updated from the state-diff effect whenever a chain of
+    // animations is scheduled. This is what makes the boss feel like
+    // it's WAITING for each beat to complete before acting again,
+    // instead of stacking animations on top of each other.
+    const now = Date.now();
+    if (now < animBusyUntilRef.current) {
+      const t = setTimeout(() => setAnimTick(x => x + 1), animBusyUntilRef.current - now + 30);
+      return () => clearTimeout(t);
+    }
 
     let cancelled = false;
     const tick = () => {
@@ -342,7 +363,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // below, so the boss feels deliberate, not twitchy.
     const t = setTimeout(tick, 1100);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state, flipping, initialDealing, bondCinematic]);
+  }, [state, flipping, initialDealing, bondCinematic, animTick]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
@@ -548,38 +569,62 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player'),
         ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
       ];
-      if (newDeathsRaw.length) {
-        // Stagger multi-deaths so a 3-target AOE plays out as a clear
-        // 1-2-3 sequence rather than three overlapping flights. Each
-        // ghost gets a per-index `delayMs`, applied via animation-delay
-        // on the wrapper. Also schedule a graveyard receive-pulse
-        // timed to land WHEN the card arrives at the icon (~1.5s
-        // into its own animation + that ghost's stagger delay).
-        const STAGGER = 180;
-        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
-        setDeathFx(d => [...d, ...newDeaths]);
-        for (const d of newDeaths) {
-          // Pulse fires at ~92% of the 1.1s flyToGrave keyframe (~1.0s),
-          // so the graveyard icon scales as the card disappears into it.
-          setTimeout(() => {
-            setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
-          }, d.delayMs + 1000);
-        }
-      }
+      // Sequential animation queue for everything the diff effect
+      // schedules — damage popups → deaths flying to graveyard → draws
+      // landing in hand → buff / silence popups. Each phase fires after
+      // the previous one finishes so the player sees one beat at a
+      // time (Hearthstone / MTG Arena style). `pipeDelay` accumulates,
+      // and the largest scheduled time is forwarded to the AI driver
+      // via `holdAnim` so the boss waits its turn.
+      let pipeDelay = 250; // small buffer after state advance so the
+                           // landing creature's slam settles first
 
       if (Object.keys(damagePops).length) {
-        // Stage the damage pops slightly AFTER the state update settles so
-        // the player first sees the new creature land, then the damage
-        // appear on each affected enemy. Keep them on screen for a full
-        // ~1.8s so the player can count "-2, -2, -2" instead of catching
-        // a 1100ms blink. Family-friendly pacing > esports pacing.
-        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), 250);
+        const at = pipeDelay;
+        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), at);
         setTimeout(() => setDamages(d => {
           const next = { ...d };
           for (const id of Object.keys(damagePops)) delete next[id];
           return next;
-        }), 250 + 1800);
+        }), at + 1800);
+        pipeDelay += 1800;
       }
+
+      if (newDeathsRaw.length) {
+        const STAGGER = 180;
+        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
+        const at = pipeDelay;
+        setTimeout(() => setDeathFx(d => [...d, ...newDeaths]), at);
+        for (const d of newDeaths) {
+          // Pulse at ~92% of the 1.1s flyToGrave keyframe.
+          setTimeout(() => {
+            setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
+          }, at + d.delayMs + 1000);
+        }
+        // All deaths finished = last stagger + flight duration.
+        const lastDeathEnds = (newDeaths.length - 1) * STAGGER + 1100;
+        pipeDelay += lastDeathEnds;
+      }
+
+      // Draws come AFTER deaths so the hand growth is its own beat.
+      if (fresh.turnNumber === prev.turnNumber) {
+        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
+        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
+        const drawStep = 420;
+        const totalDraws = newPlayerCards + newOppCards;
+        if (totalDraws > 0) {
+          const at = pipeDelay;
+          for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
+          for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
+          // Each flight is ~1.1s; serialize accordingly.
+          pipeDelay += totalDraws * drawStep + 700;
+        }
+      }
+
+      // Buff + silence popups are short side-effects that can run in
+      // parallel with the start of the pipeline; they don't visually
+      // compete with damage/deaths/draws and adding them to the queue
+      // would feel slow with no payoff.
       if (Object.keys(buffPops).length) {
         setBuffs(b => ({ ...b, ...buffPops }));
         setTimeout(() => setBuffs(b => {
@@ -597,22 +642,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }), 900);
       }
 
-      // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
-      // Per-turn draws are handled by the dedicated turn-change effect.
-      // We use a short ~150ms delay so the flight fires right after the
-      // state update (just after the source spell / summon settles) — a
-      // longer gap left players wondering where the new cards came from.
-      if (fresh.turnNumber === prev.turnNumber) {
-        // Count NEW battleIds in each hand rather than net hand-size
-        // change. A draw-2 spell like Suitcase removes itself from hand
-        // and adds 2 — net +1, but two cards were actually drawn. Set
-        // diff captures the real number every time.
-        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
-        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
-        const drawStep = 420;
-        const drawDelay = 150;
-        for (let i = 0; i < newPlayerCards; i++) fireDraw('player', drawDelay + i * drawStep);
-        for (let i = 0; i < newOppCards; i++) fireDraw('opponent', drawDelay + i * drawStep);
+      // Tell the AI driver to wait until the pipeline finishes.
+      if (pipeDelay > 250) {
+        holdAnim(pipeDelay);
+        setAnimTick(t => t + 1);
       }
 
       // Fatigue spike — when a side's fatigueCount went up, that's "drew
