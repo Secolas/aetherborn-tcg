@@ -304,16 +304,41 @@ input {
   0%, 100% { transform: translateX(-2px); }
   50%      { transform: translateX(2px); }
 }
-/* Death-fly — runs on the death-ghost wrapper AFTER the slice animation
-   inside the BattlefieldCard plays. Holds at the slot position for the
-   slice (0-50%), then translates the remains toward the graveyard icon
-   and shrinks to nothing. Uses CSS variables (--gx, --gy) set inline so
-   each death animates toward THIS side's graveyard. */
+/* Death-fly — runs on the death-ghost wrapper. Three beats:
+   - 0-30%  : sit in place while the slice/red-tint plays on the
+              dying BattlefieldCard inside.
+   - 30-55% : RISE — the card lifts up + scales slightly + starts to
+              spin. Sells "it lifted off the field."
+   - 55-100%: FALL toward the graveyard. Arcs across with growing spin
+              and shrinking scale, fades to 0 on arrival. Movement
+              biased by --gx / --gy (delta from slot center to grave).
+   The vertical bump in the middle (-32px) makes the path read as an
+   ARC instead of a straight line, which is more legible against busy
+   battlefield backgrounds. */
 @keyframes deathFlyToGrave {
   0%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
-  50%  { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
-  85%  { transform: translate(calc(var(--gx, 0px) * .8), calc(var(--gy, 0px) * .8)) scale(0.35) rotate(-12deg); opacity: 0.85; }
-  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.15) rotate(-18deg); opacity: 0; }
+  30%  { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+  45%  { transform: translate(0, -32px) scale(1.05) rotate(-6deg); opacity: 1; }
+  70%  { transform: translate(calc(var(--gx, 0px) * .45), calc(var(--gy, 0px) * .45 - 16px)) scale(0.55) rotate(-20deg); opacity: 0.95; }
+  92%  { transform: translate(calc(var(--gx, 0px) * .92), calc(var(--gy, 0px) * .92)) scale(0.22) rotate(-38deg); opacity: 0.55; }
+  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.05) rotate(-50deg); opacity: 0; }
+}
+/* Graveyard receive pulse — fires on the graveyard icon when a card
+   lands, so the player gets confirmation of arrival without having to
+   look away from the field. Small scale-up + warm glow ring. */
+@keyframes gravePulse {
+  0%   { transform: scale(1); box-shadow: 0 3px 8px rgba(58,46,42,.10); }
+  35%  { transform: scale(1.22); box-shadow: 0 3px 8px rgba(58,46,42,.10), 0 0 16px rgba(232,90,82,.7); }
+  100% { transform: scale(1); box-shadow: 0 3px 8px rgba(58,46,42,.10); }
+}
+/* Death tracer — small dim dot that drifts along the death-fly path
+   leaving a sense of motion. We render a few of these with staggered
+   delays as a visual trail. */
+@keyframes deathTracer {
+  0%   { transform: translate(0, 0) scale(1); opacity: 0; }
+  35%  { transform: translate(0, 0) scale(1); opacity: 0; }
+  55%  { transform: translate(0, -20px) scale(1); opacity: 0.85; }
+  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.3); opacity: 0; }
 }
 /* Boss-deck marquee — endless horizontal scroll of the boss's 12 cards
    on the picker page. We duplicate the card row inline and translate by
