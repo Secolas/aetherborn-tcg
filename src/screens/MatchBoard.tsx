@@ -938,11 +938,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const clearDelay = isTrade
       ? (anyDying ? 3900 : 3400)
       : (anyDying ? 1700 : 1100);
-    setTimeout(() => done(), stateDelay);
+    // When a creature dies in combat, clear `combat` at the SAME instant
+    // state advances. The state-diff effect is gated on `!combat`, so any
+    // gap between state-swap and combat-clear leaves the dead creature's
+    // slot empty (live card unmounted, ghost not yet launched) — the
+    // player sees a vanish → reappear → fly sequence. Firing both
+    // together lets the diff effect run on the very same tick, spawning
+    // the flyToGrave ghost at the moment the live card unmounts.
+    //
+    // When NO one dies we keep the original 500ms gap so the combat
+    // callouts (ATK/HP numbers, charge halo) have a moment to fade after
+    // state advances — there's no ghost in flight, so the gap is purely
+    // visual polish.
     setTimeout(() => {
-      setCombat(null);
-      setDyingIds([]);
-    }, clearDelay);
+      done();
+      if (anyDying) {
+        setCombat(null);
+        setDyingIds([]);
+      }
+    }, stateDelay);
+    if (!anyDying) {
+      setTimeout(() => {
+        setCombat(null);
+        setDyingIds([]);
+      }, clearDelay);
+    }
   };
 
   // Fire a colored burst FX over a spell's target. Reads the target's DOM
