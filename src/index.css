@@ -304,24 +304,18 @@ input {
   0%, 100% { transform: translateX(-2px); }
   50%      { transform: translateX(2px); }
 }
-/* Death-fly — runs on the death-ghost wrapper. Three beats:
-   - 0-30%  : sit in place while the slice/red-tint plays on the
-              dying BattlefieldCard inside.
-   - 30-55% : RISE — the card lifts up + scales slightly + starts to
-              spin. Sells "it lifted off the field."
-   - 55-100%: FALL toward the graveyard. Arcs across with growing spin
-              and shrinking scale, fades to 0 on arrival. Movement
-              biased by --gx / --gy (delta from slot center to grave).
-   The vertical bump in the middle (-32px) makes the path read as an
-   ARC instead of a straight line, which is more legible against busy
-   battlefield backgrounds. */
-@keyframes deathFlyToGrave {
+/* Unified death-fly — every dying creature (combat or non-combat)
+   plays exactly this animation as its on-board ghost. No slice / no
+   shredding; just lift off the slot and arc into the side's graveyard,
+   shrinking + tilting + fading on the way. --gx / --gy carry the
+   delta from the slot center to the graveyard icon center so each
+   side's deaths fly toward their own pile. */
+@keyframes flyToGrave {
   0%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
-  30%  { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
-  45%  { transform: translate(0, -32px) scale(1.05) rotate(-6deg); opacity: 1; }
-  70%  { transform: translate(calc(var(--gx, 0px) * .45), calc(var(--gy, 0px) * .45 - 16px)) scale(0.55) rotate(-20deg); opacity: 0.95; }
-  92%  { transform: translate(calc(var(--gx, 0px) * .92), calc(var(--gy, 0px) * .92)) scale(0.22) rotate(-38deg); opacity: 0.55; }
-  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.05) rotate(-50deg); opacity: 0; }
+  20%  { transform: translate(0, -28px) scale(1.05) rotate(-6deg); opacity: 1; }
+  55%  { transform: translate(calc(var(--gx, 0px) * .45), calc(var(--gy, 0px) * .45 - 14px)) scale(0.55) rotate(-22deg); opacity: 0.95; }
+  85%  { transform: translate(calc(var(--gx, 0px) * .92), calc(var(--gy, 0px) * .92)) scale(0.22) rotate(-40deg); opacity: 0.55; }
+  100% { transform: translate(var(--gx, 0px), var(--gy, 0px)) scale(0.05) rotate(-52deg); opacity: 0; }
 }
 /* Graveyard receive pulse — fires on the graveyard icon when a card
    lands, so the player gets confirmation of arrival without having to

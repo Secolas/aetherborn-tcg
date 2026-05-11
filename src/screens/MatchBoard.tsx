@@ -102,12 +102,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
      *  multi-deaths so 3 AOE-kills land as a clear 1-2-3 sequence
      *  instead of overlapping into mush. */
     delayMs: number;
+    /** True when this death came from combat. The slice already played
+     *  on the live BattlefieldCard, so the ghost skips the slice phase
+     *  and goes straight to the fly-to-graveyard arc. */
+    fromCombat: boolean;
   }[]>([]);
   /** Bumps every time a death-ghost is scheduled to arrive at a given
    *  graveyard. The GraveyardButton listens via key to replay the
    *  receive-pulse keyframe. Separate keys per side so player + boss
    *  pulses don't clobber each other. */
   const [gravePulseKey, setGravePulseKey] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
+  /** Stable slot assignments for the field rows. The engine's
+   *  `state.field` array is the source of truth for who's alive, but
+   *  when a creature dies the array shrinks and the survivors used to
+   *  reflow toward center. These maps lock each battleId to a fixed
+   *  slot (0..2) so a creature stays in place even when its neighbour
+   *  dies — same way Yu-Gi-Oh / Hearthstone keep board positions
+   *  stable. Empty slots stay empty until a new creature fills them. */
+  const [playerSlots, setPlayerSlots] = useState<Record<string, number>>({});
+  const [opponentSlots, setOpponentSlots] = useState<Record<string, number>>({});
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
@@ -152,6 +165,20 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  each other, the same way the opening deal feels. Each entry
    *  auto-removes after the flight animation completes. */
   const [drawFlights, setDrawFlights] = useState<{ id: number; side: Owner }[]>([]);
+  /** Timestamp (ms via Date.now()) at which the currently-queued
+   *  animations finish. Used as a serializer: the AI driver waits until
+   *  Date.now() >= this value before taking its next action, so a
+   *  death-fly + draw-flight + damage-popup chain finishes BEFORE the
+   *  boss summons its next card. Updated by `holdAnim(ms)` from
+   *  anywhere that schedules a visual. */
+  const animBusyUntilRef = useRef<number>(0);
+  const holdAnim = (ms: number) => {
+    const target = Date.now() + ms;
+    if (target > animBusyUntilRef.current) animBusyUntilRef.current = target;
+  };
+  /** Bumps any time a hold is extended, so the AI driver re-runs and
+   *  re-schedules its tick against the latest deadline. */
+  const [animTick, setAnimTick] = useState(0);
   const drawIdRef = useRef(0);
   /** Fire a single card-back flight for `side` after `delay` ms. The
    *  flight ID is unique per call so React keys the animation
@@ -208,19 +235,64 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   };
   const [arrow, setArrow] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
+  // Maintain stable slot positions. Every time a side's field changes,
+  // (a) drop entries for battleIds no longer present, (b) assign any new
+  // battleId to the lowest currently-free slot. This makes a death at
+  // slot 1 leave slot 1 empty rather than reflowing slots 2/0 to fill
+  // it — surviving creatures stay where the player summoned them.
+  useEffect(() => {
+    const reconcile = (
+      cur: Record<string, number>,
+      field: BattleCard[],
+      maxSlots = 3,
+    ): Record<string, number> => {
+      const next: Record<string, number> = {};
+      const used = new Set<number>();
+      // Keep entries whose battleId is still on the field.
+      for (const c of field) {
+        if (cur[c.battleId] != null) {
+          next[c.battleId] = cur[c.battleId];
+          used.add(cur[c.battleId]);
+        }
+      }
+      // Assign new battleIds to the lowest free slot.
+      for (const c of field) {
+        if (next[c.battleId] != null) continue;
+        for (let i = 0; i < maxSlots; i++) {
+          if (!used.has(i)) {
+            next[c.battleId] = i;
+            used.add(i);
+            break;
+          }
+        }
+      }
+      return next;
+    };
+    setPlayerSlots(s => reconcile(s, state.player.field));
+    setOpponentSlots(s => reconcile(s, state.opponent.field));
+  }, [state.player.field, state.opponent.field]);
+
   // ============== AI driver ==============
   useEffect(() => {
     if (flipping) return; // wait until the opening coin flip finishes
     if (initialDealing) return; // wait for the opening deal animation
     if (state.outcome !== 'ongoing') return;
     if (state.turn !== 'opponent') return;
-    // If a bond just activated on either side, freeze the AI driver until
-    // the cinematic finishes — otherwise the AI's next attack/play
-    // animation would render on top of the bond reveal and the player
-    // can't read either. Cinematic clears itself after ~3.4s (see the
-    // bond diff effect) and the change to `bondCinematic === null`
-    // re-runs this effect, which then schedules the next tick.
+    // Pause for the bond cinematic so it doesn't overlap with the next
+    // AI action. Cleared after ~3.4s; the bondCinematic dep retriggers
+    // this effect, which then schedules the next tick.
     if (bondCinematic) return;
+    // Serializer: hold the AI's next action until the visual pipeline
+    // (damage popups, death flights, draws) finishes. animBusyUntilRef
+    // is updated from the state-diff effect whenever a chain of
+    // animations is scheduled. This is what makes the boss feel like
+    // it's WAITING for each beat to complete before acting again,
+    // instead of stacking animations on top of each other.
+    const now = Date.now();
+    if (now < animBusyUntilRef.current) {
+      const t = setTimeout(() => setAnimTick(x => x + 1), animBusyUntilRef.current - now + 30);
+      return () => clearTimeout(t);
+    }
 
     let cancelled = false;
     const tick = () => {
@@ -291,7 +363,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // below, so the boss feels deliberate, not twitchy.
     const t = setTimeout(tick, 1100);
     return () => { cancelled = true; clearTimeout(t); };
-  }, [state, flipping, initialDealing, bondCinematic]);
+  }, [state, flipping, initialDealing, bondCinematic, animTick]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
@@ -477,14 +549,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         prevCards: Map<string, BattleCard>,
         freshIds: Set<string>,
         side: Owner,
-      ): { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number } }[] => {
-        const out: { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number } }[] = [];
+      ): { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number }; fromCombat: boolean }[] => {
+        const out: { card: BattleCard; side: Owner; key: number; rect: { x: number; y: number; w: number; h: number }; fromCombat: boolean }[] = [];
         for (const [id, card] of prevCards) {
           if (freshIds.has(id)) continue;
-          if (dyingIds.includes(id)) continue; // combat handles this one
+          // dyingIds means this creature was sliced during combat
+          // BEFORE state advanced; we mark it `fromCombat` so the ghost
+          // can skip the slice-replay and just fly to the graveyard.
+          const fromCombat = dyingIds.includes(id);
           const rect = prevRectsRef.current.get(id);
           if (!rect) continue;
-          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect });
+          out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect, fromCombat });
         }
         return out;
       };
@@ -494,38 +569,62 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player'),
         ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
       ];
-      if (newDeathsRaw.length) {
-        // Stagger multi-deaths so a 3-target AOE plays out as a clear
-        // 1-2-3 sequence rather than three overlapping flights. Each
-        // ghost gets a per-index `delayMs`, applied via animation-delay
-        // on the wrapper. Also schedule a graveyard receive-pulse
-        // timed to land WHEN the card arrives at the icon (~1.5s
-        // into its own animation + that ghost's stagger delay).
-        const STAGGER = 180;
-        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
-        setDeathFx(d => [...d, ...newDeaths]);
-        for (const d of newDeaths) {
-          // Pulse arrives ~1.5s into the ghost's run (matches the 92%
-          // mark of the 1.6s deathFlyToGrave keyframe).
-          setTimeout(() => {
-            setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
-          }, d.delayMs + 1500);
-        }
-      }
+      // Sequential animation queue for everything the diff effect
+      // schedules — damage popups → deaths flying to graveyard → draws
+      // landing in hand → buff / silence popups. Each phase fires after
+      // the previous one finishes so the player sees one beat at a
+      // time (Hearthstone / MTG Arena style). `pipeDelay` accumulates,
+      // and the largest scheduled time is forwarded to the AI driver
+      // via `holdAnim` so the boss waits its turn.
+      let pipeDelay = 250; // small buffer after state advance so the
+                           // landing creature's slam settles first
 
       if (Object.keys(damagePops).length) {
-        // Stage the damage pops slightly AFTER the state update settles so
-        // the player first sees the new creature land, then the damage
-        // appear on each affected enemy. Keep them on screen for a full
-        // ~1.8s so the player can count "-2, -2, -2" instead of catching
-        // a 1100ms blink. Family-friendly pacing > esports pacing.
-        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), 250);
+        const at = pipeDelay;
+        setTimeout(() => setDamages(d => ({ ...d, ...damagePops })), at);
         setTimeout(() => setDamages(d => {
           const next = { ...d };
           for (const id of Object.keys(damagePops)) delete next[id];
           return next;
-        }), 250 + 1800);
+        }), at + 1800);
+        pipeDelay += 1800;
       }
+
+      if (newDeathsRaw.length) {
+        const STAGGER = 180;
+        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
+        const at = pipeDelay;
+        setTimeout(() => setDeathFx(d => [...d, ...newDeaths]), at);
+        for (const d of newDeaths) {
+          // Pulse at ~92% of the 1.1s flyToGrave keyframe.
+          setTimeout(() => {
+            setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
+          }, at + d.delayMs + 1000);
+        }
+        // All deaths finished = last stagger + flight duration.
+        const lastDeathEnds = (newDeaths.length - 1) * STAGGER + 1100;
+        pipeDelay += lastDeathEnds;
+      }
+
+      // Draws come AFTER deaths so the hand growth is its own beat.
+      if (fresh.turnNumber === prev.turnNumber) {
+        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
+        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
+        const drawStep = 420;
+        const totalDraws = newPlayerCards + newOppCards;
+        if (totalDraws > 0) {
+          const at = pipeDelay;
+          for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
+          for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
+          // Each flight is ~1.1s; serialize accordingly.
+          pipeDelay += totalDraws * drawStep + 700;
+        }
+      }
+
+      // Buff + silence popups are short side-effects that can run in
+      // parallel with the start of the pipeline; they don't visually
+      // compete with damage/deaths/draws and adding them to the queue
+      // would feel slow with no payoff.
       if (Object.keys(buffPops).length) {
         setBuffs(b => ({ ...b, ...buffPops }));
         setTimeout(() => setBuffs(b => {
@@ -543,22 +642,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }), 900);
       }
 
-      // Draw flight from on-play / mid-turn draws (turnNumber unchanged).
-      // Per-turn draws are handled by the dedicated turn-change effect.
-      // We use a short ~150ms delay so the flight fires right after the
-      // state update (just after the source spell / summon settles) — a
-      // longer gap left players wondering where the new cards came from.
-      if (fresh.turnNumber === prev.turnNumber) {
-        // Count NEW battleIds in each hand rather than net hand-size
-        // change. A draw-2 spell like Suitcase removes itself from hand
-        // and adds 2 — net +1, but two cards were actually drawn. Set
-        // diff captures the real number every time.
-        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
-        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
-        const drawStep = 420;
-        const drawDelay = 150;
-        for (let i = 0; i < newPlayerCards; i++) fireDraw('player', drawDelay + i * drawStep);
-        for (let i = 0; i < newOppCards; i++) fireDraw('opponent', drawDelay + i * drawStep);
+      // Tell the AI driver to wait until the pipeline finishes.
+      if (pipeDelay > 250) {
+        holdAnim(pipeDelay);
+        setAnimTick(t => t + 1);
       }
 
       // Fatigue spike — when a side's fatigueCount went up, that's "drew
@@ -650,13 +737,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (deathFx.length === 0) return;
     const keys = new Set(deathFx.map(d => d.key));
-    // Match the deathFlyToGrave keyframe duration (1.6s) + the largest
-    // per-ghost stagger delay so even the last-in-line ghost finishes
-    // its arc before getting unmounted.
+    // 1.1s flyToGrave + the largest per-ghost stagger delay + a small
+    // tail so the last-in-line ghost finishes its arc before unmount.
     const maxDelay = deathFx.reduce((m, x) => Math.max(m, x.delayMs), 0);
     const t = setTimeout(() => {
       setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 1700 + maxDelay);
+    }, 1200 + maxDelay);
     return () => clearTimeout(t);
   }, [deathFx]);
 
@@ -1264,10 +1350,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           buffs={buffs}
           silencedAt={silencedAt}
           triggers={triggers}
-          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={opponentBondLookup}
+          slotMap={opponentSlots}
           highlightEmpty={false}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
@@ -1391,10 +1477,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           buffs={buffs}
           silencedAt={silencedAt}
           triggers={triggers}
-          dyingIds={dyingIds}
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
+          slotMap={playerSlots}
           highlightEmpty={selectedHandIdx !== null}
           registerEl={registerEl}
           onCardClick={(c) => {
@@ -1993,17 +2079,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
               pointerEvents: 'none',
               zIndex: 8,
-              // 1.6s composite keyframe: slice (0-30%) → rise (30-45%) →
-              // arc toward graveyard (45-100%). Multi-deaths get a
-              // per-ghost stagger via animation-delay so a 3-AOE plays
-              // as 1-2-3 instead of overlapping into one clump.
-              animation: 'deathFlyToGrave 1.6s cubic-bezier(.55,.05,.85,.4) both',
+              // Unified death animation for combat AND non-combat kills.
+              // No slice halves — the card just lifts off the field and
+              // arcs into the side's graveyard. Family-friendly tone:
+              // no shredding, just "this card goes to memory now."
+              animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
               animationDelay: `${d.delayMs}ms`,
               ['--gx' as string]: `${gx}px`,
               ['--gy' as string]: `${gy}px`,
             }}
           >
-            <BattlefieldCard card={d.card} dying />
+            <BattlefieldCard card={d.card} />
           </div>
         );
       })}
@@ -2419,8 +2505,8 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, turn, combat, damages, buffs, silencedAt, triggers, dyingIds, selectedAttacker, pendingSpell,
-  bondLookup,
+  side, cards, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
+  bondLookup, slotMap,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -2436,35 +2522,58 @@ function FieldRow({
   silencedAt: Record<string, number>;
   /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
   triggers: Record<string, string>;
-  dyingIds: string[];
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
   /** Per-card-template bond state. 'active' = partner is on the field too,
-   *  'waiting' = bonded card is here but partner isn't yet. Missing entry =
-   *  card isn't part of any bond at all. */
+   *  'waiting' = bonded card is here but partner isn't yet. */
   bondLookup: Record<string, 'active' | 'waiting'>;
+  /** Stable slot assignment: card.battleId → slot index (0..2). Surviving
+   *  creatures stay in their assigned slot even when a neighbour dies;
+   *  empty slots stay empty instead of being filled by the next card to
+   *  the left. */
+  slotMap: Record<string, number>;
   /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
 }) {
-  // Render filled slots first (centered), followed by empty slot outlines so
-  // the player can see how many spaces are left and where new creatures will
-  // land. Outlines stay subtle by default and brighten on drag/select.
-  const emptyCount = Math.max(0, SLOTS_PER_ROW - cards.length);
-  // Creature trades render slice + recoil on the big VS preview overlay, not
-  // on the tiny battlefield card. We only let the small slice play for face
-  // attacks (no preview) and for AI plays that don't go through combat.
-  const inTrade = !!combat && combat.defenderId !== 'face';
+  // Build a fixed 3-slot row. slots[i] holds the card whose slotMap
+  // entry === i, or null if the slot is empty. This keeps positions
+  // stable: a creature stays where it was summoned even when others
+  // around it die.
+  const slots: (BattleCard | null)[] = [null, null, null];
+  for (const c of cards) {
+    const idx = slotMap[c.battleId];
+    if (idx != null && idx >= 0 && idx < SLOTS_PER_ROW) slots[idx] = c;
+  }
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
-      {cards.map((c) => {
+      {slots.map((c, i) => {
+        if (!c) {
+          return (
+            <div key={`empty-${i}`} style={{
+              width: 64, height: 88,
+              borderRadius: 8,
+              border: highlightEmpty
+                ? '2px dashed #f4d04a'
+                : '1.5px dashed rgba(58,46,42,.18)',
+              background: highlightEmpty
+                ? 'rgba(244,208,74,.12)'
+                : 'rgba(255,255,255,.18)',
+              transition: 'border-color .15s, background .15s',
+              flex: '0 0 auto',
+            }} />
+          );
+        }
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
         const friendlySpell = side === 'player' && pendingSpell?.abilityKind === 'spell_buff';
-        const isDying = !inTrade && dyingIds.includes(c.battleId);
+        // The live BattlefieldCard never plays the slice animation
+        // anymore — every death runs the same fly-to-graveyard arc on
+        // the ghost overlay after state advances, so there's nothing
+        // for the live card to do once the damage popup fires.
         return (
           <div
             key={c.battleId}
@@ -2473,14 +2582,10 @@ function FieldRow({
           >
             <BattlefieldCard
               card={c}
-              shaking={isCombatDefender && !isDying}
-              dying={isDying}
+              shaking={isCombatDefender}
+              dying={false}
               dimWhenExhausted={side === 'player'}
               selected={side === 'player' && selectedAttacker === c.battleId}
-              // Only mark a player creature attack-ready on their OWN turn —
-              // during the opponent's turn the swords badge was lighting up
-              // on every unfought creature, implying the player could swing
-              // when they actually couldn't.
               attackable={
                 side === 'player'
                   ? turn === 'player' && !c.tapped && !c.justPlayed
@@ -2504,20 +2609,6 @@ function FieldRow({
           </div>
         );
       })}
-      {Array.from({ length: emptyCount }).map((_, i) => (
-        <div key={`empty-${i}`} style={{
-          width: 64, height: 88,
-          borderRadius: 8,
-          border: highlightEmpty
-            ? '2px dashed #f4d04a'
-            : '1.5px dashed rgba(58,46,42,.18)',
-          background: highlightEmpty
-            ? 'rgba(244,208,74,.12)'
-            : 'rgba(255,255,255,.18)',
-          transition: 'border-color .15s, background .15s',
-          flex: '0 0 auto',
-        }} />
-      ))}
     </div>
   );
 }
