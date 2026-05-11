@@ -98,7 +98,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     side: Owner;
     key: number;
     rect: { x: number; y: number; w: number; h: number };
+    /** ms delay before this ghost's animation starts. Used to stagger
+     *  multi-deaths so 3 AOE-kills land as a clear 1-2-3 sequence
+     *  instead of overlapping into mush. */
+    delayMs: number;
   }[]>([]);
+  /** Bumps every time a death-ghost is scheduled to arrive at a given
+   *  graveyard. The GraveyardButton listens via key to replay the
+   *  receive-pulse keyframe. Separate keys per side so player + boss
+   *  pulses don't clobber each other. */
+  const [gravePulseKey, setGravePulseKey] = useState<{ player: number; opponent: number }>({ player: 0, opponent: 0 });
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
@@ -473,27 +482,35 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         for (const [id, card] of prevCards) {
           if (freshIds.has(id)) continue;
           if (dyingIds.includes(id)) continue; // combat handles this one
-          // Use prevRectsRef (the PREVIOUS render's rects) — the dead
-          // creature's DOM is already unmounted from lastRectsRef.
           const rect = prevRectsRef.current.get(id);
-          if (!rect) continue; // never had a known position; skip
+          if (!rect) continue;
           out.push({ card, side, key: Date.now() + Math.floor(Math.random() * 1000), rect });
         }
         return out;
       };
       const freshPlayerIds = new Set(state.player.field.map(c => c.battleId));
       const freshOppIds = new Set(state.opponent.field.map(c => c.battleId));
-      const newDeaths = [
+      const newDeathsRaw = [
         ...detectDeaths(prevFieldRef.current.player, freshPlayerIds, 'player'),
         ...detectDeaths(prevFieldRef.current.opponent, freshOppIds, 'opponent'),
       ];
-      if (newDeaths.length) {
-        // Render the ghost IMMEDIATELY (no delay) so it visually replaces
-        // the dying creature at the same instant — same beat as combat,
-        // not a "creature disappears, then a slice appears in empty
-        // space" gap. The slice + red-tint animation lasts ~0.85s on
-        // top of the deathFx 1.1s lifetime.
+      if (newDeathsRaw.length) {
+        // Stagger multi-deaths so a 3-target AOE plays out as a clear
+        // 1-2-3 sequence rather than three overlapping flights. Each
+        // ghost gets a per-index `delayMs`, applied via animation-delay
+        // on the wrapper. Also schedule a graveyard receive-pulse
+        // timed to land WHEN the card arrives at the icon (~1.5s
+        // into its own animation + that ghost's stagger delay).
+        const STAGGER = 180;
+        const newDeaths = newDeathsRaw.map((d, i) => ({ ...d, delayMs: i * STAGGER }));
         setDeathFx(d => [...d, ...newDeaths]);
+        for (const d of newDeaths) {
+          // Pulse arrives ~1.5s into the ghost's run (matches the 92%
+          // mark of the 1.6s deathFlyToGrave keyframe).
+          setTimeout(() => {
+            setGravePulseKey(p => ({ ...p, [d.side]: p[d.side] + 1 }));
+          }, d.delayMs + 1500);
+        }
       }
 
       if (Object.keys(damagePops).length) {
@@ -633,11 +650,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (deathFx.length === 0) return;
     const keys = new Set(deathFx.map(d => d.key));
-    // Match the deathFlyToGrave keyframe duration (1.6s) plus a tiny tail
-    // so the ghost stays mounted through the full slice → fly arc.
+    // Match the deathFlyToGrave keyframe duration (1.6s) + the largest
+    // per-ghost stagger delay so even the last-in-line ghost finishes
+    // its arc before getting unmounted.
+    const maxDelay = deathFx.reduce((m, x) => Math.max(m, x.delayMs), 0);
     const t = setTimeout(() => {
       setDeathFx(d => d.filter(x => !keys.has(x.key)));
-    }, 1700);
+    }, 1700 + maxDelay);
     return () => clearTimeout(t);
   }, [deathFx]);
 
@@ -1216,6 +1235,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             count={state.opponent.discard.length}
             onClick={() => setGraveyardOpen('opponent')}
             elRef={(el) => registerEl(GRAVE_OPP, el)}
+            pulseKey={gravePulseKey.opponent}
           />
         </div>
       </div>
@@ -1411,6 +1431,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             count={state.player.discard.length}
             onClick={() => setGraveyardOpen('player')}
             elRef={(el) => registerEl(GRAVE_PLAYER, el)}
+            pulseKey={gravePulseKey.player}
           />
         </div>
       </div>
@@ -1972,10 +1993,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               left: d.rect.x, top: d.rect.y, width: d.rect.w, height: d.rect.h,
               pointerEvents: 'none',
               zIndex: 8,
-              // Total runtime ~1.6s. First half = slice (the dying
-              // BattlefieldCard inside handles its own keyframes).
-              // Second half = fly to graveyard.
-              animation: 'deathFlyToGrave 1.6s cubic-bezier(.55,.05,.85,.4) forwards',
+              // 1.6s composite keyframe: slice (0-30%) → rise (30-45%) →
+              // arc toward graveyard (45-100%). Multi-deaths get a
+              // per-ghost stagger via animation-delay so a 3-AOE plays
+              // as 1-2-3 instead of overlapping into one clump.
+              animation: 'deathFlyToGrave 1.6s cubic-bezier(.55,.05,.85,.4) both',
+              animationDelay: `${d.delayMs}ms`,
               ['--gx' as string]: `${gx}px`,
               ['--gy' as string]: `${gy}px`,
             }}
@@ -2604,25 +2627,37 @@ function StatusLabels({
 }
 
 /** Skull-icon pill that opens the graveyard modal for one player's pile. */
-function GraveyardButton({ count, onClick, elRef }: {
+function GraveyardButton({ count, onClick, elRef, pulseKey }: {
   count: number;
   onClick: () => void;
   /** Forwarded so MatchBoard can capture this button's position into
    *  the cardEls map and use it as the destination for the death-fly
    *  animation. */
   elRef?: (el: HTMLButtonElement | null) => void;
+  /** Bumps every time a death-ghost is scheduled to arrive at this
+   *  graveyard. The button re-keys on this so the `gravePulse`
+   *  keyframe replays — a quick scale-up + warm glow ring confirms
+   *  "card landed here" without the player having to look away. */
+  pulseKey?: number;
 }) {
   return (
-    <button ref={elRef} onClick={onClick} aria-label="Graveyard" style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: '#fff',
-      padding: '5px 9px', borderRadius: 14,
-      boxShadow: '0 3px 8px rgba(58,46,42,.10)',
-      border: 'none',
-      fontSize: 12, fontWeight: 700, color: PALETTE.text,
-      cursor: 'pointer',
-      fontFamily: '"Fredoka", "Inter", system-ui',
-    }}>
+    <button
+      key={pulseKey}
+      ref={elRef}
+      onClick={onClick}
+      aria-label="Graveyard"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        background: '#fff',
+        padding: '5px 9px', borderRadius: 14,
+        boxShadow: '0 3px 8px rgba(58,46,42,.10)',
+        border: 'none',
+        fontSize: 12, fontWeight: 700, color: PALETTE.text,
+        cursor: 'pointer',
+        fontFamily: '"Fredoka", "Inter", system-ui',
+        animation: pulseKey ? 'gravePulse .6s ease-out' : undefined,
+      }}
+    >
       <Skull size={14} color={PALETTE.accentDeep} strokeWidth={2.4} />
       <span>{count}</span>
     </button>
