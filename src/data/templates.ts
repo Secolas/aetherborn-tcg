@@ -529,6 +529,12 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'You made it. Now what?',
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'legendary', suggested: 'graduating students throwing caps, a diploma, a celebration' },
+
+  { id: 'edu-13', name: 'Physical Ed Class', el: 'education', cost: 3, atk: 3, hp: 3, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Suit up. Lap one.',
+    abilityKind: 'rush',
+    rarity: 'rare', suggested: 'a gym class, kids running, basketball hoop, sports equipment' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {

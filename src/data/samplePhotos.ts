@@ -95,7 +95,7 @@ const THEMED: Record<string, string> = {
 
   // Education — school days, classrooms, exams, graduation
   'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
-  'edu-02': U('photo-1547043505-26b58c8e8d77'),     // Backpack → school backpack
+  'edu-02': U('photo-1622260614153-03223fb72052'),  // Backpack → school bag with books
   'edu-03': U('photo-1577896851231-70ef18881754'),  // Math Teacher → chalkboard
   'edu-04': U('photo-1517077304055-6e89abbf09b0'),  // Bathroom Break → school hallway / lockers
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
@@ -109,6 +109,7 @@ const THEMED: Record<string, string> = {
   'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
   'edu-12': U('photo-1523050854058-8df90110c9f1'),  // Graduation Day → throwing caps
+  'edu-13': U('photo-1571902943202-507ec2618e8f'),  // Physical Ed Class → kids running / gym
 };
 
 /**
