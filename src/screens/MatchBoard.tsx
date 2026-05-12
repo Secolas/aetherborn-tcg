@@ -694,7 +694,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
 
       // Draws come AFTER deaths so the hand growth is its own beat.
-      if (fresh.turnNumber === prev.turnNumber) {
+      // Now also handles the turn-start draw (used to be a separate
+      // useEffect that fired in parallel with the ability reveals).
+      // By going through pipeDelay the draw flight strictly follows
+      // whatever ability animations are queued — no more overlap of
+      // a card flying into hand while a Library reveal is still up.
+      {
         const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
         const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
         const drawStep = 420;
@@ -703,6 +708,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const at = pipeDelay;
           for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
           for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
+          // Pulse the mana chip alongside the turn-start draw — it
+          // belongs to the same beat (new turn started, here's your
+          // card + mana).
+          if (fresh.turnNumber > prev.turnNumber) {
+            setTimeout(() => setManaPulse(p => p + 1), at);
+          }
           // Each flight is ~1.1s; serialize accordingly.
           pipeDelay += totalDraws * drawStep + 700;
         }
@@ -1010,30 +1021,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     return () => { cancelled = true; clearTimeout(start); };
   }, [flipping, initialDealing, state.outcome]);
 
-  // Card draw flight + mana pulse — fire whenever a new player's turn begins
-  // (after turn 1, since the initial hand is dealt by createMatch, not by
-  // beginTurn). The draw flight is a card-back animating from the active
-  // player's deck chip into their hand zone; the mana pulse pops the chip.
-  //
-  // We defer until animBusyUntilRef clears so the draw card doesn't
-  // overlap ability toasts or buff popups queued by the same turn flip
-  // (e.g. level_up tick on a boss creature, heal_each_turn from Library).
-  // After firing, we extend animBusyUntilRef through the 1.1s flight so
-  // the AI driver also waits for the draw to land.
-  useEffect(() => {
-    if (flipping || state.outcome !== 'ongoing') return;
-    if (state.turnNumber <= 1) return; // first turn — no draw happened
-    const now = Date.now();
-    const wait = Math.max(0, animBusyUntilRef.current - now);
-    const t = setTimeout(() => {
-      fireDraw(state.turn, 0);
-      setManaPulse(p => p + 1);
-    }, wait);
-    holdAnim(wait + 1100);
-    setAnimTick(x => x + 1);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.turn, state.turnNumber, flipping, state.outcome]);
+  // (Turn-start draw flight + mana pulse moved into the state-diff
+  // pipeline above. Routing them through pipeDelay means they fire
+  // strictly AFTER the ability reveals / buff popups / bond toasts
+  // from the same turn flip, instead of racing them.)
 
   // Recompute the attack-arrow endpoints whenever combat starts. We read the
   // Cache last-known board-local rect for every creature element after
