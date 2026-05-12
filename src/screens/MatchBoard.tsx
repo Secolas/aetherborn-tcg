@@ -866,14 +866,30 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         // Draw-phase: heal_each_turn on the new active side.
         const newActiveBefore = newActiveSide === 'player' ? prev.hp.player : prev.hp.opponent;
         const newActiveAfter = newActiveSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
+        const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
         if (newActiveAfter > newActiveBefore) {
-          const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
           for (const c of newActiveField) {
             if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
               const who = newActiveSide === 'player' ? 'You heal' : `${boss.name} heals`;
               drawPhaseFires.push({
                 card: c,
                 text: `${who} +${c.abilityValue} HP`,
+                side: newActiveSide,
+              });
+            }
+          }
+        }
+        // Draw-phase: mana_prep bonus (Slow Cooker etc.) fires when the
+        // active side's mana exceeds their maxMana at turn start.
+        const newActiveMana = newActiveSide === 'player' ? state.player.mana : state.opponent.mana;
+        const newActiveMaxMana = newActiveSide === 'player' ? state.player.maxMana : state.opponent.maxMana;
+        if (newActiveMana > newActiveMaxMana) {
+          for (const c of newActiveField) {
+            if (c.abilityKind === 'mana_prep' && c.abilityValue) {
+              const who = newActiveSide === 'player' ? 'You gain' : `${boss.name} gains`;
+              drawPhaseFires.push({
+                card: c,
+                text: `${who} +${c.abilityValue} mana this turn`,
                 side: newActiveSide,
               });
             }
