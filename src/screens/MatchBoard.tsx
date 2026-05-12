@@ -1569,6 +1569,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
   const handleGoBattle = () => {
     setPlayerPhase('battle');
+    setPendingSpell(null);
+    setSelectedHandIdx(null);
     const key = Date.now() + 3333;
     setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
@@ -2024,15 +2026,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       </div>
 
-      {/* Hand — flat row anchored to the bottom. Tapping a card lifts the
-          centered preview above; the hand cards themselves stay put so the
-          leftmost card never gets clipped on narrow viewports. */}
+      {/* Hand — flat row anchored to the bottom. Hidden during Battle Phase
+          since spells and creatures can't be played then; avoids mis-taps. */}
       <div style={{
         flex: '0 0 220px',
         position: 'relative',
         pointerEvents: 'none',
       }}>
-        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
+        {playerPhase !== 'battle' && (initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
           .filter(card => !pendingDrawIds.has(card.battleId))
           .map((card, i, visibleHand) => {
           const isDragging = drag?.battleId === card.battleId;
