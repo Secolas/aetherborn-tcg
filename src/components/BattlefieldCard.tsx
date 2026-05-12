@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Link2 } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -135,7 +135,7 @@ export function BattlefieldCard({
       onPointerUp={handlePointerUp}
       onPointerCancel={() => { if (pressTimer.current) { window.clearTimeout(pressTimer.current); pressTimer.current = null; } }}
       style={{
-        width: 64, height: 88,
+        width: 56, height: 76,
         borderRadius: 8,
         background: `linear-gradient(180deg, ${tp.top}, ${tp.deep})`,
         boxShadow: ringColor
@@ -443,22 +443,16 @@ export function BattlefieldCard({
           aria-label={bondState === 'active' ? 'Bond active' : 'Bond waiting'}
           style={{
             position: 'absolute',
-            top: -7, left: -7,
-            width: 18, height: 18, borderRadius: '50%',
-            background: bondState === 'active'
-              ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-              : 'rgba(180,170,160,.85)',
-            display: 'grid', placeItems: 'center',
+            top: -3, left: -3,
+            width: 8, height: 8, borderRadius: '50%',
+            background: bondState === 'active' ? '#06d6a0' : 'rgba(180,170,160,.7)',
             boxShadow: bondState === 'active'
-              ? '0 0 0 2px #fff, 0 0 12px rgba(244,208,74,.85), 0 2px 5px rgba(0,0,0,.3)'
-              : '0 0 0 1.5px #fff, 0 1.5px 3px rgba(0,0,0,.25)',
-            color: bondState === 'active' ? '#a8530a' : '#fff',
+              ? '0 0 0 1.5px #fff, 0 0 6px rgba(6,214,160,.6)'
+              : '0 0 0 1px #fff',
             zIndex: 5,
             pointerEvents: 'none',
           }}
-        >
-          <Link2 size={11} strokeWidth={3} />
-        </div>
+        />
       )}
     </div>
   );

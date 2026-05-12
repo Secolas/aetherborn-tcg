@@ -2040,7 +2040,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // playable even at its on-card cost. We don't tint cards red just
           // because it's the boss's turn — that'd flash every card every turn.
           const playableNow = effectiveCost(state.player, card) <= state.player.mana;
-          const baseScale = 0.66;
+          const baseScale = 0.56;
           const cardW = 220 * baseScale;
           // Tighter stride + per-card rotation = a real fan instead of a
           // flat row, mirroring the opponent's face-down fan at the top.
