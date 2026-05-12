@@ -25,6 +25,8 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
              blurb: 'planes, trains, hotels, the road' },
   food:    { name: 'Food',    color: '#d99a3a', deep: '#6e4818', glow: '#f4d59a',
              blurb: 'meals, snacks, coffee — what fuels your day' },
+  education:{ name: 'Education', color: '#5a5fd9', deep: '#1a1f6e', glow: '#b8bdf5',
+             blurb: 'school days — classrooms, teachers, exams, graduation' },
 };
 
 /**

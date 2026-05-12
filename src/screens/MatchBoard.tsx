@@ -1622,7 +1622,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
-            if (ak === 'spell_buff' || ak === 'spell_nourish') {
+            if (ak === 'spell_buff' || ak === 'spell_nourish' || ak === 'spell_heal_friend') {
               castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
             } else {
               onMyCreatureClick(c);
@@ -1768,6 +1768,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           card.abilityKind === 'spell_heal' ||
           card.abilityKind === 'spell_share_meal' ||
           card.abilityKind === 'spell_feast' ||
+          card.abilityKind === 'spell_both_draw' ||
+          card.abilityKind === 'spell_buff_all' ||
+          card.abilityKind === 'exam_pass' ||
+          card.abilityKind === 'pop_quiz' ||
           card.abilityKind === 'draw_on_play' ||
           card.id === 'ti-05'
         );
@@ -2741,7 +2745,11 @@ function FieldRow({
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
-        const friendlySpell = side === 'player' && (pendingSpell?.abilityKind === 'spell_buff' || pendingSpell?.abilityKind === 'spell_nourish');
+        const friendlySpell = side === 'player' && (
+          pendingSpell?.abilityKind === 'spell_buff' ||
+          pendingSpell?.abilityKind === 'spell_nourish' ||
+          pendingSpell?.abilityKind === 'spell_heal_friend'
+        );
         const dyingEntry = dying[c.battleId];
         // The live BattlefieldCard plays NO slice animation. When a
         // creature dies, its slot wrapper plays flyToGrave (translating
@@ -2977,6 +2985,7 @@ function spellTargetHint(card: BattleCard): string {
     case 'spell_freeze': return 'Tap an enemy creature to freeze it';
     case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
     case 'spell_nourish':return `Tap your creature for +0/+${card.abilityValue ?? 0} HP`;
+    case 'spell_heal_friend': return `Tap your creature to restore ${card.abilityValue ?? 0} HP`;
     case 'silence':      return 'Tap an enemy creature to silence it';
     default:             return 'Tap a target';
   }
@@ -2986,11 +2995,13 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   if (!spell) return false;
   // Silence ignores 'untargetable' on purpose — that's its job.
   if (spell.abilityKind === 'silence') return owner === 'opponent';
-  // Friendly buffs (spell_buff, spell_nourish) ignore untargetable since
-  // the friendly creature isn't being attacked.
-  const isFriendlyBuff = spell.abilityKind === 'spell_buff' || spell.abilityKind === 'spell_nourish';
-  if (c.abilityKind === 'untargetable' && !isFriendlyBuff) return false;
-  if (isFriendlyBuff) return owner === 'player';
+  // Friendly buffs / heals (spell_buff, spell_nourish, spell_heal_friend)
+  // ignore untargetable since the friendly creature isn't being attacked.
+  const isFriendly = spell.abilityKind === 'spell_buff'
+    || spell.abilityKind === 'spell_nourish'
+    || spell.abilityKind === 'spell_heal_friend';
+  if (c.abilityKind === 'untargetable' && !isFriendly) return false;
+  if (isFriendly) return owner === 'player';
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return true;
   return false;

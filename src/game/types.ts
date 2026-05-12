@@ -1,5 +1,5 @@
 /** Themes are the deck-organizing axis. Each theme is a photo prompt set. */
-export type ElementId = 'family' | 'work' | 'animals' | 'travel' | 'food';
+export type ElementId = 'family' | 'work' | 'animals' | 'travel' | 'food' | 'education';
 
 export type CardType = 'Creature' | 'Spell';
 
@@ -29,7 +29,16 @@ export type AbilityKind =
   | 'spell_share_meal'   // (Spell) heal all your creatures by X
   | 'spell_feast'        // (Spell) heal owner X face HP AND your creatures by Y
   | 'recover_on_death'   // when this creature dies, return a random Spell from your discard to your hand
-  | 'mana_prep';         // on play: gain +1 mana NEXT turn only (one-shot ramp)
+  | 'mana_prep'          // on play: gain +1 mana NEXT turn only (one-shot ramp)
+  // ---- Cheap-card pass + Payroll ----
+  | 'spell_heal_friend'  // (Spell) restore X HP to a friendly creature (current-HP heal, capped at max)
+  | 'spell_both_draw'    // (Spell) both players draw 1 — neutral cycle (Stand-up Meeting)
+  | 'spell_buff_all'     // (Spell) +X/+X to every friendly creature (Payroll, Graduation Day on-play variant)
+  // ---- Education theme additions ----
+  | 'level_up'           // (Creature) at end of your turn, this gains +1/+1 permanently
+  | 'graduate'           // (Creature) level up each turn; after X turns alive, gains +2/+2 AND Untargetable permanently
+  | 'exam_pass'          // (Spell) if you have 3+ creatures, deal X to enemy face; otherwise heal owner X
+  | 'pop_quiz';          // (Spell) discard a random card from your hand, then draw 2
 
 export interface CardTemplate {
   id: string;
@@ -87,6 +96,15 @@ export interface BattleCard extends CollectionCard {
       restore it when the silence wears off. */
   originalAbilityKind?: AbilityKind;
   originalAbility?: string;
+  /** Education-theme bookkeeping. Counts how many owner-turn-ends this
+      creature has survived (not counting the turn it was summoned).
+      Drives `level_up` per-turn buffs and `graduate` transformations.
+      Reset to 0 when freshly summoned. */
+  turnsAlive?: number;
+  /** True once a `graduate` creature has hit its threshold and applied
+      the one-shot +2/+2 + Untargetable transformation. Prevents re-firing
+      and locks in the permanent state. */
+  graduated?: boolean;
 }
 
 export type Owner = 'player' | 'opponent';

@@ -20,13 +20,28 @@ export interface BossDef {
   playstyle: string;
   rewardCoins: number;
   /**
-   * The exact 12 cards this boss plays. Order doesn't matter (the engine
-   * shuffles before dealing) but duplicates do — repeating a card adds it
-   * to the deck twice. This is what gives each boss a *style*: Mom plays
-   * lots of healing, the Manager plays lots of spells, Pack Alpha plays
-   * lots of bodies.
+   * The exact 12 cards this boss plays at NORMAL difficulty. Order
+   * doesn't matter (the engine shuffles before dealing) but duplicates
+   * do — repeating a card adds it to the deck twice. This is what
+   * gives each boss a *style*: Mom plays lots of healing, the Manager
+   * plays lots of spells, Pack Alpha plays lots of bodies.
    */
   deck: string[];
+  /**
+   * Optional Mythic-tier deck override. Used in place of `deck` when
+   * the player picks Mythic difficulty. By design these are tuned to
+   * include the boss's legendary card and DOUBLE-UP on bond enablers
+   * so the boss's signature synergy is much more reliable. Falls back
+   * to `deck` if undefined.
+   */
+  mythicDeck?: string[];
+  /**
+   * Optional Hard-tier deck override. Most bosses leave this undefined
+   * because Hard tier already boosts AI smarts (threat targeting,
+   * spell efficiency); the deck stays Normal-tier. Provided as an
+   * escape hatch for bosses that need a small mid-tier deck nudge.
+   */
+  hardDeck?: string[];
   /**
    * Optional per-card photo overrides so a boss's iconic cards look
    * distinct from the generic AI photo for that template.
@@ -79,6 +94,21 @@ export const BOSSES: BossDef[] = [
     },
     // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.
     backdrop: U('photo-1556909114-f6e7ad7d3136'),
+    // Mythic: 2x Abuela and 2x Dad so the Generations / Sunday Dinner
+    // bonds fire reliably. Drops the cheaper bodies that the Normal
+    // deck used as filler. Includes the cheap Hug heal.
+    mythicDeck: [
+      'fam-02',         // Cousin
+      'fam-04',         // Tio (draw engine)
+      'fam-05',         // Mom card
+      'fam-06',         // The Look
+      'fam-08', 'fam-08',// Abuela x2 — Generations enabler
+      'fam-10',         // Family Photo (epic buff)
+      'fam-11', 'fam-11',// Dad x2 — Sunday Dinner enabler
+      'fam-12',         // Sunday Dinner finisher heal
+      'fam-13',         // Tough Love silence
+      'fam-14',         // Hug
+    ],
   },
 
   // ============================================================
@@ -113,6 +143,22 @@ export const BOSSES: BossDef[] = [
     },
     // Empty conference room — cold blues / fluorescent / rows of chairs.
     backdrop: U('photo-1497366216548-37526070297c'),
+    // Mythic: 2x Senior Engineer + 2x Boss to chain Reporting Line and
+    // Top Brass bonds. Adds Payroll (board buff) and Stand-up Meeting
+    // for tempo. Drops Lunch Break (Normal's spell_heal) since the
+    // Manager already has plenty of value sources.
+    mythicDeck: [
+      'wrk-01',          // Intern (Reporting Line enabler)
+      'wrk-02',          // Spam Email
+      'wrk-04',          // Coffee buff
+      'wrk-06',          // Sales Pitch (spell removal)
+      'wrk-08', 'wrk-08',// Senior Engineer x2
+      'wrk-09',          // Meeting freeze
+      'wrk-10',          // Promotion buff
+      'wrk-12', 'wrk-12',// The Boss x2 — bond + body
+      'wrk-14',          // Stand-up Meeting
+      'wrk-15',          // Payroll +1/+1 all
+    ],
   },
 
   // ============================================================
@@ -148,6 +194,22 @@ export const BOSSES: BossDef[] = [
     },
     // Misty pine forest — deep greens, fog, "you're not alone out here."
     backdrop: U('photo-1448375240586-882707db888b'),
+    // Mythic: 2x Wolf + 2x Lion so The Pack bond becomes the centerpiece.
+    // Adds Mosquito (1m rush chip), keeps the silence and snake bite.
+    // Drops Mouse and Treats — the Mythic Alpha doesn't bother with
+    // filler when she has apex predators to deploy.
+    mythicDeck: [
+      'ani-01',          // Mouse (1m rush)
+      'ani-02',          // Snake Bite damage
+      'ani-04',          // Cat
+      'ani-05',          // Dog
+      'ani-06',          // Owl (untargetable)
+      'ani-09',          // Bear Trap freeze
+      'ani-11', 'ani-11',// Wolf x2
+      'ani-12', 'ani-12',// Lion x2
+      'ani-13',          // Muzzle silence
+      'ani-14',          // Mosquito
+    ],
   },
 
   // ============================================================
@@ -185,6 +247,21 @@ export const BOSSES: BossDef[] = [
     },
     // Airport gate at dawn — gradient sky behind the runway, "leaving."
     backdrop: U('photo-1436491865332-7a61a109cc05'),
+    // Mythic: 2x Window Seat (First Class Window bond enabler) and 2x
+    // Mountain Summit (the legendary Rush finisher). Replaces filler
+    // (Carry-On, Layover) with a Ticket Stub for early cycling.
+    mythicDeck: [
+      'trv-01',          // Boarding Pass (1m rush)
+      'trv-03',          // Suitcase draw 2
+      'trv-04',          // Lost Luggage silence
+      'trv-05', 'trv-05',// Window Seat x2 — First Class Window enabler
+      'trv-06',          // Train Conductor
+      'trv-07',          // Roadmap damage
+      'trv-10',          // Beach heal
+      'trv-11',          // First Class buff
+      'trv-12', 'trv-12',// Mountain Summit x2 — finisher
+      'trv-13',          // Ticket Stub draw
+    ],
   },
 
   // ============================================================
@@ -227,6 +304,77 @@ export const BOSSES: BossDef[] = [
     },
     // Warm restaurant kitchen — copper pans, low light, food prep counter.
     backdrop: U('photo-1517248135467-4c7edcad34c4'),
+    // Mythic: 2x Coffee Mug + 2x Breakfast Plate so the Breakfast Combo
+    // bond fires turn 2-3 every game. Adds Sip (cheap creature heal).
+    mythicDeck: [
+      'fd-01', 'fd-01',  // Coffee Mug x2 — Breakfast Combo enabler
+      'fd-02',           // Hot Soup
+      'fd-04', 'fd-04',  // Breakfast Plate x2 — Breakfast Combo enabler + draw
+      'fd-05',           // Lunch Box recover
+      'fd-06',           // Slow Cooker ramp
+      'fd-08',           // Share the Meal board heal
+      'fd-10',           // Grandma's Pie heal_each_turn
+      'fd-11',           // The Cook on-play heal
+      'fd-12',           // Family Feast finisher
+      'fd-13',           // Sip
+    ],
+  },
+
+  // ============================================================
+  // THE PRINCIPAL — Education theme. Scaling / level-up-focused.
+  // Plays patient: drops level-up creatures early, defends them with
+  // freeze + library wall, and finishes when Senior Year graduates
+  // or Graduation Day pumps the board. Loses to fast aggro that
+  // kills students before they grow up; wins long games hard.
+  // ============================================================
+  {
+    id: 'principal',
+    name: 'The Principal',
+    subtitle: 'Won\'t sign your slip',
+    themeId: 'education',
+    avatar: 'P',
+    // Principal in a suit — older, glasses, hallway in background.
+    avatarPhoto: U('photo-1542178243-bc20204b769f'),
+    intro: 'Sit. Down.',
+    playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
+    rewardCoins: 150,
+    deck: [
+      'edu-01',          // Pencil (1m vanilla)
+      'edu-02',          // Backpack (1m draw)
+      'edu-03',          // Math Teacher (level_up)
+      'edu-04',          // Bathroom Break (freeze)
+      'edu-05',          // Group Project (+1/+1 all)
+      'edu-06',          // Physics Class (level_up)
+      'edu-07',          // Pop Quiz (discard + draw 2)
+      'edu-08',          // The Bully (rush)
+      'edu-09',          // Library (heal_each_turn 1)
+      'edu-10',          // Final Exam (conditional damage / heal)
+      'edu-11',          // Senior Year (graduate)
+      'edu-12',          // Graduation Day (on-play +1/+1 all)
+    ],
+    photoOverrides: {
+      'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
+      'edu-09': U('photo-1481627834876-b7833e8f5570'),  // his own library
+      'edu-12': U('photo-1523050854058-8df90110c9f1'),  // his own graduation day
+    },
+    // School hallway — lockers, fluorescent lighting, polished floor.
+    backdrop: U('photo-1503676260728-1c00da094a0b'),
+    // Mythic: 2x Math Teacher + 2x Physics Class to lock Study Group
+    // bond + double Senior Year copies to chain graduations. Drops
+    // Pencil and Bathroom Break — Mythic Principal doesn't need
+    // training wheels.
+    mythicDeck: [
+      'edu-02',          // Backpack
+      'edu-03', 'edu-03',// Math Teacher x2 — Study Group enabler
+      'edu-05',          // Group Project
+      'edu-06', 'edu-06',// Physics Class x2 — Study Group enabler
+      'edu-07',          // Pop Quiz
+      'edu-09',          // Library
+      'edu-10',          // Final Exam
+      'edu-11', 'edu-11',// Senior Year x2
+      'edu-12',          // Graduation Day legendary
+      'edu-08',          // The Bully (one early threat)
+    ],
   },
 ];
 

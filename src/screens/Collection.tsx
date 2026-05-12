@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, Swords, Sparkles, Lock, Camera, Trash2, X, LayoutGrid, Rows3 } from 'lucide-react';
+import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Lock, Camera, Trash2, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { iconBtn, PALETTE } from '../components/styles';
 import { ELEMENTS } from '../data/elements';
@@ -7,7 +7,7 @@ import type { CollectionCard, ElementId } from '../game/types';
 
 type Filter =
   | 'All'
-  | 'Family' | 'Work' | 'Animals' | 'Travel' | 'Food'
+  | 'Family' | 'Work' | 'Animals' | 'Travel' | 'Food' | 'Education'
   | 'Creatures' | 'Spells'
   | 'Dormant';
 
@@ -18,6 +18,7 @@ const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme
   { id: 'Animals',   label: 'Animals',   icon: <PawPrint  size={13} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'animals' },
   { id: 'Travel',    label: 'Travel',    icon: <Plane     size={13} fill="currentColor" strokeWidth={2.4} />, tone: 'theme', themeId: 'travel' },
   { id: 'Food',      label: 'Food',      icon: <UtensilsCrossed size={13} strokeWidth={2.4} />, tone: 'theme', themeId: 'food' },
+  { id: 'Education', label: 'Education', icon: <GraduationCap size={13} strokeWidth={2.4} />, tone: 'theme', themeId: 'education' },
   { id: 'Creatures', label: 'Creatures', icon: <Swords    size={13} strokeWidth={2.4} />, tone: 'type' },
   { id: 'Spells',    label: 'Spells',    icon: <Sparkles  size={13} strokeWidth={2.4} />, tone: 'type' },
   { id: 'Dormant',   label: 'Dormant',   icon: <Lock      size={13} strokeWidth={2.4} />, tone: 'state' },
@@ -58,6 +59,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
       case 'Animals':   return c.el === 'animals';
       case 'Travel':    return c.el === 'travel';
       case 'Food':      return c.el === 'food';
+      case 'Education': return c.el === 'education';
       default:          return true;
     }
   });
@@ -73,6 +75,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
       case 'Animals':   return collection.filter(c => c.el === 'animals').length;
       case 'Travel':    return collection.filter(c => c.el === 'travel').length;
       case 'Food':      return collection.filter(c => c.el === 'food').length;
+      case 'Education': return collection.filter(c => c.el === 'education').length;
     }
   };
 
