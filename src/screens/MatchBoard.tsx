@@ -164,6 +164,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [effectToast, setEffectToast] = useState<{
     card: BattleCard; text: string; side: Owner; key: number;
   } | null>(null);
+  /** Phase indicator banners — "END PHASE" / "DRAW PHASE" — that pop
+   *  briefly between sections of the turn-flip animation pipeline so
+   *  the player can tell "this is my end-of-turn stuff" vs "this is
+   *  the boss's start-of-turn stuff." Queued via pipeDelay same as
+   *  everything else. Gated on whether that phase actually has any
+   *  activity (no point announcing END PHASE if no creature
+   *  triggered an end-of-turn ability). */
+  const [phaseBanner, setPhaseBanner] = useState<{ text: string; side: Owner; key: number } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -790,20 +798,28 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // the player's bond). The pop uses the same green/red damage popup
       // language already used elsewhere.
       const turnFlipped = fresh.turnNumber > prev.turnNumber;
-      // Per-creature ability activations. These get a toast that
-      // shows the SOURCE card + a one-line explanation, so the
-      // player can tell which creature healed / leveled / graduated
-      // instead of just seeing a number pop with no attribution.
-      // Sequenced through pipeDelay so they fire one at a time after
-      // damages / deaths / draws settle.
-      const effectFires: { card: BattleCard; text: string; side: Owner }[] = [];
+      // Phase-separated ability activations. End-phase fires
+      // (level_up / graduate ticks on the just-ended turn's owner)
+      // and Draw-phase fires (heal_each_turn on the just-begun
+      // turn's owner) are queued AS SEPARATE sections of the
+      // pipeline, each prefaced by a brief phase banner so the
+      // player can read the turn as a sequence of phases:
+      //   END PHASE (yours)  →  level-up reveals  →
+      //   DRAW PHASE (theirs) →  heal reveals + draw flight →
+      //   MAIN PHASE (theirs) →  YOUR TURN banner → boss acts
+      // Matches TCG convention and removes the "everything happened
+      // at once, I don't know what's going on" feeling.
+      const endPhaseFires: { card: BattleCard; text: string; side: Owner }[] = [];
+      const drawPhaseFires: { card: BattleCard; text: string; side: Owner }[] = [];
+      let justEndedSide: Owner = 'player';
+      let newActiveSide: Owner = 'player';
       if (turnFlipped) {
-        // Level-up / graduate ticks fired at end of the JUST-ENDED
-        // turn for that side. Detect by comparing the creature's
-        // pre-tick atk/hp snapshot with its post-tick state, and
-        // attributing only to cards whose ability is (or was) one
-        // of the leveling kinds.
-        const justEndedSide: Owner = state.turn === 'player' ? 'opponent' : 'player';
+        justEndedSide = state.turn === 'player' ? 'opponent' : 'player';
+        newActiveSide = state.turn;
+        // End-phase: level-up / graduate ticks fired at end of the
+        // JUST-ENDED turn for that side. Detect by comparing the
+        // creature's pre-tick atk/hp snapshot with its post-tick
+        // state.
         const justEndedField = justEndedSide === 'player' ? state.player.field : state.opponent.field;
         const justEndedPrev = justEndedSide === 'player' ? prev.player : prev.opponent;
         for (const c of justEndedField) {
@@ -812,31 +828,22 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const dAtk = c.currentAtk - ps.atk;
           const dHp = c.currentHp - ps.hp;
           const stillLeveling = c.abilityKind === 'level_up' || c.abilityKind === 'graduate';
-          // Plain level-up tick — ability still says level_up / graduate.
           if (stillLeveling && (dAtk > 0 || dHp > 0)) {
-            effectFires.push({
+            endPhaseFires.push({
               card: c,
               text: `Level up +${dAtk}/+${dHp}`,
               side: justEndedSide,
             });
           }
-          // Graduation transition — ability was 'graduate', now
-          // 'untargetable', graduated flag set. Different copy so the
-          // moment feels meaningful.
           if (ps.ability === 'graduate' && c.graduated && c.abilityKind === 'untargetable') {
-            effectFires.push({
+            endPhaseFires.push({
               card: c,
               text: 'Graduated — +2/+2 and Untargetable',
               side: justEndedSide,
             });
           }
         }
-        // Heal-each-turn fires at start of the JUST-BEGUN turn for
-        // its active side. Only announce when face HP ACTUALLY went
-        // up — at max HP the engine skips the heal (see beginTurn),
-        // so a "Library restores 1 HP" reveal there would be a
-        // misleading no-op.
-        const newActiveSide: Owner = state.turn;
+        // Draw-phase: heal_each_turn on the new active side.
         const newActiveBefore = newActiveSide === 'player' ? prev.hp.player : prev.hp.opponent;
         const newActiveAfter = newActiveSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
         if (newActiveAfter > newActiveBefore) {
@@ -844,7 +851,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           for (const c of newActiveField) {
             if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
               const who = newActiveSide === 'player' ? 'You heal' : `${boss.name} heals`;
-              effectFires.push({
+              drawPhaseFires.push({
                 card: c,
                 text: `${who} +${c.abilityValue} HP`,
                 side: newActiveSide,
@@ -853,20 +860,33 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }
         }
       }
-      if (effectFires.length) {
-        // Hold long enough for the full-card reveal to read clearly.
-        // The reveal lifts the source card to center-stage with a dim
-        // backdrop, so it needs spell-reveal-class time — earlier
-        // smaller toast values felt rushed for the bigger visual.
+      // Helper to schedule a phase banner at the current pipeDelay
+      // and advance pipeDelay by its on-screen duration.
+      const queuePhaseBanner = (text: string, side: Owner) => {
+        const BANNER_MS = 700;
+        const at = pipeDelay;
+        const key = Date.now() + 700 + Math.floor(Math.random() * 100);
+        setTimeout(() => setPhaseBanner({ text, side, key }), at);
+        setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), at + BANNER_MS + 50);
+        pipeDelay += BANNER_MS + 50;
+      };
+      const queueEffectFires = (fires: typeof endPhaseFires) => {
+        if (!fires.length) return;
         const EFFECT_MS = 2400;
         const at = pipeDelay;
-        effectFires.forEach((f, i) => {
+        fires.forEach((f, i) => {
           const showAt = at + i * EFFECT_MS;
-          const key = Date.now() + 300 + i;
+          const key = Date.now() + 300 + i + Math.floor(Math.random() * 1000);
           setTimeout(() => setEffectToast({ ...f, key }), showAt);
           setTimeout(() => setEffectToast(cur => (cur && cur.key === key ? null : cur)), showAt + EFFECT_MS + 50);
         });
-        pipeDelay += effectFires.length * EFFECT_MS + 50;
+        pipeDelay += fires.length * EFFECT_MS + 50;
+      };
+      // END PHASE — level_up / graduate reveals, then the matching
+      // +1/+1 buff popups land on the actual creatures.
+      if (endPhaseFires.length) {
+        queuePhaseBanner('End Phase', justEndedSide);
+        queueEffectFires(endPhaseFires);
       }
 
       // Buff popups (level_up +1/+1, spell_buff resolves, etc.) fire
@@ -883,6 +903,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           return next;
         }), at + 1200);
         pipeDelay = at + 1200;
+      }
+
+      // DRAW PHASE — heal_each_turn reveals on the new active side.
+      // The actual turn-start draw flight was queued earlier in the
+      // pipeline (via the handIds diff block); this phase banner
+      // visually separates the draw section from the End Phase.
+      if (drawPhaseFires.length) {
+        queuePhaseBanner('Draw Phase', newActiveSide);
+        queueEffectFires(drawPhaseFires);
       }
 
       if (turnFlipped) {
@@ -2369,6 +2398,51 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           per-turn heal/damage popup that the bond produced, so the player
           can connect cause to effect. Side coloring: player bonds gold,
           boss bonds dark steel. */}
+      {/* Phase banner — brief chip that pops between sections of the
+          turn-flip animation pipeline (END PHASE → DRAW PHASE).
+          Reads like a TCG phase indicator: "now we're doing your
+          end-of-turn stuff", then "now we're doing my start-of-turn
+          stuff". Standardized neutral color (no theme tint) so the
+          chip itself isn't a competing color event. */}
+      {phaseBanner && (
+        <div
+          key={phaseBanner.key}
+          style={{
+            position: 'absolute', top: '14%', left: 0, right: 0,
+            display: 'flex', justifyContent: 'center',
+            zIndex: 218,
+            pointerEvents: 'none',
+            animation: 'bondFireToast 750ms cubic-bezier(.2,.8,.3,1) both',
+          }}
+        >
+          <div style={{
+            padding: '7px 16px',
+            background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
+            color: '#3a2e2a',
+            borderRadius: 10,
+            border: '1.5px solid rgba(58,46,42,.18)',
+            boxShadow: '0 4px 14px rgba(0,0,0,.18)',
+            fontFamily: '"Fredoka", system-ui',
+            fontWeight: 800,
+            fontSize: 11,
+            letterSpacing: '0.22em',
+            textTransform: 'uppercase',
+            display: 'flex', alignItems: 'center', gap: 8,
+          }}>
+            <span style={{
+              fontSize: 9, fontWeight: 700,
+              padding: '1px 6px', borderRadius: 6,
+              background: phaseBanner.side === 'player' ? '#3a2e2a' : '#7a6e62',
+              color: '#fff',
+              letterSpacing: '0.08em',
+            }}>
+              {phaseBanner.side === 'player' ? 'YOU' : 'BOSS'}
+            </span>
+            {phaseBanner.text}
+          </div>
+        </div>
+      )}
+
       {bondFire && (() => {
         const isPlayer = bondFire.side === 'player';
         return (
