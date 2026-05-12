@@ -333,10 +333,10 @@ export const BOSSES: BossDef[] = [
     subtitle: 'Won\'t sign your slip',
     themeId: 'education',
     avatar: 'P',
-    // Older man in a suit, glasses, authoritative posture — reads
-    // clearly as "the person in charge of the building" rather than
-    // a generic businessman.
-    avatarPhoto: U('photo-1556157382-97eda2d62296'),
+    // Older bearded man in a suit, authoritative posture. Previous IDs
+    // kept rotating to younger generic businessmen — this one is more
+    // stable and reads clearly as "the person in charge of the building."
+    avatarPhoto: U('photo-1605333396915-47ed6dfab2b1'),
     intro: 'Sit. Down.',
     playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
@@ -361,7 +361,7 @@ export const BOSSES: BossDef[] = [
       // edu-08 photo (varsity teen) carry the card so it doesn't
       // duplicate another theme's portrait.
       'edu-09': U('photo-1481627834876-b7833e8f5570'),  // his own library
-      'edu-12': U('photo-1523050854058-8df90110c9f1'),  // his own graduation day
+      'edu-12': U('photo-1627556704290-2b1f5853ff78'),  // his own graduation day
     },
     // School hallway — lockers, fluorescent lighting, polished floor.
     backdrop: U('photo-1503676260728-1c00da094a0b'),

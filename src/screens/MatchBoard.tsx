@@ -866,9 +866,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             fires.push({ bond: b, side: activeSide });
           }
         }
+        // Study Group fires at the END of the just-ended turn for
+        // its owner. We attach it to the endedBondsList scan below
+        // so the toast pops alongside the level-up effect toasts.
         for (const b of endedBondsList) {
           if (b.effect.kind === 'damage_at_end_turn') {
             fires.push({ bond: b, side: endedSide });
+          }
+          // Study Group — level_up_doubled. Announce only when the
+          // owner actually has a leveling creature on the field
+          // (otherwise the bond exists but had nothing to amplify
+          // and announcing it would feel like a false alarm).
+          if (b.effect.kind === 'level_up_doubled') {
+            const endedField = endedSide === 'player' ? state.player.field : state.opponent.field;
+            const hasLeveler = endedField.some(x =>
+              x.abilityKind === 'level_up' || x.abilityKind === 'graduate'
+            );
+            if (hasLeveler) fires.push({ bond: b, side: endedSide });
           }
           if (b.effect.kind === 'draw_at_end_if_low_hand') {
             // The Kids fires only when the hand was actually under 3 AT
