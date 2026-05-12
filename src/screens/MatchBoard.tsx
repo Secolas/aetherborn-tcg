@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2 } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -13,7 +13,7 @@ import {
   effectiveCost, activeBonds, difficultyProfile,
   type SpellTarget,
 } from '../game/match';
-import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD } from '../game/pack';
+import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD } from '../game/pack';
 import { ELEMENTS } from '../data/elements';
 import { BONDS } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
@@ -41,7 +41,7 @@ interface Props {
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
   alreadyBeaten?: boolean;
-  onExit: (outcome: 'win' | 'loss' | 'quit') => void;
+  onExit: (outcome: 'win' | 'loss' | 'draw' | 'quit') => void;
 }
 
 interface DragState {
@@ -184,6 +184,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
+  /** Whether the action-log history panel is open. */
+  const [logOpen, setLogOpen] = useState(false);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
       and the player can't interact — keeps the opening uniform either way. */
   const [flipping, setFlipping] = useState(true);
@@ -470,7 +472,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   useEffect(() => {
     if (state.outcome === 'ongoing' || outcomePlayedRef.current) return;
     outcomePlayedRef.current = true;
-    sfx(state.outcome === 'win' ? 'win' : 'lose');
+    sfx(state.outcome === 'win' ? 'win' : state.outcome === 'draw' ? 'turn' : 'lose');
   }, [state.outcome]);
 
   // Bond activation diff — flag any newly-active bonds on each side so the
@@ -866,8 +868,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         // Draw-phase: heal_each_turn on the new active side.
         const newActiveBefore = newActiveSide === 'player' ? prev.hp.player : prev.hp.opponent;
         const newActiveAfter = newActiveSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
+        const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
         if (newActiveAfter > newActiveBefore) {
-          const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
           for (const c of newActiveField) {
             if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
               const who = newActiveSide === 'player' ? 'You heal' : `${boss.name} heals`;
@@ -879,11 +881,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }
           }
         }
+        // Draw-phase: mana_prep bonus (Slow Cooker etc.) fires when the
+        // active side's mana exceeds their maxMana at turn start.
+        const newActiveMana = newActiveSide === 'player' ? state.player.mana : state.opponent.mana;
+        const newActiveMaxMana = newActiveSide === 'player' ? state.player.maxMana : state.opponent.maxMana;
+        if (newActiveMana > newActiveMaxMana) {
+          for (const c of newActiveField) {
+            if (c.abilityKind === 'mana_prep' && c.abilityValue) {
+              const who = newActiveSide === 'player' ? 'You gain' : `${boss.name} gains`;
+              drawPhaseFires.push({
+                card: c,
+                text: `${who} +${c.abilityValue} mana this turn`,
+                side: newActiveSide,
+              });
+            }
+          }
+        }
       }
       // Helper to schedule a phase banner at the current pipeDelay
       // and advance pipeDelay by its on-screen duration.
       const queuePhaseBanner = (text: string, side: Owner) => {
-        const BANNER_MS = 700;
+        const BANNER_MS = 950;
         const at = pipeDelay;
         const key = Date.now() + 700 + Math.floor(Math.random() * 100);
         setTimeout(() => setPhaseBanner({ text, side, key }), at);
@@ -1539,7 +1557,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setPlayerPhase('battle');
     const key = Date.now() + 3333;
     setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
-    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
   };
 
   const onMyCreatureClick = (c: BattleCard) => {
@@ -1593,7 +1611,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     showMsg(`${boss.name}'s turn`);
     const key = Date.now() + 5555;
     setPhaseBanner({ text: 'End Phase', side: 'player', key });
-    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
     setState(s => endTurn(s));
   };
 
@@ -1928,6 +1946,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           cards={state.player.field}
           dying={dying}
           turn={state.turn}
+          battlePhaseActive={playerPhase === 'battle'}
           combat={combat}
           damages={damages}
           buffs={buffs}
@@ -1976,6 +1995,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             elRef={(el) => registerEl(GRAVE_PLAYER, el)}
             pulseKey={gravePulseKey.player}
           />
+          <button
+            onClick={() => setLogOpen(o => !o)}
+            aria-label="Action log"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#9a8678', padding: 4, lineHeight: 1,
+              opacity: 0.7,
+            }}
+          >
+            <ScrollText size={15} strokeWidth={2.2} />
+          </button>
         </div>
       </div>
 
@@ -2518,50 +2548,56 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           per-turn heal/damage popup that the bond produced, so the player
           can connect cause to effect. Side coloring: player bonds gold,
           boss bonds dark steel. */}
-      {/* Phase banner — brief chip that pops between sections of the
-          turn-flip animation pipeline (END PHASE → DRAW PHASE).
-          Reads like a TCG phase indicator: "now we're doing your
-          end-of-turn stuff", then "now we're doing my start-of-turn
-          stuff". Standardized neutral color (no theme tint) so the
-          chip itself isn't a competing color event. */}
-      {phaseBanner && (
-        <div
-          key={phaseBanner.key}
-          style={{
-            position: 'absolute', top: '14%', left: 0, right: 0,
-            display: 'flex', justifyContent: 'center',
-            zIndex: 218,
-            pointerEvents: 'none',
-            animation: 'bondFireToast 750ms cubic-bezier(.2,.8,.3,1) both',
-          }}
-        >
-          <div style={{
-            padding: '7px 16px',
-            background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
-            color: '#3a2e2a',
-            borderRadius: 10,
-            border: '1.5px solid rgba(58,46,42,.18)',
-            boxShadow: '0 4px 14px rgba(0,0,0,.18)',
-            fontFamily: '"Fredoka", system-ui',
-            fontWeight: 800,
-            fontSize: 11,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{
-              fontSize: 9, fontWeight: 700,
-              padding: '1px 6px', borderRadius: 6,
-              background: phaseBanner.side === 'player' ? '#3a2e2a' : '#7a6e62',
-              color: '#fff',
-              letterSpacing: '0.08em',
+      {/* Phase banner — YGO Duel Links style bar that sweeps in from the
+          left, announces the phase, then exits right. Color-coded by phase
+          so Draw/Main/Battle/End each read as a distinct beat. */}
+      {phaseBanner && (() => {
+        const phaseColors: Record<string, { bar: string; glow: string; text: string }> = {
+          'Draw Phase':   { bar: 'linear-gradient(90deg, #0a6e4a, #06d6a0, #0a6e4a)', glow: '#06d6a088', text: '#d4fff4' },
+          'Main Phase':   { bar: 'linear-gradient(90deg, #1a3a8a, #4a90e2, #1a3a8a)', glow: '#4a90e288', text: '#d8eeff' },
+          'Battle Phase': { bar: 'linear-gradient(90deg, #7a1010, #ee5a52, #7a1010)', glow: '#ee5a5288', text: '#ffe8e8' },
+          'End Phase':    { bar: 'linear-gradient(90deg, #3a2060, #8060c8, #3a2060)', glow: '#8060c888', text: '#ede0ff' },
+        };
+        const colors = phaseColors[phaseBanner.text] ?? { bar: 'linear-gradient(90deg, #3a2e2a, #7a6e62, #3a2e2a)', glow: '#7a6e6288', text: '#fff' };
+        const DURATION = 950;
+        return (
+          <div
+            key={phaseBanner.key}
+            style={{
+              position: 'absolute', top: '38%', left: 0, right: 0,
+              zIndex: 218,
+              pointerEvents: 'none',
+              animation: `ygoPhaseEnter ${DURATION}ms cubic-bezier(.25,.8,.3,1) both`,
+            }}
+          >
+            <div style={{
+              background: colors.bar,
+              boxShadow: `0 0 32px ${colors.glow}, 0 4px 18px rgba(0,0,0,.45)`,
+              padding: '10px 0',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              borderTop: `1.5px solid rgba(255,255,255,.18)`,
+              borderBottom: `1.5px solid rgba(255,255,255,.18)`,
             }}>
-              {phaseBanner.side === 'player' ? 'YOU' : 'BOSS'}
-            </span>
-            {phaseBanner.text}
+              <div style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.25em',
+                textTransform: 'uppercase', color: 'rgba(255,255,255,.6)',
+                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
+              }}>
+                {phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`}
+              </div>
+              <div style={{
+                fontSize: 22, fontWeight: 900, letterSpacing: '0.18em',
+                textTransform: 'uppercase', color: colors.text,
+                textShadow: `0 2px 8px rgba(0,0,0,.5), 0 0 20px ${colors.glow}`,
+                fontFamily: '"Fredoka", system-ui',
+                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
+              }}>
+                {phaseBanner.text}
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {bondFire && (() => {
         const isPlayer = bondFire.side === 'player';
@@ -2728,25 +2764,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
         return (
           <>
-            {/* "BATTLE!" plate — anchored 22% from the top of the stage so
-                it sits clearly above the field action and never collides
-                with the stat callouts that pop next to the combatants. */}
-            <div style={{
-              position: 'absolute', top: '22%', left: '50%',
-              fontSize: 32, fontWeight: 900, letterSpacing: '0.18em',
-              color: '#fff',
-              background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
-              padding: '5px 22px', borderRadius: 8,
-              boxShadow: '0 0 0 3px rgba(255,255,255,.85), 0 8px 24px rgba(0,0,0,.5), 0 0 50px rgba(238,90,82,.55)',
-              fontFamily: '"Fredoka", system-ui',
-              textShadow: '0 3px 0 #6e1f1a',
-              animation: `ygoBattleBanner ${heldMs}ms cubic-bezier(.3,.6,.4,1) forwards`,
-              opacity: 0,
-              pointerEvents: 'none',
-              zIndex: 165,
-              whiteSpace: 'nowrap',
-            }}>BATTLE!</div>
-
             {/* Charge halo on attacker — pulses outward right before the strike. */}
             <div style={{
               position: 'absolute', left: aCx, top: aCy,
@@ -2930,6 +2947,77 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
+      {/* Action-log history panel — slide-up drawer listing every engine
+          log entry in reverse-chronological order so the most recent
+          action is always at the top. Dismissed by tapping the backdrop
+          or the same icon button again. */}
+      {logOpen && (
+        <div
+          onClick={() => setLogOpen(false)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(8,4,12,.65)',
+            zIndex: 280,
+            animation: 'fadeIn .15s',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              maxHeight: '60%',
+              background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
+              borderRadius: '18px 18px 0 0',
+              boxShadow: '0 -6px 28px rgba(0,0,0,.28)',
+              display: 'flex', flexDirection: 'column',
+              animation: 'slideUp .2s cubic-bezier(.2,.8,.3,1)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '14px 18px 10px',
+              borderBottom: '1px solid rgba(58,46,42,.12)',
+              flexShrink: 0,
+            }}>
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                fontSize: 13, fontWeight: 800, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: '#3a2e2a',
+                fontFamily: '"Fredoka", system-ui',
+              }}>
+                <ScrollText size={15} strokeWidth={2.4} />
+                Action Log
+              </div>
+              <button
+                onClick={() => setLogOpen(false)}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: '#9a8678', fontSize: 18, lineHeight: 1, padding: 4,
+                }}
+              >✕</button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: '10px 18px 20px' }}>
+              {[...state.log].reverse().map((entry, i) => (
+                <div key={i} style={{
+                  padding: '7px 0',
+                  borderBottom: i < state.log.length - 1 ? '1px solid rgba(58,46,42,.08)' : 'none',
+                  fontSize: 13, color: '#3a2e2a',
+                  fontFamily: '"Fredoka", system-ui',
+                  lineHeight: 1.4,
+                }}>
+                  <span style={{
+                    fontSize: 10, fontWeight: 700, color: '#9a8678',
+                    marginRight: 8,
+                  }}>#{state.log.length - i}</span>
+                  {entry}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Give-up confirmation — quitting a match should never be one tap. */}
       {confirmGiveUp && (
         <div
@@ -3070,7 +3158,7 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, dying, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
+  side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
@@ -3084,6 +3172,9 @@ function FieldRow({
   /** Whose turn is currently active. Player creatures only get the
    *  attack-ready Swords badge on the player's own turn. */
   turn: Owner;
+  /** True when the player is in Battle Phase — gates the attack-ready
+   *  swords icon so it only appears when attacks are actually possible. */
+  battlePhaseActive?: boolean;
   combat: CombatFx | null;
   damages: DamageMap;
   /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
@@ -3190,7 +3281,7 @@ function FieldRow({
               selected={side === 'player' && selectedAttacker === c.battleId}
               attackable={
                 side === 'player'
-                  ? turn === 'player' && !c.tapped && !c.justPlayed
+                  ? turn === 'player' && !!battlePhaseActive && !c.tapped && !c.justPlayed
                   : !!selectedAttacker
               }
               highlight={
@@ -3721,7 +3812,7 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
 };
 
 function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, onExit }: {
-  outcome: 'win' | 'loss';
+  outcome: 'win' | 'loss' | 'draw';
   boss: BossDef;
   difficulty: Difficulty;
   /** True when the player has already defeated this boss before — drops
@@ -3732,36 +3823,30 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
   /** True when the match ended because we hit TURN_LIMIT, not because
    *  someone hit 0 HP. Drives the "why" sentence under the title. */
   turnLimitReached: boolean;
-  onExit: (o: 'win' | 'loss' | 'quit') => void;
+  onExit: (o: 'win' | 'loss' | 'draw' | 'quit') => void;
 }) {
   const isWin = outcome === 'win';
-  const dialogue = BOSS_DIALOGUE[boss.id]?.[outcome] ?? {
-    title: isWin ? 'You won' : 'You lost',
-    line: isWin ? 'Well played.' : 'Better luck next time.',
+  const isDraw = outcome === 'draw';
+  const bossDlg = BOSS_DIALOGUE[boss.id]?.[isWin ? 'win' : 'loss'];
+  const dialogue = {
+    title: isDraw ? 'Draw!' : (bossDlg?.title ?? (isWin ? 'You won' : 'You lost')),
+    line: isDraw ? 'A hard-fought tie.' : (bossDlg?.line ?? (isWin ? 'Well played.' : 'Better luck next time.')),
   };
-  // Reward calculation mirrors App.tsx's onMatchExit so what we DISPLAY
-  // matches what the player actually receives. Wins scale with the
-  // difficulty multiplier; the first-time-boss bonus is also multiplied
-  // (so Mythic first-time pays substantially more than Normal first-time).
-  // Losses are flat (MATCH_LOSS_REWARD) since "you lost" isn't a tier.
-  const isWin_ = outcome === 'win';
   const reward = (() => {
-    if (!isWin_) return MATCH_LOSS_REWARD;
+    if (isDraw) return MATCH_DRAW_REWARD;
+    if (!isWin) return MATCH_LOSS_REWARD;
     const mult = difficultyProfile(difficulty).rewardMult;
     const win = Math.round(MATCH_WIN_REWARD * mult);
     const bonus = alreadyBeaten ? 0 : Math.round(boss.rewardCoins * mult);
     return win + bonus;
   })();
-  // Build a one-sentence reason so the player understands HOW the match
-  // ended — especially important for turn-limit losses where neither side
-  // hit 0 HP and the result reads as confusing without context.
   const reason = (() => {
     if (turnLimitReached) {
       if (isWin) return `Turn limit reached — you outlasted ${boss.name} (${playerHp} HP vs ${opponentHp}).`;
-      if (playerHp === opponentHp) return `Turn limit reached — tied at ${playerHp} HP. Ties go to the boss.`;
+      if (isDraw) return `Turn limit reached — tied at ${playerHp} HP. Partial reward granted.`;
       return `Turn limit reached — ${boss.name} had more HP (${opponentHp} vs ${playerHp}).`;
     }
-    if (playerHp <= 0 && opponentHp <= 0) return 'You both fell on the same turn — ties go to the boss.';
+    if (isDraw) return 'You both fell on the same turn — it\'s a draw.';
     if (isWin) return `You took ${boss.name} down to 0 HP.`;
     return `${boss.name} took you down to 0 HP.`;
   })();
@@ -3776,7 +3861,9 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
       width: '100%', height: '100%',
       background: isWin
         ? 'radial-gradient(ellipse at 50% 30%, #fff8e8 0%, #ffe0bf 55%, #f4b48a 100%)'
-        : 'radial-gradient(ellipse at 50% 30%, #fef3eb 0%, #ead5c4 55%, #b88a78 100%)',
+        : isDraw
+          ? 'radial-gradient(ellipse at 50% 30%, #f0f4ff 0%, #d0dcf4 55%, #a0b4d8 100%)'
+          : 'radial-gradient(ellipse at 50% 30%, #fef3eb 0%, #ead5c4 55%, #b88a78 100%)',
       color: '#3a2e2a',
       fontFamily: '"Fredoka", "Inter", system-ui',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -3809,13 +3896,15 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
             ? `url(${boss.avatarPhoto}) center/cover`
             : isWin
               ? 'linear-gradient(160deg, #ff9f1c, #ee5a52)'
-              : 'linear-gradient(160deg, #6e3a32, #3a2018)',
+              : isDraw
+                ? 'linear-gradient(160deg, #6888c8, #4466aa)'
+                : 'linear-gradient(160deg, #6e3a32, #3a2018)',
           display: 'grid', placeItems: 'center',
           fontSize: 48, fontWeight: 700, color: '#fff',
           boxShadow: '0 12px 30px rgba(0,0,0,.25), 0 0 0 5px #fff, 0 0 0 7px rgba(255,158,90,.4)',
           fontFamily: '"Fredoka", system-ui',
-          filter: isWin ? 'none' : 'grayscale(0.3)',
-          transform: isWin ? 'rotate(-4deg)' : 'rotate(2deg)',
+          filter: isWin ? 'none' : isDraw ? 'saturate(0.7)' : 'grayscale(0.3)',
+          transform: 'rotate(0deg)',
         }}>{!boss.avatarPhoto && boss.avatar}</div>
         <div style={{
           marginTop: 14, fontSize: 11, letterSpacing: '0.25em', textTransform: 'uppercase',
@@ -3827,16 +3916,18 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
 
       <div style={{
         fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase',
-        color: isWin ? '#c8362e' : '#6e3a32',
+        color: isWin ? '#c8362e' : isDraw ? '#4466aa' : '#6e3a32',
         marginTop: 30, marginBottom: 4, fontWeight: 800,
       }}>
-        {isWin ? 'Victory' : 'Defeat'}
+        {isWin ? 'Victory' : isDraw ? 'Draw' : 'Defeat'}
       </div>
       <div style={{
         fontSize: 44, fontWeight: 800, lineHeight: 1.05,
         background: isWin
           ? 'linear-gradient(180deg, #ff9f1c, #ee5a52)'
-          : 'linear-gradient(180deg, #6e3a32, #3a2018)',
+          : isDraw
+            ? 'linear-gradient(180deg, #6888c8, #4466aa)'
+            : 'linear-gradient(180deg, #6e3a32, #3a2018)',
         WebkitBackgroundClip: 'text', backgroundClip: 'text',
         WebkitTextFillColor: 'transparent',
         marginBottom: 12,

@@ -279,7 +279,7 @@ function opp(owner: Owner): Owner {
 }
 
 function checkOutcome(state: MatchState) {
-  if (state.player.hp <= 0 && state.opponent.hp <= 0) state.outcome = 'loss'; // tie → loss
+  if (state.player.hp <= 0 && state.opponent.hp <= 0) state.outcome = 'draw';
   else if (state.player.hp <= 0) state.outcome = 'loss';
   else if (state.opponent.hp <= 0) state.outcome = 'win';
 }
@@ -384,8 +384,11 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   // Turn-limit check — once turn 15 has been played, whoever has more HP
   // wins. Ties resolve as a loss so aggressive play is rewarded.
   if (state.turnNumber > TURN_LIMIT) {
-    state.outcome = state.player.hp > state.opponent.hp ? 'win' : 'loss';
-    state.log.push(`Turn limit reached — ${state.outcome === 'win' ? 'you win' : 'you lose'} on HP`);
+    if (state.player.hp > state.opponent.hp) state.outcome = 'win';
+    else if (state.player.hp === state.opponent.hp) state.outcome = 'draw';
+    else state.outcome = 'loss';
+    const label = state.outcome === 'win' ? 'you win' : state.outcome === 'draw' ? 'draw' : 'you lose';
+    state.log.push(`Turn limit reached — ${label} (${state.player.hp} HP vs ${state.opponent.hp} HP)`);
     return state;
   }
 
