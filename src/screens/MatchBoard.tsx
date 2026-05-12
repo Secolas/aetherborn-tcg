@@ -2598,7 +2598,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           </div>
         );
       })()}
-      )}
 
       {bondFire && (() => {
         const isPlayer = bondFire.side === 'player';
