@@ -478,6 +478,23 @@ input {
   72%  { opacity: 0.85; transform: translate(-50%, -50%) skewX(-12deg) scale(1); }
   100% { opacity: 0; transform: translate(-50%, -50%) skewX(-12deg) scale(1.1); }
 }
+/* YGO Duel Links style phase-transition banner. Sweeps in from the left,
+   holds centre-screen, then exits right. Used for Draw / Main / Battle /
+   End Phase announcements. */
+@keyframes ygoPhaseEnter {
+  0%   { opacity: 0;   transform: translateX(-110%) skewX(-8deg); }
+  22%  { opacity: 1;   transform: translateX(0)     skewX(-8deg); }
+  75%  { opacity: 1;   transform: translateX(0)     skewX(-8deg); }
+  100% { opacity: 0;   transform: translateX(110%)  skewX(-8deg); }
+}
+/* Inner label — pops up slightly after the bar arrives, adding depth. */
+@keyframes ygoPhaseLabel {
+  0%   { opacity: 0; transform: translateY(6px) skewX(8deg); }
+  30%  { opacity: 0; transform: translateY(6px) skewX(8deg); }
+  50%  { opacity: 1; transform: translateY(0)   skewX(8deg); }
+  75%  { opacity: 1; transform: translateY(0)   skewX(8deg); }
+  100% { opacity: 0; transform: translateY(0)   skewX(8deg); }
+}
 /* Charge halo around attacker before they fire — pulses outward briefly. */
 @keyframes ygoCharge {
   0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }

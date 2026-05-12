@@ -901,7 +901,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // Helper to schedule a phase banner at the current pipeDelay
       // and advance pipeDelay by its on-screen duration.
       const queuePhaseBanner = (text: string, side: Owner) => {
-        const BANNER_MS = 700;
+        const BANNER_MS = 950;
         const at = pipeDelay;
         const key = Date.now() + 700 + Math.floor(Math.random() * 100);
         setTimeout(() => setPhaseBanner({ text, side, key }), at);
@@ -1557,7 +1557,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setPlayerPhase('battle');
     const key = Date.now() + 3333;
     setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
-    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
   };
 
   const onMyCreatureClick = (c: BattleCard) => {
@@ -1611,7 +1611,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     showMsg(`${boss.name}'s turn`);
     const key = Date.now() + 5555;
     setPhaseBanner({ text: 'End Phase', side: 'player', key });
-    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
     setState(s => endTurn(s));
   };
 
@@ -1946,6 +1946,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           cards={state.player.field}
           dying={dying}
           turn={state.turn}
+          battlePhaseActive={playerPhase === 'battle'}
           combat={combat}
           damages={damages}
           buffs={buffs}
@@ -2547,49 +2548,56 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           per-turn heal/damage popup that the bond produced, so the player
           can connect cause to effect. Side coloring: player bonds gold,
           boss bonds dark steel. */}
-      {/* Phase banner — brief chip that pops between sections of the
-          turn-flip animation pipeline (END PHASE → DRAW PHASE).
-          Reads like a TCG phase indicator: "now we're doing your
-          end-of-turn stuff", then "now we're doing my start-of-turn
-          stuff". Standardized neutral color (no theme tint) so the
-          chip itself isn't a competing color event. */}
-      {phaseBanner && (
-        <div
-          key={phaseBanner.key}
-          style={{
-            position: 'absolute', top: '14%', left: 0, right: 0,
-            display: 'flex', justifyContent: 'center',
-            zIndex: 218,
-            pointerEvents: 'none',
-            animation: 'bondFireToast 750ms cubic-bezier(.2,.8,.3,1) both',
-          }}
-        >
-          <div style={{
-            padding: '7px 16px',
-            background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
-            color: '#3a2e2a',
-            borderRadius: 10,
-            border: '1.5px solid rgba(58,46,42,.18)',
-            boxShadow: '0 4px 14px rgba(0,0,0,.18)',
-            fontFamily: '"Fredoka", system-ui',
-            fontWeight: 800,
-            fontSize: 11,
-            letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            display: 'flex', alignItems: 'center', gap: 8,
-          }}>
-            <span style={{
-              fontSize: 9, fontWeight: 700,
-              padding: '1px 6px', borderRadius: 6,
-              background: phaseBanner.side === 'player' ? '#3a2e2a' : '#7a6e62',
-              color: '#fff',
-              letterSpacing: '0.08em',
+      {/* Phase banner — YGO Duel Links style bar that sweeps in from the
+          left, announces the phase, then exits right. Color-coded by phase
+          so Draw/Main/Battle/End each read as a distinct beat. */}
+      {phaseBanner && (() => {
+        const phaseColors: Record<string, { bar: string; glow: string; text: string }> = {
+          'Draw Phase':   { bar: 'linear-gradient(90deg, #0a6e4a, #06d6a0, #0a6e4a)', glow: '#06d6a088', text: '#d4fff4' },
+          'Main Phase':   { bar: 'linear-gradient(90deg, #1a3a8a, #4a90e2, #1a3a8a)', glow: '#4a90e288', text: '#d8eeff' },
+          'Battle Phase': { bar: 'linear-gradient(90deg, #7a1010, #ee5a52, #7a1010)', glow: '#ee5a5288', text: '#ffe8e8' },
+          'End Phase':    { bar: 'linear-gradient(90deg, #3a2060, #8060c8, #3a2060)', glow: '#8060c888', text: '#ede0ff' },
+        };
+        const colors = phaseColors[phaseBanner.text] ?? { bar: 'linear-gradient(90deg, #3a2e2a, #7a6e62, #3a2e2a)', glow: '#7a6e6288', text: '#fff' };
+        const DURATION = 950;
+        return (
+          <div
+            key={phaseBanner.key}
+            style={{
+              position: 'absolute', top: '38%', left: 0, right: 0,
+              zIndex: 218,
+              pointerEvents: 'none',
+              animation: `ygoPhaseEnter ${DURATION}ms cubic-bezier(.25,.8,.3,1) both`,
+            }}
+          >
+            <div style={{
+              background: colors.bar,
+              boxShadow: `0 0 32px ${colors.glow}, 0 4px 18px rgba(0,0,0,.45)`,
+              padding: '10px 0',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              borderTop: `1.5px solid rgba(255,255,255,.18)`,
+              borderBottom: `1.5px solid rgba(255,255,255,.18)`,
             }}>
-              {phaseBanner.side === 'player' ? 'YOU' : 'BOSS'}
-            </span>
-            {phaseBanner.text}
+              <div style={{
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.25em',
+                textTransform: 'uppercase', color: 'rgba(255,255,255,.6)',
+                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
+              }}>
+                {phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`}
+              </div>
+              <div style={{
+                fontSize: 22, fontWeight: 900, letterSpacing: '0.18em',
+                textTransform: 'uppercase', color: colors.text,
+                textShadow: `0 2px 8px rgba(0,0,0,.5), 0 0 20px ${colors.glow}`,
+                fontFamily: '"Fredoka", system-ui',
+                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
+              }}>
+                {phaseBanner.text}
+              </div>
+            </div>
           </div>
-        </div>
+        );
+      })()}
       )}
 
       {bondFire && (() => {
@@ -3151,7 +3159,7 @@ function BondPillStack({
 }
 
 function FieldRow({
-  side, cards, dying, turn, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
+  side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
   highlightEmpty, registerEl, onCardClick, onCardLongPress,
 }: {
@@ -3165,6 +3173,9 @@ function FieldRow({
   /** Whose turn is currently active. Player creatures only get the
    *  attack-ready Swords badge on the player's own turn. */
   turn: Owner;
+  /** True when the player is in Battle Phase — gates the attack-ready
+   *  swords icon so it only appears when attacks are actually possible. */
+  battlePhaseActive?: boolean;
   combat: CombatFx | null;
   damages: DamageMap;
   /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
@@ -3271,7 +3282,7 @@ function FieldRow({
               selected={side === 'player' && selectedAttacker === c.battleId}
               attackable={
                 side === 'player'
-                  ? turn === 'player' && !c.tapped && !c.justPlayed
+                  ? turn === 'player' && !!battlePhaseActive && !c.tapped && !c.justPlayed
                   : !!selectedAttacker
               }
               highlight={
