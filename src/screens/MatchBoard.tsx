@@ -152,6 +152,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  *why* the heal/damage popup that follows is happening. Single-slot
    *  so multiple bonds fire sequentially through the queue. */
   const [bondFire, setBondFire] = useState<{ bond: BondDef; side: Owner; key: number } | null>(null);
+  /** Per-creature ability activation toast. Renders the source card
+   *  itself with a one-line explanation of what just fired so the
+   *  player can see WHO healed / leveled / graduated — not just a
+   *  green popup with no source. Used for:
+   *    - level_up & graduate ticks at end of owner turn
+   *    - graduate transformation (the +2/+2 + Untargetable moment)
+   *    - heal_each_turn at start of owner turn
+   *  Sequenced through the same pipeDelay queue as everything else
+   *  so animations remain strictly one-at-a-time. */
+  const [effectToast, setEffectToast] = useState<{
+    card: BattleCard; text: string; side: Owner; key: number;
+  } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -739,6 +751,74 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // the player's bond). The pop uses the same green/red damage popup
       // language already used elsewhere.
       const turnFlipped = fresh.turnNumber > prev.turnNumber;
+      // Per-creature ability activations. These get a toast that
+      // shows the SOURCE card + a one-line explanation, so the
+      // player can tell which creature healed / leveled / graduated
+      // instead of just seeing a number pop with no attribution.
+      // Sequenced through pipeDelay so they fire one at a time after
+      // damages / deaths / draws settle.
+      const effectFires: { card: BattleCard; text: string; side: Owner }[] = [];
+      if (turnFlipped) {
+        // Level-up / graduate ticks fired at end of the JUST-ENDED
+        // turn for that side. Detect by comparing the creature's
+        // pre-tick atk/hp snapshot with its post-tick state, and
+        // attributing only to cards whose ability is (or was) one
+        // of the leveling kinds.
+        const justEndedSide: Owner = state.turn === 'player' ? 'opponent' : 'player';
+        const justEndedField = justEndedSide === 'player' ? state.player.field : state.opponent.field;
+        const justEndedPrev = justEndedSide === 'player' ? prev.player : prev.opponent;
+        for (const c of justEndedField) {
+          const ps = justEndedPrev.get(c.battleId);
+          if (!ps) continue;
+          const dAtk = c.currentAtk - ps.atk;
+          const dHp = c.currentHp - ps.hp;
+          const stillLeveling = c.abilityKind === 'level_up' || c.abilityKind === 'graduate';
+          // Plain level-up tick — ability still says level_up / graduate.
+          if (stillLeveling && (dAtk > 0 || dHp > 0)) {
+            effectFires.push({
+              card: c,
+              text: `Level up +${dAtk}/+${dHp}`,
+              side: justEndedSide,
+            });
+          }
+          // Graduation transition — ability was 'graduate', now
+          // 'untargetable', graduated flag set. Different copy so the
+          // moment feels meaningful.
+          if (ps.ability === 'graduate' && c.graduated && c.abilityKind === 'untargetable') {
+            effectFires.push({
+              card: c,
+              text: 'Graduated — +2/+2 and Untargetable',
+              side: justEndedSide,
+            });
+          }
+        }
+        // Heal-each-turn fires at start of the JUST-BEGUN turn for
+        // its active side. Always attribute to every heal_each_turn
+        // creature on that side at turn start.
+        const newActiveSide: Owner = state.turn;
+        const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
+        for (const c of newActiveField) {
+          if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
+            effectFires.push({
+              card: c,
+              text: `Restore ${c.abilityValue} HP`,
+              side: newActiveSide,
+            });
+          }
+        }
+      }
+      if (effectFires.length) {
+        const EFFECT_MS = 950;
+        const at = pipeDelay;
+        effectFires.forEach((f, i) => {
+          const showAt = at + i * EFFECT_MS;
+          const key = Date.now() + 300 + i;
+          setTimeout(() => setEffectToast({ ...f, key }), showAt);
+          setTimeout(() => setEffectToast(cur => (cur && cur.key === key ? null : cur)), showAt + EFFECT_MS + 50);
+        });
+        pipeDelay += effectFires.length * EFFECT_MS + 50;
+      }
+
       if (turnFlipped) {
         const bondPops: Record<string, number> = {};
         // Heal at start of active side's turn
@@ -2245,6 +2325,61 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 borderRadius: 6,
               }}>BOND</span>
               <span>{bondFire.bond.name}</span>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Per-creature ability toast — shows the SOURCE card itself
+          alongside a one-line explanation of what just fired (level
+          up, graduation, heal-each-turn, etc.). Renders a small Card
+          thumbnail next to the text so the player can attribute the
+          effect to its source instead of guessing where the +1/+1 or
+          green heal popup came from. Same color language as the bond
+          toast: gold for player, dark steel for boss. */}
+      {effectToast && (() => {
+        const isPlayer = effectToast.side === 'player';
+        return (
+          <div
+            key={effectToast.key}
+            style={{
+              position: 'absolute', top: '24%', left: 0, right: 0,
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              zIndex: 215,
+              pointerEvents: 'none',
+              animation: 'bondFireToast 1000ms cubic-bezier(.2,.8,.3,1) both',
+            }}
+          >
+            <div style={{
+              padding: 8,
+              background: isPlayer
+                ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
+                : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
+              color: '#fff',
+              borderRadius: 14,
+              boxShadow: isPlayer
+                ? '0 8px 26px rgba(196,120,26,.5), 0 0 0 1.5px rgba(255,224,160,.4) inset'
+                : '0 8px 26px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.08) inset',
+              fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+              display: 'flex', alignItems: 'center', gap: 12,
+              maxWidth: 320,
+            }}>
+              <div style={{ flexShrink: 0, lineHeight: 0 }}>
+                <Card card={effectToast.card} scale={0.36} />
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 6 }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 800,
+                  letterSpacing: '0.22em',
+                  opacity: 0.75,
+                }}>ABILITY</span>
+                <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.15 }}>
+                  {effectToast.card.nickname || effectToast.card.name}
+                </span>
+                <span style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.2 }}>
+                  {effectToast.text}
+                </span>
+              </div>
             </div>
           </div>
         );

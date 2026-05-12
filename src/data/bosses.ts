@@ -356,9 +356,11 @@ export const BOSSES: BossDef[] = [
     ],
     photoOverrides: {
       'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
-      'edu-08': U('photo-1503454537195-1dcabb73ffb9'),  // his own bully — tough teen portrait
+      // No override for edu-08 The Bully here — the previous override
+      // accidentally reused the Family Cousin photo. Let the global
+      // edu-08 photo (varsity teen) carry the card so it doesn't
+      // duplicate another theme's portrait.
       'edu-09': U('photo-1481627834876-b7833e8f5570'),  // his own library
-      'edu-11': U('photo-1565884280295-98eb83e41c65'),  // his own graduating senior
       'edu-12': U('photo-1523050854058-8df90110c9f1'),  // his own graduation day
     },
     // School hallway — lockers, fluorescent lighting, polished floor.
