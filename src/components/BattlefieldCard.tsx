@@ -202,6 +202,25 @@ export function BattlefieldCard({
           {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
           {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
+          {/* Level counter — shows how many of this creature's 3
+              level-up ticks have fired. Player can see at a glance
+              "Math Teacher Lv 2/3 — one more turn before it caps."
+              Hidden once a Graduate creature transforms (abilityKind
+              becomes untargetable then). */}
+          {(card.abilityKind === 'level_up' || card.abilityKind === 'graduate') && (
+            <div style={{
+              padding: '2px 6px',
+              borderRadius: 8,
+              background: '#5a5fd9',
+              color: '#fff',
+              fontSize: 9, fontWeight: 800,
+              letterSpacing: '0.06em',
+              boxShadow: '0 0 0 1.5px rgba(255,255,255,.35) inset, 0 1px 3px rgba(0,0,0,.4)',
+              fontFamily: '"Fredoka", system-ui',
+            }}>
+              Lv {card.turnsAlive ?? 0}/3
+            </div>
+          )}
         </div>
 
         {/* Frozen creatures get a blue ice tint. Tapped/exhausted is handled

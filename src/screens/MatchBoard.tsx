@@ -819,17 +819,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }
         }
         // Heal-each-turn fires at start of the JUST-BEGUN turn for
-        // its active side. Always attribute to every heal_each_turn
-        // creature on that side at turn start.
+        // its active side. Only announce when face HP ACTUALLY went
+        // up — at max HP the engine skips the heal (see beginTurn),
+        // so a "Library restores 1 HP" reveal there would be a
+        // misleading no-op.
         const newActiveSide: Owner = state.turn;
-        const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
-        for (const c of newActiveField) {
-          if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
-            effectFires.push({
-              card: c,
-              text: `Restore ${c.abilityValue} HP`,
-              side: newActiveSide,
-            });
+        const newActiveBefore = newActiveSide === 'player' ? prev.hp.player : prev.hp.opponent;
+        const newActiveAfter = newActiveSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
+        if (newActiveAfter > newActiveBefore) {
+          const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
+          for (const c of newActiveField) {
+            if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
+              effectFires.push({
+                card: c,
+                text: `Restore ${c.abilityValue} HP`,
+                side: newActiveSide,
+              });
+            }
           }
         }
       }

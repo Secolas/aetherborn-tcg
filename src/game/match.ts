@@ -334,12 +334,15 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     c.justPlayed = false;
   });
 
-  // Heal-each-turn triggers
+  // Heal-each-turn triggers. Skip when owner is already at max HP —
+  // there's nothing to restore, and firing the ability would pop a
+  // wasted reveal animation for "Library restores 1 HP" that did
+  // nothing.
   me.field.forEach(c => {
-    if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
-      me.hp = Math.min(STARTING_HP, me.hp + c.abilityValue);
-      state.log.push(`${displayName(c)} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${c.abilityValue}`);
-    }
+    if (c.abilityKind !== 'heal_each_turn' || !c.abilityValue) return;
+    if (me.hp >= STARTING_HP) return;
+    me.hp = Math.min(STARTING_HP, me.hp + c.abilityValue);
+    state.log.push(`${displayName(c)} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${c.abilityValue}`);
   });
 
   // Bond: heal_face_per_turn (Family — Sunday Dinner)
