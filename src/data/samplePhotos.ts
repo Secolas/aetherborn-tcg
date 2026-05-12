@@ -97,18 +97,18 @@ const THEMED: Record<string, string> = {
   'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
   'edu-02': U('photo-1622260614153-03223fb72052'),  // Backpack → school bag with books
   'edu-03': U('photo-1577896851231-70ef18881754'),  // Math Teacher → chalkboard
-  'edu-04': U('photo-1517077304055-6e89abbf09b0'),  // Bathroom Break → school hallway / lockers
+  'edu-04': U('photo-1497436072909-60f360e1d4b1'),  // Bathroom Break → empty school hallway
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
   'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
   'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
-  // The Bully — Unsplash doesn't really stock "bully" photos, so we use
-  // a thematic substitute: a varsity-jacketed teen / sports kid against
-  // a school backdrop. Reads as "the kid who runs the hallway."
-  'edu-08': U('photo-1517438476312-10d79c5f1bb0'),  // The Bully → varsity teen
+  // The Bully — Unsplash doesn't really stock "bully" photos. We use
+  // a thematic substitute: a moody teen portrait. Previous IDs kept
+  // rotating into unrelated stock (water / mountain / cousin photo).
+  'edu-08': U('photo-1496345875659-11f7dd282d1d'),  // The Bully → moody teen portrait
   'edu-09': U('photo-1481627834876-b7833e8f5570'),  // Library → bookshelves
   'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
-  'edu-12': U('photo-1523050854058-8df90110c9f1'),  // Graduation Day → throwing caps
+  'edu-12': U('photo-1627556704290-2b1f5853ff78'),  // Graduation Day → ceremony / diploma
   'edu-13': U('photo-1571902943202-507ec2618e8f'),  // Physical Ed Class → kids running / gym
 };
 

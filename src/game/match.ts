@@ -411,10 +411,14 @@ export function endTurn(prev: MatchState): MatchState {
       c.originalAbilityKind = undefined;
       c.originalAbility = undefined;
     }
-    // Education theme: per-turn growth. Skip the turn the creature was
-    // summoned (justPlayed is still true at end-of-its-summon-turn)
-    // so a freshly-played creature doesn't insta-level on the same turn.
-    if (!c.justPlayed && (c.abilityKind === 'level_up' || c.abilityKind === 'graduate')) {
+    // Education theme: per-turn growth. Fires at end of every owner
+    // turn the creature is on the field — INCLUDING the turn it was
+    // summoned, so the player sees the leveling effect right away
+    // (waiting two full opponent turns to see any +1/+1 felt broken).
+    // The creature still can't attack the turn it's played (summoning
+    // sickness via `justPlayed` is enforced separately on the attack
+    // path), it just gains its stat tick.
+    if (c.abilityKind === 'level_up' || c.abilityKind === 'graduate') {
       // Study Group bond doubles the tick on every leveling creature
       // the bond owner controls. Both bonded cards must be alive (the
       // engine's activeBonds gate handles that — the bond doesn't
