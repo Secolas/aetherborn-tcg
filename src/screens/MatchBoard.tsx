@@ -414,14 +414,24 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
+  //
+  // We defer the banner until animBusyUntilRef clears so it lands AFTER
+  // all turn-flip animations (ability reveals, buff popups, bond toasts,
+  // turn-start draw) have played out. Otherwise the banner flashed in
+  // simultaneously with the first ability reveal and the player got
+  // hit with three things at once.
   const firstTurnRef = useRef(true);
   useEffect(() => {
     if (firstTurnRef.current) { firstTurnRef.current = false; return; }
     if (state.outcome !== 'ongoing') return;
-    setTurnBanner(state.turn);
-    sfx('turn');
-    const t = setTimeout(() => setTurnBanner(null), 1400);
-    return () => clearTimeout(t);
+    const now = Date.now();
+    const wait = Math.max(0, animBusyUntilRef.current - now);
+    const showT = setTimeout(() => {
+      setTurnBanner(state.turn);
+      sfx('turn');
+    }, wait);
+    const hideT = setTimeout(() => setTurnBanner(null), wait + 1400);
+    return () => { clearTimeout(showT); clearTimeout(hideT); };
   }, [state.turn, state.outcome]);
 
   // Win/lose stinger fires once when the match resolves.
@@ -827,12 +837,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
       if (effectFires.length) {
-        // Each toast holds long enough to read the card photo + the
-        // ability text. Earlier 950ms felt like a flash for the
-        // Library / heal-each-turn case where players want to actually
-        // see the source card. ~1.8s lands closer to the spell-reveal
-        // pacing and gives the buff popup time to land underneath.
-        const EFFECT_MS = 1800;
+        // Hold long enough for the full-card reveal to read clearly.
+        // The reveal lifts the source card to center-stage with a dim
+        // backdrop, so it needs spell-reveal-class time — earlier
+        // smaller toast values felt rushed for the bigger visual.
+        const EFFECT_MS = 2400;
         const at = pipeDelay;
         effectFires.forEach((f, i) => {
           const showAt = at + i * EFFECT_MS;
@@ -2386,59 +2395,58 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Per-creature ability toast — shows the SOURCE card itself
-          alongside a one-line explanation of what just fired (level
-          up, graduation, heal-each-turn, etc.). Renders a small Card
-          thumbnail next to the text so the player can attribute the
-          effect to its source instead of guessing where the +1/+1 or
-          green heal popup came from. Same color language as the bond
-          toast: gold for player, dark steel for boss. */}
+      {/* Per-creature ability reveal — when a creature's ability
+          activates (level_up tick, graduation, heal_each_turn from
+          Library / Grandma's Pie), we lift the SOURCE card to the
+          center of the screen at full readable scale, with the
+          ability text underneath. Reads exactly like a spell cast,
+          so the player can SEE the source and what it did — no more
+          guessing where the +1/+1 or green heal came from. Hold
+          ~2.4s so the card is legible and the buff popup has time
+          to land underneath. Gold tint for player, dark steel for
+          boss. */}
       {effectToast && (() => {
         const isPlayer = effectToast.side === 'player';
         return (
           <div
             key={effectToast.key}
             style={{
-              position: 'absolute', top: '24%', left: 0, right: 0,
-              display: 'flex', justifyContent: 'center', alignItems: 'center',
-              zIndex: 215,
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              justifyContent: 'center', alignItems: 'center',
+              zIndex: 220,
               pointerEvents: 'none',
-              // Slower than the bond fire toast so the player can read
-              // the card photo + ability text — earlier 1s pacing felt
-              // like a flash. ~1.85s matches the spell-reveal hold and
-              // gives the buff popup time to land under it.
-              animation: 'bondFireToast 1850ms cubic-bezier(.2,.8,.3,1) both',
+              background: 'rgba(8, 4, 12, 0.45)',
+              animation: 'bondCineFadeOut 2400ms ease-in-out both',
             }}
           >
             <div style={{
-              padding: 8,
-              background: isPlayer
-                ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
-                : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
-              color: '#fff',
-              borderRadius: 14,
-              boxShadow: isPlayer
-                ? '0 8px 26px rgba(196,120,26,.5), 0 0 0 1.5px rgba(255,224,160,.4) inset'
-                : '0 8px 26px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.08) inset',
-              fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
-              display: 'flex', alignItems: 'center', gap: 12,
-              maxWidth: 320,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+              animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1) both',
             }}>
-              <div style={{ flexShrink: 0, lineHeight: 0 }}>
-                <Card card={effectToast.card} scale={0.36} />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingRight: 6 }}>
-                <span style={{
-                  fontSize: 10, fontWeight: 800,
-                  letterSpacing: '0.22em',
-                  opacity: 0.75,
-                }}>ABILITY</span>
-                <span style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.15 }}>
-                  {effectToast.card.nickname || effectToast.card.name}
-                </span>
-                <span style={{ fontSize: 13, opacity: 0.95, lineHeight: 1.2 }}>
-                  {effectToast.text}
-                </span>
+              <div style={{
+                fontSize: 12, fontWeight: 800,
+                letterSpacing: '0.32em',
+                color: isPlayer ? '#f4d59a' : '#e8d9c7',
+                textShadow: '0 2px 8px rgba(0,0,0,.7)',
+              }}>ABILITY ACTIVATED</div>
+              <Card card={effectToast.card} hovered scale={0.95} />
+              <div style={{
+                padding: '10px 22px',
+                background: isPlayer
+                  ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
+                  : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
+                color: '#fff',
+                borderRadius: 14,
+                boxShadow: isPlayer
+                  ? '0 8px 26px rgba(196,120,26,.55), 0 0 0 1.5px rgba(255,224,160,.4) inset'
+                  : '0 8px 26px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.08) inset',
+                fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+                fontWeight: 700,
+                fontSize: 16,
+                letterSpacing: '0.04em',
+              }}>
+                {effectToast.text}
               </div>
             </div>
           </div>

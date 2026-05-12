@@ -418,11 +418,18 @@ export function endTurn(prev: MatchState): MatchState {
     // The creature still can't attack the turn it's played (summoning
     // sickness via `justPlayed` is enforced separately on the attack
     // path), it just gains its stat tick.
-    if (c.abilityKind === 'level_up' || c.abilityKind === 'graduate') {
-      // Study Group bond doubles the tick on every leveling creature
-      // the bond owner controls. Both bonded cards must be alive (the
-      // engine's activeBonds gate handles that — the bond doesn't
-      // appear in the list otherwise).
+    //
+    // CAPPED AT 3 LEVELS (max +3/+3). Without a cap, a Math Teacher
+    // that survives mid-late game spirals into a 7/9 or worse, which
+    // out-scales every other deck's creatures. With the cap, level_up
+    // gives 3 turns of growth then plateaus — a clear ceiling — so
+    // the opponent always knows what they're playing against. Study
+    // Group bond doubles the tick (+2/+2 instead of +1/+1) which lets
+    // it hit the cap faster, not exceed it. Graduate uses abilityValue
+    // as the threshold turn for transformation; once graduated the
+    // ability swaps to untargetable and level ticks stop naturally.
+    const LEVEL_CAP = 3;
+    if ((c.abilityKind === 'level_up' || c.abilityKind === 'graduate') && (c.turnsAlive ?? 0) < LEVEL_CAP) {
       const doubled = activeBonds(me).some(b => b.effect.kind === 'level_up_doubled');
       const bump = doubled ? 2 : 1;
       c.turnsAlive = (c.turnsAlive ?? 0) + 1;
