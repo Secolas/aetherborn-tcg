@@ -316,21 +316,26 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // AI action. Cleared after ~3.4s; the bondCinematic dep retriggers
     // this effect, which then schedules the next tick.
     if (bondCinematic) return;
-    // Serializer: hold the AI's next action until the visual pipeline
-    // (damage popups, death flights, draws) finishes. animBusyUntilRef
-    // is updated from the state-diff effect whenever a chain of
-    // animations is scheduled. This is what makes the boss feel like
-    // it's WAITING for each beat to complete before acting again,
-    // instead of stacking animations on top of each other.
-    const now = Date.now();
-    if (now < animBusyUntilRef.current) {
-      const t = setTimeout(() => setAnimTick(x => x + 1), animBusyUntilRef.current - now + 30);
-      return () => clearTimeout(t);
-    }
 
     let cancelled = false;
+    let busyTimer: ReturnType<typeof setTimeout> | null = null;
     const tick = () => {
       if (cancelled) return;
+      // Serializer: hold the AI's next action until the visual pipeline
+      // (damage popups, death flights, draws, ability toasts, bond
+      // toasts) finishes. We re-check at TICK time — not at useEffect
+      // time — because the sibling state-diff useEffect runs after
+      // this one in declaration order. Checking inside tick (which is
+      // deferred via setTimeout) guarantees state-diff has updated
+      // animBusyUntilRef with whatever it queued. Without that, the AI
+      // would race the toast queue and start its next attack on top of
+      // a still-playing level_up / heal toast.
+      const now = Date.now();
+      if (now < animBusyUntilRef.current) {
+        const wait = animBusyUntilRef.current - now + 30;
+        busyTimer = setTimeout(tick, wait);
+        return;
+      }
       const step = aiStep(state);
       if (step) {
         // ai.ts uses a generic "The Boss" prefix in its log strings; we
@@ -396,7 +401,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // sub-action (play, attack, end-turn) has its own follow-up delay
     // below, so the boss feels deliberate, not twitchy.
     const t = setTimeout(tick, 1100);
-    return () => { cancelled = true; clearTimeout(t); };
+    return () => {
+      cancelled = true;
+      clearTimeout(t);
+      if (busyTimer) clearTimeout(busyTimer);
+    };
   }, [state, flipping, initialDealing, bondCinematic, animTick]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
@@ -685,17 +694,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
 
-      // Buff + silence popups are short side-effects that can run in
-      // parallel with the start of the pipeline; they don't visually
-      // compete with damage/deaths/draws and adding them to the queue
-      // would feel slow with no payoff.
+      // Buff popups (level_up +1/+1, spell_buff resolves, etc.) are
+      // queued INTO the pipeline so they always read as a beat that
+      // follows whatever caused them. Sliding them out of the queue
+      // caused them to land on top of combat / death animations from
+      // the same tick — exactly the "two animations at once" problem.
       if (Object.keys(buffPops).length) {
-        setBuffs(b => ({ ...b, ...buffPops }));
+        const at = pipeDelay;
+        setTimeout(() => setBuffs(b => ({ ...b, ...buffPops })), at);
         setTimeout(() => setBuffs(b => {
           const next = { ...b };
           for (const id of Object.keys(buffPops)) delete next[id];
           return next;
-        }), 1200);
+        }), at + 1200);
+        // Don't extend pipeDelay further if the effect-toast pipeline
+        // already covers this window — the buff popup is a short
+        // side-effect that lives UNDER the toast.
+        if (pipeDelay - at < 1200) pipeDelay = at + 1200;
       }
       if (Object.keys(silenced).length) {
         setSilencedAt(s => ({ ...s, ...silenced }));
