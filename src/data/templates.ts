@@ -429,7 +429,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 4,
     rarity: 'common', suggested: 'mac and cheese, mashed potatoes, your favorite' },
 
-  { id: 'fd-10', name: 'Grandma\'s Pie', el: 'food', cost: 3, atk: 1, hp: 5, type: 'Creature',
+  { id: 'fd-10', name: 'Grandma\'s Pie', el: 'food', cost: 3, atk: 2, hp: 5, type: 'Creature',
     ability: 'At the start of your turn, restore 2 HP.',
     flavor: "There's always one more slice.",
     abilityKind: 'heal_each_turn', abilityValue: 2,

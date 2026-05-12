@@ -35,7 +35,7 @@ export const MAX_HAND = 7;
 /** Hard cap on total turns. If both players are still alive when turn 15
     ends, whoever has more HP wins; ties resolve as a player loss so
     aggressive play is rewarded over heal-stalling. */
-export const TURN_LIMIT = 15;
+export const TURN_LIMIT = 12;
 
 let battleIdCounter = 0;
 function newBattleId() { return `b${++battleIdCounter}`; }
