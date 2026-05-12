@@ -10,7 +10,7 @@ import { BossPicker } from './screens/BossPicker';
 import { Album } from './screens/Album';
 import { SettingsScreen } from './screens/Settings';
 import { usePersistedState } from './hooks/usePersistedState';
-import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
+import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
@@ -292,7 +292,7 @@ export default function App() {
     setScreen('match');
   };
 
-  const onMatchExit = (outcome: 'win' | 'loss' | 'quit') => {
+  const onMatchExit = (outcome: 'win' | 'loss' | 'draw' | 'quit') => {
     const boss = activeBoss;
     const difficulty = activeDifficulty;
     const wasTest = activeTestTheme !== null;
@@ -332,6 +332,8 @@ export default function App() {
           bossesBeatenAt: beaten,
         };
       });
+    } else if (outcome === 'draw') {
+      setSave(s => ({ ...s, coins: s.coins + MATCH_DRAW_REWARD }));
     } else if (outcome === 'loss') {
       setSave(s => ({ ...s, coins: s.coins + MATCH_LOSS_REWARD, matchesLost: s.matchesLost + 1 }));
     }

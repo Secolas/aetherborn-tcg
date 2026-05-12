@@ -7,6 +7,7 @@ export const PACK_COST = 100;
 export const STARTER_REWARD = 200;
 export const MATCH_WIN_REWARD = 75;
 export const MATCH_LOSS_REWARD = 20;
+export const MATCH_DRAW_REWARD = 40;
 
 function newUid(): string {
   return `c_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;

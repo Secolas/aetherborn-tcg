@@ -150,7 +150,7 @@ export interface MatchState {
   turn: Turn;
   turnNumber: number;
   log: string[];
-  outcome: 'ongoing' | 'win' | 'loss';
+  outcome: 'ongoing' | 'win' | 'loss' | 'draw';
   /** Difficulty tier this match was created at. Read by the AI to scale
       its decision-making — Normal plays the baseline heuristics, Hard
       adds threat targeting + spell efficiency + smarter lethal, Mythic
