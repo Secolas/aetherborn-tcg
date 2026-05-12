@@ -432,7 +432,7 @@ export function endTurn(prev: MatchState): MatchState {
     // here and is naturally skipped. That's how Muzzle / Tough Love
     // suppress level_up for one turn. If you reorder this, silence
     // becomes a no-op against the Education deck.
-    const LEVEL_CAP = 3;
+    const LEVEL_CAP = 2;
     if ((c.abilityKind === 'level_up' || c.abilityKind === 'graduate') && (c.turnsAlive ?? 0) < LEVEL_CAP) {
       const doubled = activeBonds(me).some(b => b.effect.kind === 'level_up_doubled');
       const bump = doubled ? 2 : 1;

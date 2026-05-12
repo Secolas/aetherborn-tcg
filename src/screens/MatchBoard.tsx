@@ -1854,6 +1854,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
             <Flag size={16} strokeWidth={2.4} />
           </button>
+          <button onClick={() => setLogOpen(o => !o)} aria-label="Action log" style={iconBtn}>
+            <ScrollText size={16} strokeWidth={2.4} />
+          </button>
         </div>
         {drag?.overField ? (
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
@@ -2012,17 +2015,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             elRef={(el) => registerEl(GRAVE_PLAYER, el)}
             pulseKey={gravePulseKey.player}
           />
-          <button
-            onClick={() => setLogOpen(o => !o)}
-            aria-label="Action log"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#9a8678', padding: 4, lineHeight: 1,
-              opacity: 0.7,
-            }}
-          >
-            <ScrollText size={15} strokeWidth={2.2} />
-          </button>
         </div>
       </div>
 
