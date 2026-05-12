@@ -7,7 +7,7 @@ import { aiPhoto } from '../data/samplePhotos';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { iconBtn, PALETTE } from '../components/styles';
-import type { CollectionCard, Difficulty } from '../game/types';
+import type { CollectionCard, Difficulty, ElementId } from '../game/types';
 import { difficultyProfile } from '../game/match';
 
 interface Props {
@@ -15,7 +15,11 @@ interface Props {
   /** Highest difficulty the player has *beaten* per boss id. Drives the
    *  small medal that decorates an already-conquered boss. */
   beatenAt: Record<string, Difficulty>;
-  onPick: (boss: BossDef, difficulty: Difficulty) => void;
+  /** When `testThemeId` is provided, the match runs with an auto-built
+   *  placeholder deck made from that theme's templates instead of the
+   *  player's saved deck. Lets you test boss balance without first
+   *  capturing 12+ photos and building a deck. */
+  onPick: (boss: BossDef, difficulty: Difficulty, testThemeId: ElementId | null) => void;
   onBack: () => void;
 }
 
@@ -35,6 +39,12 @@ export function BossPicker({ defeatedIds, beatenAt, onPick, onBack }: Props) {
   const [pageIdx, setPageIdx] = useState(0);
   /** Difficulty pick per boss, sticky for the session. */
   const [picked, setPicked] = useState<Record<string, Difficulty>>({});
+  /** Per-boss test-deck choice. null = use the player's saved deck.
+   *  Any ElementId here means "build a placeholder deck from that
+   *  theme's templates and use it instead." Stored per-boss so the
+   *  user can A/B different themes against each boss without losing
+   *  their picks. */
+  const [testTheme, setTestTheme] = useState<Record<string, ElementId | null>>({});
 
   // Swipe gesture state
   const startX = useRef(0);
@@ -119,6 +129,7 @@ export function BossPicker({ defeatedIds, beatenAt, onPick, onBack }: Props) {
         }}>
           {BOSSES.map(boss => {
             const cur = picked[boss.id] ?? 'normal';
+            const test = testTheme[boss.id] ?? null;
             return (
               <div key={boss.id} style={{ width: `${100 / total}%`, flex: '0 0 auto', padding: '0 16px' }}>
                 <BossPage
@@ -126,8 +137,10 @@ export function BossPicker({ defeatedIds, beatenAt, onPick, onBack }: Props) {
                   defeated={defeatedIds.includes(boss.id)}
                   beatenAt={beatenAt[boss.id]}
                   difficulty={cur}
+                  testThemeId={test}
+                  onChangeTestTheme={(t) => setTestTheme(s => ({ ...s, [boss.id]: t }))}
                   onChangeDifficulty={(d) => setPicked(p => ({ ...p, [boss.id]: d }))}
-                  onStart={() => onPick(boss, cur)}
+                  onStart={() => onPick(boss, cur, test)}
                 />
               </div>
             );
@@ -209,13 +222,18 @@ function chevronBtn(side: 'left' | 'right'): React.CSSProperties {
  * without scrolling.
  */
 function BossPage({
-  boss, defeated, beatenAt, difficulty, onChangeDifficulty, onStart,
+  boss, defeated, beatenAt, difficulty, onChangeDifficulty,
+  testThemeId, onChangeTestTheme,
+  onStart,
 }: {
   boss: BossDef;
   defeated: boolean;
   beatenAt?: Difficulty;
   difficulty: Difficulty;
   onChangeDifficulty: (d: Difficulty) => void;
+  /** Selected test-deck theme (null = use the player's saved deck). */
+  testThemeId: ElementId | null;
+  onChangeTestTheme: (t: ElementId | null) => void;
   onStart: () => void;
 }) {
   const e = ELEMENTS[boss.themeId];
@@ -352,6 +370,38 @@ function BossPage({
         }}>
           {boss.playstyle}
         </div>
+        {/* Test-deck picker — quick-fight a boss using a pre-built
+            theme deck instead of your own collection. "My Deck" is
+            the default (uses the active saved deck); any theme chip
+            replaces it with that theme's 12-13 template cards for
+            this one match. No save / no reward consequences — pure
+            testing affordance. Scrolls horizontally on mobile. */}
+        <div
+          data-no-swipe
+          style={{
+            margin: '4px 8px 2px',
+            display: 'flex', gap: 6,
+            overflowX: 'auto', overflowY: 'hidden',
+            paddingBottom: 4,
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          <ThemeChip
+            active={testThemeId === null}
+            label="My Deck"
+            color={PALETTE.text}
+            onClick={() => onChangeTestTheme(null)}
+          />
+          {(Object.keys(ELEMENTS) as ElementId[]).map(t => (
+            <ThemeChip
+              key={t}
+              active={testThemeId === t}
+              label={ELEMENTS[t].name}
+              color={ELEMENTS[t].color}
+              onClick={() => onChangeTestTheme(t)}
+            />
+          ))}
+        </div>
         <button
           onClick={onStart}
           style={{
@@ -446,6 +496,37 @@ function BossDeckPreview({ boss }: { boss: BossDef }) {
         ))}
       </div>
     </div>
+  );
+}
+
+/** Small pill button used in the test-deck picker row. Active state
+ *  tints the pill with the theme color so the player can see which
+ *  deck is currently selected. */
+function ThemeChip({ active, label, color, onClick }: {
+  active: boolean;
+  label: string;
+  color: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        flex: '0 0 auto',
+        padding: '6px 12px',
+        borderRadius: 999,
+        border: active ? `1.5px solid ${color}` : '1.5px solid rgba(58,46,42,.12)',
+        background: active ? color : '#fff',
+        color: active ? '#fff' : PALETTE.text,
+        fontSize: 11, fontWeight: 700,
+        letterSpacing: '0.02em',
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        transition: 'background .12s, color .12s, border-color .12s',
+      }}
+    >
+      {label}
+    </button>
   );
 }
 
