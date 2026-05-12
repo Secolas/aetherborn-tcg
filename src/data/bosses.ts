@@ -91,7 +91,7 @@ export const BOSSES: BossDef[] = [
       'fam-08',          // Abuela
       'fam-09',          // Birthday Cake
       'fam-11',          // Dad
-      'fam-14',          // Hug (cheap heal — replaces Sunday Dinner)
+      'fam-15',          // Family Chat (draw — gives Mom card advantage)
     ],
     photoOverrides: {
       'fam-11': U('photo-1539571696357-5a69c17a67c6'),  // her own warm-smile dad
@@ -112,8 +112,8 @@ export const BOSSES: BossDef[] = [
       'fam-10',         // Family Photo (epic buff)
       'fam-11', 'fam-11',// Dad x2 — Sunday Dinner enabler
       'fam-12',         // Sunday Dinner finisher heal
-      'fam-13',         // Tough Love silence
       'fam-14',         // Hug
+      'fam-15',         // Family Chat draw engine
     ],
   },
 
@@ -304,7 +304,7 @@ export const BOSSES: BossDef[] = [
       'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
       'fd-05',           // Lunch Box — recover_on_death
       'fd-06',           // Slow Cooker — ramp
-      'fd-07',           // Recipe Card — small buff
+      'fd-14',           // Spicy Sauce — removal
       'fd-08',           // Share the Meal — board heal
       'fd-09',           // Comfort Food — face heal
       'fd-10',           // Grandma's Pie — heal_each_turn
@@ -324,7 +324,7 @@ export const BOSSES: BossDef[] = [
     // bond fires turn 2-3 every game. Adds Sip (cheap creature heal).
     mythicDeck: [
       'fd-01', 'fd-01',  // Coffee Mug x2 — Breakfast Combo enabler
-      'fd-02',           // Hot Soup
+      'fd-14',           // Spicy Sauce removal
       'fd-04', 'fd-04',  // Breakfast Plate x2 — Breakfast Combo enabler + draw
       'fd-05',           // Lunch Box recover
       'fd-06',           // Slow Cooker ramp

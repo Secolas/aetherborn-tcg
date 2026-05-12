@@ -457,14 +457,26 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (state.turn === 'player') setPlayerPhase('main');
     if (firstTurnRef.current) { firstTurnRef.current = false; return; }
     if (state.outcome !== 'ongoing') return;
-    const now = Date.now();
-    const wait = Math.max(0, animBusyUntilRef.current - now);
-    const showT = setTimeout(() => {
-      setTurnBanner(state.turn);
-      sfx('turn');
-    }, wait);
-    const hideT = setTimeout(() => setTurnBanner(null), wait + 1400);
-    return () => { clearTimeout(showT); clearTimeout(hideT); };
+    const targetTurn = state.turn;
+    let scheduleTimer: ReturnType<typeof setTimeout> | null = null;
+    let hideTimer: ReturnType<typeof setTimeout> | null = null;
+    const tryShow = () => {
+      const remaining = Math.max(0, animBusyUntilRef.current - Date.now());
+      if (remaining > 50) {
+        scheduleTimer = setTimeout(tryShow, remaining + 50);
+      } else {
+        setTurnBanner(targetTurn);
+        sfx('turn');
+        hideTimer = setTimeout(() => setTurnBanner(null), 1400);
+      }
+    };
+    // Delay 50ms so all sibling useEffects (including state-diff) have run
+    // and animBusyUntilRef reflects the full animation pipeline length.
+    scheduleTimer = setTimeout(tryShow, 50);
+    return () => {
+      if (scheduleTimer) clearTimeout(scheduleTimer);
+      if (hideTimer) clearTimeout(hideTimer);
+    };
   }, [state.turn, state.outcome]);
 
   // Win/lose stinger fires once when the match resolves.
@@ -953,7 +965,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         if (drawPhaseFires.length || totalDraws > 0) {
           queuePhaseBanner('Draw Phase', newActiveSide);
         }
-        queueEffectFires(drawPhaseFires);
         if (totalDraws > 0) {
           const drawStep = 420;
           const at = pipeDelay;
@@ -969,6 +980,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setTimeout(() => setManaPulse(p => p + 1), at);
           pipeDelay += totalDraws * drawStep + 700;
         }
+        // Start-of-turn abilities fire AFTER the draw so the player sees
+        // their new card land before the ability toasts appear.
+        queueEffectFires(drawPhaseFires);
         // MAIN PHASE banner — closes the turn-flip with the
         // "now you can play" beat. Fires for whichever side is now
         // active. The player can then play cards; the boss starts
@@ -1555,6 +1569,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
   const handleGoBattle = () => {
     setPlayerPhase('battle');
+    setPendingSpell(null);
+    setSelectedHandIdx(null);
     const key = Date.now() + 3333;
     setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
@@ -1612,6 +1628,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const key = Date.now() + 5555;
     setPhaseBanner({ text: 'End Phase', side: 'player', key });
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
+    holdAnim(1100);
     setState(s => endTurn(s));
   };
 
@@ -2009,15 +2026,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       </div>
 
-      {/* Hand — flat row anchored to the bottom. Tapping a card lifts the
-          centered preview above; the hand cards themselves stay put so the
-          leftmost card never gets clipped on narrow viewports. */}
+      {/* Hand — flat row anchored to the bottom. Hidden during Battle Phase
+          since spells and creatures can't be played then; avoids mis-taps. */}
       <div style={{
         flex: '0 0 220px',
         position: 'relative',
         pointerEvents: 'none',
       }}>
-        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
+        {playerPhase !== 'battle' && (initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
           .filter(card => !pendingDrawIds.has(card.battleId))
           .map((card, i, visibleHand) => {
           const isDragging = drag?.battleId === card.battleId;
