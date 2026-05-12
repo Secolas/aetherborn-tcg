@@ -9,7 +9,7 @@ import { GraveyardModal } from '../components/GraveyardModal';
 import { iconBtn, btnPrimary, PALETTE } from '../components/styles';
 import { aiStep, type AiCombat } from '../game/ai';
 import {
-  attack, beginTurn, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND, STARTING_HP,
+  attack, createMatch, endTurn, playCard, TURN_LIMIT, STARTING_HAND, STARTING_HP,
   effectiveCost, activeBonds, difficultyProfile,
   type SpellTarget,
 } from '../game/match';
@@ -388,11 +388,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       } else {
         // No more steps — pass the turn back. Slightly longer hold so
         // the player can register the boss is done before "Your turn"
-        // banner slides in.
+        // banner slides in. Use endTurn (not beginTurn directly) so the
+        // boss actually runs its end-of-turn hooks: level_up ticks on
+        // Math Teacher / Physics Class, damage_at_end_turn bond pings,
+        // The Kids draw, freeze/silence wear-offs. endTurn calls
+        // beginTurn(player) internally so the turn still flips.
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
-          setState(s => beginTurn(s, 'player'));
+          setState(s => endTurn(s));
         }, 1300);
       }
     };
@@ -1001,11 +1005,24 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // (after turn 1, since the initial hand is dealt by createMatch, not by
   // beginTurn). The draw flight is a card-back animating from the active
   // player's deck chip into their hand zone; the mana pulse pops the chip.
+  //
+  // We defer until animBusyUntilRef clears so the draw card doesn't
+  // overlap ability toasts or buff popups queued by the same turn flip
+  // (e.g. level_up tick on a boss creature, heal_each_turn from Library).
+  // After firing, we extend animBusyUntilRef through the 1.1s flight so
+  // the AI driver also waits for the draw to land.
   useEffect(() => {
     if (flipping || state.outcome !== 'ongoing') return;
     if (state.turnNumber <= 1) return; // first turn — no draw happened
-    fireDraw(state.turn, 0);
-    setManaPulse(p => p + 1);
+    const now = Date.now();
+    const wait = Math.max(0, animBusyUntilRef.current - now);
+    const t = setTimeout(() => {
+      fireDraw(state.turn, 0);
+      setManaPulse(p => p + 1);
+    }, wait);
+    holdAnim(wait + 1100);
+    setAnimTick(x => x + 1);
+    return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.turn, state.turnNumber, flipping, state.outcome]);
 

@@ -333,10 +333,11 @@ export const BOSSES: BossDef[] = [
     subtitle: 'Won\'t sign your slip',
     themeId: 'education',
     avatar: 'P',
-    // Older bearded man in a suit, authoritative posture. Previous IDs
-    // kept rotating to younger generic businessmen — this one is more
-    // stable and reads clearly as "the person in charge of the building."
-    avatarPhoto: U('photo-1605333396915-47ed6dfab2b1'),
+    // Distinguished older man in a suit with glasses, reading lower
+    // half of frame — authoritative posture, classic "principal at
+    // his desk" read. Different Unsplash ID family from the others
+    // so it doesn't share rotation fate.
+    avatarPhoto: U('photo-1568602471122-7832951cc4c5'),
     intro: 'Sit. Down.',
     playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
