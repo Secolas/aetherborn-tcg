@@ -230,6 +230,18 @@ input {
   100% { transform: translateX(130%); opacity: 0; }
 }
 
+/* Bond fire toast — small banner that drops in when a bond's per-turn
+   effect activates (Sunday Dinner heals, Breakfast Combo heals creatures,
+   etc.). Reads as a separate beat from the heal/damage popup itself:
+   first the bond name lands, then the engine effect plays. */
+@keyframes bondFireToast {
+  0%   { transform: translateY(-18px) scale(0.92); opacity: 0; }
+  16%  { transform: translateY(0) scale(1.04); opacity: 1; }
+  30%  { transform: translateY(0) scale(1); opacity: 1; }
+  82%  { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-10px) scale(0.96); opacity: 0; }
+}
+
 /* Coin flip — opening animation before the match. The disc spins around Y
    while bouncing slightly on Z so it reads as "tossed in the air". Two
    variants exist (player / boss) so the coin lands showing the right face;
