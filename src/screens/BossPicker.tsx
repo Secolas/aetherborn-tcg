@@ -244,21 +244,25 @@ function BossPage({
     <div style={{
       width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-      gap: 10,
-      padding: '8px 4px 4px',
+      gap: 8,
+      padding: '6px 4px 4px',
+      minHeight: 0,
     }}>
-      {/* Banner — themed gradient with avatar + name + subtitle. */}
+      {/* Banner — themed gradient with avatar + name + theme glyph.
+          Intro quote moved INTO the banner (no separate row) so the
+          page has fewer chunks competing for vertical space. */}
       <div style={{
         background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
         borderRadius: 18,
-        padding: '18px 18px 16px',
+        padding: '14px 16px 14px',
         position: 'relative',
         boxShadow: '0 8px 20px rgba(58,46,42,.15)',
         color: '#fff',
         display: 'flex', alignItems: 'center', gap: 14,
+        flex: '0 0 auto',
       }}>
         <div style={{
-          width: 72, height: 72, borderRadius: '50%',
+          width: 76, height: 76, borderRadius: '50%',
           background: '#fff',
           padding: 3,
           display: 'grid', placeItems: 'center',
@@ -277,10 +281,13 @@ function BossPage({
           }}>{!boss.avatarPhoto && boss.avatar}</div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.05 }}>{boss.name}</div>
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.9 }}>
-            <ElementGlyph el={boss.themeId} size={14} />
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05 }}>{boss.name}</div>
+          <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.92 }}>
+            <ElementGlyph el={boss.themeId} size={13} />
             <span>{e.name} deck</span>
+          </div>
+          <div style={{ marginTop: 6, fontSize: 11, opacity: 0.85, fontStyle: 'italic', lineHeight: 1.3 }}>
+            “{boss.intro}”
           </div>
         </div>
         {defeated && (
@@ -288,23 +295,12 @@ function BossPage({
         )}
       </div>
 
-      {/* Intro quote */}
-      <div style={{
-        background: '#fff',
-        borderRadius: 14,
-        padding: '12px 14px',
-        fontSize: 13, color: PALETTE.text, fontStyle: 'italic',
-        textAlign: 'center',
-        boxShadow: '0 2px 8px rgba(58,46,42,.06)',
-      }}>
-        “{boss.intro}”
-      </div>
-
-      {/* Difficulty selector */}
-      <div data-no-swipe>
+      {/* Setup row — DIFFICULTY pills. Compact label above so they
+          read as a labelled segmented control. */}
+      <div data-no-swipe style={{ flex: '0 0 auto' }}>
         <div style={{
           fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
-          color: PALETTE.textMid, marginBottom: 6, paddingLeft: 4,
+          color: PALETTE.textMid, marginBottom: 5, paddingLeft: 4,
         }}>
           DIFFICULTY
         </div>
@@ -318,7 +314,7 @@ function BossPage({
                 data-no-swipe
                 onClick={() => onChangeDifficulty(d)}
                 style={{
-                  flex: 1, padding: '11px 0',
+                  flex: 1, padding: '10px 0',
                   background: active ? '#fff' : 'rgba(255,255,255,.55)',
                   color: active ? PALETTE.text : PALETTE.textMid,
                   border: active ? '2px solid #ee5a52' : '2px solid transparent',
@@ -341,45 +337,30 @@ function BossPage({
         </div>
       </div>
 
-      {/* Boss deck preview — a continuously scrolling marquee of all 12
-          cards the boss plays, using the same AI photos the engine will
-          show during the match. Fills the empty gap between difficulty
-          pills and the Start block, and gives the player something
-          concrete to recognise ("oh, she runs Abuela's Soup"). The
-          marquee is purely cosmetic; nothing to click. */}
-      <div style={{ flex: '1 0 auto', minHeight: 4, display: 'flex', alignItems: 'center' }}>
-        <BossDeckPreview boss={boss} />
-      </div>
-
-      {/* Playstyle + Start block — visually grouped so the player reads
-          "what this fight is about" right before tapping Start. Themed
-          color frame keys to the boss's element so each fight feels
-          distinct. The difficulty pills are stylistic AI knobs above;
-          the playstyle blurb is about THIS BOSS and stays consistent
-          across tiers. */}
-      <div data-no-swipe style={{
-        background: '#fff',
-        borderRadius: 16,
-        padding: 4,
-        boxShadow: `0 8px 20px ${e.deep}33, 0 0 0 1.5px ${e.color}33`,
-        display: 'flex', flexDirection: 'column', gap: 4,
-      }}>
+      {/* Test-deck picker — quick-fight using a placeholder theme
+          deck instead of your saved one. Sits in its own labelled
+          row so users always know which deck they're committing to
+          when they tap Start. */}
+      <div data-no-swipe style={{ flex: '0 0 auto' }}>
         <div style={{
-          padding: '10px 14px 4px',
-          fontSize: 12, color: PALETTE.text, lineHeight: 1.4,
+          fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
+          color: PALETTE.textMid, marginBottom: 5, paddingLeft: 4,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
-          {boss.playstyle}
+          <span>YOUR DECK</span>
+          {testThemeId && (
+            <span style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
+              color: ELEMENTS[testThemeId].color,
+              padding: '1px 6px', borderRadius: 8,
+              background: `${ELEMENTS[testThemeId].color}1f`,
+            }}>
+              TEST · NO REWARDS
+            </span>
+          )}
         </div>
-        {/* Test-deck picker — quick-fight a boss using a pre-built
-            theme deck instead of your own collection. "My Deck" is
-            the default (uses the active saved deck); any theme chip
-            replaces it with that theme's 12-13 template cards for
-            this one match. No save / no reward consequences — pure
-            testing affordance. Scrolls horizontally on mobile. */}
         <div
-          data-no-swipe
           style={{
-            margin: '4px 8px 2px',
             display: 'flex', gap: 6,
             overflowX: 'auto', overflowY: 'hidden',
             paddingBottom: 4,
@@ -402,6 +383,32 @@ function BossPage({
             />
           ))}
         </div>
+      </div>
+
+      {/* Boss deck preview — continuously scrolling marquee. Flex
+          shrinks first so the Start block below is ALWAYS visible. */}
+      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+        <BossDeckPreview boss={boss} />
+      </div>
+
+      {/* Playstyle blurb + Start. Pinned to bottom (flex 0 0 auto)
+          so the button never gets pushed off-screen by anything
+          above it. Big themed gradient, FIGHT framing, reward chip
+          on the right. Pulses subtly on press. */}
+      <div data-no-swipe style={{
+        background: '#fff',
+        borderRadius: 16,
+        padding: 4,
+        boxShadow: `0 8px 20px ${e.deep}33, 0 0 0 1.5px ${e.color}33`,
+        display: 'flex', flexDirection: 'column', gap: 4,
+        flex: '0 0 auto',
+      }}>
+        <div style={{
+          padding: '10px 14px 4px',
+          fontSize: 12, color: PALETTE.text, lineHeight: 1.35,
+        }}>
+          {boss.playstyle}
+        </div>
         <button
           onClick={onStart}
           style={{
@@ -421,17 +428,36 @@ function BossPage({
           onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Swords size={17} strokeWidth={2.6} />
-            Start · {profile.label}
+            <Swords size={18} strokeWidth={2.6} />
+            <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '0.06em' }}>
+              FIGHT
+            </span>
+            <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 700, letterSpacing: '0.12em' }}>
+              · {profile.label.toUpperCase()}
+            </span>
           </span>
-          <span style={{
-            display: 'flex', alignItems: 'center', gap: 4,
-            background: 'rgba(0,0,0,.18)', padding: '5px 11px', borderRadius: 10,
-            fontSize: 12, fontWeight: 800,
-          }}>
-            <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
-            +{reward}
-          </span>
+          {testThemeId === null ? (
+            <span style={{
+              display: 'flex', alignItems: 'center', gap: 4,
+              background: 'rgba(0,0,0,.22)', padding: '5px 11px', borderRadius: 10,
+              fontSize: 12, fontWeight: 800,
+            }}>
+              <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
+              +{reward}
+            </span>
+          ) : (
+            // Test mode pays nothing — make the absence of a reward
+            // chip explicit so the player isn't surprised after the
+            // match. The "TEST · NO REWARDS" badge in the deck-row
+            // label already signals this; we mirror it here too.
+            <span style={{
+              display: 'flex', alignItems: 'center',
+              background: 'rgba(0,0,0,.22)', padding: '5px 11px', borderRadius: 10,
+              fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
+            }}>
+              TEST
+            </span>
+          )}
         </button>
       </div>
     </div>
