@@ -6,6 +6,13 @@ import type { BattleCard } from '../game/types';
 
 interface Props {
   card: BattleCard;
+  /** When present, render the stat orbs at these values INSTEAD of
+   *  card.currentAtk/currentHp. Lets MatchBoard hold the displayed
+   *  stats at OLD values while the level-up reveal is on screen,
+   *  then snap to live values when the +1/+1 buff popup fires. The
+   *  sequence reads: card shows 1/3 → ability reveal plays → card
+   *  snaps to 2/4 with +1/+1 popup. */
+  displayStats?: { atk: number; hp: number } | null;
   selected?: boolean;
   attackable?: boolean;
   shaking?: boolean;
@@ -43,7 +50,7 @@ interface Props {
 const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
-  card, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
+  card, displayStats, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
   buff, trigger, bondState, highlight,
   onClick, onLongPress,
 }: Props) {
@@ -224,7 +231,7 @@ export function BattlefieldCard({
               fontSize: 11, fontWeight: 800,
               display: 'grid', placeItems: 'center',
               boxShadow: '0 0 0 1.5px #8a5a14, 0 1px 3px rgba(0,0,0,.4)',
-            }}>{card.currentAtk}</div>
+            }}>{displayStats?.atk ?? card.currentAtk}</div>
             <div style={{
               position: 'absolute', bottom: 2, right: 2,
               width: 18, height: 18, borderRadius: '50%',
@@ -232,7 +239,7 @@ export function BattlefieldCard({
               fontSize: 11, fontWeight: 800,
               display: 'grid', placeItems: 'center',
               boxShadow: '0 0 0 1.5px #8a1414, 0 1px 3px rgba(0,0,0,.4)',
-            }}>{card.currentHp}</div>
+            }}>{displayStats?.hp ?? card.currentHp}</div>
           </>
         )}
 
