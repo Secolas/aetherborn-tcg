@@ -393,31 +393,29 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             setState(step.next);
           }, holdMs);
         } else {
-          // Plain non-animated action (e.g. attack on a creature/face;
-          // playAttackAnimation handles its own timing). Bumped from 950 →
-          // 1200 so back-to-back actions feel like decisions, not reflexes.
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 1200);
+          // Plain non-animated action — boss "thinking" beat between
+          // moves. Bumped to 1700ms so back-to-back actions read as
+          // deliberate decisions, not reflex spam.
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 1700);
         }
       } else {
-        // No more steps — pass the turn back. Slightly longer hold so
-        // the player can register the boss is done before "Your turn"
-        // banner slides in. Use endTurn (not beginTurn directly) so the
-        // boss actually runs its end-of-turn hooks: level_up ticks on
-        // Math Teacher / Physics Class, damage_at_end_turn bond pings,
-        // The Kids draw, freeze/silence wear-offs. endTurn calls
-        // beginTurn(player) internally so the turn still flips.
+        // No more steps — pass the turn back. Use endTurn (not
+        // beginTurn directly) so the boss actually runs its
+        // end-of-turn hooks: level_up ticks, bonds, freeze/silence
+        // wear-offs. endTurn calls beginTurn(player) internally so
+        // the turn still flips.
         setTimeout(() => {
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => endTurn(s));
-        }, 1300);
+        }, 1700);
       }
     };
-    // Initial think delay before any AI action — gives the player a beat
-    // to register the turn change before the boss starts moving. Each
-    // sub-action (play, attack, end-turn) has its own follow-up delay
-    // below, so the boss feels deliberate, not twitchy.
-    const t = setTimeout(tick, 1100);
+    // Boss "thinking" delay before any AI action — gives the player
+    // a beat to register the turn change AND finish reading any
+    // queued animations before the boss starts moving. Bumped to
+    // 1800ms so the boss reads as deliberate.
+    const t = setTimeout(tick, 1800);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -706,30 +704,24 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         pipeDelay += lastDeathEnds;
       }
 
-      // Draws come AFTER deaths so the hand growth is its own beat.
-      // Now also handles the turn-start draw (used to be a separate
-      // useEffect that fired in parallel with the ability reveals).
-      // By going through pipeDelay the draw flight strictly follows
-      // whatever ability animations are queued — no more overlap of
-      // a card flying into hand while a Library reveal is still up.
-      {
-        const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
-        const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
+      const turnFlipped = fresh.turnNumber > prev.turnNumber;
+
+      // MID-TURN draws (Suitcase draws 2, Tio's draw_on_play, etc.)
+      // fire here — they're a direct consequence of the just-played
+      // card and should land in the same beat. TURN-START draws on a
+      // turn flip are queued LATER inside the Draw Phase section
+      // (after End Phase banner + level_up reveals + buff popups)
+      // so they read as the start-of-turn beat, not as something
+      // that happened during the previous player's End Phase.
+      const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
+      const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
+      const totalDraws = newPlayerCards + newOppCards;
+      if (totalDraws > 0 && !turnFlipped) {
         const drawStep = 420;
-        const totalDraws = newPlayerCards + newOppCards;
-        if (totalDraws > 0) {
-          const at = pipeDelay;
-          for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
-          for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
-          // Pulse the mana chip alongside the turn-start draw — it
-          // belongs to the same beat (new turn started, here's your
-          // card + mana).
-          if (fresh.turnNumber > prev.turnNumber) {
-            setTimeout(() => setManaPulse(p => p + 1), at);
-          }
-          // Each flight is ~1.1s; serialize accordingly.
-          pipeDelay += totalDraws * drawStep + 700;
-        }
+        const at = pipeDelay;
+        for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
+        for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
+        pipeDelay += totalDraws * drawStep + 700;
       }
 
       // (Buff popups for level_up / spell_buff resolves moved to AFTER
@@ -797,7 +789,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // opponent and they LOST HP without any combat happening, we credit
       // the player's bond). The pop uses the same green/red damage popup
       // language already used elsewhere.
-      const turnFlipped = fresh.turnNumber > prev.turnNumber;
       // Phase-separated ability activations. End-phase fires
       // (level_up / graduate ticks on the just-ended turn's owner)
       // and Draw-phase fires (heal_each_turn on the just-begun
@@ -905,13 +896,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         pipeDelay = at + 1200;
       }
 
-      // DRAW PHASE — heal_each_turn reveals on the new active side.
-      // The actual turn-start draw flight was queued earlier in the
-      // pipeline (via the handIds diff block); this phase banner
-      // visually separates the draw section from the End Phase.
-      if (drawPhaseFires.length) {
-        queuePhaseBanner('Draw Phase', newActiveSide);
+      // DRAW PHASE — banner + heal_each_turn reveals + turn-start
+      // draw flight + mana pulse. All in one beat: "okay, this side
+      // is starting their turn now." Mid-turn draws are NOT here;
+      // they fire earlier as a same-tick consequence of their cause.
+      if (turnFlipped) {
+        if (drawPhaseFires.length || totalDraws > 0) {
+          queuePhaseBanner('Draw Phase', newActiveSide);
+        }
         queueEffectFires(drawPhaseFires);
+        if (totalDraws > 0) {
+          const drawStep = 420;
+          const at = pipeDelay;
+          for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
+          for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
+          setTimeout(() => setManaPulse(p => p + 1), at);
+          pipeDelay += totalDraws * drawStep + 700;
+        }
       }
 
       if (turnFlipped) {
@@ -1325,6 +1326,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setDamages(d => ({ ...d, [FACE_PLAYER]: -healed }));
         setTimeout(() => setDamages(d => {
           const next = { ...d }; delete next[FACE_PLAYER]; return next;
+        }), 900);
+      }
+      // Damage popup for spells that hit the opponent's face directly
+      // (spell_damage at face, exam_pass when condition is met, etc.).
+      // Without this the face HP ticked down silently and the cast
+      // looked like it did nothing.
+      const oppDamage = state.opponent.hp - r.state.opponent.hp;
+      if (oppDamage > 0) {
+        setDamages(d => ({ ...d, [FACE_OPP]: oppDamage }));
+        setTimeout(() => setDamages(d => {
+          const next = { ...d }; delete next[FACE_OPP]; return next;
         }), 900);
       }
       const drewCards = r.state.player.hand.length - (beforeHand - 1);
