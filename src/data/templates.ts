@@ -17,15 +17,15 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'fam-01', name: 'Family Pet', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Loyal and ready.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'your pet, or any pet you love' },
 
   { id: 'fam-02', name: 'Cousin', el: 'family', cost: 2, atk: 2, hp: 2, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Always down to throw hands for you.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a cousin, niece, or nephew' },
 
   { id: 'fam-03', name: "Abuela's Soup", el: 'family', cost: 3, atk: 0, hp: 0, type: 'Spell',
@@ -37,7 +37,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'On play: draw a card.',
     flavor: 'He always has a story.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', suggested: 'an uncle or aunt' },
+    rarity: 'rare', suggested: 'an uncle or aunt' },
 
   { id: 'fam-05', name: 'Mom', el: 'family', cost: 3, atk: 3, hp: 4, type: 'Creature',
     ability: '',
@@ -104,9 +104,9 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'wrk-01', name: 'Intern', el: 'work', cost: 1, atk: 1, hp: 1, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Eager, ready, expendable.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a young coworker, or a workspace' },
 
   { id: 'wrk-02', name: 'Spam Email', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
@@ -197,9 +197,9 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'ani-01', name: 'Mouse', el: 'animals', cost: 1, atk: 1, hp: 1, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Sneaks past defenses.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'any small animal you can find' },
 
   { id: 'ani-02', name: 'Snake Bite', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
@@ -228,7 +228,7 @@ export const TEMPLATES: CardTemplate[] = [
   { id: 'ani-06', name: 'Owl', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', suggested: 'a bird — owl, eagle, sparrow, anything' },
+    rarity: 'rare', suggested: 'a bird — owl, eagle, sparrow, anything' },
 
   { id: 'ani-07', name: 'Treats', el: 'animals', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a creature +3/+3.',
@@ -271,9 +271,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a leash, harness, or quiet animal' },
 
   { id: 'ani-14', name: 'Mosquito', el: 'animals', cost: 1, atk: 1, hp: 1, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Small. Annoying. Persistent.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a mosquito, fly, or any flying insect' },
 
 
@@ -282,16 +282,16 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'trv-01', name: 'Boarding Pass', el: 'travel', cost: 1, atk: 2, hp: 1, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'You\'re already through security.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a boarding pass, ticket stub, or gate sign' },
 
   { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Never leaves your side.',
     abilityKind: 'untargetable',
-    rarity: 'common', suggested: 'a backpack, duffel, or wheeled bag' },
+    rarity: 'rare', suggested: 'a backpack, duffel, or wheeled bag' },
 
   { id: 'trv-03', name: 'Suitcase', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw 2 cards.',
@@ -306,16 +306,16 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a baggage carousel, claim tag, or empty rack' },
 
   { id: 'trv-05', name: 'Window Seat', el: 'travel', cost: 3, atk: 3, hp: 3, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Best view in the house.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'an airplane window, a view from above the clouds' },
 
   { id: 'trv-06', name: 'Train Conductor', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'They know every stop by heart.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', suggested: 'a train, station, or platform sign' },
+    rarity: 'rare', suggested: 'a train, station, or platform sign' },
 
   { id: 'trv-07', name: 'Roadmap', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Deal 3 damage to any target.',
@@ -382,16 +382,16 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a bowl of soup or stew' },
 
   { id: 'fd-03', name: 'Snack', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'Just a little something.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a chip bag, granola bar, or finger food' },
 
   { id: 'fd-04', name: 'Breakfast Plate', el: 'food', cost: 2, atk: 1, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'Most important meal of the day.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', suggested: 'eggs, pancakes, a full breakfast spread' },
+    rarity: 'rare', suggested: 'eggs, pancakes, a full breakfast spread' },
 
   { id: 'fd-05', name: 'Lunch Box', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'When this dies, return a random Spell from your graveyard to your hand.',
@@ -501,9 +501,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a test sheet, scantron, or stack of exams' },
 
   { id: 'edu-08', name: 'The Bully', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
-    ability: 'Rush.',
+    ability: '',
     flavor: 'The hallway feels longer when he\'s in it.',
-    abilityKind: 'rush',
+    abilityKind: 'none',
     rarity: 'common', suggested: 'a tough-looking kid, a closed locker, or a tense scene' },
 
   { id: 'edu-09', name: 'Library', el: 'education', cost: 4, atk: 1, hp: 6, type: 'Creature',
