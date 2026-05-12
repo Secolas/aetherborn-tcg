@@ -2026,14 +2026,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       </div>
 
-      {/* Hand — flat row anchored to the bottom. Hidden during Battle Phase
-          since spells and creatures can't be played then; avoids mis-taps. */}
+      {/* Hand — flat row anchored to the bottom. Tapping a card lifts the
+          centered preview above; the hand cards themselves stay put so the
+          leftmost card never gets clipped on narrow viewports. */}
       <div style={{
         flex: '0 0 220px',
         position: 'relative',
         pointerEvents: 'none',
       }}>
-        {playerPhase !== 'battle' && (initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
+        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
           .filter(card => !pendingDrawIds.has(card.battleId))
           .map((card, i, visibleHand) => {
           const isDragging = drag?.battleId === card.battleId;
@@ -2092,7 +2093,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 // so playable cards stand out from unaffordable ones at a
                 // glance. The keyframe only animates `filter`, so it
                 // doesn't conflict with the static fanned `transform`.
-                animation: playableNow && state.turn === 'player' && !isSelected
+                animation: playableNow && state.turn === 'player' && !isSelected && playerPhase === 'main'
                   ? 'playablePulse 2.4s ease-in-out infinite'
                   : undefined,
               }}>
@@ -2178,8 +2179,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                   fontFamily: 'inherit',
                   boxShadow: '0 4px 10px rgba(58,46,42,.15)',
                 }}
-              >Cancel</button>
-              <button
+              >Close</button>
+              {playerPhase !== 'battle' && <button
                 onClick={() => {
                   if (!playableNow || deploying) return;
                   if (card.type === 'Creature') {
@@ -2209,7 +2210,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                   fontFamily: 'inherit',
                   boxShadow: playableNow ? '0 4px 14px rgba(255,94,60,.4)' : 'none',
                 }}
-              >{actionLabel}</button>
+              >{actionLabel}</button>}
             </div>
           </div>
         );
@@ -3564,7 +3565,13 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
     || spell.abilityKind === 'spell_nourish'
     || spell.abilityKind === 'spell_heal_friend';
   if (c.abilityKind === 'untargetable' && !isFriendly) return false;
-  if (isFriendly) return owner === 'player';
+  if (isFriendly) {
+    if (owner !== 'player') return false;
+    // Theme restriction: common/rare buffs and heals only work on same-theme
+    // creatures. Legendary and epic spells bypass the restriction.
+    const unrestricted = spell.rarity === 'legendary' || spell.rarity === 'epic';
+    return unrestricted || c.el === spell.el;
+  }
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return true;
   return false;

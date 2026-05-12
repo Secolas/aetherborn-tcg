@@ -1,8 +1,32 @@
 import { Sparkles } from 'lucide-react';
 import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
-import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
+import type { CardTemplate, CollectionCard, BattleCard, ElementId } from '../game/types';
 import { ElementGlyph } from './ElementGlyph';
 import { PhotoFrame } from './PhotoFrame';
+
+const PLACEHOLDER_RE = /\[(family|work|animals|travel|food|education)\]/g;
+
+function AbilityText({ text, scale, color }: { text: string; scale: number; color: string }) {
+  const parts: React.ReactNode[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+  PLACEHOLDER_RE.lastIndex = 0;
+  while ((match = PLACEHOLDER_RE.exec(text)) !== null) {
+    if (match.index > last) parts.push(text.slice(last, match.index));
+    const el = match[1] as ElementId;
+    parts.push(
+      <ElementGlyph key={match.index} el={el} size={Math.round(11 * scale)} bare />
+    );
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return (
+    <span style={{ fontWeight: 700, color, fontSize: 10 * scale, lineHeight: 1.25, flex: 1,
+      display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 2 * scale }}>
+      {parts}
+    </span>
+  );
+}
 
 interface Props {
   card: CardTemplate | CollectionCard | BattleCard;
@@ -151,13 +175,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
               lineHeight: 1.4,
               marginTop: 1 * scale,
             }}>Ability</span>
-            <span style={{
-              fontWeight: 700,
-              color: tp.deep,
-              fontSize: 10 * scale,
-              lineHeight: 1.25,
-              flex: 1,
-            }}>{card.ability}</span>
+            <AbilityText text={card.ability} scale={scale} color={tp.deep} />
           </div>
         )}
         {card.flavor && (

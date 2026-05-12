@@ -672,15 +672,16 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
     }
     state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
   } else if (card.abilityKind === 'spell_buff_all' && card.type === 'Creature') {
-    // Graduation Day — on-play, gives every friendly creature a
-    // permanent +V/+V (the same kind also exists as a Work spell
-    // called Payroll). The on-play version skips the caster itself
-    // because it doesn't appear in me.field yet when this fires.
+    // Graduation Day — on-play, gives every friendly creature a permanent +V/+V.
+    // Legendary/epic creatures buff any theme; others restrict to same theme.
     const amt = card.abilityValue ?? 1;
+    const baOnPlayUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
     for (const c of me.field) {
-      c.currentAtk += amt;
-      c.currentHp += amt;
-      c.hp += amt;
+      if (baOnPlayUnrestricted || c.el === card.el) {
+        c.currentAtk += amt;
+        c.currentHp += amt;
+        c.hp += amt;
+      }
     }
     state.log.push(`${displayName(card)} buffs your creatures +${amt}/+${amt}`);
   }
@@ -728,9 +729,13 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
   } else if (card.abilityKind === 'spell_share_meal') {
     // Board-wide creature heal. Only owner's creatures, capped at their
-    // max hp so it can't stack into a heal-into-buff loop.
+    // max hp. Theme-restricted: only heals same-theme creatures unless
+    // the spell is legendary or epic.
+    const srUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
     for (const c of me.field) {
-      c.currentHp = Math.min(c.hp, c.currentHp + v);
+      if (srUnrestricted || c.el === card.el) {
+        c.currentHp = Math.min(c.hp, c.currentHp + v);
+      }
     }
     state.log.push(`${displayName(card)} feeds your creatures +${v}`);
   } else if (card.abilityKind === 'spell_feast') {
@@ -760,13 +765,15 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
     state.log.push(`${displayName(card)} — both players draw`);
   } else if (card.abilityKind === 'spell_buff_all') {
-    // Payroll / Graduation Day variant: +V/+V to every friendly
-    // creature (permanent). Permanent — increases both currentHp/hp
-    // and atk so it persists through later damage.
+    // Payroll / Group Project / Graduation Day: +V/+V to friendly creatures.
+    // Theme-restricted: only buffs same-theme creatures unless legendary/epic.
+    const baUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
     for (const c of me.field) {
-      c.currentAtk += v;
-      c.currentHp += v;
-      c.hp += v;
+      if (baUnrestricted || c.el === card.el) {
+        c.currentAtk += v;
+        c.currentHp += v;
+        c.hp += v;
+      }
     }
     state.log.push(`${displayName(card)} buffs your creatures +${v}/+${v}`);
   } else if (card.abilityKind === 'exam_pass') {

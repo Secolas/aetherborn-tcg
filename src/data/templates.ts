@@ -69,7 +69,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a birthday cake or dessert' },
 
   { id: 'fam-10', name: 'Family Photo', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +3/+3.',
+    ability: 'Give a [family] creature +3/+3.',
     flavor: 'They remember why they fight.',
     abilityKind: 'spell_buff', abilityValue: 3,
     rarity: 'rare', suggested: 'everyone in one shot — group photo' },
@@ -127,7 +127,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a coworker or office buddy' },
 
   { id: 'wrk-04', name: 'Coffee', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +2/+2.',
+    ability: 'Give a [work] creature +2/+2.',
     flavor: 'Now they can think.',
     abilityKind: 'spell_buff', abilityValue: 2,
     rarity: 'common', suggested: 'a coffee, mug, or barista shot' },
@@ -162,7 +162,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a conference room, calendar, Zoom call' },
 
   { id: 'wrk-10', name: 'Promotion', el: 'work', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +4/+4.',
+    ability: 'Give a [work] creature +4/+4.',
     flavor: 'They earned it.',
     abilityKind: 'spell_buff', abilityValue: 4,
     rarity: 'rare', suggested: 'a name plaque, an award, a trophy' },
@@ -192,7 +192,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a team gathered around a desk or whiteboard' },
 
   { id: 'wrk-15', name: 'Payroll', el: 'work', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give each of your creatures +1/+1.',
+    ability: 'Give each of your [work] creatures +1/+1.',
     flavor: 'Cleared. Direct deposit.',
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'rare', suggested: 'a paycheck, an ATM screen, or your bank app' },
@@ -237,7 +237,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a bird — owl, eagle, sparrow, anything' },
 
   { id: 'ani-07', name: 'Treats', el: 'animals', cost: 3, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +3/+3.',
+    ability: 'Give an [animals] creature +3/+3.',
     flavor: 'Good boy.',
     abilityKind: 'spell_buff', abilityValue: 3,
     rarity: 'common', suggested: 'pet food, a treat, a bowl' },
@@ -348,7 +348,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a beach, ocean view, or shoreline' },
 
   { id: 'trv-11', name: 'First Class', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a creature +4/+4.',
+    ability: 'Give a [travel] creature +4/+4.',
     flavor: 'Some people travel differently.',
     abilityKind: 'spell_buff', abilityValue: 4,
     rarity: 'rare', suggested: 'a lie-flat seat, a champagne flute, a lounge' },
@@ -382,7 +382,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a coffee cup, latte, or steaming mug' },
 
   { id: 'fd-02', name: 'Hot Soup', el: 'food', cost: 1, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a friendly creature +0/+2 HP.',
+    ability: 'Give a [food] creature +0/+2 HP.',
     flavor: 'The cure for almost everything.',
     abilityKind: 'spell_nourish', abilityValue: 2,
     rarity: 'common', suggested: 'a bowl of soup or stew' },
@@ -412,13 +412,13 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a crockpot, slow cooker, or simmering pot' },
 
   { id: 'fd-07', name: 'Recipe Card', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a friendly creature +1/+1.',
+    ability: 'Give a [food] creature +1/+1.',
     flavor: 'Pinch of salt, ten more minutes.',
     abilityKind: 'spell_buff', abilityValue: 1,
     rarity: 'common', suggested: 'a handwritten recipe or cookbook page' },
 
   { id: 'fd-08', name: 'Share the Meal', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Heal each of your creatures +2 HP.',
+    ability: 'Heal each of your [food] creatures +2 HP.',
     flavor: 'Nobody eats alone tonight.',
     abilityKind: 'spell_share_meal', abilityValue: 2,
     rarity: 'rare', suggested: 'a shared plate, family-style dinner, friends eating' },
@@ -448,7 +448,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'legendary', suggested: 'a holiday spread, big dinner table, feast scene' },
 
   { id: 'fd-13', name: 'Sip', el: 'food', cost: 1, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 3 HP to a friendly creature.',
+    ability: 'Restore 3 HP to a [food] creature.',
     flavor: 'A small drink. A small reset.',
     abilityKind: 'spell_heal_friend', abilityValue: 3,
     rarity: 'common', suggested: 'a glass of water, an iced tea, a smoothie' },
@@ -495,7 +495,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a school hallway, lockers, or a hall pass' },
 
   { id: 'edu-05', name: 'Group Project', el: 'education', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give each of your creatures +1/+1.',
+    ability: 'Give each of your [education] creatures +1/+1.',
     flavor: 'Two people do the work. Everyone signs.',
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'rare', suggested: 'students gathered around a table working together' },
