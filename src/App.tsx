@@ -12,9 +12,9 @@ import { SettingsScreen } from './screens/Settings';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
-import { getTemplateById } from './data/templates';
+import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
-import type { CollectionCard, SaveData, Difficulty, DeckSlot } from './game/types';
+import type { CollectionCard, SaveData, Difficulty, DeckSlot, ElementId } from './game/types';
 
 const MAX_DECKS = 5;
 let _deckIdCounter = 0;
@@ -51,6 +51,11 @@ export default function App() {
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
   const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('normal');
+  /** When set, the upcoming match uses a placeholder deck built from
+   *  this theme's templates instead of the player's saved deck. Lets
+   *  you test boss balance without first capturing 12+ photos. Cleared
+   *  on match exit. */
+  const [activeTestTheme, setActiveTestTheme] = useState<ElementId | null>(null);
 
   // Browsers require a user gesture before AudioContext can play. Unlock on
   // the first pointerdown anywhere in the app, then detach.
@@ -280,15 +285,27 @@ export default function App() {
     });
   };
 
-  const onPickBoss = (boss: BossDef, difficulty: Difficulty) => {
+  const onPickBoss = (boss: BossDef, difficulty: Difficulty, testThemeId: ElementId | null) => {
     setActiveBoss(boss);
     setActiveDifficulty(difficulty);
+    setActiveTestTheme(testThemeId);
     setScreen('match');
   };
 
   const onMatchExit = (outcome: 'win' | 'loss' | 'quit') => {
     const boss = activeBoss;
     const difficulty = activeDifficulty;
+    const wasTest = activeTestTheme !== null;
+    setActiveTestTheme(null);
+    // Test-deck matches don't grant coins or count as beating the boss —
+    // they're for balance testing, not progression. Otherwise spamming
+    // test fights would inflate coins and falsely unlock the "beaten"
+    // medal on bosses the player hasn't legitimately defeated.
+    if (wasTest) {
+      setActiveBoss(null);
+      setScreen('home');
+      return;
+    }
     if (outcome === 'win') {
       setSave(s => {
         const firstTime = boss && !s.bossesDefeated.includes(boss.id);
@@ -328,9 +345,22 @@ export default function App() {
   const activeDeckUids = (save.decks && save.activeDeckId)
     ? (save.decks.find(d => d.id === save.activeDeckId)?.uids ?? save.deckUids)
     : save.deckUids;
-  const matchDeck = activeDeckUids
-    .map(uid => save.collection.find(c => c.uid === uid))
-    .filter((c): c is CollectionCard => !!c && !!c.photo);
+  // When a test theme is selected we synthesize a 12-13 card deck from
+  // that theme's templates with placeholder aiPhoto images, so the
+  // player can quick-fight any boss without first capturing photos /
+  // building a deck. This is intentionally ephemeral — nothing in this
+  // deck touches save.collection. The match plays normally; only the
+  // reward path (onMatchExit) knows whether to credit the win or not.
+  const matchDeck: CollectionCard[] = activeTestTheme
+    ? templatesByTheme(activeTestTheme).map((t, i) => ({
+        ...t,
+        uid: `test_${activeTestTheme}_${i}_${t.id}`,
+        photo: aiPhoto(t.id),
+        isPlaceholder: true,
+      }))
+    : activeDeckUids
+        .map(uid => save.collection.find(c => c.uid === uid))
+        .filter((c): c is CollectionCard => !!c && !!c.photo);
 
   return (
     <PhoneShell>
