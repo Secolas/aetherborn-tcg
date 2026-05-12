@@ -737,9 +737,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }), 900);
       }
 
+      // Settle beat — when a turn flipped, add an extra ~600ms after
+      // all queued animations so the player perceives a clear gap
+      // between "my abilities finished firing" and "the boss starts
+      // acting." Without this the Senior Year graduation reveal +
+      // buff popup ran right into the boss's first attack, reading
+      // as overlap. The buffer also gives the YOUR TURN / BOSS TURN
+      // banner room to land cleanly.
+      const turnSettle = (fresh.turnNumber > prev.turnNumber) ? 600 : 0;
       // Tell the AI driver to wait until the pipeline finishes.
-      if (pipeDelay > 250) {
-        holdAnim(pipeDelay);
+      if (pipeDelay > 250 || turnSettle > 0) {
+        holdAnim(pipeDelay + turnSettle);
         setAnimTick(t => t + 1);
       }
 
@@ -835,9 +843,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const newActiveField = newActiveSide === 'player' ? state.player.field : state.opponent.field;
           for (const c of newActiveField) {
             if (c.abilityKind === 'heal_each_turn' && c.abilityValue) {
+              const who = newActiveSide === 'player' ? 'You heal' : `${boss.name} heals`;
               effectFires.push({
                 card: c,
-                text: `Restore ${c.abilityValue} HP`,
+                text: `${who} +${c.abilityValue} HP`,
                 side: newActiveSide,
               });
             }
@@ -1349,10 +1358,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         else flashMsg(r.reason ?? 'Cannot play');
       }
     } else {
-      const noTarget = card.abilityKind === 'spell_heal'
-        || card.abilityKind === 'draw_on_play'
-        || card.id === 'ti-05';
-      if (noTarget) {
+      if (isNoTargetSpell(card)) {
         if (drag.overField) castSpell(card, { kind: 'face', owner: 'player' });
       } else if (drag.overField) {
         setPendingSpell(card);
@@ -1388,10 +1394,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         flashMsg(r.reason ?? 'Cannot play');
       }
     } else {
-      const noTarget = card.abilityKind === 'spell_heal'
-        || card.abilityKind === 'draw_on_play'
-        || card.id === 'ti-05';
-      if (noTarget) {
+      if (isNoTargetSpell(card)) {
         castSpell(card, { kind: 'face', owner: 'player' });
       } else {
         // Spell needs a target — graduate from "selected hand card" to "pending spell"
@@ -1933,17 +1936,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const card = state.player.hand[selectedHandIdx];
         const playableNow = effectiveCost(state.player, card) <= state.player.mana && state.turn === 'player';
         const isSpell = card.type === 'Spell';
-        const needsTarget = isSpell && !(
-          card.abilityKind === 'spell_heal' ||
-          card.abilityKind === 'spell_share_meal' ||
-          card.abilityKind === 'spell_feast' ||
-          card.abilityKind === 'spell_both_draw' ||
-          card.abilityKind === 'spell_buff_all' ||
-          card.abilityKind === 'exam_pass' ||
-          card.abilityKind === 'pop_quiz' ||
-          card.abilityKind === 'draw_on_play' ||
-          card.id === 'ti-05'
-        );
+        const needsTarget = isSpell && !isNoTargetSpell(card);
         const actionLabel = !playableNow
           ? (state.turn !== 'player' ? "Wait — it's their turn" : 'Not enough mana')
           : isSpell
@@ -3236,6 +3229,27 @@ function spellTargetHint(card: BattleCard): string {
     case 'spell_heal_friend': return `Tap your creature to restore ${card.abilityValue ?? 0} HP`;
     case 'silence':      return 'Tap an enemy creature to silence it';
     default:             return 'Tap a target';
+  }
+}
+
+/** Spells that don't need a target — they self-resolve when cast.
+ *  Centralised so every entry point (drag, tap-to-play, needsTarget
+ *  UI hint) agrees on the same list. Missing entries here cause the
+ *  "Tap a target" UI flow to wait forever for a tap that does nothing
+ *  (Group Project / Pop Quiz / Final Exam / etc. all had this bug). */
+function isNoTargetSpell(card: BattleCard): boolean {
+  switch (card.abilityKind) {
+    case 'spell_heal':
+    case 'spell_share_meal':
+    case 'spell_feast':
+    case 'spell_both_draw':
+    case 'spell_buff_all':
+    case 'exam_pass':
+    case 'pop_quiz':
+    case 'draw_on_play':
+      return true;
+    default:
+      return card.id === 'ti-05';
   }
 }
 
