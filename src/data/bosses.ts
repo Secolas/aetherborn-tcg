@@ -74,6 +74,12 @@ export const BOSSES: BossDef[] = [
     intro: "You haven't called.",
     playstyle: "Sunday dinner regulars. Mom heals every turn she stands, and when Dad joins the table the family grows stronger together.",
     rewardCoins: 150,
+    // Normal-tier deck deliberately OMITS legendary cards so fresh
+    // players can win their first encounter against Mom. The Sunday
+    // Dinner legendary heal (fam-12) shows up only in the mythicDeck
+    // override. Hard tier (which uses this same deck under smarter
+    // AI) also stays legendary-free; legendaries are a Mythic-only
+    // reward for opting into that difficulty.
     deck: [
       'fam-01',          // Family Pet
       'fam-02',          // Cousin
@@ -85,7 +91,7 @@ export const BOSSES: BossDef[] = [
       'fam-08',          // Abuela
       'fam-09',          // Birthday Cake
       'fam-11',          // Dad
-      'fam-12',          // Sunday Dinner — finisher heal
+      'fam-14',          // Hug (cheap heal — replaces Sunday Dinner)
     ],
     photoOverrides: {
       'fam-11': U('photo-1539571696357-5a69c17a67c6'),  // her own warm-smile dad
@@ -124,6 +130,8 @@ export const BOSSES: BossDef[] = [
     intro: 'Got a minute? It will only take a minute.',
     playstyle: "Runs the room from the corner office. Freezes your plays, pings with spam, and promotes loyal staff into spell-amplifying closers.",
     rewardCoins: 150,
+    // Normal: no legendary. The Boss (wrk-12) is the Mythic-tier
+    // exclusive. Hard uses this same deck under smarter AI.
     deck: [
       'wrk-01',          // Intern
       'wrk-02', 'wrk-02',// Spam Email x2 — chip damage
@@ -134,7 +142,7 @@ export const BOSSES: BossDef[] = [
       'wrk-09',          // Meeting — freeze
       'wrk-10',          // Promotion
       'wrk-11',          // Lunch Break
-      'wrk-12',          // The Boss
+      'wrk-14',          // Stand-up Meeting (cheap draw — replaces The Boss)
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo
@@ -174,6 +182,10 @@ export const BOSSES: BossDef[] = [
     intro: 'Bare your teeth or run.',
     playstyle: "Hunts as a pack. Floods the board with small bodies and finishes with apex predators that strike together — Wolf and Lion gain Rush when both are out.",
     rewardCoins: 150,
+    // Normal: no legendary. Lion (ani-12, legendary 6/6) is the
+    // Mythic-only finisher. Pack Alpha still has Wolf (epic) at the
+    // top of curve. The Pack bond won't activate on Normal without
+    // Lion present — that's intentional, the bond is a Mythic reward.
     deck: [
       'ani-01', 'ani-01',// Mouse x2 — flood the board
       'ani-02',          // Snake Bite
@@ -185,7 +197,7 @@ export const BOSSES: BossDef[] = [
       'ani-09',          // Bear Trap
       'ani-10',          // Horse
       'ani-11',          // Wolf
-      'ani-12',          // Lion
+      'ani-14',          // Mosquito (cheap vanilla — replaces Lion)
     ],
     photoOverrides: {
       'ani-12': U('photo-1546182990-dffeafbe841d'),    // their own apex lion
@@ -227,6 +239,8 @@ export const BOSSES: BossDef[] = [
     intro: "Don't get attached.",
     playstyle: "Always moving. Cycles cards fast, swings with Rushers the turn they land, and pushes for lethal before you can settle in.",
     rewardCoins: 150,
+    // Normal: no legendary. Mountain Summit (trv-12, legendary 6/5
+    // Rush finisher) is Mythic-only.
     deck: [
       'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early
       'trv-02',          // Carry-On — small evasive body
@@ -238,7 +252,7 @@ export const BOSSES: BossDef[] = [
       'trv-09',          // Hotel — defensive anchor
       'trv-10',          // Beach — heal
       'trv-11',          // First Class — finisher buff
-      'trv-12',          // Mountain Summit — finisher
+      'trv-13',          // Ticket Stub (cheap draw — replaces Mountain Summit)
     ],
     photoOverrides: {
       'trv-12': U('photo-1464822759023-fed622ff2c3b'),  // their own mountain summit
@@ -281,6 +295,8 @@ export const BOSSES: BossDef[] = [
     intro: 'Pull up a chair. Plate\'s almost ready.',
     playstyle: "Outlasts you. Heals her board every turn the breakfast combo is up, recovers spells when Lunch Box dies, and stabilizes any near-death turn with Family Feast.",
     rewardCoins: 150,
+    // Normal: no legendary. Family Feast (fd-12, legendary +8 face
+    // heal + creature heal) is Mythic-only.
     deck: [
       'fd-01', 'fd-01',  // Coffee Mug x2 — early body + Breakfast Combo enabler
       'fd-02',           // Hot Soup — defensive buff
@@ -291,9 +307,9 @@ export const BOSSES: BossDef[] = [
       'fd-07',           // Recipe Card — small buff
       'fd-08',           // Share the Meal — board heal
       'fd-09',           // Comfort Food — face heal
-      'fd-10',           // Grandma's Pie — taunt
+      'fd-10',           // Grandma's Pie — heal_each_turn
       'fd-11',           // The Cook — on-play heal
-      'fd-12',           // Family Feast — finisher
+      'fd-13',           // Sip (cheap creature heal — replaces Family Feast)
     ],
     photoOverrides: {
       // Her own iconic plates — distinct photos for the cards she's
@@ -341,19 +357,23 @@ export const BOSSES: BossDef[] = [
     intro: 'Sit. Down.',
     playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
+    // Normal-tier deck deliberately OMITS the epic/legendary finishers
+    // (Senior Year, Graduation Day) so Family / Animals / Travel players
+    // can win a first encounter without being run over by an
+    // Untargetable 7/8 graduate. Those threats only appear in the
+    // mythicDeck override below for players who opt into Mythic.
     deck: [
-      'edu-01',          // Pencil (1m vanilla)
+      'edu-01', 'edu-01',// Pencil x2 — vanilla filler
       'edu-02',          // Backpack (1m draw)
       'edu-03',          // Math Teacher (level_up)
       'edu-04',          // Bathroom Break (freeze)
       'edu-05',          // Group Project (+1/+1 all)
       'edu-06',          // Physics Class (level_up)
       'edu-07',          // Pop Quiz (discard + draw 2)
-      'edu-08',          // The Bully (rush)
+      'edu-08',          // The Bully (vanilla 4/2)
       'edu-09',          // Library (heal_each_turn 1)
       'edu-10',          // Final Exam (conditional damage / heal)
-      'edu-11',          // Senior Year (graduate)
-      'edu-12',          // Graduation Day (on-play +1/+1 all)
+      'edu-13',          // Physical Ed Class (3/3 Rush)
     ],
     photoOverrides: {
       'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
