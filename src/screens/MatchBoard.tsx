@@ -239,6 +239,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       setTimeout(() => setDrawFlights(f => f.filter(x => x.id !== id)), 1200);
     }, delay);
   };
+  /** Player card battleIds whose draw-flight animation is still airborne.
+   *  Cards in this set are hidden from the fan until the flight lands so
+   *  the reveal happens after the animation, not before it. */
+  const [pendingDrawIds, setPendingDrawIds] = useState<Set<string>>(new Set());
   /** Bumps every time the active player's mana ramps so the chip can pulse. */
   const [manaPulse, setManaPulse] = useState(0);
   /** Per-creature buff popup: shows "+atk/+hp" in green over the creature
@@ -750,12 +754,21 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       // (after End Phase banner + level_up reveals + buff popups)
       // so they read as the start-of-turn beat, not as something
       // that happened during the previous player's End Phase.
-      const newPlayerCards = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id)).length;
-      const newOppCards    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id)).length;
+      const newPlayerIds = [...fresh.handIds.player].filter(id => !prev.handIds.player.has(id));
+      const newOppIds    = [...fresh.handIds.opponent].filter(id => !prev.handIds.opponent.has(id));
+      const newPlayerCards = newPlayerIds.length;
+      const newOppCards    = newOppIds.length;
       const totalDraws = newPlayerCards + newOppCards;
       if (totalDraws > 0 && !turnFlipped) {
         const drawStep = 420;
         const at = pipeDelay;
+        // Hide newly-drawn cards in the fan until each card's flight lands.
+        if (newPlayerIds.length) {
+          setPendingDrawIds(s => new Set([...s, ...newPlayerIds]));
+          newPlayerIds.forEach((id, i) => {
+            setTimeout(() => setPendingDrawIds(s => { const n = new Set(s); n.delete(id); return n; }), at + i * drawStep + 1200);
+          });
+        }
         for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
         for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
         pipeDelay += totalDraws * drawStep + 700;
@@ -945,6 +958,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         if (totalDraws > 0) {
           const drawStep = 420;
           const at = pipeDelay;
+          // Hide newly-drawn cards in the fan until each card's flight lands.
+          if (newPlayerIds.length) {
+            setPendingDrawIds(s => new Set([...s, ...newPlayerIds]));
+            newPlayerIds.forEach((id, i) => {
+              setTimeout(() => setPendingDrawIds(s => { const n = new Set(s); n.delete(id); return n; }), at + i * drawStep + 1200);
+            });
+          }
           for (let i = 0; i < newPlayerCards; i++) fireDraw('player', at + i * drawStep);
           for (let i = 0; i < newOppCards; i++) fireDraw('opponent', at + i * drawStep);
           setTimeout(() => setManaPulse(p => p + 1), at);
@@ -1061,6 +1081,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }), popAt + 1100);
           pipeDelay += 1100;
         }
+        // Re-lock the AI driver with the final pipeDelay. The early
+        // holdAnim call above only had the partial value (before
+        // endPhaseFires, drawPhaseFires, bond toasts grew pipeDelay),
+        // so we update the ref here once everything is queued.
+        holdAnim(pipeDelay + turnSettle);
       }
 
     }
@@ -1527,6 +1552,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     });
   };
 
+  const handleGoBattle = () => {
+    setPlayerPhase('battle');
+    const key = Date.now() + 3333;
+    setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
+  };
+
   const onMyCreatureClick = (c: BattleCard) => {
     if (pendingSpell) return;
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
@@ -1839,7 +1871,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             const isPlayer = state.turn === 'player';
             const inBattle = isPlayer && playerPhase === 'battle';
             const label = inBattle ? 'End Turn →' : 'Go to Battle →';
-            const handleClick = inBattle ? onEndTurn : () => setPlayerPhase('battle');
+            const handleClick = inBattle ? onEndTurn : handleGoBattle;
             return (
               <button
                 onClick={(e) => { e.stopPropagation(); if (isPlayer) handleClick(); }}
@@ -1969,11 +2001,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         position: 'relative',
         pointerEvents: 'none',
       }}>
-        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand).map((card, i) => {
+        {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
+          .filter(card => !pendingDrawIds.has(card.battleId))
+          .map((card, i, visibleHand) => {
           const isDragging = drag?.battleId === card.battleId;
           const isCasting = playerSpellReveal?.battleId === card.battleId;
           if (isDragging || isCasting) return null;
-          const cardCount = state.player.hand.length;
+          const cardCount = visibleHand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
           // Unaffordable = not enough mana. Bond discounts (Reporting Line)
