@@ -471,7 +471,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a school backpack, tote, or messenger bag' },
 
   { id: 'edu-03', name: 'Math Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
-    ability: 'At the end of your turn, this gains +1/+1.',
+    ability: 'At the end of your turn, this gains +1/+1 (max 3 levels).',
     flavor: 'Show your work.',
     abilityKind: 'level_up',
     rarity: 'rare', suggested: 'a teacher at a chalkboard, with numbers or formulas' },
@@ -489,7 +489,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'students gathered around a table working together' },
 
   { id: 'edu-06', name: 'Physics Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
-    ability: 'At the end of your turn, this gains +1/+1.',
+    ability: 'At the end of your turn, this gains +1/+1 (max 3 levels).',
     flavor: 'For every action, an equal and opposite reaction.',
     abilityKind: 'level_up',
     rarity: 'rare', suggested: 'a science classroom, lab equipment, or an experiment' },
@@ -519,7 +519,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'epic', suggested: 'a packed exam room, a clock on the wall, an answer sheet' },
 
   { id: 'edu-11', name: 'Senior Year', el: 'education', cost: 4, atk: 2, hp: 3, type: 'Creature',
-    ability: 'At the end of your turn, this gains +1/+1. After 3 turns, also gain +2/+2 and Untargetable.',
+    ability: 'At the end of your turn, this gains +1/+1 (3 turns). On the 3rd, also gain +2/+2 and Untargetable.',
     flavor: 'Almost done. Almost free.',
     abilityKind: 'graduate', abilityValue: 3,
     rarity: 'epic', suggested: 'a yearbook portrait, a senior photo, a cap and gown closeup' },

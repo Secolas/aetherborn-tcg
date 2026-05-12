@@ -403,14 +403,6 @@ export function endTurn(prev: MatchState): MatchState {
       c.frozen = false;
       c.frozenUntilTurn = undefined;
     }
-    if (c.silenced) {
-      c.abilityKind = c.originalAbilityKind ?? 'none';
-      c.ability = c.originalAbility ?? '';
-      c.silenced = false;
-      c.silencedUntilTurn = undefined;
-      c.originalAbilityKind = undefined;
-      c.originalAbility = undefined;
-    }
     // Education theme: per-turn growth. Fires at end of every owner
     // turn the creature is on the field — INCLUDING the turn it was
     // summoned, so the player sees the leveling effect right away
@@ -428,6 +420,12 @@ export function endTurn(prev: MatchState): MatchState {
     // it hit the cap faster, not exceed it. Graduate uses abilityValue
     // as the threshold turn for transformation; once graduated the
     // ability swaps to untargetable and level ticks stop naturally.
+    //
+    // ORDER MATTERS: we run the level-up check BEFORE the silence
+    // wear-off below, so a silenced creature has abilityKind='none'
+    // here and is naturally skipped. That's how Muzzle / Tough Love
+    // suppress level_up for one turn. If you reorder this, silence
+    // becomes a no-op against the Education deck.
     const LEVEL_CAP = 3;
     if ((c.abilityKind === 'level_up' || c.abilityKind === 'graduate') && (c.turnsAlive ?? 0) < LEVEL_CAP) {
       const doubled = activeBonds(me).some(b => b.effect.kind === 'level_up_doubled');
@@ -457,6 +455,18 @@ export function endTurn(prev: MatchState): MatchState {
         c.ability = 'Graduated. Untargetable.';
         cleared.log.push(`${displayName(c)} graduates — +2/+2 and Untargetable`);
       }
+    }
+    // Wear off silence at end of the silenced creature's owner-turn.
+    // Runs AFTER the level_up check above, so silence properly
+    // suppresses the ability for the full silenced turn before
+    // wearing off here.
+    if (c.silenced) {
+      c.abilityKind = c.originalAbilityKind ?? 'none';
+      c.ability = c.originalAbility ?? '';
+      c.silenced = false;
+      c.silencedUntilTurn = undefined;
+      c.originalAbilityKind = undefined;
+      c.originalAbility = undefined;
     }
   });
 
@@ -816,12 +826,15 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.abilityKind = 'none';
       c.ability = '';
       c.silenced = true;
-      // Expire at the silenced creature's next begin-turn (= state.turnNumber + 1
-      // for cross-side silence, since `beginTurn` increments turnNumber
-      // before its safety-net check fires). Combined with the `>=` check
-      // in beginTurn this gives a strict "this turn only" lifespan from
-      // the caster's perspective.
-      c.silencedUntilTurn = state.turnNumber + 1;
+      // Persist the silence through the SILENCED creature's full next
+      // owner-turn. silencedUntilTurn = N+2 means: cast at boss turn N,
+      // safety net on player turn N+1 sees N+1 < N+2 (silence stays),
+      // player ends turn N+1 — endTurn skips level_up (gated on
+      // !silenced) and then restores the ability. So silence
+      // suppresses the target's level_up / heal_each_turn / etc. for
+      // exactly one of their turns, which is what "Muzzle disables
+      // Math Teacher for 1 turn" should mean.
+      c.silencedUntilTurn = state.turnNumber + 2;
     }
   } else if (card.abilityKind === 'draw_on_play') {
     // Reflecting Pool (a draw "spell") — reuse logic
