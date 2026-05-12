@@ -364,6 +364,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const holdMs = step.played.type === 'Spell' ? 2700
             : isImpactful ? 2300
             : 1900;
+          // Reserve the busy clock for the full reveal hold so the
+          // AI driver doesn't tick another action mid-reveal. The
+          // post-reveal setState fires its own state-diff which
+          // extends the clock further for any on-play effects.
+          holdAnim(holdMs + 100);
           // Fire the target burst near the end of the reveal so it lands as
           // the spell finishes resolving.
           if (step.played.type === 'Spell' && step.spellTarget) {
@@ -1135,6 +1140,21 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const attackerDying = !!attackerCard && info.damageToAtk >= attackerCard.currentHp;
     const anyDying = defenderDying || attackerDying;
 
+    // Reserve the busy clock for the entire combat sequence including
+    // the post-state-swap settle. Without this, the AI driver could
+    // re-tick on the state change at stateDelay and start another
+    // animation while the slash/impact callouts were still on screen.
+    // Death ghosts add their own flyToGrave hold on top via the
+    // state-diff effect, so we only need to cover the combat overlay
+    // here.
+    {
+      const isTradeNow = defenderKind === 'creature';
+      const totalCombatMs = isTradeNow
+        ? (anyDying ? 3900 : 3400)
+        : (anyDying ? 1700 : 1100);
+      holdAnim(totalCombatMs + 200);
+    }
+
     // Yu-Gi-Oh Duel Links pacing — combat plays out across ~3400ms
     // (3900 if anyone dies) so the BATTLE banner, ATK/HP callouts,
     // strike → counter, and settle each have visible time. Face attacks
@@ -1249,6 +1269,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setSelectedHandIdx(null);
     setPendingSpell(null);
     sfx('cardPlay');
+    // Player spell reveal is 900ms (matches the playerSpellReveal
+    // keyframe). Reserve the busy clock for it + the burst so no
+    // other animation overlaps the cast. State-diff after r.state
+    // commits will extend the clock for any resolved effects.
+    holdAnim(1000);
 
     // Burst the target ~600ms in (right before state applies) so the spell
     // visibly "lands" on whatever it was aimed at.

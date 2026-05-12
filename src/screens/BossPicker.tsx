@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, Check, Coins, Flame, Skull, Swords, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Check, Flame, Lock, Skull, Swords, ChevronLeft, ChevronRight } from 'lucide-react';
 import { BOSSES, type BossDef } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
 import { TEMPLATES } from '../data/templates';
@@ -239,6 +239,19 @@ function BossPage({
   const e = ELEMENTS[boss.themeId];
   const profile = difficultyProfile(difficulty);
   const reward = Math.round(boss.rewardCoins * profile.rewardMult);
+  // Tier progression — Hard unlocks after Normal win on this boss,
+  // Mythic unlocks after Hard win. Test-deck matches DON'T count
+  // (onMatchExit skips bossesBeatenAt for test runs), so the player
+  // has to earn each tier with their own deck. This is per-boss:
+  // beating Mom on Hard doesn't unlock Mythic for The Manager.
+  const ORDER: Difficulty[] = ['normal', 'hard', 'mythic'];
+  const beaten = beatenAt; // highest difficulty cleared on THIS boss
+  const isUnlocked = (d: Difficulty) => {
+    if (d === 'normal') return true;
+    if (d === 'hard')   return !!beaten && ORDER.indexOf(beaten) >= ORDER.indexOf('normal');
+    /* mythic */         return !!beaten && ORDER.indexOf(beaten) >= ORDER.indexOf('hard');
+  };
+  const tierLocked = !isUnlocked(difficulty);
 
   return (
     <div style={{
@@ -308,28 +321,41 @@ function BossPage({
           {DIFFICULTIES.map(d => {
             const active = difficulty === d;
             const dp = difficultyProfile(d);
+            const unlocked = isUnlocked(d);
             return (
               <button
                 key={d}
                 data-no-swipe
-                onClick={() => onChangeDifficulty(d)}
+                onClick={() => unlocked && onChangeDifficulty(d)}
+                disabled={!unlocked}
                 style={{
                   flex: 1, padding: '10px 0',
-                  background: active ? '#fff' : 'rgba(255,255,255,.55)',
-                  color: active ? PALETTE.text : PALETTE.textMid,
-                  border: active ? '2px solid #ee5a52' : '2px solid transparent',
+                  background: !unlocked
+                    ? 'rgba(255,255,255,.25)'
+                    : active ? '#fff' : 'rgba(255,255,255,.55)',
+                  color: !unlocked
+                    ? '#9a958c'
+                    : active ? PALETTE.text : PALETTE.textMid,
+                  border: active && unlocked
+                    ? '2px solid #3a2e2a'
+                    : '2px solid transparent',
                   borderRadius: 12,
                   fontFamily: 'inherit', fontWeight: 800, fontSize: 13,
-                  cursor: 'pointer',
+                  cursor: unlocked ? 'pointer' : 'not-allowed',
                   letterSpacing: '0.04em',
-                  boxShadow: active
-                    ? '0 4px 10px rgba(238,90,82,.22)'
+                  opacity: unlocked ? 1 : 0.6,
+                  boxShadow: active && unlocked
+                    ? '0 4px 10px rgba(58,46,42,.22)'
                     : '0 1px 2px rgba(58,46,42,.06)',
-                  transition: 'background .15s, border-color .15s, box-shadow .15s',
+                  transition: 'background .15s, border-color .15s, box-shadow .15s, opacity .15s',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
                 }}
               >
-                {d === 'mythic' ? <Skull size={14} strokeWidth={2.4} /> : d === 'hard' ? <Flame size={14} strokeWidth={2.4} /> : null}
+                {!unlocked
+                  ? <Lock size={13} strokeWidth={2.6} />
+                  : d === 'mythic' ? <Skull size={14} strokeWidth={2.4} />
+                  : d === 'hard'   ? <Flame size={14} strokeWidth={2.4} />
+                  : null}
                 {dp.label}
               </button>
             );
@@ -351,9 +377,9 @@ function BossPage({
           {testThemeId && (
             <span style={{
               fontSize: 9, fontWeight: 700, letterSpacing: '0.1em',
-              color: ELEMENTS[testThemeId].color,
+              color: PALETTE.textMid,
               padding: '1px 6px', borderRadius: 8,
-              background: `${ELEMENTS[testThemeId].color}1f`,
+              background: 'rgba(58,46,42,.08)',
             }}>
               TEST · NO REWARDS
             </span>
@@ -411,51 +437,50 @@ function BossPage({
         </div>
         <button
           onClick={onStart}
+          disabled={tierLocked}
           style={{
             width: '100%', padding: '14px 16px',
             border: 'none', borderRadius: 14,
-            background: `linear-gradient(180deg, ${e.color} 0%, ${e.deep} 100%)`,
+            // Standardized button — same across every boss / theme so
+            // the action reads as one consistent commit. (Banner above
+            // is still theme-colored, that's the boss identity. The
+            // button is the player action and shouldn't compete.)
+            background: tierLocked
+              ? '#3a2e2a55'
+              : 'linear-gradient(180deg, #3a2e2a 0%, #1a1414 100%)',
             color: '#fff',
             fontFamily: 'inherit', fontSize: 15, fontWeight: 800,
             letterSpacing: '0.04em',
-            cursor: 'pointer',
+            cursor: tierLocked ? 'not-allowed' : 'pointer',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10,
-            boxShadow: '0 6px 14px rgba(0,0,0,.18)',
+            boxShadow: tierLocked ? 'none' : '0 6px 14px rgba(0,0,0,.18)',
             transition: 'transform .1s, filter .15s',
           }}
-          onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
+          onPointerDown={(ev) => { if (!tierLocked) (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
           onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
           onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <Swords size={18} strokeWidth={2.6} />
             <span style={{ fontSize: 16, fontWeight: 800, letterSpacing: '0.06em' }}>
-              FIGHT
+              {tierLocked ? 'LOCKED' : 'FIGHT'}
             </span>
-            <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 700, letterSpacing: '0.12em' }}>
-              · {profile.label.toUpperCase()}
-            </span>
+            {!tierLocked && (
+              <span style={{ fontSize: 11, opacity: 0.7, fontWeight: 700, letterSpacing: '0.12em' }}>
+                · {profile.label.toUpperCase()}
+              </span>
+            )}
           </span>
-          {testThemeId === null ? (
+          {!tierLocked && (
             <span style={{
               display: 'flex', alignItems: 'center', gap: 4,
-              background: 'rgba(0,0,0,.22)', padding: '5px 11px', borderRadius: 10,
-              fontSize: 12, fontWeight: 800,
+              background: 'rgba(255,255,255,.14)',
+              padding: '5px 11px', borderRadius: 10,
+              fontSize: 11, fontWeight: 800,
+              color: '#fff',
+              letterSpacing: '0.04em',
             }}>
-              <Coins size={13} fill="#ffd166" strokeWidth={2.2} color="#ffd166" />
-              +{reward}
-            </span>
-          ) : (
-            // Test mode pays nothing — make the absence of a reward
-            // chip explicit so the player isn't surprised after the
-            // match. The "TEST · NO REWARDS" badge in the deck-row
-            // label already signals this; we mirror it here too.
-            <span style={{
-              display: 'flex', alignItems: 'center',
-              background: 'rgba(0,0,0,.22)', padding: '5px 11px', borderRadius: 10,
-              fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-            }}>
-              TEST
+              {testThemeId === null ? `+${reward}` : 'TEST'}
             </span>
           )}
         </button>
@@ -525,28 +550,34 @@ function BossDeckPreview({ boss }: { boss: BossDef }) {
   );
 }
 
-/** Small pill button used in the test-deck picker row. Active state
- *  tints the pill with the theme color so the player can see which
- *  deck is currently selected. */
-function ThemeChip({ active, label, color, onClick }: {
+/** Small pill button used in the test-deck picker row. Neutral
+ *  styling — active state is a dark filled pill, inactive is a
+ *  bordered light pill. Consistent across themes so the user reads
+ *  the SELECTION state, not the theme color. */
+function ThemeChip({ active, label, onClick, disabled }: {
   active: boolean;
   label: string;
-  color: string;
+  /** Kept for backwards-compat with the call site but ignored — chips
+   *  no longer tint by theme. Pass anything. */
+  color?: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       style={{
         flex: '0 0 auto',
         padding: '6px 12px',
         borderRadius: 999,
-        border: active ? `1.5px solid ${color}` : '1.5px solid rgba(58,46,42,.12)',
-        background: active ? color : '#fff',
-        color: active ? '#fff' : PALETTE.text,
+        border: active ? '1.5px solid #3a2e2a' : '1.5px solid rgba(58,46,42,.18)',
+        background: active ? PALETTE.text : '#fff',
+        color: active ? '#fff' : (disabled ? PALETTE.textMid : PALETTE.text),
+        opacity: disabled ? 0.5 : 1,
         fontSize: 11, fontWeight: 700,
         letterSpacing: '0.02em',
-        cursor: 'pointer',
+        cursor: disabled ? 'not-allowed' : 'pointer',
         fontFamily: 'inherit',
         transition: 'background .12s, color .12s, border-color .12s',
       }}
