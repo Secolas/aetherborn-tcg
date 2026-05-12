@@ -101,7 +101,10 @@ const THEMED: Record<string, string> = {
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
   'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
   'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
-  'edu-08': U('photo-1488161628813-04466f6de828'),  // The Bully → tough kid silhouette
+  // The Bully — Unsplash doesn't really stock "bully" photos, so we use
+  // a thematic substitute: a varsity-jacketed teen / sports kid against
+  // a school backdrop. Reads as "the kid who runs the hallway."
+  'edu-08': U('photo-1517438476312-10d79c5f1bb0'),  // The Bully → varsity teen
   'edu-09': U('photo-1481627834876-b7833e8f5570'),  // Library → bookshelves
   'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
