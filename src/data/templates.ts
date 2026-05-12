@@ -17,10 +17,10 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'fam-01', name: 'Family Pet', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
-    ability: '',
-    flavor: 'Loyal and ready.',
-    abilityKind: 'none',
-    rarity: 'common', suggested: 'your pet, or any pet you love' },
+    ability: 'Rush.',
+    flavor: 'First to the rescue.',
+    abilityKind: 'rush',
+    rarity: 'rare', suggested: 'your pet, or any pet you love' },
 
   { id: 'fam-02', name: 'Cousin', el: 'family', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: '',
@@ -97,6 +97,12 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Sometimes that\'s all it takes.',
     abilityKind: 'spell_heal', abilityValue: 2,
     rarity: 'common', suggested: 'two people hugging, or anyone embracing' },
+
+  { id: 'fam-15', name: 'Family Chat', el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw a card.',
+    flavor: "Everybody's got something to say.",
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'people sitting together talking, a family gathered' },
 
 
   // ============================================================
@@ -179,7 +185,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'silence',
     rarity: 'rare', suggested: 'a manager, a meeting room, or a binder' },
 
-  { id: 'wrk-14', name: 'Stand-up Meeting', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
+  { id: 'wrk-14', name: 'Stand-up Meeting', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Both players draw 1 card.',
     flavor: '"Just a quick sync."',
     abilityKind: 'spell_both_draw',
@@ -259,9 +265,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a dog with serious eyes, a wolf, a husky' },
 
   { id: 'ani-12', name: 'Lion', el: 'animals', cost: 6, atk: 6, hp: 6, type: 'Creature',
-    ability: 'On play: deal 2 to all enemy creatures.',
+    ability: 'On play: deal 1 to all enemy creatures.',
     flavor: 'Apex predator.',
-    abilityKind: 'aoe_on_play', abilityValue: 2,
+    abilityKind: 'aoe_on_play', abilityValue: 1,
     rarity: 'legendary', suggested: 'the most majestic creature you can find' },
 
   { id: 'ani-13', name: 'Muzzle', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
@@ -293,7 +299,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'untargetable',
     rarity: 'rare', suggested: 'a backpack, duffel, or wheeled bag' },
 
-  { id: 'trv-03', name: 'Suitcase', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
+  { id: 'trv-03', name: 'Suitcase', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw 2 cards.',
     flavor: 'You packed for everything.',
     abilityKind: 'draw_on_play', abilityValue: 2,
@@ -446,6 +452,12 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'A small drink. A small reset.',
     abilityKind: 'spell_heal_friend', abilityValue: 3,
     rarity: 'common', suggested: 'a glass of water, an iced tea, a smoothie' },
+
+  { id: 'fd-14', name: 'Spicy Sauce', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Deal 2 damage to any target.',
+    flavor: 'Too much? Never.',
+    abilityKind: 'spell_damage', abilityValue: 2,
+    rarity: 'common', suggested: 'a hot sauce bottle, chili peppers, a spicy dish' },
 
   // ============================================================
   // EDUCATION — scaling / growth / conditional payoffs
