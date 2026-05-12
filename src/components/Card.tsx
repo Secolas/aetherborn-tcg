@@ -4,7 +4,6 @@ import type { CardTemplate, CollectionCard, BattleCard, ElementId } from '../gam
 import { ElementGlyph } from './ElementGlyph';
 import { PhotoFrame } from './PhotoFrame';
 
-const ELEMENT_IDS: ElementId[] = ['family', 'work', 'animals', 'travel', 'food', 'education'];
 const PLACEHOLDER_RE = /\[(family|work|animals|travel|food|education)\]/g;
 
 function AbilityText({ text, scale, color }: { text: string; scale: number; color: string }) {
