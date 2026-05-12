@@ -3050,6 +3050,32 @@ function StatusLabels({
     items.push({ icon: <Ban size={14} strokeWidth={2.6} />, color: '#7a6e62',
       label: 'Silenced', hint: 'Ability stripped for one turn — restored at end of owner’s turn.' });
   }
+  // Education theme — surface the level counter so the player can see
+  // how close the leveling creature is to its cap, and what the cap
+  // is. Mirrors the small blue "Lv X/3" badge shown on the field card.
+  if (card.abilityKind === 'level_up') {
+    const t = card.turnsAlive ?? 0;
+    items.push({
+      icon: <Zap size={14} fill="#fff" strokeWidth={2.4} />,
+      color: '#5a5fd9',
+      label: `Lv ${t}/3`,
+      hint: t >= 3
+        ? 'Level cap reached — no more +1/+1 ticks.'
+        : `+1/+1 at end of your turn (${3 - t} more level${3 - t === 1 ? '' : 's'} until cap).`,
+    });
+  }
+  if (card.abilityKind === 'graduate') {
+    const t = card.turnsAlive ?? 0;
+    const threshold = card.abilityValue ?? 3;
+    items.push({
+      icon: <Zap size={14} fill="#fff" strokeWidth={2.4} />,
+      color: '#5a5fd9',
+      label: `Lv ${t}/${threshold}`,
+      hint: t >= threshold
+        ? 'Already graduated.'
+        : `+1/+1 at end of your turn. After ${threshold - t} more turn${threshold - t === 1 ? '' : 's'}, also gain +2/+2 and Untargetable.`,
+    });
+  }
   for (const b of bondInfos) {
     // Three states under first-bond-wins:
     //   active  — bond is claimed; gold link icon, full description.

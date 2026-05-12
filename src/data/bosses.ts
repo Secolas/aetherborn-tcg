@@ -341,19 +341,23 @@ export const BOSSES: BossDef[] = [
     intro: 'Sit. Down.',
     playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
+    // Normal-tier deck deliberately OMITS the epic/legendary finishers
+    // (Senior Year, Graduation Day) so Family / Animals / Travel players
+    // can win a first encounter without being run over by an
+    // Untargetable 7/8 graduate. Those threats only appear in the
+    // mythicDeck override below for players who opt into Mythic.
     deck: [
-      'edu-01',          // Pencil (1m vanilla)
+      'edu-01', 'edu-01',// Pencil x2 — vanilla filler
       'edu-02',          // Backpack (1m draw)
       'edu-03',          // Math Teacher (level_up)
       'edu-04',          // Bathroom Break (freeze)
       'edu-05',          // Group Project (+1/+1 all)
       'edu-06',          // Physics Class (level_up)
       'edu-07',          // Pop Quiz (discard + draw 2)
-      'edu-08',          // The Bully (rush)
+      'edu-08',          // The Bully (vanilla 4/2)
       'edu-09',          // Library (heal_each_turn 1)
       'edu-10',          // Final Exam (conditional damage / heal)
-      'edu-11',          // Senior Year (graduate)
-      'edu-12',          // Graduation Day (on-play +1/+1 all)
+      'edu-13',          // Physical Ed Class (3/3 Rush)
     ],
     photoOverrides: {
       'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
