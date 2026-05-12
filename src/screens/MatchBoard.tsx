@@ -172,6 +172,21 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  activity (no point announcing END PHASE if no creature
    *  triggered an end-of-turn ability). */
   const [phaseBanner, setPhaseBanner] = useState<{ text: string; side: Owner; key: number } | null>(null);
+  /** Explicit MTG-style player phase. Each player's turn cycles:
+   *    Draw Phase (auto, on turn start)
+   *    Main Phase  — player plays cards, casts spells. Attacks blocked.
+   *    Battle Phase — player attacks. Card plays blocked.
+   *    End Phase   — auto, fires end-of-turn hooks then flips to opp.
+   *  Player explicitly clicks "Go to Battle" to leave Main, then "End
+   *  Turn" to leave Battle. The boss runs the same cycle internally;
+   *  banners + AI delays present it as a sequence even though the
+   *  engine just calls aiStep iteratively. */
+  const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
+  /** Has the boss already announced Battle Phase this turn? Resets to
+   *  false on every turn change. Used by the AI driver to drop a
+   *  one-time "Boss · Battle Phase" banner the first time the boss
+   *  attacks, mirroring the player's Go-to-Battle button. */
+  const bossBattleShownRef = useRef<number>(0);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -353,7 +368,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         // also named "The Boss" and shouldn't be renamed mid-string.
         showMsg(step.action.replace(/^The Boss\b/, boss.name));
         if (step.combat) {
-          playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
+          // First attack of the boss's turn → drop a Battle Phase
+          // banner so the player can read the transition. Same shape
+          // as their own "Go to Battle" click. Subsequent attacks
+          // skip the banner since the phase is already established.
+          const needsBattleBanner = bossBattleShownRef.current !== state.turnNumber;
+          if (needsBattleBanner) {
+            bossBattleShownRef.current = state.turnNumber;
+            setPhaseBanner({ text: 'Battle Phase', side: 'opponent', key: Date.now() + 7777 });
+            holdAnim(900);
+            setTimeout(() => {
+              if (cancelled) return;
+              setPhaseBanner(cur => (cur && cur.side === 'opponent' && cur.text === 'Battle Phase' ? null : cur));
+              playAttackAnimation(step.combat!, () => { if (!cancelled) setState(step.next); });
+            }, 850);
+          } else {
+            playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
+          }
         } else if (step.played) {
           // Show the played card front-and-center so the player can see what
           // was just played — especially important for spells, which would
@@ -433,6 +464,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // hit with three things at once.
   const firstTurnRef = useRef(true);
   useEffect(() => {
+    // Reset the player's phase to Main any time the active side
+    // becomes the player. (Boss's "phase" is implicit — handled by
+    // the AI driver's banner sequence; we don't need to track it as
+    // state since the boss can't be in the middle of human phase
+    // navigation.)
+    if (state.turn === 'player') setPlayerPhase('main');
     if (firstTurnRef.current) { firstTurnRef.current = false; return; }
     if (state.outcome !== 'ongoing') return;
     const now = Date.now();
@@ -913,6 +950,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setTimeout(() => setManaPulse(p => p + 1), at);
           pipeDelay += totalDraws * drawStep + 700;
         }
+        // MAIN PHASE banner — closes the turn-flip with the
+        // "now you can play" beat. Fires for whichever side is now
+        // active. The player can then play cards; the boss starts
+        // its AI actions after the pipeline clears.
+        queuePhaseBanner('Main Phase', newActiveSide);
       }
 
       if (turnFlipped) {
@@ -1392,6 +1434,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       return;
     }
 
+    // Card plays / spell casts are a MAIN-PHASE action. Gate the
+    // whole drop here so we don't accidentally summon during Battle.
+    if (playerPhase !== 'main') {
+      if (drag.overField) flashMsg('Cards can only be played in Main Phase');
+      setDrag(null);
+      return;
+    }
     if (card.type === 'Creature') {
       if (drag.overField) {
         const r = playCard(state, 'player', card.battleId);
@@ -1424,6 +1473,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (selectedHandIdx === null) return;
     const card = state.player.hand[selectedHandIdx];
     if (!card) { setSelectedHandIdx(null); return; }
+    if (playerPhase !== 'main') {
+      flashMsg('Cards can only be played in Main Phase');
+      return;
+    }
 
     if (card.type === 'Creature') {
       const r = playCard(state, 'player', card.battleId);
@@ -1477,6 +1530,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const onMyCreatureClick = (c: BattleCard) => {
     if (pendingSpell) return;
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    // Attacks are a Battle-Phase action. In Main Phase, tapping your
+    // own creature shouldn't select an attacker — guide the player
+    // to the Go-to-Battle button instead.
+    if (playerPhase !== 'battle') {
+      flashMsg('Tap "Go to Battle" first');
+      return;
+    }
     if (c.tapped || c.justPlayed) { flashMsg('Cannot attack yet'); return; }
     setSelectedAttacker(prev => prev === c.battleId ? null : c.battleId);
   };
@@ -1767,17 +1827,45 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }}>×</button>
           </div>
         ) : (
-          <button onClick={(e) => { e.stopPropagation(); onEndTurn(); }} disabled={state.turn !== 'player'} style={{
-            background: state.turn === 'player'
-              ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
-              : '#e8d8c8',
-            color: state.turn === 'player' ? '#fff' : '#9a8678',
-            border: 'none', borderRadius: 22, padding: '10px 24px',
-            fontSize: 13, fontWeight: 700, letterSpacing: '0.04em',
-            cursor: state.turn === 'player' ? 'pointer' : 'default',
-            boxShadow: state.turn === 'player' ? '0 4px 12px rgba(255,94,60,.35)' : 'none',
-            fontFamily: '"Fredoka", system-ui',
-          }}>End Turn →</button>
+          // Phase-aware action button:
+          //   Main Phase   → "Go to Battle →"  (leaves Main, enters Battle)
+          //   Battle Phase → "End Turn →"     (fires end-of-turn hooks)
+          // This is what gives the player explicit control over the
+          // turn flow: cards / spells happen in Main, attacks happen in
+          // Battle, and end-of-turn effects fire only when the player
+          // commits to ending. Boss runs the equivalent cycle on its
+          // own via the AI driver.
+          (() => {
+            const isPlayer = state.turn === 'player';
+            const inBattle = isPlayer && playerPhase === 'battle';
+            const label = inBattle ? 'End Turn →' : 'Go to Battle →';
+            const handleClick = inBattle ? onEndTurn : () => setPlayerPhase('battle');
+            return (
+              <button
+                onClick={(e) => { e.stopPropagation(); if (isPlayer) handleClick(); }}
+                disabled={!isPlayer}
+                style={{
+                  background: isPlayer
+                    ? (inBattle
+                        ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
+                        : 'linear-gradient(180deg, #3a2e2a 0%, #1a1414 100%)')
+                    : '#e8d8c8',
+                  color: isPlayer ? '#fff' : '#9a8678',
+                  border: 'none', borderRadius: 22, padding: '10px 24px',
+                  fontSize: 13, fontWeight: 700, letterSpacing: '0.04em',
+                  cursor: isPlayer ? 'pointer' : 'default',
+                  boxShadow: isPlayer
+                    ? (inBattle
+                        ? '0 4px 12px rgba(255,94,60,.35)'
+                        : '0 4px 12px rgba(58,46,42,.35)')
+                    : 'none',
+                  fontFamily: '"Fredoka", system-ui',
+                }}
+              >
+                {label}
+              </button>
+            );
+          })()
         )}
 
         {/* Floating turn-status label — sits inside the divider band as an
