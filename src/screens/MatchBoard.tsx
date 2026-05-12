@@ -144,6 +144,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [bondCinematic, setBondCinematic] = useState<{
     bond: BondDef; cardA: BattleCard; cardB: BattleCard; side: Owner;
   } | null>(null);
+  /** Brief banner that lands when a bond's per-turn EFFECT activates
+   *  (Sunday Dinner heals, Breakfast Combo refills creatures, The Long
+   *  Way pings the boss, etc.). Distinct from `bondCinematic` (which
+   *  fires only the first time the bond LINKS UP) — this one repeats
+   *  every turn the effect actually triggers, so the player can see
+   *  *why* the heal/damage popup that follows is happening. Single-slot
+   *  so multiple bonds fire sequentially through the queue. */
+  const [bondFire, setBondFire] = useState<{ bond: BondDef; side: Owner; key: number } | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -737,15 +745,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const activeSide: Owner = state.turn;
         const activeBefore = activeSide === 'player' ? prev.hp.player : prev.hp.opponent;
         const activeAfter = activeSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
-        const activeBonds_ = activeBonds(activeSide === 'player' ? state.player : state.opponent);
-        if (activeBonds_.some(b => b.effect.kind === 'heal_face_per_turn') && activeAfter > activeBefore) {
+        const activeBondsList = activeBonds(activeSide === 'player' ? state.player : state.opponent);
+        if (activeBondsList.some(b => b.effect.kind === 'heal_face_per_turn') && activeAfter > activeBefore) {
           const key = activeSide === 'player' ? FACE_PLAYER : FACE_OPP;
           bondPops[key] = -(activeAfter - activeBefore); // negative = heal popup (green)
         }
         // Damage at end of just-finished side's turn → opposite side took the dmg
         const endedSide: Owner = activeSide === 'player' ? 'opponent' : 'player';
-        const endedBondsActive = activeBonds(endedSide === 'player' ? state.player : state.opponent);
-        if (endedBondsActive.some(b => b.effect.kind === 'damage_at_end_turn')) {
+        const endedBondsList = activeBonds(endedSide === 'player' ? state.player : state.opponent);
+        if (endedBondsList.some(b => b.effect.kind === 'damage_at_end_turn')) {
           const victim = activeSide; // damage hits the player whose turn just began
           const before = victim === 'player' ? prev.hp.player : prev.hp.opponent;
           const after = victim === 'player' ? fresh.hp.player : fresh.hp.opponent;
@@ -756,13 +764,65 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             bondPops[key] = (bondPops[key] ?? 0) + (before - after);
           }
         }
+        // Per-turn bond ANNOUNCEMENTS. Distinct from `bondCinematic` (which
+        // only fires once when a bond first links up). For bonds whose
+        // effect repeats every turn, we surface a small "BOND: <name>"
+        // toast right before the engine effect plays so the player
+        // understands *why* the next heal / damage / draw is happening.
+        // Fires are queued sequentially via pipeDelay so two bonds don't
+        // stack on top of each other.
+        const fires: { bond: BondDef; side: Owner }[] = [];
+        for (const b of activeBondsList) {
+          if (b.effect.kind === 'heal_face_per_turn' && activeAfter > activeBefore) {
+            fires.push({ bond: b, side: activeSide });
+          }
+          if (b.effect.kind === 'heal_creatures_per_turn') {
+            // Engine logs to state.log when the bond actually healed —
+            // we can also just always announce if the bond is up, since
+            // the toast doesn't claim a specific amount. Keeping it
+            // simple: announce whenever the bond is active at turn
+            // start, even if nothing was injured (low cost; reads as
+            // "bond is working").
+            fires.push({ bond: b, side: activeSide });
+          }
+        }
+        for (const b of endedBondsList) {
+          if (b.effect.kind === 'damage_at_end_turn') {
+            fires.push({ bond: b, side: endedSide });
+          }
+          if (b.effect.kind === 'draw_at_end_if_low_hand') {
+            // The Kids fires only when the hand was actually under 3 AT
+            // end-of-turn. We can't observe that perfectly here, but the
+            // bondFlags get set by the engine — read the latest hand
+            // size: if the ENDED side has fewer than 4 cards and drew at
+            // end-of-turn, the bond fired. Simpler heuristic: hand grew
+            // by 1 at end-of-turn while hand was low.
+            const endedHandSize = endedSide === 'player' ? state.player.hand.length : state.opponent.hand.length;
+            if (endedHandSize <= 3) fires.push({ bond: b, side: endedSide });
+          }
+        }
+        if (fires.length) {
+          const TOAST_MS = 900;
+          const at = pipeDelay;
+          fires.forEach((f, i) => {
+            const showAt = at + i * TOAST_MS;
+            const key = Date.now() + i;
+            setTimeout(() => setBondFire({ ...f, key }), showAt);
+            setTimeout(() => setBondFire(cur => (cur && cur.key === key ? null : cur)), showAt + TOAST_MS + 50);
+          });
+          pipeDelay += fires.length * TOAST_MS + 50;
+        }
         if (Object.keys(bondPops).length) {
-          setDamages(d => ({ ...d, ...bondPops }));
+          // Fire the heal/damage popups AFTER the bond toasts so the
+          // reading order is "bond name → effect lands."
+          const popAt = pipeDelay;
+          setTimeout(() => setDamages(d => ({ ...d, ...bondPops })), popAt);
           setTimeout(() => setDamages(d => {
             const next = { ...d };
             for (const id of Object.keys(bondPops)) delete next[id];
             return next;
-          }), 1100);
+          }), popAt + 1100);
+          pipeDelay += 1100;
         }
       }
 
@@ -1562,7 +1622,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
-            if (ak === 'spell_buff' || ak === 'spell_nourish') {
+            if (ak === 'spell_buff' || ak === 'spell_nourish' || ak === 'spell_heal_friend') {
               castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
             } else {
               onMyCreatureClick(c);
@@ -1708,6 +1768,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           card.abilityKind === 'spell_heal' ||
           card.abilityKind === 'spell_share_meal' ||
           card.abilityKind === 'spell_feast' ||
+          card.abilityKind === 'spell_both_draw' ||
+          card.abilityKind === 'spell_buff_all' ||
+          card.abilityKind === 'exam_pass' ||
+          card.abilityKind === 'pop_quiz' ||
           card.abilityKind === 'draw_on_play' ||
           card.id === 'ti-05'
         );
@@ -2138,6 +2202,53 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
       {/* Death animation runs INLINE in the FieldRow — see the `dying`
           prop and the wrapper styles inside FieldRow. No overlay ghost. */}
+
+      {/* Bond-fire toast — "BOND: Sunday Dinner" lands a beat before the
+          per-turn heal/damage popup that the bond produced, so the player
+          can connect cause to effect. Side coloring: player bonds gold,
+          boss bonds dark steel. */}
+      {bondFire && (() => {
+        const isPlayer = bondFire.side === 'player';
+        return (
+          <div
+            key={bondFire.key}
+            style={{
+              position: 'absolute', top: '32%', left: 0, right: 0,
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              zIndex: 215,
+              pointerEvents: 'none',
+              animation: 'bondFireToast 950ms cubic-bezier(.2,.8,.3,1) both',
+            }}
+          >
+            <div style={{
+              padding: '9px 18px 9px 14px',
+              background: isPlayer
+                ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
+                : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
+              color: '#fff',
+              borderRadius: 12,
+              boxShadow: isPlayer
+                ? '0 6px 22px rgba(196,120,26,.45), 0 0 0 1.5px rgba(255,224,160,.4) inset'
+                : '0 6px 22px rgba(0,0,0,.55), 0 0 0 1.5px rgba(255,255,255,.08) inset',
+              fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+              fontWeight: 700,
+              fontSize: 14,
+              letterSpacing: '0.04em',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <span style={{
+                fontSize: 10, fontWeight: 800,
+                letterSpacing: '0.22em',
+                opacity: 0.75,
+                padding: '2px 6px',
+                background: 'rgba(0,0,0,.18)',
+                borderRadius: 6,
+              }}>BOND</span>
+              <span>{bondFire.bond.name}</span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Turn-change banner — slides in from the left when the active player
           flips, holds, then slides out the right. Wakes the player up between
@@ -2634,7 +2745,11 @@ function FieldRow({
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
-        const friendlySpell = side === 'player' && (pendingSpell?.abilityKind === 'spell_buff' || pendingSpell?.abilityKind === 'spell_nourish');
+        const friendlySpell = side === 'player' && (
+          pendingSpell?.abilityKind === 'spell_buff' ||
+          pendingSpell?.abilityKind === 'spell_nourish' ||
+          pendingSpell?.abilityKind === 'spell_heal_friend'
+        );
         const dyingEntry = dying[c.battleId];
         // The live BattlefieldCard plays NO slice animation. When a
         // creature dies, its slot wrapper plays flyToGrave (translating
@@ -2870,6 +2985,7 @@ function spellTargetHint(card: BattleCard): string {
     case 'spell_freeze': return 'Tap an enemy creature to freeze it';
     case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
     case 'spell_nourish':return `Tap your creature for +0/+${card.abilityValue ?? 0} HP`;
+    case 'spell_heal_friend': return `Tap your creature to restore ${card.abilityValue ?? 0} HP`;
     case 'silence':      return 'Tap an enemy creature to silence it';
     default:             return 'Tap a target';
   }
@@ -2879,11 +2995,13 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   if (!spell) return false;
   // Silence ignores 'untargetable' on purpose — that's its job.
   if (spell.abilityKind === 'silence') return owner === 'opponent';
-  // Friendly buffs (spell_buff, spell_nourish) ignore untargetable since
-  // the friendly creature isn't being attacked.
-  const isFriendlyBuff = spell.abilityKind === 'spell_buff' || spell.abilityKind === 'spell_nourish';
-  if (c.abilityKind === 'untargetable' && !isFriendlyBuff) return false;
-  if (isFriendlyBuff) return owner === 'player';
+  // Friendly buffs / heals (spell_buff, spell_nourish, spell_heal_friend)
+  // ignore untargetable since the friendly creature isn't being attacked.
+  const isFriendly = spell.abilityKind === 'spell_buff'
+    || spell.abilityKind === 'spell_nourish'
+    || spell.abilityKind === 'spell_heal_friend';
+  if (c.abilityKind === 'untargetable' && !isFriendly) return false;
+  if (isFriendly) return owner === 'player';
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return true;
   return false;

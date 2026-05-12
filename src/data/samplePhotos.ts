@@ -84,6 +84,28 @@ const THEMED: Record<string, string> = {
   'fd-10': U('photo-1568571780765-9276ac8b75a2'),  // Grandma's Pie → homemade pie
   'fd-11': U('photo-1583394293214-28ded15ee548'),  // The Cook → chef at the stove
   'fd-12': U('photo-1542010589005-d1eacc3918f2'),  // Family Feast → big spread
+  'fd-13': U('photo-1556679343-c7306c1976bc'),     // Sip → glass of water/iced drink
+
+  // Cheap-card pass additions
+  'fam-14': U('photo-1542038784456-1ea8e935640e'),  // Hug → embrace
+  'wrk-14': U('photo-1531403009284-440f080d1e12'),  // Stand-up Meeting → team gathered
+  'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
+  'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
+  'trv-13': U('photo-1499856871958-5b9627545d1a'),  // Ticket Stub → boarding stub
+
+  // Education — school days, classrooms, exams, graduation
+  'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
+  'edu-02': U('photo-1547043505-26b58c8e8d77'),     // Backpack → school backpack
+  'edu-03': U('photo-1577896851231-70ef18881754'),  // Math Teacher → chalkboard
+  'edu-04': U('photo-1517077304055-6e89abbf09b0'),  // Bathroom Break → school hallway / lockers
+  'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
+  'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
+  'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
+  'edu-08': U('photo-1488161628813-04466f6de828'),  // The Bully → tough kid silhouette
+  'edu-09': U('photo-1481627834876-b7833e8f5570'),  // Library → bookshelves
+  'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
+  'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
+  'edu-12': U('photo-1523050854058-8df90110c9f1'),  // Graduation Day → throwing caps
 };
 
 /**

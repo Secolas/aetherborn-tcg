@@ -113,11 +113,12 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
             <EmptyState />
           ) : (
             <>
-              <ThemeSection title="Family"  cards={byTheme('family')}  layout={layout} onTap={setInspect} />
-              <ThemeSection title="Work"    cards={byTheme('work')}    layout={layout} onTap={setInspect} />
-              <ThemeSection title="Animals" cards={byTheme('animals')} layout={layout} onTap={setInspect} />
-              <ThemeSection title="Travel"  cards={byTheme('travel')}  layout={layout} onTap={setInspect} />
-              <ThemeSection title="Food"    cards={byTheme('food')}    layout={layout} onTap={setInspect} />
+              <ThemeSection title="Family"    cards={byTheme('family')}    layout={layout} onTap={setInspect} />
+              <ThemeSection title="Work"      cards={byTheme('work')}      layout={layout} onTap={setInspect} />
+              <ThemeSection title="Animals"   cards={byTheme('animals')}   layout={layout} onTap={setInspect} />
+              <ThemeSection title="Travel"    cards={byTheme('travel')}    layout={layout} onTap={setInspect} />
+              <ThemeSection title="Food"      cards={byTheme('food')}      layout={layout} onTap={setInspect} />
+              <ThemeSection title="Education" cards={byTheme('education')} layout={layout} onTap={setInspect} />
             </>
           )
         ) : (
@@ -304,11 +305,12 @@ function BondsTab({
   discoveredBonds: string[];
 }) {
   const themes: { id: ElementId; label: string }[] = [
-    { id: 'family',  label: 'Family'  },
-    { id: 'work',    label: 'Work'    },
-    { id: 'animals', label: 'Animals' },
-    { id: 'travel',  label: 'Travel'  },
-    { id: 'food',    label: 'Food'    },
+    { id: 'family',    label: 'Family'    },
+    { id: 'work',      label: 'Work'      },
+    { id: 'animals',   label: 'Animals'   },
+    { id: 'travel',    label: 'Travel'    },
+    { id: 'food',      label: 'Food'      },
+    { id: 'education', label: 'Education' },
   ];
   return (
     <div>

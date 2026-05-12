@@ -49,6 +49,8 @@ function toBattleCard(c: CollectionCard): BattleCard {
     tapped: true,
     justPlayed: false,
     frozen: false,
+    turnsAlive: 0,
+    graduated: false,
   };
 }
 
@@ -71,10 +73,17 @@ function shuffle<T>(arr: T[]): T[] {
  * Without a boss spec we fall back to a random themed pool — used for
  * future free-play modes.
  */
-function buildOpponentDeck(boss?: BossDef): CollectionCard[] {
+function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal'): CollectionCard[] {
   if (boss) {
     const out: CollectionCard[] = [];
-    boss.deck.forEach((tid, i) => {
+    // Difficulty-aware deck selection. Mythic uses the boss's mythic
+    // override if present (doubled bond enablers + best cards). Hard
+    // can opt-in to a custom hard deck; otherwise it runs the Normal
+    // deck against smarter AI. Normal always uses the base deck.
+    const deckList = difficulty === 'mythic' ? (boss.mythicDeck ?? boss.deck)
+                  : difficulty === 'hard'    ? (boss.hardDeck ?? boss.deck)
+                  : boss.deck;
+    deckList.forEach((tid, i) => {
       const template = getTemplateById(tid);
       if (!template) return;
       const photo = boss.photoOverrides?.[tid] ?? aiPhoto(tid);
@@ -210,7 +219,7 @@ function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
 
 export function createMatch(playerCards: CollectionCard[], boss?: BossDef, difficulty: Difficulty = 'normal'): MatchState {
   const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  let oppDeck = shuffle(buildOpponentDeck(boss)).map(toBattleCard);
+  let oppDeck = shuffle(buildOpponentDeck(boss, difficulty)).map(toBattleCard);
 
   // Keep the two decks the same length so neither side gets a draw advantage
   // over the course of a match. If the player's collection is short, trim
@@ -402,6 +411,42 @@ export function endTurn(prev: MatchState): MatchState {
       c.originalAbilityKind = undefined;
       c.originalAbility = undefined;
     }
+    // Education theme: per-turn growth. Skip the turn the creature was
+    // summoned (justPlayed is still true at end-of-its-summon-turn)
+    // so a freshly-played creature doesn't insta-level on the same turn.
+    if (!c.justPlayed && (c.abilityKind === 'level_up' || c.abilityKind === 'graduate')) {
+      // Study Group bond doubles the tick on every leveling creature
+      // the bond owner controls. Both bonded cards must be alive (the
+      // engine's activeBonds gate handles that — the bond doesn't
+      // appear in the list otherwise).
+      const doubled = activeBonds(me).some(b => b.effect.kind === 'level_up_doubled');
+      const bump = doubled ? 2 : 1;
+      c.turnsAlive = (c.turnsAlive ?? 0) + 1;
+      c.currentAtk += bump;
+      c.currentHp += bump;
+      c.hp += bump;
+      cleared.log.push(`${displayName(c)} levels up (+${bump}/+${bump})`);
+      // Graduation transformation — one-shot, fires when turnsAlive
+      // reaches the threshold stored in abilityValue. Adds a bonus
+      // +2/+2 on top of the regular level-up tick AND swaps the
+      // ability to Untargetable. Subsequent ticks won't apply more
+      // level-ups because `graduate` has transitioned to 'untargetable'.
+      const threshold = c.abilityValue ?? 3;
+      if (c.abilityKind === 'graduate' && !c.graduated && (c.turnsAlive ?? 0) >= threshold) {
+        c.graduated = true;
+        c.currentAtk += 2;
+        c.currentHp += 2;
+        c.hp += 2;
+        // Swap ability — they're now spell-proof for the rest of the
+        // match. Stash original so silence still has something to
+        // strip and restore (parallels existing silence bookkeeping).
+        c.originalAbilityKind = c.abilityKind;
+        c.originalAbility = c.ability;
+        c.abilityKind = 'untargetable';
+        c.ability = 'Graduated. Untargetable.';
+        cleared.log.push(`${displayName(c)} graduates — +2/+2 and Untargetable`);
+      }
+    }
   });
 
   // Bond: damage_at_end_turn (Travel — The Long Way). Fires at the end of
@@ -520,7 +565,10 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
 
 function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, target?: SpellTarget): boolean {
   // Spells that don't need a target
-  const noTarget: AbilityKind[] = ['draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast'];
+  const noTarget: AbilityKind[] = [
+    'draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast',
+    'spell_both_draw', 'spell_buff_all', 'exam_pass', 'pop_quiz',
+  ];
   if (noTarget.includes(card.abilityKind)) return true;
 
   if (!target) return false;
@@ -545,9 +593,9 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     if (target.owner !== owner) return false;
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
   }
-  if (card.abilityKind === 'spell_nourish') {
-    // Food's defensive buff: HP-only, friendly creature only. Mirrors
-    // spell_buff's targeting rules.
+  if (card.abilityKind === 'spell_nourish' || card.abilityKind === 'spell_heal_friend') {
+    // Friendly-creature targeting. Spell_heal_friend (Food — Sip)
+    // restores current HP without raising max HP.
     if (target.kind !== 'creature') return false;
     if (target.owner !== owner) return false;
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
@@ -596,6 +644,18 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
       c.currentHp = Math.min(c.hp, c.currentHp + amt);
     }
     state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
+  } else if (card.abilityKind === 'spell_buff_all' && card.type === 'Creature') {
+    // Graduation Day — on-play, gives every friendly creature a
+    // permanent +V/+V (the same kind also exists as a Work spell
+    // called Payroll). The on-play version skips the caster itself
+    // because it doesn't appear in me.field yet when this fires.
+    const amt = card.abilityValue ?? 1;
+    for (const c of me.field) {
+      c.currentAtk += amt;
+      c.currentHp += amt;
+      c.hp += amt;
+    }
+    state.log.push(`${displayName(card)} buffs your creatures +${amt}/+${amt}`);
   }
 }
 
@@ -656,6 +716,62 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       c.currentHp = Math.min(c.hp, c.currentHp + creatureHeal);
     }
     state.log.push(`${displayName(card)} restores ${v} HP and feeds your creatures +${creatureHeal}`);
+  } else if (card.abilityKind === 'spell_heal_friend' && target?.kind === 'creature') {
+    // Food — Sip: restore CURRENT HP on a friendly creature, capped at
+    // its max hp. Doesn't raise max (that's spell_nourish).
+    const t = side(state, target.owner);
+    const c = t.field.find(x => x.battleId === target.battleId);
+    if (c) c.currentHp = Math.min(c.hp, c.currentHp + v);
+  } else if (card.abilityKind === 'spell_both_draw') {
+    // Work — Stand-up Meeting: both players draw 1. Neutral cycle.
+    for (const p of [me, them]) {
+      if (p.deck.length && p.hand.length < MAX_HAND) {
+        const c = p.deck.shift()!;
+        c.tapped = false;
+        p.hand.push(c);
+      }
+    }
+    state.log.push(`${displayName(card)} — both players draw`);
+  } else if (card.abilityKind === 'spell_buff_all') {
+    // Payroll / Graduation Day variant: +V/+V to every friendly
+    // creature (permanent). Permanent — increases both currentHp/hp
+    // and atk so it persists through later damage.
+    for (const c of me.field) {
+      c.currentAtk += v;
+      c.currentHp += v;
+      c.hp += v;
+    }
+    state.log.push(`${displayName(card)} buffs your creatures +${v}/+${v}`);
+  } else if (card.abilityKind === 'exam_pass') {
+    // Education — Final Exam: conditional payoff based on board state.
+    // Reward keeping a board (3+ creatures) with damage; otherwise
+    // get a smaller heal as a consolation. Encourages playing on
+    // curve rather than holding the spell for raw burn.
+    if (me.field.length >= 3) {
+      them.hp -= v;
+      state.log.push(`${displayName(card)} aces the exam — ${v} to enemy face`);
+    } else {
+      me.hp = Math.min(STARTING_HP, me.hp + v);
+      state.log.push(`${displayName(card)} settles for partial credit — heal ${v}`);
+    }
+  } else if (card.abilityKind === 'pop_quiz') {
+    // Education — Pop Quiz: discard a random card from hand, draw 2.
+    // Net +1 card with a random downside. Don't include the spell
+    // itself in the discard pool (it's already leaving hand via the
+    // normal spell resolution path).
+    if (me.hand.length > 0) {
+      const idx = Math.floor(Math.random() * me.hand.length);
+      const [discarded] = me.hand.splice(idx, 1);
+      me.discard.push(discarded);
+      state.log.push(`${displayName(card)} discards ${displayName(discarded)}`);
+    }
+    for (let i = 0; i < 2; i++) {
+      if (me.deck.length && me.hand.length < MAX_HAND) {
+        const c = me.deck.shift()!;
+        c.tapped = false;
+        me.hand.push(c);
+      }
+    }
   } else if (card.abilityKind === 'spell_freeze' && target?.kind === 'creature') {
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);

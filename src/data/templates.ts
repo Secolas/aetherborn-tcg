@@ -92,6 +92,12 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'silence',
     rarity: 'rare', suggested: 'a stern parent or grandparent' },
 
+  { id: 'fam-14', name: 'Hug', el: 'family', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 2 HP.',
+    flavor: 'Sometimes that\'s all it takes.',
+    abilityKind: 'spell_heal', abilityValue: 2,
+    rarity: 'common', suggested: 'two people hugging, or anyone embracing' },
+
 
   // ============================================================
   // WORK
@@ -173,6 +179,18 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'silence',
     rarity: 'rare', suggested: 'a manager, a meeting room, or a binder' },
 
+  { id: 'wrk-14', name: 'Stand-up Meeting', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Both players draw 1 card.',
+    flavor: '"Just a quick sync."',
+    abilityKind: 'spell_both_draw',
+    rarity: 'common', suggested: 'a team gathered around a desk or whiteboard' },
+
+  { id: 'wrk-15', name: 'Payroll', el: 'work', cost: 4, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give each of your creatures +1/+1.',
+    flavor: 'Cleared. Direct deposit.',
+    abilityKind: 'spell_buff_all', abilityValue: 1,
+    rarity: 'rare', suggested: 'a paycheck, an ATM screen, or your bank app' },
+
 
   // ============================================================
   // ANIMALS
@@ -252,6 +270,12 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'silence',
     rarity: 'rare', suggested: 'a leash, harness, or quiet animal' },
 
+  { id: 'ani-14', name: 'Mosquito', el: 'animals', cost: 1, atk: 1, hp: 1, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Small. Annoying. Persistent.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'a mosquito, fly, or any flying insect' },
+
 
   // ============================================================
   // TRAVEL — tempo / evasion. They move fast and slip past defenses.
@@ -329,6 +353,12 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'rush',
     rarity: 'legendary', suggested: 'a peak, summit, or panoramic mountain view' },
 
+  { id: 'trv-13', name: 'Ticket Stub', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw a card.',
+    flavor: 'A receipt for somewhere you\'ve been.',
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'a torn ticket, boarding stub, or museum pass' },
+
   // ============================================================
   // FOOD — sustain / nourish / recovery / one-shot ramp
   //
@@ -393,10 +423,10 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 4,
     rarity: 'common', suggested: 'mac and cheese, mashed potatoes, your favorite' },
 
-  { id: 'fd-10', name: 'Grandma\'s Pie', el: 'food', cost: 4, atk: 2, hp: 6, type: 'Creature',
-    ability: 'Taunt.',
-    flavor: 'Don\'t you dare leave without a slice.',
-    abilityKind: 'taunt',
+  { id: 'fd-10', name: 'Grandma\'s Pie', el: 'food', cost: 3, atk: 1, hp: 5, type: 'Creature',
+    ability: 'At the start of your turn, restore 2 HP.',
+    flavor: "There's always one more slice.",
+    abilityKind: 'heal_each_turn', abilityValue: 2,
     rarity: 'rare', suggested: 'a homemade pie, fruit crumble, or dessert' },
 
   { id: 'fd-11', name: 'The Cook', el: 'food', cost: 4, atk: 3, hp: 4, type: 'Creature',
@@ -410,6 +440,95 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Everyone leaves the table fuller.',
     abilityKind: 'spell_feast', abilityValue: 8,
     rarity: 'legendary', suggested: 'a holiday spread, big dinner table, feast scene' },
+
+  { id: 'fd-13', name: 'Sip', el: 'food', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 3 HP to a friendly creature.',
+    flavor: 'A small drink. A small reset.',
+    abilityKind: 'spell_heal_friend', abilityValue: 3,
+    rarity: 'common', suggested: 'a glass of water, an iced tea, a smoothie' },
+
+  // ============================================================
+  // EDUCATION — scaling / growth / conditional payoffs
+  //
+  // Owns a mechanical lane no other theme touches: PERMANENT stat
+  // growth across turns. Level-up creatures gain +1/+1 every end of
+  // your turn forever; Graduates transform into Untargetable threats
+  // after surviving long enough. Slow to start, hard to remove late.
+  // Counter is fast aggro (kill them before they level) or silence
+  // (strips the level_up ability).
+  // ============================================================
+
+  { id: 'edu-01', name: 'Pencil', el: 'education', cost: 1, atk: 1, hp: 1, type: 'Creature',
+    ability: '',
+    flavor: 'You will need this every day.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a pencil, a pen, a marker — your writing tool' },
+
+  { id: 'edu-02', name: 'Backpack', el: 'education', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw a card.',
+    flavor: 'You haven\'t unpacked it since Sunday.',
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'a school backpack, tote, or messenger bag' },
+
+  { id: 'edu-03', name: 'Math Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
+    ability: 'At the end of your turn, this gains +1/+1.',
+    flavor: 'Show your work.',
+    abilityKind: 'level_up',
+    rarity: 'rare', suggested: 'a teacher at a chalkboard, with numbers or formulas' },
+
+  { id: 'edu-04', name: 'Bathroom Break', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Freeze an enemy creature.',
+    flavor: '"Can I be excused?"',
+    abilityKind: 'spell_freeze',
+    rarity: 'common', suggested: 'a school hallway, lockers, or a hall pass' },
+
+  { id: 'edu-05', name: 'Group Project', el: 'education', cost: 4, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give each of your creatures +1/+1.',
+    flavor: 'Two people do the work. Everyone signs.',
+    abilityKind: 'spell_buff_all', abilityValue: 1,
+    rarity: 'rare', suggested: 'students gathered around a table working together' },
+
+  { id: 'edu-06', name: 'Physics Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
+    ability: 'At the end of your turn, this gains +1/+1.',
+    flavor: 'For every action, an equal and opposite reaction.',
+    abilityKind: 'level_up',
+    rarity: 'rare', suggested: 'a science classroom, lab equipment, or an experiment' },
+
+  { id: 'edu-07', name: 'Pop Quiz', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Discard a random card from your hand, then draw 2.',
+    flavor: 'Clear your desks.',
+    abilityKind: 'pop_quiz',
+    rarity: 'rare', suggested: 'a test sheet, scantron, or stack of exams' },
+
+  { id: 'edu-08', name: 'The Bully', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'The hallway feels longer when he\'s in it.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'a tough-looking kid, a closed locker, or a tense scene' },
+
+  { id: 'edu-09', name: 'Library', el: 'education', cost: 4, atk: 1, hp: 6, type: 'Creature',
+    ability: 'At the start of your turn, restore 1 HP.',
+    flavor: 'Quiet places win quiet wars.',
+    abilityKind: 'heal_each_turn', abilityValue: 1,
+    rarity: 'rare', suggested: 'a library, bookshelves, or a quiet reading nook' },
+
+  { id: 'edu-10', name: 'Final Exam', el: 'education', cost: 4, atk: 0, hp: 0, type: 'Spell',
+    ability: 'If you have 3+ creatures, deal 5 to the enemy boss. Otherwise, restore 5 HP.',
+    flavor: 'Bring a pencil. And a backup.',
+    abilityKind: 'exam_pass', abilityValue: 5,
+    rarity: 'epic', suggested: 'a packed exam room, a clock on the wall, an answer sheet' },
+
+  { id: 'edu-11', name: 'Senior Year', el: 'education', cost: 4, atk: 2, hp: 3, type: 'Creature',
+    ability: 'At the end of your turn, this gains +1/+1. After 3 turns, also gain +2/+2 and Untargetable.',
+    flavor: 'Almost done. Almost free.',
+    abilityKind: 'graduate', abilityValue: 3,
+    rarity: 'epic', suggested: 'a yearbook portrait, a senior photo, a cap and gown closeup' },
+
+  { id: 'edu-12', name: 'Graduation Day', el: 'education', cost: 6, atk: 4, hp: 5, type: 'Creature',
+    ability: 'On play: give each of your creatures +1/+1.',
+    flavor: 'You made it. Now what?',
+    abilityKind: 'spell_buff_all', abilityValue: 1,
+    rarity: 'legendary', suggested: 'graduating students throwing caps, a diploma, a celebration' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {
