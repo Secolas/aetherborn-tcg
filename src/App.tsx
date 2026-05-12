@@ -12,6 +12,7 @@ import { SettingsScreen } from './screens/Settings';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
+import { getTemplateById } from './data/templates';
 import type { BossDef } from './data/bosses';
 import type { CollectionCard, SaveData, Difficulty, DeckSlot } from './game/types';
 
@@ -82,15 +83,58 @@ export default function App() {
   // have the old URL baked into card.photo, so we re-fetch aiPhoto for every
   // placeholder card whenever the app boots. Real captured photos (data URIs)
   // are untouched.
+  //
+  // ALSO migrate template fields on load. CollectionCard inlines all of the
+  // template's stats / abilities / flavor / rarity at the time the card was
+  // saved. When a balance pass updates a template (e.g. Cousin loses Rush,
+  // Tio's rarity bumps to rare), the player's saved copy still carries the
+  // OLD data unless we re-sync. We merge current template fields onto every
+  // saved card on boot, preserving the user-owned bits (uid, photo,
+  // nickname, isPlaceholder) so captured photos and names survive.
   useEffect(() => {
     setSave(s => {
       let dirty = false;
       const collection = s.collection.map(c => {
-        if (!c.isPlaceholder) return c;
-        const fresh = aiPhoto(c.id);
-        if (fresh === c.photo) return c;
-        dirty = true;
-        return { ...c, photo: fresh };
+        let next = c;
+        // 1. Photo refresh for placeholder cards.
+        if (c.isPlaceholder) {
+          const fresh = aiPhoto(c.id);
+          if (fresh !== c.photo) {
+            next = { ...next, photo: fresh };
+            dirty = true;
+          }
+        }
+        // 2. Re-sync template fields. If the underlying template no
+        //    longer matches the saved card (any of name/cost/atk/hp/
+        //    ability/abilityKind/abilityValue/rarity/flavor/type/el
+        //    drifted), pull the fresh template in, keeping the user
+        //    fields intact.
+        const t = getTemplateById(c.id);
+        if (t) {
+          const drift =
+            t.name !== next.name ||
+            t.cost !== next.cost ||
+            t.atk !== next.atk ||
+            t.hp !== next.hp ||
+            t.ability !== next.ability ||
+            t.abilityKind !== next.abilityKind ||
+            t.abilityValue !== next.abilityValue ||
+            t.rarity !== next.rarity ||
+            t.flavor !== next.flavor ||
+            t.type !== next.type ||
+            t.el !== next.el;
+          if (drift) {
+            next = {
+              ...t,
+              uid: next.uid,
+              photo: next.photo,
+              nickname: next.nickname,
+              isPlaceholder: next.isPlaceholder,
+            };
+            dirty = true;
+          }
+        }
+        return next;
       });
       return dirty ? { ...s, collection } : s;
     });

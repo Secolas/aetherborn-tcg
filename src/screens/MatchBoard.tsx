@@ -808,7 +808,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
       if (effectFires.length) {
-        const EFFECT_MS = 950;
+        // Each toast holds long enough to read the card photo + the
+        // ability text. Earlier 950ms felt like a flash for the
+        // Library / heal-each-turn case where players want to actually
+        // see the source card. ~1.8s lands closer to the spell-reveal
+        // pacing and gives the buff popup time to land underneath.
+        const EFFECT_MS = 1800;
         const at = pipeDelay;
         effectFires.forEach((f, i) => {
           const showAt = at + i * EFFECT_MS;
@@ -826,7 +831,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const activeBefore = activeSide === 'player' ? prev.hp.player : prev.hp.opponent;
         const activeAfter = activeSide === 'player' ? fresh.hp.player : fresh.hp.opponent;
         const activeBondsList = activeBonds(activeSide === 'player' ? state.player : state.opponent);
-        if (activeBondsList.some(b => b.effect.kind === 'heal_face_per_turn') && activeAfter > activeBefore) {
+        // Any non-combat face HP gain at turn flip = a heal popup, no
+        // matter what caused it. Covers heal_face_per_turn bonds AND
+        // heal_each_turn creatures (Library, Grandma's Pie) so the
+        // player ALWAYS sees a green +N float up when their face HP
+        // ticks up, not just a silent bar change.
+        if (activeAfter > activeBefore) {
           const key = activeSide === 'player' ? FACE_PLAYER : FACE_OPP;
           bondPops[key] = -(activeAfter - activeBefore); // negative = heal popup (green)
         }
@@ -2361,7 +2371,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               zIndex: 215,
               pointerEvents: 'none',
-              animation: 'bondFireToast 1000ms cubic-bezier(.2,.8,.3,1) both',
+              // Slower than the bond fire toast so the player can read
+              // the card photo + ability text — earlier 1s pacing felt
+              // like a flash. ~1.85s matches the spell-reveal hold and
+              // gives the buff popup time to land under it.
+              animation: 'bondFireToast 1850ms cubic-bezier(.2,.8,.3,1) both',
             }}
           >
             <div style={{
