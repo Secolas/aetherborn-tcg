@@ -719,24 +719,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
 
-      // Buff popups (level_up +1/+1, spell_buff resolves, etc.) are
-      // queued INTO the pipeline so they always read as a beat that
-      // follows whatever caused them. Sliding them out of the queue
-      // caused them to land on top of combat / death animations from
-      // the same tick — exactly the "two animations at once" problem.
-      if (Object.keys(buffPops).length) {
-        const at = pipeDelay;
-        setTimeout(() => setBuffs(b => ({ ...b, ...buffPops })), at);
-        setTimeout(() => setBuffs(b => {
-          const next = { ...b };
-          for (const id of Object.keys(buffPops)) delete next[id];
-          return next;
-        }), at + 1200);
-        // Don't extend pipeDelay further if the effect-toast pipeline
-        // already covers this window — the buff popup is a short
-        // side-effect that lives UNDER the toast.
-        if (pipeDelay - at < 1200) pipeDelay = at + 1200;
-      }
+      // (Buff popups for level_up / spell_buff resolves moved to AFTER
+      // the effect-toast block below — the ability reveal plays first,
+      // THEN the +1/+1 popup lands. See `queueBuffPops()` after the
+      // effect-toast queue.)
       if (Object.keys(silenced).length) {
         setSilencedAt(s => ({ ...s, ...silenced }));
         setTimeout(() => setSilencedAt(s => {
@@ -861,6 +847,22 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setTimeout(() => setEffectToast(cur => (cur && cur.key === key ? null : cur)), showAt + EFFECT_MS + 50);
         });
         pipeDelay += effectFires.length * EFFECT_MS + 50;
+      }
+
+      // Buff popups (level_up +1/+1, spell_buff resolves, etc.) fire
+      // AFTER the effect toast — so the player reads "Math Teacher
+      // levels up" from the centered card reveal, THEN sees the
+      // +1/+1 pop on the actual creature. This matches the requested
+      // sequence: ability animation first, stat change second.
+      if (Object.keys(buffPops).length) {
+        const at = pipeDelay;
+        setTimeout(() => setBuffs(b => ({ ...b, ...buffPops })), at);
+        setTimeout(() => setBuffs(b => {
+          const next = { ...b };
+          for (const id of Object.keys(buffPops)) delete next[id];
+          return next;
+        }), at + 1200);
+        pipeDelay = at + 1200;
       }
 
       if (turnFlipped) {
@@ -2386,56 +2388,51 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Per-creature ability reveal — when a creature's ability
-          activates (level_up tick, graduation, heal_each_turn from
-          Library / Grandma's Pie), we lift the SOURCE card to the
-          center of the screen at full readable scale, with the
-          ability text underneath. Reads exactly like a spell cast,
-          so the player can SEE the source and what it did — no more
-          guessing where the +1/+1 or green heal came from. Hold
-          ~2.4s so the card is legible and the buff popup has time
-          to land underneath. Gold tint for player, dark steel for
-          boss. */}
+      {/* Per-creature ability reveal — uses the SAME shape as a spell
+          cast reveal (playerSpellReveal / opponentPlayReveal) so the
+          game has ONE animation vocabulary for "something is
+          happening on screen, look at this card." The header text
+          changes (`Your X levels up` vs `Boss's X heals` vs `You
+          cast` vs `Boss plays`) but the dim backdrop, scale, and
+          keyframe are identical. Hold ~2.2s, matching boss spell
+          reveal pacing. */}
       {effectToast && (() => {
         const isPlayer = effectToast.side === 'player';
+        const owner = isPlayer ? 'Your' : `${boss.name}'s`;
         return (
           <div
             key={effectToast.key}
             style={{
               position: 'absolute', inset: 0,
-              display: 'flex', flexDirection: 'column',
-              justifyContent: 'center', alignItems: 'center',
-              zIndex: 220,
+              background: 'rgba(0,0,0,.45)',
+              display: 'grid', placeItems: 'center',
+              zIndex: 180,
               pointerEvents: 'none',
-              background: 'rgba(8, 4, 12, 0.45)',
-              animation: 'bondCineFadeOut 2400ms ease-in-out both',
+              animation: 'fadeIn .15s',
             }}
           >
             <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-              animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1) both',
+              position: 'relative',
+              animation: 'opponentPlayReveal 1.5s ease-out forwards',
             }}>
               <div style={{
-                fontSize: 12, fontWeight: 800,
-                letterSpacing: '0.32em',
-                color: isPlayer ? '#f4d59a' : '#e8d9c7',
-                textShadow: '0 2px 8px rgba(0,0,0,.7)',
-              }}>ABILITY ACTIVATED</div>
+                position: 'absolute', top: -32, left: 0, right: 0,
+                textAlign: 'center',
+                fontSize: 11, fontWeight: 700,
+                letterSpacing: '0.15em', textTransform: 'uppercase',
+                color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
+                fontFamily: '"Fredoka", system-ui',
+              }}>
+                {owner} {effectToast.card.nickname || effectToast.card.name}
+              </div>
               <Card card={effectToast.card} hovered scale={0.95} />
               <div style={{
-                padding: '10px 22px',
-                background: isPlayer
-                  ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
-                  : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
-                color: '#fff',
-                borderRadius: 14,
-                boxShadow: isPlayer
-                  ? '0 8px 26px rgba(196,120,26,.55), 0 0 0 1.5px rgba(255,224,160,.4) inset'
-                  : '0 8px 26px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.08) inset',
-                fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
-                fontWeight: 700,
-                fontSize: 16,
-                letterSpacing: '0.04em',
+                position: 'absolute', bottom: -36, left: 0, right: 0,
+                textAlign: 'center',
+                fontSize: 13, fontWeight: 700,
+                letterSpacing: '0.08em',
+                color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.7)',
+                fontFamily: '"Fredoka", system-ui',
               }}>
                 {effectToast.text}
               </div>
