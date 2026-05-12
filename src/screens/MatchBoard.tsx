@@ -182,11 +182,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  banners + AI delays present it as a sequence even though the
    *  engine just calls aiStep iteratively. */
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
-  /** Has the boss already announced Battle Phase this turn? Resets to
-   *  false on every turn change. Used by the AI driver to drop a
-   *  one-time "Boss · Battle Phase" banner the first time the boss
-   *  attacks, mirroring the player's Go-to-Battle button. */
-  const bossBattleShownRef = useRef<number>(0);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
@@ -372,23 +367,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         // also named "The Boss" and shouldn't be renamed mid-string.
         showMsg(step.action.replace(/^The Boss\b/, boss.name));
         if (step.combat) {
-          // First attack of the boss's turn → drop a Battle Phase
-          // banner so the player can read the transition. Same shape
-          // as their own "Go to Battle" click. Subsequent attacks
-          // skip the banner since the phase is already established.
-          const needsBattleBanner = bossBattleShownRef.current !== state.turnNumber;
-          if (needsBattleBanner) {
-            bossBattleShownRef.current = state.turnNumber;
-            setPhaseBanner({ text: 'Battle Phase', side: 'opponent', key: Date.now() + 7777 });
-            holdAnim(900);
-            setTimeout(() => {
-              if (cancelled) return;
-              setPhaseBanner(cur => (cur && cur.side === 'opponent' && cur.text === 'Battle Phase' ? null : cur));
-              playAttackAnimation(step.combat!, () => { if (!cancelled) setState(step.next); });
-            }, 850);
-          } else {
-            playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
-          }
+          playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
         } else if (step.played) {
           // Show the played card front-and-center so the player can see what
           // was just played — especially important for spells, which would
@@ -924,9 +903,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         pipeDelay += fires.length * EFFECT_MS + 50;
       };
       // END PHASE — level_up / graduate reveals, then the matching
-      // +1/+1 buff popups land on the actual creatures.
+      // +1/+1 buff popups land on the actual creatures. The player's
+      // End Phase banner is shown immediately by onEndTurn so we only
+      // queue one here for the boss's turn end.
       if (endPhaseFires.length) {
-        queuePhaseBanner('End Phase', justEndedSide);
+        if (justEndedSide === 'opponent') queuePhaseBanner('End Phase', justEndedSide);
         queueEffectFires(endPhaseFires);
       }
 
@@ -1338,6 +1319,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     kind: 'spell_damage' | 'spell_freeze' | 'spell_buff' | 'spell_heal' | 'draw_on_play' | string | undefined,
   ) => {
     if (!target || !boardRef.current) return;
+    // Draw spells resolve without a face hit — the card-back flight is the feedback.
+    if (kind === 'draw_on_play' || kind === 'spell_both_draw') return;
     const key = target.kind === 'face'
       ? (target.owner === 'player' ? FACE_PLAYER : FACE_OPP)
       : target.battleId;
@@ -1608,6 +1591,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setSelectedAttacker(null);
     setPendingSpell(null);
     showMsg(`${boss.name}'s turn`);
+    const key = Date.now() + 5555;
+    setPhaseBanner({ text: 'End Phase', side: 'player', key });
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 750);
     setState(s => endTurn(s));
   };
 
