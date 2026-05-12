@@ -3565,7 +3565,13 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
     || spell.abilityKind === 'spell_nourish'
     || spell.abilityKind === 'spell_heal_friend';
   if (c.abilityKind === 'untargetable' && !isFriendly) return false;
-  if (isFriendly) return owner === 'player';
+  if (isFriendly) {
+    if (owner !== 'player') return false;
+    // Theme restriction: common/rare buffs and heals only work on same-theme
+    // creatures. Legendary and epic spells bypass the restriction.
+    const unrestricted = spell.rarity === 'legendary' || spell.rarity === 'epic';
+    return unrestricted || c.el === spell.el;
+  }
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return true;
   return false;
