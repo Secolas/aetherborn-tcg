@@ -1,28 +1,41 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, FolderOpen } from 'lucide-react';
+import { ArrowLeft, FolderOpen, Lock, Coins, Check } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { ELEMENTS } from '../data/elements';
 import { btnPrimary, btnSecondary, iconBtn } from '../components/styles';
+import { FILTER_ORDER, FILTERS, type FilterId } from '../data/filters';
+import { SmartImage } from '../components/SmartImage';
 import type { CollectionCard } from '../game/types';
 
 type Stage = 'starting' | 'framing' | 'flashing' | 'revealed' | 'denied';
 
 interface Props {
   template: CollectionCard | null;
+  /** Coin balance — needed to gate filter purchases inline. */
+  coins?: number;
+  /** Filters the player owns. Defaults to a safe starter set. */
+  unlockedFilters?: FilterId[];
+  /** Called when the player buys a filter from the cosmetic picker. The
+   *  parent should debit coins and add the filter to the unlocked list. */
+  onBuyFilter?: (filterId: FilterId, cost: number) => void;
   onComplete: (updated: CollectionCard) => void;
   onBack: () => void;
 }
 
 const PHOTO_SIZE = 720;
 
-export function Capture({ template, onComplete, onBack }: Props) {
+export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia'], onBuyFilter, onComplete, onBack }: Props) {
   const [stage, setStage] = useState<Stage>('starting');
   const [photo, setPhoto] = useState<string | null>(null);
   const [nickname, setNickname] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
+  // Cosmetic filter applied to the captured photo. Defaults to 'none' so
+  // the player sees their photo unmodified first; tapping a chip swaps
+  // it live without re-running capture.
+  const [filterId, setFilterId] = useState<FilterId>('none');
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -176,7 +189,12 @@ export function Capture({ template, onComplete, onBack }: Props) {
 
   const finalize = () => {
     if (!photo) return;
-    onComplete({ ...template, photo, nickname: nickname.trim() || template.name });
+    onComplete({
+      ...template,
+      photo,
+      nickname: nickname.trim() || template.name,
+      filterId: filterId === 'none' ? undefined : filterId,
+    });
   };
 
   return (
@@ -276,7 +294,7 @@ export function Capture({ template, onComplete, onBack }: Props) {
         {stage === 'revealed' && photo && (
           <div style={{ animation: 'cardSummon 0.6s cubic-bezier(.2,.8,.3,1)' }}>
             <Card
-              card={{ ...template, photo, nickname: nickname || template.name }}
+              card={{ ...template, photo, nickname: nickname || template.name, filterId: filterId === 'none' ? undefined : filterId }}
               displayName={nickname || template.name}
               hovered
               scale={1.05}
@@ -327,6 +345,14 @@ export function Capture({ template, onComplete, onBack }: Props) {
 
         {stage === 'revealed' && (
           <>
+            <FilterPicker
+              photo={photo}
+              filterId={filterId}
+              unlockedFilters={unlockedFilters}
+              coins={coins}
+              onPick={setFilterId}
+              onBuy={onBuyFilter}
+            />
             <input
               value={nickname}
               onChange={ev => setNickname(ev.target.value)}
@@ -360,6 +386,147 @@ export function Capture({ template, onComplete, onBack }: Props) {
           if (file) handleFile(file);
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * Horizontal strip of small filter previews shown after the photo lands.
+ * Each chip uses the actual captured photo as the preview — tapping one
+ * swaps the cosmetic on the big card above so the player sees the change
+ * live before committing. Locked filters render with a coin badge and a
+ * "Buy" tap action; the parent debits coins and unlocks via onBuy.
+ */
+function FilterPicker({
+  photo, filterId, unlockedFilters, coins, onPick, onBuy,
+}: {
+  photo: string | null;
+  filterId: FilterId;
+  unlockedFilters: FilterId[];
+  coins: number;
+  onPick: (id: FilterId) => void;
+  onBuy?: (id: FilterId, cost: number) => void;
+}) {
+  return (
+    <div style={{ marginBottom: 12 }}>
+      <div style={{
+        fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase',
+        color: 'rgba(255,255,255,.55)', textAlign: 'center', marginBottom: 8,
+        fontWeight: 600,
+      }}>
+        Cosmetic Filter
+      </div>
+      <div
+        className="no-scrollbar"
+        style={{
+          display: 'flex', gap: 8, overflowX: 'auto',
+          padding: '4px 4px 8px',
+          scrollSnapType: 'x mandatory',
+        }}>
+        {FILTER_ORDER.map(id => {
+          const f = FILTERS[id];
+          const locked = !unlockedFilters.includes(id);
+          const selected = filterId === id;
+          const canAfford = coins >= f.cost;
+          const handleClick = () => {
+            if (locked) {
+              if (onBuy && canAfford) onBuy(id, f.cost);
+              return;
+            }
+            onPick(id);
+          };
+          return (
+            <button
+              key={id}
+              onClick={handleClick}
+              disabled={locked && (!onBuy || !canAfford)}
+              aria-label={`${f.name}${locked ? ' (locked)' : ''}`}
+              style={{
+                position: 'relative',
+                flex: '0 0 auto',
+                width: 64, padding: 0,
+                borderRadius: 12,
+                border: selected ? '2px solid #f4d04a' : '2px solid rgba(255,255,255,.15)',
+                background: 'rgba(255,255,255,.06)',
+                cursor: locked && (!onBuy || !canAfford) ? 'not-allowed' : 'pointer',
+                overflow: 'hidden',
+                color: '#fff', fontFamily: 'inherit',
+                opacity: locked && !canAfford ? 0.55 : 1,
+                scrollSnapAlign: 'start',
+              }}
+            >
+              <div style={{
+                position: 'relative', width: '100%', height: 64,
+                overflow: 'hidden',
+                background: '#0a0a14',
+              }}>
+                {photo ? (
+                  <SmartImage
+                    src={photo}
+                    alt=""
+                    fallbackSeed={id}
+                    style={{
+                      width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+                      filter: f.cssFilter === 'none' ? undefined : f.cssFilter,
+                    }}
+                  />
+                ) : null}
+                {f.overlay && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: f.overlay.background,
+                    mixBlendMode: f.overlay.mixBlendMode,
+                    pointerEvents: 'none',
+                  }} />
+                )}
+                {locked && (
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'rgba(0,0,0,.55)',
+                    display: 'grid', placeItems: 'center',
+                  }}>
+                    <Lock size={18} color="#fff" />
+                  </div>
+                )}
+                {selected && !locked && (
+                  <div style={{
+                    position: 'absolute', top: 2, right: 2,
+                    width: 18, height: 18, borderRadius: '50%',
+                    background: '#f4d04a', color: '#3a2e2a',
+                    display: 'grid', placeItems: 'center',
+                  }}>
+                    <Check size={12} strokeWidth={3} />
+                  </div>
+                )}
+              </div>
+              <div style={{
+                padding: '4px 2px 5px',
+                fontSize: 9.5, fontWeight: 700,
+                letterSpacing: '0.05em', textAlign: 'center',
+              }}>
+                {f.name}
+              </div>
+              {locked && f.cost > 0 && (
+                <div style={{
+                  fontSize: 8.5, fontWeight: 700,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  gap: 2, color: canAfford ? '#ffd166' : '#ff7e5f',
+                  paddingBottom: 4,
+                }}>
+                  <Coins size={9} fill="#ffd166" color="#e8a93a" strokeWidth={2.2} />
+                  {f.cost}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      <div style={{
+        fontSize: 10, opacity: 0.55, textAlign: 'center', marginTop: 2,
+        fontStyle: 'italic',
+      }}>
+        {FILTERS[filterId].description}
+      </div>
     </div>
   );
 }

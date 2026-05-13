@@ -17,6 +17,8 @@ import {
 } from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { STARTER_FILTERS, type FilterId } from './data/filters';
+import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
@@ -45,6 +47,8 @@ function makeInitialSave(): SaveData {
     matchesWon: 0,
     matchesLost: 0,
     bossesDefeated: [],
+    unlockedFilters: [...STARTER_FILTERS],
+    openedMemoryPacks: [],
   };
 }
 
@@ -81,6 +85,24 @@ export default function App() {
         return s;
       }
       return { ...s, daily: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Backfill cosmetic state on legacy saves that predate filters/memory
+   *  packs. Idempotent — if the fields are already populated we leave
+   *  them alone so the player doesn't get re-granted starter filters
+   *  after later changes. */
+  useEffect(() => {
+    setSave(s => {
+      const needsFilters = !s.unlockedFilters || s.unlockedFilters.length === 0;
+      const needsMemory = !s.openedMemoryPacks;
+      if (!needsFilters && !needsMemory) return s;
+      return {
+        ...s,
+        unlockedFilters: needsFilters ? [...STARTER_FILTERS] : s.unlockedFilters,
+        openedMemoryPacks: needsMemory ? [] : s.openedMemoryPacks,
+      };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -303,6 +325,48 @@ export default function App() {
     trackEvent({ kind: 'pack_opened' });
   };
 
+  /** Memory pack open. Debits coins, appends cards, marks the pack as
+   *  opened, and on first-open grants the pack's bonus cosmetic filter. */
+  const onMemoryPackOpened = (packId: string, cards: CollectionCard[], cost: number) => {
+    const def = getMemoryPack(packId);
+    setSave(s => {
+      const already = (s.openedMemoryPacks ?? []).includes(packId);
+      const unlocked = s.unlockedFilters ?? [...STARTER_FILTERS];
+      const bonus = def?.bonusFilter;
+      const grantFilter = !already && bonus && !unlocked.includes(bonus);
+      return {
+        ...s,
+        coins: s.coins - cost,
+        collection: [...s.collection, ...cards],
+        packsOpened: s.packsOpened + 1,
+        openedMemoryPacks: already
+          ? s.openedMemoryPacks
+          : [...(s.openedMemoryPacks ?? []), packId],
+        unlockedFilters: grantFilter ? [...unlocked, bonus] : unlocked,
+      };
+    });
+    trackEvent({ kind: 'pack_opened' });
+  };
+
+  /** Buy a filter inline from the Capture cosmetic picker. Debits coins
+   *  and adds the filter to the unlocked list. No-ops on insufficient
+   *  funds or an already-unlocked filter so callers can fire freely. */
+  const onBuyFilter = (filterId: FilterId, cost: number) => {
+    setSave(s => {
+      const unlocked = s.unlockedFilters ?? [...STARTER_FILTERS];
+      if (unlocked.includes(filterId)) return s;
+      if (s.coins < cost) return s;
+      // Cheap UX sparkle — same chime used for quest claim. Cosmetic
+      // unlocks deserve the same little payoff moment.
+      playSfx('questClaim', settings.sfxVolume);
+      return {
+        ...s,
+        coins: s.coins - cost,
+        unlockedFilters: [...unlocked, filterId],
+      };
+    });
+  };
+
   /** Helper: rewrite a specific deck slot's uids. Mirrors the active
    *  deck's uids back into the legacy `deckUids` field so any code still
    *  reading the old shape stays in sync. */
@@ -486,6 +550,9 @@ export default function App() {
       {screen === 'capture' && (
         <Capture
           template={capturing}
+          coins={save.coins}
+          unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
+          onBuyFilter={onBuyFilter}
           onComplete={onCaptureComplete}
           onBack={() => { setCapturing(null); setScreen('collection'); }}
         />
@@ -508,7 +575,9 @@ export default function App() {
         <PackOpening
           coins={save.coins}
           settings={settings}
+          openedMemoryPacks={save.openedMemoryPacks ?? []}
           onPackOpened={onPackOpened}
+          onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
         />
       )}

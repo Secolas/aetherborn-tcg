@@ -84,7 +84,13 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         boxShadow: 'inset 0 0 0 2px rgba(255,255,255,.25), inset 0 4px 12px rgba(0,0,0,.3)',
         position: 'relative',
       }}>
-        <PhotoFrame photo={photo} el={card.el} scale={scale} fallbackSeed={card.id} />
+        <PhotoFrame
+          photo={photo}
+          el={card.el}
+          scale={scale}
+          fallbackSeed={card.id}
+          filterId={isCollectionCard(card) ? card.filterId : undefined}
+        />
       </div>
 
       <div style={{

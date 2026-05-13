@@ -393,6 +393,15 @@ input {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
 }
 
+/* Slow shimmering sheen across a card photo when the Holo filter is
+   applied. Two-tone diagonal gradient sweeps endlessly across the photo
+   region — purely cosmetic, contained inside the PhotoFrame's overflow
+   clip so it never escapes the card. */
+@keyframes holoFilterSweep {
+  0%   { transform: translateX(-30%); }
+  100% { transform: translateX(30%); }
+}
+
 /* Pulse on a claimable quest's Claim button — gently calls the eye to it. */
 @keyframes questClaimPulse {
   0%, 100% { transform: scale(1);    box-shadow: 0 3px 10px rgba(238, 90, 82, .35); }
