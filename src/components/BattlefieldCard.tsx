@@ -435,10 +435,10 @@ export function BattlefieldCard({
             top: -5, left: -5,
             width: 16, height: 16, borderRadius: '50%',
             background: bondState === 'active'
-              ? 'linear-gradient(135deg, #06d6a0, #04a87d)'
+              ? 'linear-gradient(135deg, #ffe89a, #f4d04a)'
               : 'rgba(160,152,144,.85)',
             boxShadow: bondState === 'active'
-              ? '0 0 0 1.5px #fff, 0 0 8px rgba(6,214,160,.55)'
+              ? '0 0 0 1.5px #fff, 0 0 8px rgba(244,208,74,.65)'
               : '0 0 0 1px rgba(255,255,255,.6)',
             zIndex: 5,
             pointerEvents: 'none',
@@ -448,7 +448,7 @@ export function BattlefieldCard({
           <Link2
             size={8}
             strokeWidth={2.8}
-            color={bondState === 'active' ? '#fff' : 'rgba(255,255,255,.8)'}
+            color={bondState === 'active' ? '#3a2406' : 'rgba(255,255,255,.8)'}
           />
         </div>
       )}
