@@ -2487,16 +2487,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }}>
               {/* "BOND ACTIVATED" tag — drops in after the cards + beam settle. */}
               <div style={{
-                background: isPlayer
-                  ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-                  : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-                color: isPlayer ? '#3a2406' : '#ffe89a',
+                background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
+                color: '#3a2406',
                 padding: '6px 14px', borderRadius: 14,
                 fontFamily: '"Fredoka", system-ui',
                 fontSize: 11, letterSpacing: '0.25em', fontWeight: 800,
-                boxShadow: isPlayer
-                  ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
-                  : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
+                boxShadow: '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)',
                 animation: 'bondTextDrop .5s cubic-bezier(.2,.8,.3,1.2) 1.5s both',
               }}>
                 {isPlayer ? 'BOND ACTIVATED' : `${boss.name.toUpperCase()}'S BOND`}
@@ -2611,14 +2607,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           >
             <div style={{
               padding: '9px 18px 9px 14px',
-              background: isPlayer
-                ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
-                : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
+              background: 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)',
               color: '#fff',
               borderRadius: 12,
-              boxShadow: isPlayer
-                ? '0 6px 22px rgba(196,120,26,.45), 0 0 0 1.5px rgba(255,224,160,.4) inset'
-                : '0 6px 22px rgba(0,0,0,.55), 0 0 0 1.5px rgba(255,255,255,.08) inset',
+              boxShadow: '0 6px 22px rgba(196,120,26,.45), 0 0 0 1.5px rgba(255,224,160,.4) inset',
               fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
               fontWeight: 700,
               fontSize: 14,
