@@ -1840,10 +1840,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           damage/buff popups that overshoot upward off the card render on top
           of the divider strip and its End Turn / Give Up buttons. */}
       <div style={{
-        flex: '0 0 100px',
-        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+        flex: '0 0 auto', minHeight: 100,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 4,
         zIndex: 6,
         position: 'relative',
+        paddingBottom: 4,
       }}>
         <FieldRow
           side="opponent"
@@ -1988,16 +1989,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       <div
         ref={playerFieldRef}
         style={{
-          flex: '0 0 100px',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
-          // Above the divider (zIndex 4) so damage/buff popups that extend
-          // upward from a card render on top of the divider's icons.
+          flex: '0 0 auto', minHeight: 100,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', gap: 4,
           zIndex: 6,
-          background: drag?.overField
-            ? 'rgba(244,208,74,.10)'
-            : 'transparent',
+          background: drag?.overField ? 'rgba(244,208,74,.10)' : 'transparent',
           transition: 'background .15s',
           position: 'relative',
+          paddingTop: 4,
         }}
       >
         <FieldRow
@@ -3125,7 +3123,7 @@ const SLOTS_PER_ROW = 3;
  * the player, dark plate for the boss, anchored to that side's field zone.
  */
 function BondPillStack({
-  bonds, newlyActiveIds, side,
+  bonds, newlyActiveIds,
 }: {
   bonds: BondDef[];
   newlyActiveIds: string[];
@@ -3133,42 +3131,26 @@ function BondPillStack({
 }) {
   if (bonds.length === 0) return null;
   return (
-    <div
-      style={{
-        position: 'absolute',
-        right: 8,
-        top: side === 'opponent' ? 4 : undefined,
-        bottom: side === 'player' ? 4 : undefined,
-        display: 'flex', flexDirection: 'column', gap: 4,
-        alignItems: 'flex-end',
-        zIndex: 7,
-        pointerEvents: 'none',
-      }}
-    >
+    <div style={{
+      display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
+      gap: 4, justifyContent: 'center', alignItems: 'center',
+      pointerEvents: 'none',
+    }}>
       {bonds.map(b => {
         const isNewly = newlyActiveIds.includes(b.id);
         return (
           <div
-            // Re-keying on the "newly active" flag forces the cardSummon
-            // animation to replay the moment the bond activates, so the
-            // chip lands with a satisfying pop instead of just appearing.
             key={`${b.id}-${isNewly ? 'new' : 'steady'}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '3px 8px 3px 6px',
               borderRadius: 10,
-              background: side === 'player'
-                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-              color: side === 'player' ? '#3a2406' : '#ffe89a',
+              background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
+              color: '#3a2406',
               fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
-              boxShadow: side === 'player'
-                ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
-                : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
+              boxShadow: '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)',
               fontFamily: '"Fredoka", system-ui',
-              animation: isNewly
-                ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)'
-                : undefined,
+              animation: isNewly ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)' : undefined,
             }}
           >
             <Link2 size={10} strokeWidth={3} />
