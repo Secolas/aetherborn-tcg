@@ -51,6 +51,8 @@ interface DragState {
   startX: number; startY: number; // where the press began — used to detect tap-vs-drag
   ox: number; oy: number;   // finger offset within card at drag start
   overField: boolean;
+  /** Specific field slot (0-2) the drag is hovering over, or null. */
+  overSlot: number | null;
 }
 
 interface CombatFx {
@@ -1443,21 +1445,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       startX: ev.clientX, startY: ev.clientY,
       ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
+      overSlot: null,
     });
     ev.currentTarget.setPointerCapture(ev.pointerId);
   };
 
   const onPointerMove = (ev: React.PointerEvent) => {
     if (!drag) return;
-    // Drop zone = divider band OR the player creature row. Releasing on
-    // either plays the card; aiming at the thin center line was too fiddly.
     const inside = (rect: DOMRect | undefined) =>
       !!rect &&
       ev.clientX >= rect.left && ev.clientX <= rect.right &&
       ev.clientY >= rect.top && ev.clientY <= rect.bottom;
     const overField = inside(fieldRef.current?.getBoundingClientRect())
       || inside(playerFieldRef.current?.getBoundingClientRect());
-    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField } : d);
+    // For Creatures, find the specific field slot under the cursor so we
+    // can highlight it and land the card there on drop.
+    let overSlot: number | null = null;
+    if (overField && drag.cardType === 'Creature') {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
+      if (slotEl?.dataset.slot != null) {
+        const idx = parseInt(slotEl.dataset.slot);
+        if (!isNaN(idx)) overSlot = idx;
+      }
+    }
+    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField, overSlot } : d);
   };
 
   const onPointerUp = () => {
@@ -1487,8 +1499,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (card.type === 'Creature') {
       if (drag.overField) {
         const r = playCard(state, 'player', card.battleId);
-        if (r.ok) { setState(r.state); sfx('summon'); }
-        else flashMsg(r.reason ?? 'Cannot play');
+        if (r.ok) {
+          // If the player dropped on a specific free slot, pre-assign it
+          // before reconcile runs so the card lands exactly where released.
+          if (drag.overSlot != null) {
+            const usedSlots = new Set<number>();
+            for (const [id, s] of Object.entries(playerSlots)) {
+              if (state.player.field.some(c => c.battleId === id)) usedSlots.add(s);
+            }
+            for (const d of Object.values(dying)) {
+              if (d.side === 'player') usedSlots.add(d.slot);
+            }
+            if (!usedSlots.has(drag.overSlot)) {
+              const targetSlot = drag.overSlot;
+              setPlayerSlots(s => ({ ...s, [card.battleId]: targetSlot }));
+            }
+          }
+          setState(r.state);
+          sfx('summon');
+        } else {
+          flashMsg(r.reason ?? 'Cannot play');
+        }
       }
     } else {
       if (isNoTargetSpell(card)) {
@@ -1983,7 +2014,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
           slotMap={playerSlots}
-          highlightEmpty={selectedHandIdx !== null}
+          highlightEmpty={selectedHandIdx !== null || (!!drag && drag.cardType === 'Creature' && drag.overField)}
+          dragOverSlot={drag?.cardType === 'Creature' ? (drag?.overSlot ?? null) : null}
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
@@ -3233,41 +3265,26 @@ function BondPillStack({
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
-  highlightEmpty, registerEl, onCardClick, onCardLongPress,
+  highlightEmpty, dragOverSlot, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
-  /** Creatures currently mid-flight to the graveyard. Keyed by battleId.
-   *  We continue rendering them in their old slot and apply flyToGrave
-   *  on the live BattlefieldCard so the card itself arcs out — no
-   *  overlay ghost. After the flight ends MatchBoard removes them. */
   dying: Record<string, { card: BattleCard; side: Owner; slot: number; gx: number; gy: number; delayMs: number }>;
-  /** Whose turn is currently active. Player creatures only get the
-   *  attack-ready Swords badge on the player's own turn. */
   turn: Owner;
-  /** True when the player is in Battle Phase — gates the attack-ready
-   *  swords icon so it only appears when attacks are actually possible. */
   battlePhaseActive?: boolean;
   combat: CombatFx | null;
   damages: DamageMap;
-  /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
   buffs: Record<string, { atk: number; hp: number }>;
-  /** Per-creature silence trigger — bumping the value replays the flash. */
   silencedAt: Record<string, number>;
-  /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
   triggers: Record<string, string>;
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
-  /** Per-card-template bond state. 'active' = partner is on the field too,
-   *  'waiting' = bonded card is here but partner isn't yet. */
   bondLookup: Record<string, 'active' | 'waiting'>;
-  /** Stable slot assignment: card.battleId → slot index (0..2). Surviving
-   *  creatures stay in their assigned slot even when a neighbour dies;
-   *  empty slots stay empty instead of being filled by the next card to
-   *  the left. */
   slotMap: Record<string, number>;
   /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
+  /** Which slot (0-2) a drag is currently hovering over. Null = no slot targeted. */
+  dragOverSlot?: number | null;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
@@ -3300,21 +3317,33 @@ function FieldRow({
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
         if (!c) {
+          const isTarget = dragOverSlot === i;
           return (
-            <div key={`empty-${i}`} style={{
-              width: 64, height: 88,
-              borderRadius: 8,
-              border: highlightEmpty
-                ? '2px dashed #f4d04a'
-                : '1.5px dashed rgba(58,46,42,.18)',
-              background: highlightEmpty
-                ? 'rgba(244,208,74,.12)'
-                : 'rgba(255,255,255,.18)',
-              transition: 'border-color .15s, background .15s',
-              flex: '0 0 auto',
-            }} />
+            <div
+              key={`empty-${i}`}
+              data-slot={i}
+              style={{
+                width: 64, height: 88,
+                borderRadius: 8,
+                border: isTarget
+                  ? '2px solid #f4d04a'
+                  : highlightEmpty
+                    ? '2px dashed #f4d04a'
+                    : '1.5px dashed rgba(58,46,42,.18)',
+                background: isTarget
+                  ? 'rgba(244,208,74,.28)'
+                  : highlightEmpty
+                    ? 'rgba(244,208,74,.12)'
+                    : 'rgba(255,255,255,.18)',
+                boxShadow: isTarget ? '0 0 12px rgba(244,208,74,.5)' : undefined,
+                transform: isTarget ? 'scale(1.04)' : 'none',
+                transition: 'border-color .1s, background .1s, transform .1s, box-shadow .1s',
+                flex: '0 0 auto',
+              }}
+            />
           );
         }
+        const isSlotTarget = dragOverSlot === i;
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
@@ -3324,17 +3353,18 @@ function FieldRow({
           pendingSpell?.abilityKind === 'spell_heal_friend'
         );
         const dyingEntry = dying[c.battleId];
-        // The live BattlefieldCard plays NO slice animation. When a
-        // creature dies, its slot wrapper plays flyToGrave (translating
-        // the live card up and into the graveyard icon via CSS vars).
-        // Same path for combat AND non-combat deaths.
         return (
           <div
             key={c.battleId}
+            data-slot={i}
             ref={(el) => registerEl(c.battleId, el)}
             style={{
               display: 'flex',
               flex: '0 0 auto',
+              borderRadius: 8,
+              // Occupied slot targeted by drag → subtle red "blocked" ring
+              boxShadow: isSlotTarget ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)' : undefined,
+              transition: 'box-shadow .1s',
               ...(dyingEntry ? {
                 animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
                 animationDelay: `${dyingEntry.delayMs}ms`,
