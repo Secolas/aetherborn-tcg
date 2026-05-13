@@ -542,7 +542,9 @@ function BossDeckPreview({ boss }: { boss: BossDef }) {
       }}>
         {doubled.map((c, i) => (
           <div key={`${c.uid}-${i}`} style={{ flex: '0 0 auto' }}>
-            <Card card={c} scale={0.32} />
+            {/* Boss-deck marquee — owned=false so the player's
+                equipped frame doesn't skin the boss's cards. */}
+            <Card card={c} scale={0.32} owned={false} />
           </div>
         ))}
       </div>

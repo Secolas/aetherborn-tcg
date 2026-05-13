@@ -1539,11 +1539,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       || inside(playerFieldRef.current?.getBoundingClientRect());
     let overSlot: number | null = null;
     if (overField && drag?.cardType === 'Creature') {
-      const el = document.elementFromPoint(clientX, clientY);
-      const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
-      if (slotEl?.dataset.slot != null) {
-        const idx = parseInt(slotEl.dataset.slot);
-        if (!isNaN(idx)) overSlot = idx;
+      // Use elementsFromPoint (plural) so we see THROUGH the dragged
+      // card. The dragged motion.div sits right under the finger with
+      // pointerEvents:auto, so the single-point lookup returned the
+      // card itself instead of the slot below — and the slot
+      // highlight + slot-targeted drop never engaged. Walk the stack
+      // and pick the first ancestor that has a data-slot attribute.
+      const stack = document.elementsFromPoint(clientX, clientY) as HTMLElement[];
+      for (const el of stack) {
+        const slotEl = el.closest('[data-slot]') as HTMLElement | null;
+        if (slotEl?.dataset.slot != null) {
+          const idx = parseInt(slotEl.dataset.slot);
+          if (!isNaN(idx)) { overSlot = idx; break; }
+        }
       }
     }
     setDrag(d => d ? { ...d, overField, overSlot } : d);
@@ -2620,7 +2628,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 position: 'relative',
               }}>
                 <div style={{ animation: 'bondCardFromLeft .8s cubic-bezier(.2,.8,.3,1.05) both' }}>
-                  <Card card={bondCinematic.cardA} hovered scale={0.55} />
+                  <Card card={bondCinematic.cardA} hovered scale={0.55} owned={bondCinematic.side === 'player'} />
                 </div>
                 <div style={{
                   position: 'relative',
@@ -2660,7 +2668,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                   </div>
                 </div>
                 <div style={{ animation: 'bondCardFromRight .8s cubic-bezier(.2,.8,.3,1.05) both' }}>
-                  <Card card={bondCinematic.cardB} hovered scale={0.55} />
+                  <Card card={bondCinematic.cardB} hovered scale={0.55} owned={bondCinematic.side === 'player'} />
                 </div>
               </div>
               <div style={{
@@ -2766,7 +2774,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}>
                 {owner} {effectToast.card.nickname || effectToast.card.name}
               </div>
-              <Card card={effectToast.card} hovered scale={0.95} />
+              <Card card={effectToast.card} hovered scale={0.95} owned={effectToast.side === 'player'} />
               <div style={{
                 position: 'absolute', bottom: -36, left: 0, right: 0,
                 textAlign: 'center',
@@ -2945,7 +2953,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             animation: 'legendaryHero 1.4s cubic-bezier(.18,.85,.3,1.1) both',
             willChange: 'transform, opacity, filter',
           }}>
-            <Card card={legendarySummon.card} hovered scale={1.15} />
+            <Card card={legendarySummon.card} hovered scale={1.15} owned={legendarySummon.owner === 'player'} />
           </div>
           {/* Title strip. */}
           <div style={{
@@ -3002,7 +3010,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }}
         >
           <div style={{ position: 'relative', animation: 'opponentPlayReveal 1.5s ease-out forwards' }}>
-            <Card card={opponentReveal} hovered scale={0.95} />
+            <Card card={opponentReveal} hovered scale={0.95} owned={false} />
           </div>
         </div>
       )}
@@ -3022,7 +3030,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }}
         >
           <div style={{ animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-            <Card card={inspect} hovered scale={1.1} />
+            <Card
+              card={inspect}
+              hovered scale={1.1}
+              // Inspect can target either side's creature. Find the
+              // card on the player's field — if it's not there, it
+              // belongs to the opponent and shouldn't wear the
+              // player's frame.
+              owned={state.player.field.some(c => c.battleId === inspect.battleId) || state.player.hand.some(c => c.battleId === inspect.battleId)}
+            />
             {/* Status labels — long-press surfaces what every icon on the
                 creature actually means, since the small status pills aren't
                 self-documenting. Bond info too, with the partner's name. */}
