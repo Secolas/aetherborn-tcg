@@ -177,17 +177,6 @@ export function BattlefieldCard({
           background: `linear-gradient(180deg, ${tp.top}66 0%, transparent 30%, ${tp.deep}cc 100%)`,
         }} />
 
-        {/* Cost — top-left orb */}
-        <div style={{
-          position: 'absolute', top: 4, left: 4,
-          minWidth: 16, height: 16, padding: '0 3px', borderRadius: 8,
-          background: '#fef4d8', color: tp.deep,
-          fontSize: 10, fontWeight: 800,
-          display: 'grid', placeItems: 'center',
-          boxShadow: '0 1px 0 rgba(0,0,0,.25)',
-          zIndex: 2,
-        }}>{card.cost}</div>
-
         {/* Status badges (top-right stack). Every status — Taunt included —
             renders here as a small circular pill. Standardized so the player
             sees a consistent vocabulary: same shape, same size, same place,
