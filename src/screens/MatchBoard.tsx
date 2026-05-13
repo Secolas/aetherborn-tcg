@@ -374,7 +374,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         // reads "Mom summons Dad" / "The Drifter casts Layover" / etc.
         // Only the leading "The Boss" gets swapped — the wrk-12 card is
         // also named "The Boss" and shouldn't be renamed mid-string.
-        showMsg(step.action.replace(/^The Boss\b/, boss.name));
+        showMsg(step.action.replace(/^The Boss\b /, ''));
         if (step.combat) {
           playAttackAnimation(step.combat, () => { if (!cancelled) setState(step.next); });
         } else if (step.played) {
@@ -1873,8 +1873,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           phase label floats inside this band as an absolute child with
           pointer-events off so it never fights the button for clicks. */}
       {/* Center divider band — 3-column flex: [left cluster] [center text] [right button].
-          The center column is always a flex item (never absolute), so it never
-          overlaps the left or right elements regardless of content length. */}
+          Phase/turn banners are overlaid inside this band so they appear exactly
+          at the divider's position, not floating over the field. */}
       {(() => {
         const isPlayer = state.turn === 'player';
         const inBattle = isPlayer && playerPhase === 'battle';
@@ -1882,8 +1882,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const centerText = drag?.overField
           ? (drag.cardType === 'Creature' ? '↓ Summon ↓' : '↓ Choose target ↓')
           : pendingSpell
-            ? `${pendingSpell.name} · ${spellTargetHint(pendingSpell)}`
+            ? spellTargetHint(pendingSpell)
             : (msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : '');
+        const activeBanner = phaseBanner
+          ? { key: phaseBanner.key, owner: phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`, text: phaseBanner.text }
+          : turnBanner
+            ? { key: turnBanner, owner: turnBanner === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`, text: 'TURN' }
+            : null;
         return (
           <div ref={fieldRef} style={{
             flex: '0 0 56px',
@@ -1894,7 +1899,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             borderBottom: drag?.overField ? '2px dashed #f4d04a' : '1px dashed rgba(58,46,42,.20)',
             background: drag?.overField ? 'rgba(244,208,74,.12)' : 'rgba(255,255,255,.30)',
             transition: 'background .15s, border-color .15s',
-            zIndex: 4,
+            zIndex: 4, position: 'relative',
           }}>
             {/* Left: turn counter + give-up */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
@@ -1939,6 +1944,39 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               >
                 {inBattle ? <ChevronsRight size={18} strokeWidth={2.4} /> : <Swords size={18} strokeWidth={2.2} />}
               </button>
+            )}
+
+            {/* Phase / turn banner — overlaid inside the divider strip so it
+                lands exactly at the divider's position. Same dark/gold style
+                for every phase (Main, Battle, End, Turn). */}
+            {activeBanner && (
+              <div
+                key={String(activeBanner.key)}
+                style={{
+                  position: 'absolute', inset: 0,
+                  zIndex: 8, pointerEvents: 'none',
+                  animation: 'ygoPhaseEnter 950ms cubic-bezier(.25,.8,.3,1) both',
+                  background: 'linear-gradient(90deg, #1a1008 0%, #3a2810 20%, #2a1e0c 50%, #3a2810 80%, #1a1008 100%)',
+                  borderTop: '1.5px solid rgba(244,208,74,.35)',
+                  borderBottom: '1.5px solid rgba(244,208,74,.35)',
+                  display: 'flex', flexDirection: 'column',
+                  alignItems: 'center', justifyContent: 'center', gap: 1,
+                }}
+              >
+                <div style={{
+                  fontSize: 8, fontWeight: 700, letterSpacing: '0.28em',
+                  textTransform: 'uppercase', color: 'rgba(244,208,74,.65)',
+                  animation: 'ygoPhaseLabel 950ms ease both',
+                  fontFamily: '"Inter", system-ui',
+                }}>{activeBanner.owner}</div>
+                <div style={{
+                  fontSize: 17, fontWeight: 900, letterSpacing: '0.16em',
+                  textTransform: 'uppercase', color: '#f4d04a',
+                  textShadow: '0 2px 8px rgba(0,0,0,.7), 0 0 14px rgba(244,208,74,.4)',
+                  fontFamily: '"Fredoka", system-ui',
+                  animation: 'ygoPhaseLabel 950ms ease both',
+                }}>{activeBanner.text}</div>
+              </div>
             )}
           </div>
         );
@@ -2066,7 +2104,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 cursor: 'pointer',
                 touchAction: 'none',
                 pointerEvents: 'auto',
-                opacity: selectedHandIdx !== null && !isSelected ? 0.55 : 1,
+                opacity: selectedHandIdx !== null ? (isSelected ? 0 : 0.55) : 1,
                 transition: 'opacity .15s',
               }}
             >
@@ -2129,7 +2167,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const actionLabel = !playableNow
           ? (state.turn !== 'player' ? "Wait — it's their turn" : 'Not enough mana')
           : isSpell
-            ? (needsTarget ? 'Pick a target →' : 'Cast')
+            ? (needsTarget ? 'Cast Spell →' : 'Cast')
             : 'Summon';
         return (
           <div
@@ -2557,50 +2595,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           can connect cause to effect. Side coloring: player bonds gold,
           boss bonds dark steel. */}
       {/* Phase banner — YGO Duel Links style bar that sweeps in from the
-          left, announces the phase, then exits right. Color-coded by phase
-          so Draw/Main/Battle/End each read as a distinct beat. */}
-      {phaseBanner && (() => {
-        const DURATION = 950;
-        const ownerLabel = phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`;
-        return (
-          <div
-            key={phaseBanner.key}
-            style={{
-              position: 'absolute', top: '38%', left: 0, right: 0,
-              zIndex: 218,
-              pointerEvents: 'none',
-              animation: `ygoPhaseEnter ${DURATION}ms cubic-bezier(.25,.8,.3,1) both`,
-            }}
-          >
-            <div style={{
-              background: 'linear-gradient(90deg, #1a1008 0%, #3a2810 20%, #2a1e0c 50%, #3a2810 80%, #1a1008 100%)',
-              boxShadow: '0 0 28px rgba(244,208,74,.22), 0 4px 18px rgba(0,0,0,.55)',
-              padding: '9px 0',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-              borderTop: '1.5px solid rgba(244,208,74,.35)',
-              borderBottom: '1.5px solid rgba(244,208,74,.35)',
-            }}>
-              <div style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.28em',
-                textTransform: 'uppercase', color: 'rgba(244,208,74,.65)',
-                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
-                fontFamily: '"Inter", system-ui',
-              }}>
-                {ownerLabel}
-              </div>
-              <div style={{
-                fontSize: 21, fontWeight: 900, letterSpacing: '0.16em',
-                textTransform: 'uppercase', color: '#f4d04a',
-                textShadow: '0 2px 8px rgba(0,0,0,.7), 0 0 18px rgba(244,208,74,.4)',
-                fontFamily: '"Fredoka", system-ui',
-                animation: `ygoPhaseLabel ${DURATION}ms ease both`,
-              }}>
-                {phaseBanner.text}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+          left, announces the phase, then exits right. Now rendered inside
+          the divider band — see the activeBanner overlay in the divider above. */}
 
       {bondFire && (() => {
         const isPlayer = bondFire.side === 'player';
@@ -2698,44 +2694,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Turn-change banner — slides in from the left when the active player
-          flips, holds, then slides out the right. Wakes the player up between
-          their turn and the boss's. */}
-      {turnBanner && (
-        <div style={{
-          position: 'absolute', top: '38%', left: 0, right: 0,
-          zIndex: 220,
-          pointerEvents: 'none',
-          animation: 'ygoPhaseEnter 950ms cubic-bezier(.25,.8,.3,1) both',
-        }}>
-          <div style={{
-            background: 'linear-gradient(90deg, #1a1008 0%, #3a2810 20%, #2a1e0c 50%, #3a2810 80%, #1a1008 100%)',
-            boxShadow: '0 0 28px rgba(244,208,74,.22), 0 4px 18px rgba(0,0,0,.55)',
-            padding: '9px 0',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-            borderTop: '1.5px solid rgba(244,208,74,.35)',
-            borderBottom: '1.5px solid rgba(244,208,74,.35)',
-          }}>
-            <div style={{
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.28em',
-              textTransform: 'uppercase', color: 'rgba(244,208,74,.65)',
-              animation: 'ygoPhaseLabel 950ms ease both',
-              fontFamily: '"Inter", system-ui',
-            }}>
-              {turnBanner === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`}
-            </div>
-            <div style={{
-              fontSize: 21, fontWeight: 900, letterSpacing: '0.16em',
-              textTransform: 'uppercase', color: '#f4d04a',
-              textShadow: '0 2px 8px rgba(0,0,0,.7), 0 0 18px rgba(244,208,74,.4)',
-              fontFamily: '"Fredoka", system-ui',
-              animation: 'ygoPhaseLabel 950ms ease both',
-            }}>
-              TURN
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Turn-change banner — now rendered inside the divider band via activeBanner. */}
 
       {/* Yu-Gi-Oh-Duel-Links-style combat callouts — cards stay in their
           field slots; we overlay big stat numbers next to each combatant
@@ -2886,7 +2845,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
               fontFamily: '"Fredoka", system-ui',
             }}>
-              {boss.name} {opponentReveal.type === 'Spell' ? 'casts' : 'plays'}
+              {opponentReveal.type === 'Spell' ? 'Casts' : 'Plays'}
             </div>
             <Card card={opponentReveal} hovered scale={0.95} />
           </div>
@@ -3551,13 +3510,13 @@ function GraveyardButton({ count, onClick, elRef, pulseKey }: {
 /** Plain-English hint telling the player what kind of target a pending spell needs. */
 function spellTargetHint(card: BattleCard): string {
   switch (card.abilityKind) {
-    case 'spell_damage': return `Tap an enemy creature or boss to deal ${card.abilityValue ?? 0}`;
-    case 'spell_freeze': return 'Tap an enemy creature to freeze it';
-    case 'spell_buff':   return `Tap your creature for +${card.abilityValue ?? 0}/+${card.abilityValue ?? 0}`;
-    case 'spell_nourish':return `Tap your creature for +0/+${card.abilityValue ?? 0} HP`;
-    case 'spell_heal_friend': return `Tap your creature to restore ${card.abilityValue ?? 0} HP`;
-    case 'silence':      return 'Tap an enemy creature to silence it';
-    default:             return 'Tap a target';
+    case 'spell_damage': return 'Select enemy';
+    case 'spell_freeze': return 'Select enemy';
+    case 'spell_buff':   return 'Select ally';
+    case 'spell_nourish':return 'Select ally';
+    case 'spell_heal_friend': return 'Select ally';
+    case 'silence':      return 'Select enemy';
+    default:             return 'Select target';
   }
 }
 
