@@ -1872,105 +1872,77 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           button (or "Release to summon" hint during drag) lives here. The
           phase label floats inside this band as an absolute child with
           pointer-events off so it never fights the button for clicks. */}
-      <div ref={fieldRef} style={{
-        flex: '0 0 56px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 12px',
-        borderTop: drag?.overField
-          ? '2px dashed #f4d04a'
-          : '1px dashed rgba(58,46,42,.20)',
-        borderBottom: drag?.overField
-          ? '2px dashed #f4d04a'
-          : '1px dashed rgba(58,46,42,.20)',
-        background: drag?.overField
-          ? 'rgba(244,208,74,.12)'
-          : 'rgba(255,255,255,.30)',
-        transition: 'background .15s, border-color .15s',
-        zIndex: 4,
-        position: 'relative',
-      }}>
-        {/* Left cluster — turn counter + give-up flag, pinned to the divider
-            so they're always visible AND give-up sits right next to End Turn
-            (not lost in the corner of the opponent header). */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
-          <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
-            <Flag size={16} strokeWidth={2.4} />
-          </button>
-        </div>
-        {drag?.overField ? (
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: '0.05em', color: PALETTE.accentDeep }}>
-            {drag.cardType === 'Creature' ? '↓ Release to summon ↓' : '↓ Release to choose target ↓'}
-          </div>
-        ) : pendingSpell ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', textAlign: 'right' }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', color: PALETTE.accentDeep, textTransform: 'uppercase' }}>
-                Casting · {pendingSpell.name}
-              </span>
-              <span style={{ fontSize: 10, color: PALETTE.textMid, fontStyle: 'italic', marginTop: 1 }}>
-                {spellTargetHint(pendingSpell)}
-              </span>
+      {/* Center divider band — 3-column flex: [left cluster] [center text] [right button].
+          The center column is always a flex item (never absolute), so it never
+          overlaps the left or right elements regardless of content length. */}
+      {(() => {
+        const isPlayer = state.turn === 'player';
+        const inBattle = isPlayer && playerPhase === 'battle';
+        const handleClick = inBattle ? onEndTurn : handleGoBattle;
+        const centerText = drag?.overField
+          ? (drag.cardType === 'Creature' ? '↓ Summon ↓' : '↓ Choose target ↓')
+          : pendingSpell
+            ? `Casting · ${pendingSpell.name}`
+            : (msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : '');
+        return (
+          <div ref={fieldRef} style={{
+            flex: '0 0 56px',
+            display: 'flex', alignItems: 'center',
+            padding: '0 12px',
+            gap: 8,
+            borderTop: drag?.overField ? '2px dashed #f4d04a' : '1px dashed rgba(58,46,42,.20)',
+            borderBottom: drag?.overField ? '2px dashed #f4d04a' : '1px dashed rgba(58,46,42,.20)',
+            background: drag?.overField ? 'rgba(244,208,74,.12)' : 'rgba(255,255,255,.30)',
+            transition: 'background .15s, border-color .15s',
+            zIndex: 4,
+          }}>
+            {/* Left: turn counter + give-up */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+              <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
+              <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
+                <Flag size={16} strokeWidth={2.4} />
+              </button>
             </div>
-            <button onClick={cancelPending} aria-label="Cancel" style={{
-              background: '#fff',
-              color: PALETTE.text, border: `1.5px solid ${PALETTE.border}`,
-              borderRadius: '50%', width: 28, height: 28, fontSize: 14,
-              fontWeight: 700, cursor: 'pointer',
-              fontFamily: 'inherit',
-              boxShadow: '0 2px 6px rgba(58,46,42,.08)',
-              display: 'grid', placeItems: 'center',
-            }}>×</button>
-          </div>
-        ) : (
-          // Phase-aware action button:
-          //   Main Phase   → "Go to Battle →"  (leaves Main, enters Battle)
-          //   Battle Phase → "End Turn →"     (fires end-of-turn hooks)
-          // This is what gives the player explicit control over the
-          // turn flow: cards / spells happen in Main, attacks happen in
-          // Battle, and end-of-turn effects fire only when the player
-          // commits to ending. Boss runs the equivalent cycle on its
-          // own via the AI driver.
-          (() => {
-            const isPlayer = state.turn === 'player';
-            const inBattle = isPlayer && playerPhase === 'battle';
-            const handleClick = inBattle ? onEndTurn : handleGoBattle;
-            return (
+
+            {/* Center: static context text — always in flow, never absolute */}
+            <div style={{
+              flex: 1, textAlign: 'center', pointerEvents: 'none',
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
+              textTransform: 'uppercase', color: PALETTE.textMid,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>
+              {centerText}
+            </div>
+
+            {/* Right: cancel (while casting) or phase action button */}
+            {pendingSpell ? (
+              <button onClick={cancelPending} aria-label="Cancel" style={{
+                flexShrink: 0,
+                background: '#fff', color: PALETTE.text,
+                border: `1.5px solid ${PALETTE.border}`,
+                borderRadius: '50%', width: 28, height: 28, fontSize: 14,
+                fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                boxShadow: '0 2px 6px rgba(58,46,42,.08)',
+                display: 'grid', placeItems: 'center',
+              }}>×</button>
+            ) : (
               <button
                 onClick={(e) => { e.stopPropagation(); if (isPlayer) handleClick(); }}
                 disabled={!isPlayer}
                 aria-label={inBattle ? 'End Turn' : 'Go to Battle'}
                 style={{
-                  ...iconBtn,
+                  ...iconBtn, flexShrink: 0,
                   opacity: isPlayer ? 1 : 0.4,
                   cursor: isPlayer ? 'pointer' : 'default',
                   color: isPlayer ? PALETTE.text : PALETTE.textMid,
                 }}
               >
-                {inBattle
-                  ? <ChevronsRight size={18} strokeWidth={2.4} />
-                  : <Swords size={18} strokeWidth={2.2} />}
+                {inBattle ? <ChevronsRight size={18} strokeWidth={2.4} /> : <Swords size={18} strokeWidth={2.2} />}
               </button>
-            );
-          })()
-        )}
-
-        {/* Floating turn-status label — sits inside the divider band as an
-            absolute child with pointer-events:none so it never intercepts
-            clicks. Hidden while the band is showing the casting hint or
-            drop hint. */}
-        {!pendingSpell && !drag?.overField && msg !== 'Your turn' && msg !== `${boss.name}'s turn` && (
-          <div style={{
-            position: 'absolute', top: 6, left: 0, right: 0,
-            textAlign: 'center', pointerEvents: 'none',
-            fontSize: 9, fontWeight: 700, letterSpacing: '0.22em',
-            textTransform: 'uppercase',
-            color: PALETTE.textMid,
-          }}>
-            {msg}
+            )}
           </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* Player's creature row — drop zone for drag-to-summon. Tapping it
           alone no longer summons (use the Summon button on the centered
@@ -3344,7 +3316,7 @@ function FieldRow({
                 ? '2px solid #f4d04a'
                 : highlightEmpty && isEmpty
                   ? '2px dashed #f4d04a'
-                  : `1.5px dashed rgba(58,46,42,${isEmpty ? '.18' : '.06'})`,
+                  : '1.5px dashed rgba(58,46,42,.14)',
               background: isDragTarget
                 ? 'rgba(244,208,74,.28)'
                 : highlightEmpty && isEmpty
