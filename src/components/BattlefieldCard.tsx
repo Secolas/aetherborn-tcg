@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Link2 } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
+import { RESOURCE, SPELL } from '../design/tokens';
 import type { BattleCard } from '../game/types';
 
 interface Props {
@@ -424,11 +425,16 @@ export function BattlefieldCard({
           display: 'flex', flexDirection: 'column', gap: 3,
           zIndex: 6, pointerEvents: 'none',
         }}>
-          {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {/* Stage 2 of color unification:
+              - frozen reuses RESOURCE (mana blue) — frozen ≈ mana-locked.
+              - silence reuses SPELL violet — silence IS a spell effect.
+              Other status pills keep their existing hues: taunt forest
+              green, untargetable spell-deep purple, sleeping dark amber. */}
+          {card.frozen && <StatusPill color={RESOURCE} icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
           {isTaunt && <StatusPill color="#3d8e57" icon={<Target size={10} strokeWidth={2.8} />} />}
           {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
           {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
+          {card.silenced && <StatusPill color={SPELL} icon={<Ban size={10} strokeWidth={2.6} />} />}
         </div>
       )}
 

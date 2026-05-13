@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight, Layers, Hand } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -1985,11 +1985,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               </button>
             </div>
 
-            {/* Center: static context text — always in flow, never absolute */}
+            {/* Center: static context text — always in flow, never
+                absolute. Color flips to a light palette on dark board
+                skins (Twilight, Inkwell) so the message stays readable;
+                light skins keep the warm brown so the chip blends with
+                the daylight backdrop. */}
             <div style={{
               flex: 1, textAlign: 'center', pointerEvents: 'none',
               fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
-              textTransform: 'uppercase', color: PALETTE.textMid,
+              textTransform: 'uppercase',
+              color: boardSkin.isDark ? 'rgba(255,255,255,.85)' : PALETTE.textMid,
+              textShadow: boardSkin.isDark ? '0 1px 2px rgba(0,0,0,.45)' : 'none',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {centerText}
@@ -2008,14 +2014,20 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}>×</button>
             ) : (
               <button
-                onClick={(e) => { e.stopPropagation(); if (isPlayer) handleClick(); }}
-                disabled={!isPlayer}
+                onClick={(e) => { e.stopPropagation(); if (isPlayer && !combat) handleClick(); }}
+                // Lock End Turn / Go to Battle while a combat animation
+                // is playing. The player could otherwise queue an attack
+                // and immediately tap End Turn, which races the state
+                // machine — the attack's deferred setState would land
+                // after endTurn flipped the turn, crashing the boss AI
+                // pipeline.
+                disabled={!isPlayer || !!combat}
                 aria-label={inBattle ? 'End Turn' : 'Go to Battle'}
                 style={{
                   ...iconBtn, flexShrink: 0,
-                  opacity: isPlayer ? 1 : 0.4,
-                  cursor: isPlayer ? 'pointer' : 'default',
-                  color: isPlayer ? PALETTE.text : PALETTE.textMid,
+                  opacity: !isPlayer || combat ? 0.4 : 1,
+                  cursor: !isPlayer || combat ? 'not-allowed' : 'pointer',
+                  color: !isPlayer || combat ? PALETTE.textMid : PALETTE.text,
                 }}
               >
                 {inBattle ? <ChevronsRight size={18} strokeWidth={2.4} /> : <Swords size={18} strokeWidth={2.2} />}
@@ -3123,37 +3135,64 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               style={{
                 position: 'absolute',
                 ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: oppPanelTop, left: 16 }),
-                width: 220,
-                background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
-                borderRadius: 14,
-                boxShadow: '0 8px 24px rgba(0,0,0,.25)',
-                padding: '12px 14px',
+                width: 240,
+                background: '#fff',
+                borderRadius: 18,
+                boxShadow: '0 12px 32px rgba(58,46,42,.25), 0 0 0 1.5px rgba(58,46,42,.06)',
+                padding: 10,
                 fontFamily: '"Fredoka", system-ui',
-                animation: 'fadeIn .12s',
+                animation: 'slideUp .2s cubic-bezier(.2,.8,.3,1)',
+                overflow: 'hidden',
               }}
             >
+              {/* Header — gradient bar with avatar + label so the panel
+                  reads as that side's HUD, not a generic popup. */}
               <div style={{
-                fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
-                textTransform: 'uppercase', color: '#3a2e2a',
-                marginBottom: 10,
-              }}>{label}</div>
-              <InfoRow label="Hand" value={me.hand.length} />
-              <InfoRow label="Deck" value={me.deck.length} />
-              <InfoRow label="Graveyard" value={me.discard.length} />
-              <InfoRow label="HP" value={me.hp} />
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px',
+                borderRadius: 12,
+                background: infoSide === 'player'
+                  ? 'linear-gradient(135deg, #ff9f1c 0%, #ee5a52 100%)'
+                  : 'linear-gradient(135deg, #6e3a32 0%, #3a2018 100%)',
+                color: '#fff',
+                marginBottom: 8,
+              }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  background: infoSide === 'player'
+                    ? (playerAvatar ? `url(${playerAvatar}) center/cover` : 'linear-gradient(135deg, #ffd166, #ff7e5f)')
+                    : (boss.avatarPhoto ? `url(${boss.avatarPhoto}) center/cover` : 'linear-gradient(135deg, #b88a78, #6e3a32)'),
+                  border: '2px solid rgba(255,255,255,.7)',
+                  flex: '0 0 auto',
+                  display: 'grid', placeItems: 'center',
+                  fontWeight: 800, color: '#fff', fontSize: 14,
+                }}>{infoSide === 'opponent' && !boss.avatarPhoto ? boss.avatar : ''}</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 9, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85, fontWeight: 600 }}>
+                    {infoSide === 'player' ? 'Your stats' : 'Boss stats'}
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+                </div>
+              </div>
+              <InfoRow icon={<Heart size={14} fill="#ee5a52" color="#ee5a52" />}      label="HP"        value={me.hp}            tint="#ee5a52" />
+              <InfoRow icon={<Hand size={14} strokeWidth={2.4} />}                    label="Hand"      value={me.hand.length}   tint="#ff9f1c" />
+              <InfoRow icon={<Layers size={14} strokeWidth={2.4} />}                  label="Deck"      value={me.deck.length}   tint="#a47bff" />
+              <InfoRow icon={<Skull size={14} strokeWidth={2.4} />}                   label="Graveyard" value={me.discard.length} tint="#7a5a52" last />
               {infoSide === 'player' && (
                 <button
                   onClick={() => { setInfoSide(null); setLogOpen(true); }}
                   style={{
                     marginTop: 10, width: '100%',
-                    background: '#3a2e2a', color: '#fef8f0',
-                    border: 'none', borderRadius: 10,
-                    padding: '8px 12px',
-                    fontSize: 12, fontWeight: 700,
+                    background: 'linear-gradient(180deg, #ffa07a 0%, #ee5a52 100%)',
+                    color: '#fff',
+                    border: 'none', borderRadius: 12,
+                    padding: '10px 12px',
+                    fontSize: 12, fontWeight: 800,
                     letterSpacing: '0.06em',
                     cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                     fontFamily: 'inherit',
+                    boxShadow: '0 4px 12px rgba(238,90,82,.35)',
                   }}
                 >
                   <ScrollText size={13} strokeWidth={2.4} />
@@ -3861,16 +3900,31 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   );
 }
 
-function InfoRow({ label, value }: { label: string; value: number }) {
+function InfoRow({ icon, label, value, tint, last }: {
+  icon: React.ReactNode; label: string; value: number; tint: string; last?: boolean;
+}) {
   return (
     <div style={{
-      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-      padding: '5px 0',
-      borderBottom: '1px solid rgba(58,46,42,0.08)',
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '8px 6px',
+      borderBottom: last ? 'none' : '1px solid rgba(58,46,42,0.06)',
       fontSize: 13, color: '#3a2e2a',
     }}>
-      <span style={{ fontWeight: 500 }}>{label}</span>
-      <span style={{ fontWeight: 800 }}>{value}</span>
+      <div style={{
+        width: 26, height: 26, borderRadius: 8,
+        background: `${tint}1a`, color: tint,
+        display: 'grid', placeItems: 'center',
+        flex: '0 0 auto',
+      }}>
+        {icon}
+      </div>
+      <span style={{ flex: 1, fontWeight: 600 }}>{label}</span>
+      <span style={{
+        minWidth: 28, padding: '2px 10px', borderRadius: 999,
+        background: `${tint}22`, color: tint,
+        fontWeight: 800, textAlign: 'center',
+        fontVariantNumeric: 'tabular-nums',
+      }}>{value}</span>
     </div>
   );
 }

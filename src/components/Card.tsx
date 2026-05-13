@@ -1,5 +1,6 @@
 import { Sparkles } from 'lucide-react';
 import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
+import { DAMAGE } from '../design/tokens';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
 import { ElementGlyph } from './ElementGlyph';
 import { PhotoFrame } from './PhotoFrame';
@@ -137,7 +138,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       }}>
         <div style={{
           display: 'inline-flex', alignItems: 'center', gap: 4 * scale,
-          background: isSpell ? '#7a4ea8' : '#3d8e57',
+          background: tp.chip,
           color: '#fff',
           padding: `${2 * scale}px ${7 * scale}px`,
           borderRadius: 7 * scale,
@@ -226,7 +227,12 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
 function CostBadge({ cost, ringColor, unaffordable, scale }: {
   cost: number; ringColor: string; unaffordable: boolean; scale: number;
 }) {
-  const ring = unaffordable ? '#c8362e' : ringColor;
+  // Unaffordable cost picks up the destructive DAMAGE token so the
+  // "you can't pay this" signal reads consistently with HP/loss
+  // affordances across the app. The fill is BRAND coral; future Stage
+  // 2 work could split the destructive button gradient to keep these
+  // surfaces distinct from "primary CTA" coral.
+  const ring = unaffordable ? DAMAGE : ringColor;
   return (
     <div style={{
       width: 34 * scale, height: 34 * scale, borderRadius: '50%',
