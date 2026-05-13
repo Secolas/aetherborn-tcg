@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Gem } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -198,7 +198,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       of the match feels like a real card-game opening. UI hides cards in
       both hands beyond these counts until the deal finishes. */
   const [playerInitialDealt, setPlayerInitialDealt] = useState(0);
-  const [oppInitialDealt, setOppInitialDealt] = useState(0);
+
   const [initialDealing, setInitialDealing] = useState(true);
   /** Give-up confirmation modal. We never quit on the first tap — too easy
       to lose 20 minutes of progress to a misclick. */
@@ -1150,7 +1150,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       const side: Owner = i % 2 === 0 ? 'player' : 'opponent';
       fireDraw(side, 0);
       if (side === 'player') setPlayerInitialDealt(d => d + 1);
-      else setOppInitialDealt(d => d + 1);
       i++;
       setTimeout(tick, 380);
     };
@@ -1830,11 +1829,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       </div>
 
-      {/* Top spacer — absorbs extra vertical space and hosts the face-down
-          opponent hand so it floats between the header and the opp field row. */}
-      <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4, overflow: 'hidden' }}>
-        <OpponentHand size={initialDealing ? oppInitialDealt : state.opponent.hand.length} />
-      </div>
+      {/* Top spacer — empty flex space that keeps the opponent field row
+          vertically balanced with the player field. The hand fan is hidden
+          to keep the battlefield clean; draws still show the fly animation. */}
+      <div style={{ flex: '1 1 auto', minHeight: 8 }} />
 
       {/* Opponent's creature row. Stacked above the divider (zIndex 4) so
           damage/buff popups that overshoot upward off the card render on top
@@ -2258,14 +2256,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               position: 'fixed',
               left: drag.x - drag.ox,
               top: drag.y - drag.oy,
-              transform: 'scale(0.85)',
-              transformOrigin: 'top left',
               zIndex: 9999,
               pointerEvents: 'none',
-              filter: drag.overField ? 'drop-shadow(0 12px 24px rgba(244,208,74,.4))' : 'drop-shadow(0 8px 16px rgba(0,0,0,.4))',
+              filter: drag.overField ? 'drop-shadow(0 8px 18px rgba(244,208,74,.45))' : 'drop-shadow(0 6px 12px rgba(0,0,0,.35))',
             }}
           >
-            <Card card={card} scale={1} hovered />
+            <Card card={card} scale={0.56} />
           </div>
         );
       })()}
@@ -3577,34 +3573,6 @@ function GraveyardButton({ count, onClick, elRef, pulseKey }: {
 }
 
 /** Face-down hand at the top — visualizes how many cards the boss is holding. */
-function OpponentHand({ size }: { size: number }) {
-  // Always render the container so the spacer height is stable during the
-  // opening deal. Without this, the null → content transition causes the
-  // entire field layout to shift when the first opponent card appears.
-  const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
-  return (
-    <div style={{
-      display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      pointerEvents: 'none',
-      zIndex: 4,
-      minHeight: 70,
-    }}>
-      {Array.from({ length: size }).map((_, i) => {
-        const offset = i - (size - 1) / 2;
-        const rot = offset * 4;
-        return (
-          <div key={i} style={{
-            marginLeft: i === 0 ? 0 : overlap,
-            transform: `translateY(${Math.abs(offset) * 1.5}px)`,
-            zIndex: i,
-          }}>
-            <CardBack scale={0.32} rotate={rot} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /** Plain-English hint telling the player what kind of target a pending spell needs. */
 function spellTargetHint(card: BattleCard): string {
@@ -3837,8 +3805,9 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
 }
 
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
-  // Gem icon matches the card-cost badge shape (both are the "mana currency"
-  // of the game). Players learn: circle on card = these gems = spend to play.
+  // Circle that fills with liquid from the bottom — same shape as the card
+  // cost badge so players immediately read "this number = those circles on cards".
+  const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;
   return (
     <div
       key={pulseKey}
@@ -3851,7 +3820,22 @@ function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: numb
         animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
       }}
     >
-      <Gem size={14} fill="#3a8fc4" color="#1c5478" strokeWidth={1.5} />
+      {/* Circular liquid fill — mirrors the cost-badge circle on cards */}
+      <div style={{
+        width: 20, height: 20, borderRadius: '50%',
+        background: '#fff5dc',
+        boxShadow: '0 0 0 2px #3a8fc4',
+        overflow: 'hidden',
+        position: 'relative',
+        flex: '0 0 auto',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          height: `${fillPct * 100}%`,
+          background: 'linear-gradient(180deg, #6ec8ff 0%, #3a8fc4 55%, #1c5478 100%)',
+          transition: 'height .6s cubic-bezier(.2,.8,.3,1)',
+        }} />
+      </div>
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
