@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Coins, Sparkles, Lock } from 'lucide-react';
 import { Card } from '../components/Card';
+import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
 import { openPack, openMemoryPack, PACK_COST, PACK_SIZE } from '../game/pack';
@@ -409,20 +410,30 @@ function RevealCard({
         animation: 'cardRevealFlight 0.8s cubic-bezier(.18,.85,.3,1.1) both',
         zIndex: 1,
         display: 'inline-block',
-        overflow: 'hidden',
-        borderRadius: 18,
+        willChange: 'transform, opacity',
       }}>
-        <Card card={card} hovered />
-        {showSheen && (
-          <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
-            animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
-            pointerEvents: 'none',
-            mixBlendMode: 'screen',
-            borderRadius: 18,
-          }} />
-        )}
+        {/* Tilt wrapper enables 3D parallax + a pointer-tracking sheen
+            on the freshly-revealed card. Shine is gated to rare+ so
+            commons stay clean. The wrapper itself clips to borderRadius
+            so the sheen never escapes the card silhouette. */}
+        <TiltCard
+          maxTilt={12}
+          hoverScale={1.04}
+          shine={showSheen}
+          style={{ overflow: 'hidden', borderRadius: 18 }}
+        >
+          <Card card={card} hovered />
+          {showSheen && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
+              animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+              borderRadius: 18,
+            }} />
+          )}
+        </TiltCard>
       </div>
       <div style={{
         marginTop: 18, fontSize: 11, letterSpacing: '0.25em',
@@ -546,7 +557,7 @@ function MemoryPackOption({
               padding: '2px 6px', borderRadius: 6,
               background: def.glow, color: deep,
               fontFamily: '"Fredoka", system-ui',
-            }}>FIRST</span>
+            }} title="First open includes a free cosmetic filter">BONUS</span>
           )}
         </div>
         <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2, fontStyle: 'italic' }}>

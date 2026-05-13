@@ -135,6 +135,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
+  /** Legendary-summon cinematic. Whenever a creature of rarity `legendary`
+   *  hits the field on either side, we briefly darken the screen, render
+   *  a halo behind the card at full size, and shake the board. Auto-clears
+   *  ~1400ms later. Plays in addition to the standard summonHalo + cardSlam
+   *  so non-legendary summons still get their normal beat. */
+  const [legendarySummon, setLegendarySummon] = useState<{
+    card: BattleCard; owner: Owner;
+  } | null>(null);
   /** Spell the player just cast, shown as a centered reveal — same beat as opponentReveal. */
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
@@ -238,6 +246,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** Bumps any time a hold is extended, so the AI driver re-runs and
    *  re-schedules its tick against the latest deadline. */
   const [animTick, setAnimTick] = useState(0);
+
+  /** Trigger the legendary-summon cinematic if the just-played card is
+   *  legendary. Holds the animation pipeline for ~1400ms so subsequent
+   *  AI actions don't tick over it; sfx 'summon' is already fired by
+   *  the caller so this only adds the visual layer. */
+  const LEGENDARY_FX_MS = 1400;
+  const fireLegendarySummon = (card: BattleCard, owner: Owner) => {
+    if (card.rarity !== 'legendary' || card.type !== 'Creature') return;
+    setLegendarySummon({ card, owner });
+    holdAnim(LEGENDARY_FX_MS);
+    setTimeout(() => setLegendarySummon(s => (s && s.card.battleId === card.battleId ? null : s)), LEGENDARY_FX_MS);
+  };
   const drawIdRef = useRef(0);
   /** Fire a single card-back flight for `side` after `delay` ms. The
    *  flight ID is unique per call so React keys the animation
@@ -430,6 +450,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             if (cancelled) return;
             setOpponentReveal(null);
             setState(step.next);
+            // Fire the legendary cinematic after state advances so the
+            // creature is already on the field — the overlay reads as
+            // "this big card just landed on the board", not floating in
+            // a vacuum. Skipped for spells; rarity check inside.
+            if (step.played) fireLegendarySummon(step.played, 'opponent');
           }, holdMs);
         } else {
           // Plain non-animated action — short "thinking" beat between
@@ -1599,6 +1624,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }
           setState(r.state);
           sfx('summon');
+          fireLegendarySummon(card, 'player');
           onCreaturePlayed?.();
         } else {
           flashMsg(r.reason ?? 'Cannot play');
@@ -1642,6 +1668,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setState(r.state);
         setSelectedHandIdx(null);
         sfx('summon');
+        fireLegendarySummon(card, 'player');
         onCreaturePlayed?.();
       } else {
         flashMsg(r.reason ?? 'Cannot play');
@@ -2869,6 +2896,81 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           </>
         );
       })()}
+
+      {/* Legendary-summon cinematic — full-screen darkening overlay with
+          a large halo + rotating golden rays + a hero-sized card that
+          scales in, holds for a beat, and fades. Plays additively over
+          the standard summon FX. Triggered for either side. */}
+      {legendarySummon && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0,
+            zIndex: 80, pointerEvents: 'none',
+            display: 'grid', placeItems: 'center',
+            background: 'rgba(0,0,0,.55)',
+            animation: 'legendaryOverlayFade 1.4s ease-out both',
+            willChange: 'opacity',
+          }}
+        >
+          {/* Rotating ray fan — sits behind the card. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 480, height: 480,
+            background: `conic-gradient(
+              from 0deg,
+              transparent 0deg,
+              rgba(255,209,102,.65) 12deg,
+              transparent 28deg,
+              rgba(255,209,102,.55) 60deg,
+              transparent 80deg,
+              rgba(255,209,102,.6) 130deg,
+              transparent 156deg,
+              rgba(255,209,102,.5) 200deg,
+              transparent 224deg,
+              rgba(255,209,102,.6) 280deg,
+              transparent 304deg,
+              rgba(255,209,102,.5) 340deg,
+              transparent 360deg
+            )`,
+            transformOrigin: 'center',
+            animation: 'legendaryRayRotate 1.4s ease-out both',
+            mixBlendMode: 'screen',
+            filter: 'blur(2px)',
+            willChange: 'transform, opacity',
+          }} />
+          {/* Soft halo glow behind the card. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 360, height: 360, borderRadius: '50%',
+            background: 'radial-gradient(circle, #ffd166 0%, rgba(255,209,102,.4) 35%, transparent 70%)',
+            transformOrigin: 'center',
+            animation: 'legendaryHalo 1.4s ease-out both',
+            mixBlendMode: 'screen',
+            willChange: 'transform, opacity',
+          }} />
+          {/* Hero-sized card itself. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            animation: 'legendaryHero 1.4s cubic-bezier(.18,.85,.3,1.1) both',
+            willChange: 'transform, opacity, filter',
+          }}>
+            <Card card={legendarySummon.card} hovered scale={1.15} />
+          </div>
+          {/* Title strip. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: 'calc(50% + 230px)',
+            transform: 'translateX(-50%)',
+            color: '#ffd166', fontFamily: '"Cinzel", Georgia, serif',
+            fontSize: 14, letterSpacing: '0.4em', fontWeight: 700,
+            textTransform: 'uppercase',
+            textShadow: '0 0 12px rgba(255,209,102,.85), 0 2px 4px #000',
+            animation: 'fadeIn 0.35s ease-out 0.25s both',
+          }}>
+            Legendary {legendarySummon.owner === 'player' ? 'Summon' : 'Foe'}
+          </div>
+        </div>
+      )}
 
       {/* Player spell reveal — the spell card sits center-screen for ~900ms so
           casting feels like an event, not a silent state mutation. */}

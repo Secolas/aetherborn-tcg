@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, FolderOpen, Lock, Coins, Check } from 'lucide-react';
 import { Card } from '../components/Card';
+import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { ELEMENTS } from '../data/elements';
 import { btnPrimary, btnSecondary, iconBtn } from '../components/styles';
@@ -292,13 +293,20 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
         )}
 
         {stage === 'revealed' && photo && (
-          <div style={{ animation: 'cardSummon 0.6s cubic-bezier(.2,.8,.3,1)' }}>
-            <Card
-              card={{ ...template, photo, nickname: nickname || template.name, filterId: filterId === 'none' ? undefined : filterId }}
-              displayName={nickname || template.name}
-              hovered
-              scale={1.05}
-            />
+          <div style={{ animation: 'cardSummon 0.6s cubic-bezier(.2,.8,.3,1)', willChange: 'transform, opacity' }}>
+            <TiltCard
+              maxTilt={12}
+              hoverScale={1.05}
+              shine={template.rarity !== 'common'}
+              style={{ borderRadius: 19 }}
+            >
+              <Card
+                card={{ ...template, photo, nickname: nickname || template.name, filterId: filterId === 'none' ? undefined : filterId }}
+                displayName={nickname || template.name}
+                hovered
+                scale={1.05}
+              />
+            </TiltCard>
           </div>
         )}
       </div>
