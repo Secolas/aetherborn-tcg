@@ -305,6 +305,13 @@ function RevealCard({
         animation: 'cardRevealFlight 0.8s cubic-bezier(.18,.85,.3,1.1) both',
         zIndex: 1,
         display: 'inline-block',
+        // Clip every overlay (sheen sweep, future per-card FX) to the
+        // card's footprint so they can't paint over surrounding UI.
+        // borderRadius matches the Card outer corner radius (18px) so the
+        // sheen reads as polished glass on the card itself, not a square
+        // patch over a rounded card.
+        overflow: 'hidden',
+        borderRadius: 18,
       }}>
         <Card card={card} hovered />
         {showSheen && (
@@ -314,7 +321,10 @@ function RevealCard({
             animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
             pointerEvents: 'none',
             mixBlendMode: 'screen',
-            borderRadius: 12,
+            // Inherit the wrapper's clip; the explicit radius here is a
+            // belt-and-braces measure in case mixBlendMode hits a
+            // browser quirk that ignores the parent clip.
+            borderRadius: 18,
           }} />
         )}
       </div>
