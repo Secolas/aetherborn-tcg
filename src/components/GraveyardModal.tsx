@@ -8,6 +8,10 @@ interface Props {
   cards: BattleCard[];
   /** Display label for the pile owner ("Your graveyard" / "The Manager's graveyard"). */
   title: string;
+  /** Which side this pile belongs to. The player's pile renders with the
+   *  equipped frame cosmetic; the boss's pile renders without — same
+   *  rule as every other in-match Card render. */
+  owner?: 'player' | 'opponent';
   onClose: () => void;
 }
 
@@ -18,9 +22,10 @@ interface Props {
  * opens a centered preview at full readable scale so the player can re-read
  * the ability text — graveyard tiles themselves are too small for that.
  */
-export function GraveyardModal({ cards, title, onClose }: Props) {
+export function GraveyardModal({ cards, title, owner = 'player', onClose }: Props) {
   const reversed = [...cards].reverse();
   const [preview, setPreview] = useState<BattleCard | null>(null);
+  const owned = owner === 'player';
   return (
     <div
       onClick={onClose}
@@ -99,7 +104,7 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
                   display: 'block',
                 }}
               >
-                <Card card={c} scale={0.34} />
+                <Card card={c} scale={0.34} owned={owned} />
               </button>
             ))}
           </div>
@@ -125,7 +130,7 @@ export function GraveyardModal({ cards, title, onClose }: Props) {
             onClick={(e) => e.stopPropagation()}
             style={{ animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)' }}
           >
-            <Card card={preview} hovered scale={1.05} />
+            <Card card={preview} hovered scale={1.05} owned={owned} />
           </div>
         </div>
       )}

@@ -46,9 +46,14 @@ export const FRAMES: Record<FrameId, FrameDef> = {
     name: 'Gilded',
     description: 'Polished gold trim with a soft warm glow.',
     cost: 400,
+    // Layered ring: 1px dark amber bezel (provides edge separation on
+    // light backgrounds like Collection/DeckBuilder), then a thicker
+    // bright-gold ring, then the warm glow + drop shadow. Without the
+    // dark bezel the gold was blending into the cream surfaces and the
+    // frame looked invisible outside the match.
     outer: {
       boxShadow:
-        '0 0 0 2.5px #f4d04a, 0 0 22px rgba(244,208,74,.55), 0 10px 26px rgba(0,0,0,.40)',
+        '0 0 0 1px #8a6a14, 0 0 0 3.5px #f4d04a, 0 0 24px rgba(244,208,74,.65), 0 10px 26px rgba(0,0,0,.40)',
     },
     inner: {
       boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.6), inset 0 0 14px rgba(244,208,74,.35)',
@@ -62,7 +67,7 @@ export const FRAMES: Record<FrameId, FrameDef> = {
     cost: 350,
     outer: {
       boxShadow:
-        '0 0 0 2.5px #ff4dd2, 0 0 24px rgba(255,77,210,.55), 0 0 38px rgba(64,255,255,.35), 0 10px 22px rgba(0,0,0,.40)',
+        '0 0 0 1px #4a0d3d, 0 0 0 3px #ff4dd2, 0 0 24px rgba(255,77,210,.55), 0 0 38px rgba(64,255,255,.35), 0 10px 22px rgba(0,0,0,.40)',
     },
     inner: {
       boxShadow: 'inset 0 0 0 1.5px rgba(64,255,255,.7), inset 0 0 16px rgba(255,77,210,.30)',
