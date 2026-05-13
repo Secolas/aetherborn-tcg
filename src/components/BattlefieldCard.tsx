@@ -437,13 +437,13 @@ export function BattlefieldCard({
           aria-label={bondState === 'active' ? 'Bond active' : 'Bond waiting'}
           style={{
             position: 'absolute',
-            top: -5, left: -5,
-            width: 16, height: 16, borderRadius: '50%',
+            bottom: -8, left: '50%', transform: 'translateX(-50%)',
+            width: 14, height: 14, borderRadius: '50%',
             background: bondState === 'active'
               ? 'linear-gradient(135deg, #ffe89a, #f4d04a)'
               : 'rgba(160,152,144,.85)',
             boxShadow: bondState === 'active'
-              ? '0 0 0 1.5px #fff, 0 0 8px rgba(244,208,74,.65)'
+              ? '0 0 0 1.5px #fff, 0 0 6px rgba(244,208,74,.7)'
               : '0 0 0 1px rgba(255,255,255,.6)',
             zIndex: 5,
             pointerEvents: 'none',
@@ -451,7 +451,7 @@ export function BattlefieldCard({
           }}
         >
           <Link2
-            size={8}
+            size={7}
             strokeWidth={2.8}
             color={bondState === 'active' ? '#3a2406' : 'rgba(255,255,255,.8)'}
           />
