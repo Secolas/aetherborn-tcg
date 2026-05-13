@@ -1948,7 +1948,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={opponentBondLookup}
           slotMap={opponentSlots}
-          highlightEmpty={false}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
@@ -2112,8 +2111,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
           slotMap={playerSlots}
-          highlightEmpty={selectedHandIdx !== null || (!!drag && drag.cardType === 'Creature' && drag.overField)}
-          dragOverSlot={drag?.cardType === 'Creature' ? (drag?.overSlot ?? null) : null}
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
@@ -3480,7 +3477,7 @@ function BondPillStack({
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
-  highlightEmpty, dragOverSlot, registerEl, onCardClick, onCardLongPress,
+  registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
@@ -3496,10 +3493,6 @@ function FieldRow({
   pendingSpell: BattleCard | null;
   bondLookup: Record<string, 'active' | 'waiting'>;
   slotMap: Record<string, number>;
-  /** Brighten empty slot outlines so the player can see where a card will go. */
-  highlightEmpty: boolean;
-  /** Which slot (0-2) a drag is currently hovering over. Null = no slot targeted. */
-  dragOverSlot?: number | null;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
@@ -3531,9 +3524,6 @@ function FieldRow({
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
-        const isEmpty = !c;
-        const isDragTarget = isEmpty && dragOverSlot === i;
-        const isBlockedTarget = !isEmpty && dragOverSlot === i;
         const targetable = c ? isTargetableForSpell(c, pendingSpell, side) : false;
         const isCombatAttacker = c ? combat?.attackerId === c.battleId && combat.attackerOwner === side : false;
         const isCombatDefender = c ? combat?.defenderId === c.battleId && combat.defenderOwner === side : false;
@@ -3545,45 +3535,33 @@ function FieldRow({
         const dyingEntry = c ? dying[c.battleId] : null;
 
         // Single stable wrapper per slot — always present in the DOM
-        // so layout doesn't reflow when a creature enters or leaves.
-        // Visually, the slot outline is hidden when the slot is empty
-        // AND we're not in a "show targets" state (drag-over or
-        // pendingSpell). Showing empty boxes by default cluttered the
-        // field. The outline becomes visible during drag-over (yellow
-        // highlight) so the player still has a drop target, and stays
-        // behind any card that's actually in the slot (or animating
-        // out via dyingEntry).
-        const showOutline = !isEmpty || !!dyingEntry || isDragTarget || (highlightEmpty && isEmpty);
+        // AND always visually rendered. The dashed border + faint
+        // white tint are permanent scaffolding for the 3-card field
+        // (constant whether the slot is empty, occupied, or hosting a
+        // dying-card animation that's about to fly to the graveyard).
+        // Cards render on top and cover the tint while present; once
+        // they leave, the tint is revealed without a pop.
         return (
           <div
             key={`slot-${i}`}
             data-slot={i}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
+              // Slot zones are a constant of the field. Border,
+              // background, transform, and shadow are identical in
+              // every state — empty, occupied, drag-over, blocked,
+              // dying. Drop feedback is handled by other layers
+              // (the dragged card itself, the center divider
+              // "Summon" hint), never by mutating the zone. Cards
+              // and dying-animation ghosts sit on top of the
+              // unchanged scaffolding.
               width: 64, height: 88,
               borderRadius: 8,
               flex: '0 0 auto',
               position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: isDragTarget
-                ? '2px solid #f4d04a'
-                : highlightEmpty && isEmpty
-                  ? '2px dashed #f4d04a'
-                  : showOutline
-                    ? '1.5px dashed rgba(58,46,42,.14)'
-                    : '1.5px solid transparent',
-              background: isDragTarget
-                ? 'rgba(244,208,74,.28)'
-                : highlightEmpty && isEmpty
-                  ? 'rgba(244,208,74,.12)'
-                  : 'transparent',
-              boxShadow: isDragTarget
-                ? '0 0 12px rgba(244,208,74,.5)'
-                : isBlockedTarget
-                  ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)'
-                  : undefined,
-              transform: isDragTarget ? 'scale(1.04)' : 'none',
-              transition: 'transform .1s, box-shadow .1s',
+              border: '1.5px dashed rgba(58,46,42,.14)',
+              background: 'rgba(255,255,255,.18)',
             }}
           >
           {c && (
