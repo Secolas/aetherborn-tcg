@@ -3111,16 +3111,45 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           log entry in reverse-chronological order so the most recent
           action is always at the top. Dismissed by tapping the backdrop
           or the same icon button again. */}
+      {/* Stats popover — anchored next to the side's avatar portrait so
+          it reads as an extension of that profile, not a generic
+          floating sheet. Position is computed from the avatar's
+          bounding rect (registered as FACE_PLAYER / FACE_OPP), and the
+          panel animates in with a scale-from-avatar Framer entrance so
+          the eye tracks back to the source. */}
       {infoSide && (() => {
         const me = infoSide === 'player' ? state.player : state.opponent;
         const label = infoSide === 'player' ? 'You' : boss.name;
-        const oppPanelTop = (() => {
-          if (infoSide !== 'opponent') return 88;
-          const hdr = oppHeaderRef.current;
-          const board = boardRef.current;
-          if (!hdr || !board) return 88;
-          return hdr.getBoundingClientRect().bottom - board.getBoundingClientRect().top + 4;
-        })();
+        const board = boardRef.current?.getBoundingClientRect();
+        const avatar = cardEls.current.get(infoSide === 'player' ? FACE_PLAYER : FACE_OPP)?.getBoundingClientRect();
+        const PANEL_W = 240;
+        // Default to the historical corner if measurement isn't ready
+        // yet — the next render will reposition once the rects are in.
+        let pos: { top?: number; bottom?: number; left: number; originY: 'top' | 'bottom' } = {
+          ...(infoSide === 'player' ? { bottom: 88 } : { top: 88 }),
+          left: 16,
+          originY: infoSide === 'player' ? 'bottom' : 'top',
+        };
+        if (board && avatar) {
+          // Horizontal: start just to the right of the avatar; clamp so
+          // the panel stays inside the board (12 px margin off the right
+          // edge). On narrow phones this means it shifts back left into
+          // the safe area.
+          const desiredLeft = avatar.right - board.left + 8;
+          const maxLeft = board.width - PANEL_W - 12;
+          const left = Math.max(12, Math.min(desiredLeft, maxLeft));
+          if (infoSide === 'player') {
+            // Player avatar sits at the bottom of the board; panel
+            // hangs upward from the avatar's top edge.
+            const bottom = board.bottom - avatar.bottom - board.top + (avatar.height * 0.2);
+            pos = { bottom, left, originY: 'bottom' };
+          } else {
+            // Opponent avatar sits at the top; panel drops downward
+            // from the avatar's bottom edge.
+            const top = avatar.top - board.top + (avatar.height * 0.2);
+            pos = { top, left, originY: 'top' };
+          }
+        }
         return (
           <div
             onClick={() => setInfoSide(null)}
@@ -3131,18 +3160,29 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               animation: 'fadeIn .12s',
             }}
           >
-            <div
+            <motion.div
               onClick={e => e.stopPropagation()}
+              initial={{ opacity: 0, scale: 0.7, x: -14 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              transition={{ type: 'spring', stiffness: 460, damping: 28 }}
               style={{
                 position: 'absolute',
-                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: oppPanelTop, left: 16 }),
-                width: 240,
+                ...(pos.top != null ? { top: pos.top } : {}),
+                ...(pos.bottom != null ? { bottom: pos.bottom } : {}),
+                left: pos.left,
+                width: PANEL_W,
+                // Origin anchors near the avatar so the scale-in reads
+                // as "growing out of the profile chip" rather than a
+                // generic pop. Horizontal origin is the left edge
+                // (closest to the avatar); vertical origin matches the
+                // panel's anchor (bottom-up on the player, top-down on
+                // the opponent).
+                transformOrigin: `left ${pos.originY}`,
                 background: '#fff',
                 borderRadius: 18,
                 boxShadow: '0 12px 32px rgba(58,46,42,.25), 0 0 0 1.5px rgba(58,46,42,.06)',
                 padding: 10,
                 fontFamily: '"Fredoka", system-ui',
-                animation: 'slideUp .2s cubic-bezier(.2,.8,.3,1)',
                 overflow: 'hidden',
               }}
             >
@@ -3200,7 +3240,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                   View Action Log
                 </button>
               )}
-            </div>
+            </motion.div>
           </div>
         );
       })()}
