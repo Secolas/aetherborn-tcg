@@ -3544,11 +3544,13 @@ function FieldRow({
         );
         const dyingEntry = c ? dying[c.battleId] : null;
 
-        // Single stable wrapper per slot — always present so the
-        // dashed border never pops in/out when a creature enters or
-        // leaves. The slot outline is permanent visual scaffolding
-        // for the 3-card field; only the drop-target highlights change
-        // (drag-over yellow, blocked red). Cards render on top.
+        // Single stable wrapper per slot — always present in the DOM
+        // AND always visually rendered. The dashed border + faint
+        // white tint are permanent scaffolding for the 3-card field
+        // (constant whether the slot is empty, occupied, or hosting a
+        // dying-card animation that's about to fly to the graveyard).
+        // Cards render on top and cover the tint while present; once
+        // they leave, the tint is revealed without a pop.
         return (
           <div
             key={`slot-${i}`}
@@ -3569,9 +3571,13 @@ function FieldRow({
                 ? 'rgba(244,208,74,.28)'
                 : highlightEmpty && isEmpty
                   ? 'rgba(244,208,74,.12)'
-                  : isEmpty
-                    ? 'rgba(255,255,255,.18)'
-                    : 'transparent',
+                  // Always-visible white tint regardless of slot
+                  // contents. The card sits on top and obscures it
+                  // while present, but the scaffolding never goes
+                  // transparent — so a creature flying out to the
+                  // graveyard leaves behind the same slot the player
+                  // already knew was there.
+                  : 'rgba(255,255,255,.18)',
               boxShadow: isDragTarget
                 ? '0 0 12px rgba(244,208,74,.5)'
                 : isBlockedTarget
