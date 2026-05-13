@@ -2319,6 +2319,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 zIndex: isDraggingThis ? 200 : isSelected ? 60 : 10 + i,
                 cursor: canDrag ? 'grab' : 'pointer',
                 touchAction: 'none',
+                // The hand container is pointerEvents:none so the empty
+                // space between cards doesn't catch clicks. Each card
+                // must opt back in or taps/drags won't register.
+                pointerEvents: 'auto',
                 opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
                 transition: 'opacity .15s',
                 willChange: 'transform',
