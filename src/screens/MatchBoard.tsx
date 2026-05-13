@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Gem } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -3837,8 +3837,9 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
 }
 
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
-  // Gem icon matches the card-cost badge shape (both are the "mana currency"
-  // of the game). Players learn: circle on card = these gems = spend to play.
+  // Circle that fills with liquid from the bottom — same shape as the card
+  // cost badge so players immediately read "this number = those circles on cards".
+  const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;
   return (
     <div
       key={pulseKey}
@@ -3851,7 +3852,22 @@ function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: numb
         animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
       }}
     >
-      <Gem size={14} fill="#3a8fc4" color="#1c5478" strokeWidth={1.5} />
+      {/* Circular liquid fill — mirrors the cost-badge circle on cards */}
+      <div style={{
+        width: 20, height: 20, borderRadius: '50%',
+        background: '#fff5dc',
+        boxShadow: '0 0 0 2px #3a8fc4',
+        overflow: 'hidden',
+        position: 'relative',
+        flex: '0 0 auto',
+      }}>
+        <div style={{
+          position: 'absolute', left: 0, right: 0, bottom: 0,
+          height: `${fillPct * 100}%`,
+          background: 'linear-gradient(180deg, #6ec8ff 0%, #3a8fc4 55%, #1c5478 100%)',
+          transition: 'height .6s cubic-bezier(.2,.8,.3,1)',
+        }} />
+      </div>
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
