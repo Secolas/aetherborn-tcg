@@ -1919,22 +1919,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         display: 'flex', flexDirection: 'column',
       }}
     >
-      {/* Themed boss backdrop — heavily blurred + de-saturated photo of
-          where this duel is happening. Sits behind everything else (zIndex
-          0) and never catches pointer events. Falls back to nothing when
-          the boss has no `backdrop` defined — the base gradient still
-          carries the theme tint. */}
-      {boss.backdrop && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `url(${boss.backdrop})`,
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          filter: 'blur(14px) saturate(0.7) brightness(1.05)',
-          opacity: 0.32,
-          zIndex: 0,
-          pointerEvents: 'none',
-        }} />
-      )}
+      {/* Themed boss backdrop removed — the blurred photo behind the
+          field competed with the player's own card photos and made the
+          board feel busy. The equipped board skin + the boss element
+          tint above it carry enough atmosphere on their own. */}
 
       {/* Stage texture — a faint repeating grid + radial vignette suggesting
           a duel mat under the field. Pure CSS, no image asset, very low
