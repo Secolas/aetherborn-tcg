@@ -2219,74 +2219,82 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const canDrag = state.turn === 'player' && state.outcome === 'ongoing' && pendingDrawIds.size === 0;
           const isDraggingThis = drag?.battleId === card.battleId;
           return (
-            <motion.div
+            // Outer positioning wrapper — owns the fan placement via
+            // plain CSS transform. The motion.div lives INSIDE this
+            // wrapper so when drag ends, dragSnapToOrigin returns to
+            // 0/0 inside the wrapper (i.e. exactly its fan slot).
+            // Earlier we put `x: xOff` on the motion.div directly,
+            // which caused every card to snap back to x=0 after the
+            // first drag because `dragSnapToOrigin` returns to the
+            // motion value's frame origin, not to its initial style.
+            <div
               key={card.battleId}
-              // Drag behavior: Framer manages the translation while the
-              // pointer is held; dragSnapToOrigin springs back to the
-              // hand position if the drop logic doesn't consume the
-              // card. dragElastic gives a slight rubber-band feel; the
-              // 0.8 multiplier keeps the card mostly under the finger
-              // (1 = no resistance, 0 = locked to start).
-              drag={canDrag}
-              dragSnapToOrigin
-              dragMomentum={false}
-              dragElastic={0.8}
-              // Spring config for the snap-back. Stiff + damped so the
-              // card settles quickly instead of overshooting.
-              dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
-              onDragStart={() => handleDragStart(card)}
-              onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
-              onDragEnd={() => handleDragEnd(card)}
-              onTap={() => {
-                if (!canDrag) return;
-                const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
-                if (idx >= 0) handleHandTap(card, idx);
-              }}
               style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                // Use marginLeft to center; Framer composes its drag
-                // translation on top of `x`. The base x = xOff carries
-                // the fan-stride placement, and dragSnapToOrigin springs
-                // the card back to this exact x on release.
-                x: xOff,
-                marginLeft: -(cardW + 8) / 2,
+                transform: `translateX(calc(-50% + ${xOff}px))`,
                 width: cardW + 8,
                 height: 320 * baseScale + 16,
                 zIndex: isDraggingThis ? 200 : isSelected ? 60 : 10 + i,
-                cursor: canDrag ? 'grab' : 'pointer',
-                touchAction: 'none',
-                pointerEvents: 'auto',
                 opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
                 transition: 'opacity .15s',
-                willChange: 'transform',
-              }}
-              whileDrag={{ cursor: 'grabbing', scale: 1.08, filter: 'drop-shadow(0 12px 24px rgba(0,0,0,.45))' }}
-            >
-              <div style={{
-                position: 'absolute', bottom: 0, left: '50%',
-                // Selected card rises and straightens out so the player can
-                // read it. While dragging we also straighten so the player
-                // sees a clean card silhouette under the finger instead of
-                // its fan-rotated pose.
-                transform: (isSelected || isDraggingThis)
-                  ? `translateX(-50%) translateY(-12px) rotate(0deg)`
-                  : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
-                transformOrigin: 'bottom center',
-                transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
                 pointerEvents: 'none',
-                willChange: 'transform, filter',
-                filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
-                // Affordable cards on your turn breathe a soft yellow glow
-                // so playable cards stand out from unaffordable ones at a
-                // glance. The keyframe only animates `filter`, so it
-                // doesn't conflict with the static fanned `transform`.
-                animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
-                  ? 'playablePulse 2.4s ease-in-out infinite'
-                  : undefined,
-              }}>
-                <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
-              </div>
-            </motion.div>
+              }}
+            >
+              <motion.div
+                // Drag behavior: Framer manages the translation while
+                // the pointer is held; dragSnapToOrigin springs back to
+                // the motion.div's own origin (0,0 inside the wrapper
+                // above = the card's fan slot). dragElastic gives a
+                // slight rubber-band feel as you pull it; the spring
+                // config settles the snap-back quickly without
+                // overshoot.
+                drag={canDrag}
+                dragSnapToOrigin
+                dragMomentum={false}
+                dragElastic={0.8}
+                dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+                onDragStart={() => handleDragStart(card)}
+                onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
+                onDragEnd={() => handleDragEnd(card)}
+                onTap={() => {
+                  if (!canDrag) return;
+                  const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
+                  if (idx >= 0) handleHandTap(card, idx);
+                }}
+                style={{
+                  width: '100%', height: '100%',
+                  cursor: canDrag ? 'grab' : 'pointer',
+                  touchAction: 'none',
+                  pointerEvents: 'auto',
+                  willChange: 'transform',
+                }}
+                whileDrag={{ cursor: 'grabbing', scale: 1.08, filter: 'drop-shadow(0 12px 24px rgba(0,0,0,.45))' }}
+              >
+                <div style={{
+                  position: 'absolute', bottom: 0, left: '50%',
+                  // Selected card rises and straightens out so the
+                  // player can read it. While dragging we also
+                  // straighten so the player sees a clean silhouette
+                  // under the finger instead of a fan-rotated card.
+                  transform: (isSelected || isDraggingThis)
+                    ? `translateX(-50%) translateY(-12px) rotate(0deg)`
+                    : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
+                  transformOrigin: 'bottom center',
+                  transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
+                  pointerEvents: 'none',
+                  willChange: 'transform, filter',
+                  filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
+                  // Affordable cards on your turn breathe a soft
+                  // yellow glow so playable cards stand out from
+                  // unaffordable ones at a glance.
+                  animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
+                    ? 'playablePulse 2.4s ease-in-out infinite'
+                    : undefined,
+                }}>
+                  <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+                </div>
+              </motion.div>
+            </div>
           );
         })}
       </div>
