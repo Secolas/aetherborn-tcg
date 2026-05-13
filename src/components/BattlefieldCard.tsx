@@ -181,17 +181,6 @@ export function BattlefieldCard({
             renders here as a small circular pill. Standardized so the player
             sees a consistent vocabulary: same shape, same size, same place,
             different icon + color. */}
-        <div style={{
-          position: 'absolute', top: 4, right: 4,
-          display: 'flex', flexDirection: 'column', gap: 2,
-          zIndex: 2,
-        }}>
-          {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {isTaunt && <StatusPill color="#3d8e57" icon={<Target size={10} strokeWidth={2.8} />} />}
-          {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
-          {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
-          {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
-        </div>
 
         {/* Level counter — pinned to a FIXED corner (top-left, under
             the cost circle) so its position never shifts based on
@@ -427,6 +416,22 @@ export function BattlefieldCard({
           (`bondState === 'active'`) the heart is gold and pulses; while
           waiting for the partner it's a dim grey so the player knows the
           card is bond-eligible but the bond hasn't fired yet. */}
+      {/* Status badges — outside the clipped inner div so they float above
+          the card edge, matching the bond badge on the top-left. */}
+      {(card.frozen || isTaunt || (card.abilityKind === 'untargetable' && !card.frozen) || (sleeping && !card.frozen) || card.silenced) && (
+        <div style={{
+          position: 'absolute', top: -5, right: -5,
+          display: 'flex', flexDirection: 'column', gap: 3,
+          zIndex: 6, pointerEvents: 'none',
+        }}>
+          {card.frozen && <StatusPill color="#3a8fc4" icon={<Snowflake size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {isTaunt && <StatusPill color="#3d8e57" icon={<Target size={10} strokeWidth={2.8} />} />}
+          {card.abilityKind === 'untargetable' && !card.frozen && <StatusPill color="#7a4ea8" icon={<ShieldHalf size={10} strokeWidth={2.6} />} />}
+          {sleeping && !card.frozen && <StatusPill color="#5a4a2a" icon={<Moon size={10} fill="#fff" strokeWidth={2.4} />} />}
+          {card.silenced && <StatusPill color="#7a6e62" icon={<Ban size={10} strokeWidth={2.6} />} />}
+        </div>
+      )}
+
       {bondState && (
         <div
           aria-label={bondState === 'active' ? 'Bond active' : 'Bond waiting'}
@@ -435,10 +440,10 @@ export function BattlefieldCard({
             top: -5, left: -5,
             width: 16, height: 16, borderRadius: '50%',
             background: bondState === 'active'
-              ? 'linear-gradient(135deg, #06d6a0, #04a87d)'
+              ? 'linear-gradient(135deg, #ffe89a, #f4d04a)'
               : 'rgba(160,152,144,.85)',
             boxShadow: bondState === 'active'
-              ? '0 0 0 1.5px #fff, 0 0 8px rgba(6,214,160,.55)'
+              ? '0 0 0 1.5px #fff, 0 0 8px rgba(244,208,74,.65)'
               : '0 0 0 1px rgba(255,255,255,.6)',
             zIndex: 5,
             pointerEvents: 'none',
@@ -448,7 +453,7 @@ export function BattlefieldCard({
           <Link2
             size={8}
             strokeWidth={2.8}
-            color={bondState === 'active' ? '#fff' : 'rgba(255,255,255,.8)'}
+            color={bondState === 'active' ? '#3a2406' : 'rgba(255,255,255,.8)'}
           />
         </div>
       )}

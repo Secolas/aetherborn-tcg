@@ -271,6 +271,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       card straight onto the field instead of having to aim at the divider. */
   const playerFieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const oppHeaderRef = useRef<HTMLDivElement | null>(null);
   /** DOM nodes of every creature on the field + the two faces, keyed by battleId
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
   const cardEls = useRef<Map<string, HTMLElement>>(new Map());
@@ -1807,7 +1808,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {/* Opponent header strip — mirrors the player stats row at the bottom:
           portrait + mana on the left, deck + graveyard on the right. The
           give-up flag moved to the divider band so it sits next to End Turn. */}
-      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
+      <div ref={oppHeaderRef} style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <OpponentPortrait
             boss={boss}
@@ -1840,10 +1841,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           damage/buff popups that overshoot upward off the card render on top
           of the divider strip and its End Turn / Give Up buttons. */}
       <div style={{
-        flex: '0 0 100px',
-        display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
+        flex: '0 0 auto', minHeight: 100,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', gap: 4,
         zIndex: 6,
         position: 'relative',
+        paddingBottom: 4,
       }}>
         <FieldRow
           side="opponent"
@@ -1988,16 +1990,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       <div
         ref={playerFieldRef}
         style={{
-          flex: '0 0 100px',
-          display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6,
-          // Above the divider (zIndex 4) so damage/buff popups that extend
-          // upward from a card render on top of the divider's icons.
+          flex: '0 0 auto', minHeight: 100,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', gap: 4,
           zIndex: 6,
-          background: drag?.overField
-            ? 'rgba(244,208,74,.10)'
-            : 'transparent',
+          background: drag?.overField ? 'rgba(244,208,74,.10)' : 'transparent',
           transition: 'background .15s',
           position: 'relative',
+          paddingTop: 4,
         }}
       >
         <FieldRow
@@ -2489,16 +2488,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }}>
               {/* "BOND ACTIVATED" tag — drops in after the cards + beam settle. */}
               <div style={{
-                background: isPlayer
-                  ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-                  : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-                color: isPlayer ? '#3a2406' : '#ffe89a',
+                background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
+                color: '#3a2406',
                 padding: '6px 14px', borderRadius: 14,
                 fontFamily: '"Fredoka", system-ui',
                 fontSize: 11, letterSpacing: '0.25em', fontWeight: 800,
-                boxShadow: isPlayer
-                  ? '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)'
-                  : '0 8px 22px rgba(0,0,0,.45), 0 0 0 2px rgba(244,208,74,.4)',
+                boxShadow: '0 8px 22px rgba(244,208,74,.45), 0 0 0 2px rgba(255,255,255,.6)',
                 animation: 'bondTextDrop .5s cubic-bezier(.2,.8,.3,1.2) 1.5s both',
               }}>
                 {isPlayer ? 'BOND ACTIVATED' : `${boss.name.toUpperCase()}'S BOND`}
@@ -2599,7 +2594,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           the divider band — see the activeBanner overlay in the divider above. */}
 
       {bondFire && (() => {
-        const isPlayer = bondFire.side === 'player';
         return (
           <div
             key={bondFire.key}
@@ -2613,14 +2607,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           >
             <div style={{
               padding: '9px 18px 9px 14px',
-              background: isPlayer
-                ? 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)'
-                : 'linear-gradient(135deg, #3a2e2a 0%, #1a1414 100%)',
+              background: 'linear-gradient(135deg, #e0a93a 0%, #c4781a 100%)',
               color: '#fff',
               borderRadius: 12,
-              boxShadow: isPlayer
-                ? '0 6px 22px rgba(196,120,26,.45), 0 0 0 1.5px rgba(255,224,160,.4) inset'
-                : '0 6px 22px rgba(0,0,0,.55), 0 0 0 1.5px rgba(255,255,255,.08) inset',
+              boxShadow: '0 6px 22px rgba(196,120,26,.45), 0 0 0 1.5px rgba(255,224,160,.4) inset',
               fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
               fontWeight: 700,
               fontSize: 14,
@@ -2917,6 +2907,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {infoSide && (() => {
         const me = infoSide === 'player' ? state.player : state.opponent;
         const label = infoSide === 'player' ? 'You' : boss.name;
+        const oppPanelTop = (() => {
+          if (infoSide !== 'opponent') return 88;
+          const hdr = oppHeaderRef.current;
+          const board = boardRef.current;
+          if (!hdr || !board) return 88;
+          return hdr.getBoundingClientRect().bottom - board.getBoundingClientRect().top + 4;
+        })();
         return (
           <div
             onClick={() => setInfoSide(null)}
@@ -2931,7 +2928,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               onClick={e => e.stopPropagation()}
               style={{
                 position: 'absolute',
-                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: 88, left: 16 }),
+                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: oppPanelTop, left: 16 }),
                 width: 220,
                 background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
                 borderRadius: 14,
@@ -3125,7 +3122,7 @@ const SLOTS_PER_ROW = 3;
  * the player, dark plate for the boss, anchored to that side's field zone.
  */
 function BondPillStack({
-  bonds, newlyActiveIds, side,
+  bonds, newlyActiveIds,
 }: {
   bonds: BondDef[];
   newlyActiveIds: string[];
@@ -3133,42 +3130,26 @@ function BondPillStack({
 }) {
   if (bonds.length === 0) return null;
   return (
-    <div
-      style={{
-        position: 'absolute',
-        right: 8,
-        top: side === 'opponent' ? 4 : undefined,
-        bottom: side === 'player' ? 4 : undefined,
-        display: 'flex', flexDirection: 'column', gap: 4,
-        alignItems: 'flex-end',
-        zIndex: 7,
-        pointerEvents: 'none',
-      }}
-    >
+    <div style={{
+      display: 'flex', flexDirection: 'row', flexWrap: 'wrap',
+      gap: 4, justifyContent: 'center', alignItems: 'center',
+      pointerEvents: 'none',
+    }}>
       {bonds.map(b => {
         const isNewly = newlyActiveIds.includes(b.id);
         return (
           <div
-            // Re-keying on the "newly active" flag forces the cardSummon
-            // animation to replay the moment the bond activates, so the
-            // chip lands with a satisfying pop instead of just appearing.
             key={`${b.id}-${isNewly ? 'new' : 'steady'}`}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '3px 8px 3px 6px',
               borderRadius: 10,
-              background: side === 'player'
-                ? 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)'
-                : 'linear-gradient(180deg, #6a4a3a 0%, #3a2018 100%)',
-              color: side === 'player' ? '#3a2406' : '#ffe89a',
+              background: 'linear-gradient(180deg, #ffe89a 0%, #f4d04a 100%)',
+              color: '#3a2406',
               fontSize: 10, fontWeight: 800, letterSpacing: '0.04em',
-              boxShadow: side === 'player'
-                ? '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)'
-                : '0 2px 6px rgba(0,0,0,.35), 0 0 0 1.5px rgba(244,208,74,.4)',
+              boxShadow: '0 2px 6px rgba(244,208,74,.45), 0 0 0 1.5px rgba(255,255,255,.6)',
               fontFamily: '"Fredoka", system-ui',
-              animation: isNewly
-                ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)'
-                : undefined,
+              animation: isNewly ? 'cardSummon 0.45s cubic-bezier(.2,.8,.3,1.3)' : undefined,
             }}
           >
             <Link2 size={10} strokeWidth={3} />
