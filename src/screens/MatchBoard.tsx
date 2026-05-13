@@ -1948,7 +1948,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={opponentBondLookup}
           slotMap={opponentSlots}
-          highlightEmpty={false}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
@@ -2112,8 +2111,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
           slotMap={playerSlots}
-          highlightEmpty={selectedHandIdx !== null || (!!drag && drag.cardType === 'Creature' && drag.overField)}
-          dragOverSlot={drag?.cardType === 'Creature' ? (drag?.overSlot ?? null) : null}
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
@@ -3480,7 +3477,7 @@ function BondPillStack({
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
-  highlightEmpty, dragOverSlot, registerEl, onCardClick, onCardLongPress,
+  registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
@@ -3496,10 +3493,6 @@ function FieldRow({
   pendingSpell: BattleCard | null;
   bondLookup: Record<string, 'active' | 'waiting'>;
   slotMap: Record<string, number>;
-  /** Brighten empty slot outlines so the player can see where a card will go. */
-  highlightEmpty: boolean;
-  /** Which slot (0-2) a drag is currently hovering over. Null = no slot targeted. */
-  dragOverSlot?: number | null;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
@@ -3531,9 +3524,6 @@ function FieldRow({
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
-        const isEmpty = !c;
-        const isDragTarget = isEmpty && dragOverSlot === i;
-        const isBlockedTarget = !isEmpty && dragOverSlot === i;
         const targetable = c ? isTargetableForSpell(c, pendingSpell, side) : false;
         const isCombatAttacker = c ? combat?.attackerId === c.battleId && combat.attackerOwner === side : false;
         const isCombatDefender = c ? combat?.defenderId === c.battleId && combat.defenderOwner === side : false;
