@@ -1262,7 +1262,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
     }
-    setBondLineData(lines);
+    // Only update state when positions actually changed — returning `prev`
+    // from a functional updater skips the re-render, breaking the loop.
+    setBondLineData(prev => {
+      if (prev.length !== lines.length) return lines;
+      for (let i = 0; i < lines.length; i++) {
+        const a = prev[i], b = lines[i];
+        if (a.key !== b.key || a.x1 !== b.x1 || a.y1 !== b.y1 || a.x2 !== b.x2 || a.y2 !== b.y2) return lines;
+      }
+      return prev;
+    });
   });
 
   // DOM positions of the attacker and defender (or the face portrait) and
