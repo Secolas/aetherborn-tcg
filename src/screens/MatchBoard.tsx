@@ -3557,34 +3557,21 @@ function FieldRow({
             data-slot={i}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
+              // Slot zones are a constant of the field. Border,
+              // background, transform, and shadow are identical in
+              // every state — empty, occupied, drag-over, blocked,
+              // dying. Drop feedback is handled by other layers
+              // (the dragged card itself, the center divider
+              // "Summon" hint), never by mutating the zone. Cards
+              // and dying-animation ghosts sit on top of the
+              // unchanged scaffolding.
               width: 64, height: 88,
               borderRadius: 8,
               flex: '0 0 auto',
               position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: isDragTarget
-                ? '2px solid #f4d04a'
-                : highlightEmpty && isEmpty
-                  ? '2px dashed #f4d04a'
-                  : '1.5px dashed rgba(58,46,42,.14)',
-              background: isDragTarget
-                ? 'rgba(244,208,74,.28)'
-                : highlightEmpty && isEmpty
-                  ? 'rgba(244,208,74,.12)'
-                  // Always-visible white tint regardless of slot
-                  // contents. The card sits on top and obscures it
-                  // while present, but the scaffolding never goes
-                  // transparent — so a creature flying out to the
-                  // graveyard leaves behind the same slot the player
-                  // already knew was there.
-                  : 'rgba(255,255,255,.18)',
-              boxShadow: isDragTarget
-                ? '0 0 12px rgba(244,208,74,.5)'
-                : isBlockedTarget
-                  ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)'
-                  : undefined,
-              transform: isDragTarget ? 'scale(1.04)' : 'none',
-              transition: 'transform .1s, box-shadow .1s',
+              border: '1.5px dashed rgba(58,46,42,.14)',
+              background: 'rgba(255,255,255,.18)',
             }}
           >
           {c && (
