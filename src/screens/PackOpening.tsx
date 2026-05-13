@@ -30,9 +30,10 @@ interface PackVibe {
   color: string;
   glow: string;
   title: string;
-  /** Center icon. For element packs this is the glyph SVG; for memory
-   *  packs it's the emoji. */
-  icon: React.ReactNode;
+  /** Center icon. Element packs use the theme glyph SVG; memory packs
+   *  pass null and let the pack art carry identity through gradient +
+   *  title alone. */
+  icon: React.ReactNode | null;
   /** Element to use for color overlays on photos inside this pack (e.g.
    *  the warm theme glaze in PhotoFrame). Element packs use their own;
    *  memory packs pick their first contributing theme as a stand-in. */
@@ -132,7 +133,9 @@ export function PackOpening({ coins, onPackOpened, onMemoryPackOpened, openedMem
     const [deep, color] = def.gradient;
     const vibe: PackVibe = {
       deep, color, glow: def.glow, title: def.name,
-      icon: <div style={{ fontSize: 56, lineHeight: 1 }}>{def.emoji}</div>,
+      // Memory packs intentionally skip a center icon — gradient + title
+      // carry the identity. Pass null and let PackArt handle the gap.
+      icon: null,
       el: def.themes[0],
     };
     setPick({ kind: 'memory', pack: def, vibe, firstOpen });
@@ -529,15 +532,6 @@ function MemoryPackOption({
       onMouseUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
       onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
     >
-      <div style={{
-        width: 42, height: 42, borderRadius: '50%',
-        background: 'rgba(255,255,255,.18)',
-        display: 'grid', placeItems: 'center',
-        fontSize: 24, flex: '0 0 auto',
-        boxShadow: `0 0 0 1.5px ${def.glow}66, inset 0 0 14px ${def.glow}33`,
-      }}>
-        {def.emoji}
-      </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 18, fontWeight: 700,

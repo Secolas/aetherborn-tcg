@@ -29,9 +29,6 @@ export interface MemoryPackDef {
   glow: string;
   /** Filter granted free on first open. */
   bonusFilter: FilterId;
-  /** Emoji shown on the pack art — keeps memory packs visually distinct
-   *  from element glyphs without requiring new SVG assets. */
-  emoji: string;
 }
 
 export const MEMORY_PACKS: MemoryPackDef[] = [
@@ -44,7 +41,6 @@ export const MEMORY_PACKS: MemoryPackDef[] = [
     gradient: ['#ff9f1c', '#ee5a52'],
     glow: '#ffd166',
     bonusFilter: 'sunset',
-    emoji: '🎂',
   },
   {
     id: 'vacation',
@@ -55,7 +51,6 @@ export const MEMORY_PACKS: MemoryPackDef[] = [
     gradient: ['#06d6a0', '#3a8fc4'],
     glow: '#9be7ff',
     bonusFilter: 'dreamy',
-    emoji: '🏝️',
   },
   {
     id: 'pet',
@@ -66,7 +61,6 @@ export const MEMORY_PACKS: MemoryPackDef[] = [
     gradient: ['#7a4ea8', '#a47bff'],
     glow: '#d4baff',
     bonusFilter: 'vintage',
-    emoji: '🐾',
   },
   {
     id: 'milestone',
@@ -77,7 +71,6 @@ export const MEMORY_PACKS: MemoryPackDef[] = [
     gradient: ['#a47bff', '#ee5a52'],
     glow: '#ffb7d8',
     bonusFilter: 'holo',
-    emoji: '🏆',
   },
 ];
 
