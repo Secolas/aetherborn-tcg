@@ -184,6 +184,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  banners + AI delays present it as a sequence even though the
    *  engine just calls aiStep iteratively. */
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
+  /** Measured board-relative positions for bond connection lines.
+   *  Populated by a useLayoutEffect so positions come from real DOM rects. */
+  const [bondLineData, setBondLineData] = useState<
+    Array<{ key: string; x1: number; y1: number; x2: number; y2: number }>
+  >([]);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
@@ -1206,6 +1211,60 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     lastRectsRef.current = next;
   });
 
+  // Measure bond icon positions after each render so the connection lines
+  // always reflect real DOM layout. Using useLayoutEffect + state ensures
+  // we read fresh getBoundingClientRect values, not stale ref data.
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board) { setBondLineData([]); return; }
+    const boardRect = board.getBoundingClientRect();
+    const lines: typeof bondLineData = [];
+
+    for (const [bonds, field] of [
+      [playerActiveBonds, state.player.field],
+      [opponentActiveBonds, state.opponent.field],
+    ] as [typeof playerActiveBonds, typeof state.player.field][]) {
+      const bondedIds = new Set<string>();
+      for (const bond of bonds) {
+        const a = field.find(c => c.id === bond.cardA);
+        const b = field.find(c => c.id === bond.cardB);
+        if (a) bondedIds.add(a.battleId);
+        if (b) bondedIds.add(b.battleId);
+      }
+      const bondedCount = bondedIds.size;
+
+      for (const bond of bonds) {
+        const cardA = field.find(c => c.id === bond.cardA);
+        const cardB = field.find(c => c.id === bond.cardB);
+        if (!cardA || !cardB) continue;
+        const elA = cardEls.current.get(cardA.battleId);
+        const elB = cardEls.current.get(cardB.battleId);
+        if (!elA || !elB) continue;
+        const rA = elA.getBoundingClientRect();
+        const rB = elB.getBoundingClientRect();
+        const ax = rA.left + rA.width / 2 - boardRect.left;
+        const ay = rA.top + rA.height - boardRect.top;
+        const bx = rB.left + rB.width / 2 - boardRect.left;
+        const by = rB.top + rB.height - boardRect.top;
+
+        if (bondedCount <= 2) {
+          lines.push({ key: `${bond.id}-line`, x1: ax, y1: ay, x2: bx, y2: by });
+        } else {
+          const pillEl = bondPillEls.current.get(bond.id);
+          if (!pillEl) continue;
+          const pR = pillEl.getBoundingClientRect();
+          const px = pR.left + pR.width / 2 - boardRect.left;
+          const py = pR.top + pR.height / 2 - boardRect.top;
+          lines.push(
+            { key: `${bond.id}-lineA`, x1: ax, y1: ay, x2: px, y2: py },
+            { key: `${bond.id}-lineB`, x1: bx, y1: by, x2: px, y2: py },
+          );
+        }
+      }
+    }
+    setBondLineData(lines);
+  });
+
   // DOM positions of the attacker and defender (or the face portrait) and
   // hand them to the SVG overlay below.
   useLayoutEffect(() => {
@@ -1674,8 +1733,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     showMsg(`${boss.name}'s turn`);
     const key = Date.now() + 5555;
     setPhaseBanner({ text: 'End Phase', side: 'player', key });
-    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
-    holdAnim(1100);
+    setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1800);
+    holdAnim(1900);
     setState(s => endTurn(s));
   };
 
@@ -2901,96 +2960,33 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
-      {/* Bond connection lines — straight line between 2 bonded card icons;
-          3-card groups fan to the pill center. */}
-      {(() => {
-        const board = boardRef.current;
-        if (!board) return null;
-        const boardRect = board.getBoundingClientRect();
-
-        const paths: React.ReactNode[] = [];
-
-        for (const [bonds, field] of [
-          [playerActiveBonds, state.player.field],
-          [opponentActiveBonds, state.opponent.field],
-        ] as [typeof playerActiveBonds, typeof state.player.field][]) {
-          // Collect all unique card battleIds that participate in any bond.
-          const bondedIds = new Set<string>();
-          for (const bond of bonds) {
-            const a = field.find(c => c.id === bond.cardA);
-            const b = field.find(c => c.id === bond.cardB);
-            if (a) bondedIds.add(a.battleId);
-            if (b) bondedIds.add(b.battleId);
-          }
-          const bondedCount = bondedIds.size;
-
-          for (const bond of bonds) {
-            const cardA = field.find(c => c.id === bond.cardA);
-            const cardB = field.find(c => c.id === bond.cardB);
-            if (!cardA || !cardB) continue;
-
-            const rA = lastRectsRef.current.get(cardA.battleId);
-            const rB = lastRectsRef.current.get(cardB.battleId);
-            if (!rA || !rB) continue;
-
-            const ax = rA.x + rA.w / 2;
-            const ay = rA.y + rA.h + 1;
-            const bx = rB.x + rB.w / 2;
-            const by = rB.y + rB.h + 1;
-
-            if (bondedCount <= 2) {
-              // Simple straight line between the two bond icons.
-              paths.push(
-                <line
-                  key={`${bond.id}-line`}
-                  x1={ax} y1={ay} x2={bx} y2={by}
-                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
-                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-                />
-              );
-            } else {
-              // 3+ bonded cards — each icon connects to the pill center.
-              const pillEl = bondPillEls.current.get(bond.id);
-              if (!pillEl) continue;
-              const pillRect = pillEl.getBoundingClientRect();
-              const px = pillRect.left + pillRect.width / 2 - boardRect.left;
-              const py = pillRect.top + pillRect.height / 2 - boardRect.top;
-
-              paths.push(
-                <line key={`${bond.id}-lineA`}
-                  x1={ax} y1={ay} x2={px} y2={py}
-                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
-                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-                />,
-                <line key={`${bond.id}-lineB`}
-                  x1={bx} y1={by} x2={px} y2={py}
-                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
-                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite', animationDelay: '0.2s' }}
-                />
-              );
-            }
-          }
-        }
-
-        if (paths.length === 0) return null;
-
-        return (
-          <svg style={{
-            position: 'absolute', inset: 0,
-            width: '100%', height: '100%',
-            pointerEvents: 'none', zIndex: 8,
-            overflow: 'visible',
-          }}>
-            <defs>
-              <filter id="bondGlow">
-                <feGaussianBlur stdDeviation="2" result="blur" />
-                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-              </filter>
-            </defs>
-            <g filter="url(#bondGlow)">{paths}</g>
-          </svg>
-        );
-      })()}
+      {/* Bond connection lines — rendered from useLayoutEffect-measured
+          positions so they always land on real DOM geometry. */}
+      {bondLineData.length > 0 && (
+        <svg style={{
+          position: 'absolute', inset: 0,
+          width: '100%', height: '100%',
+          pointerEvents: 'none', zIndex: 8,
+          overflow: 'visible',
+        }}>
+          <defs>
+            <filter id="bondGlow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="2.5" result="blur" />
+              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <g filter="url(#bondGlow)">
+            {bondLineData.map(l => (
+              <line
+                key={l.key}
+                x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
+                stroke="#f4d04a" strokeWidth={2} strokeLinecap="round"
+                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
+              />
+            ))}
+          </g>
+        </svg>
+      )}
 
       {/* Action-log history panel — slide-up drawer listing every engine
           log entry in reverse-chronological order so the most recent
