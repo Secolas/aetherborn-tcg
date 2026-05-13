@@ -2839,14 +2839,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }}
         >
           <div style={{ position: 'relative', animation: 'opponentPlayReveal 1.5s ease-out forwards' }}>
-            <div style={{
-              position: 'absolute', top: -32, left: 0, right: 0, textAlign: 'center',
-              fontSize: 11, fontWeight: 700, letterSpacing: '0.15em', textTransform: 'uppercase',
-              color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
-              fontFamily: '"Fredoka", system-ui',
-            }}>
-              {opponentReveal.type === 'Spell' ? 'Casts' : 'Plays'}
-            </div>
             <Card card={opponentReveal} hovered scale={0.95} />
           </div>
         </div>
@@ -3290,6 +3282,12 @@ function FieldRow({
                   : undefined,
               transform: isDragTarget ? 'scale(1.04)' : 'none',
               transition: 'transform .1s, box-shadow .1s',
+            }}
+          >
+          {c && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
               ...(dyingEntry ? {
                 animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
                 animationDelay: `${dyingEntry.delayMs}ms`,
@@ -3298,10 +3296,7 @@ function FieldRow({
                 ['--gx' as string]: `${dyingEntry.gx}px`,
                 ['--gy' as string]: `${dyingEntry.gy}px`,
               } : {}),
-            }}
-          >
-          {c && (
-            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            }}>
             <BattlefieldCard
               card={c}
               shaking={isCombatDefender}
