@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
@@ -52,12 +53,16 @@ interface Props {
   onExit: (outcome: 'win' | 'loss' | 'draw' | 'quit') => void;
 }
 
+/**
+ * Drag state for the hand → field interaction. Framer Motion owns the
+ * visual position of the dragged card (via motion.div transforms), so we
+ * only track what the drop logic needs: which card is being dragged, its
+ * type (creature vs spell — gates drop targeting), and whether it's
+ * currently hovering over the field / a specific slot for highlighting.
+ */
 interface DragState {
   battleId: string;
   cardType: 'Creature' | 'Spell';
-  x: number; y: number;     // current finger position (viewport coords)
-  startX: number; startY: number; // where the press began — used to detect tap-vs-drag
-  ox: number; oy: number;   // finger offset within card at drag start
   overField: boolean;
   /** Specific field slot (0-2) the drag is hovering over, or null. */
   overSlot: number | null;
@@ -1547,64 +1552,58 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     return true;
   };
 
-  // ============== Drag from hand ==============
-  const onCardPointerDown = (ev: React.PointerEvent, card: BattleCard) => {
+  // ============== Drag from hand (Framer Motion) ==============
+  // Each hand card is a motion.div with `drag` enabled. Framer handles
+  // the visual translation + spring-back on release; we only track which
+  // card is being dragged and what it's currently hovering over so the
+  // drop zones can highlight + so the drop handler can route to the
+  // right effect. Tap-vs-drag is split: Framer fires onTap below ~5px
+  // movement and onDragEnd only after an actual drag — no manual
+  // distance threshold needed.
+
+  /** Called by Framer when the user actually starts dragging a card
+   *  (past the drag threshold). We snapshot the dragged card so other
+   *  UI (drop zones, hand opacity) can react. */
+  const handleDragStart = (card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     if (pendingDrawIds.size > 0) return;
-    // Note: we no longer block pointer-down on unaffordable cards. Players can
-    // still tap them to preview — the mana check happens at PLAY time.
-    const rect = ev.currentTarget.getBoundingClientRect();
     setDrag({
       battleId: card.battleId,
       cardType: card.type,
-      x: ev.clientX, y: ev.clientY,
-      startX: ev.clientX, startY: ev.clientY,
-      ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
       overSlot: null,
     });
-    ev.currentTarget.setPointerCapture(ev.pointerId);
   };
 
-  const onPointerMove = (ev: React.PointerEvent) => {
-    if (!drag) return;
+  /** Called by Framer on every drag frame with the current pointer
+   *  position (viewport coords). Hit-test against the field rects +
+   *  per-slot data-attribute so the drop zones can highlight and the
+   *  drop handler knows where to route the card on release. */
+  const handleDrag = (clientX: number, clientY: number) => {
     const inside = (rect: DOMRect | undefined) =>
       !!rect &&
-      ev.clientX >= rect.left && ev.clientX <= rect.right &&
-      ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+      clientX >= rect.left && clientX <= rect.right &&
+      clientY >= rect.top && clientY <= rect.bottom;
     const overField = inside(fieldRef.current?.getBoundingClientRect())
       || inside(playerFieldRef.current?.getBoundingClientRect());
-    // For Creatures, find the specific field slot under the cursor so we
-    // can highlight it and land the card there on drop.
     let overSlot: number | null = null;
-    if (overField && drag.cardType === 'Creature') {
-      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (overField && drag?.cardType === 'Creature') {
+      const el = document.elementFromPoint(clientX, clientY);
       const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
       if (slotEl?.dataset.slot != null) {
         const idx = parseInt(slotEl.dataset.slot);
         if (!isNaN(idx)) overSlot = idx;
       }
     }
-    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField, overSlot } : d);
+    setDrag(d => d ? { ...d, overField, overSlot } : d);
   };
 
-  const onPointerUp = () => {
+  /** Called by Framer when the drag ends. If the card was over the field
+   *  on release, run the drop logic. Otherwise Framer's dragSnapToOrigin
+   *  springs the card back to its hand position automatically — we just
+   *  clear our state. */
+  const handleDragEnd = (card: BattleCard) => {
     if (!drag) return;
-    const card = state.player.hand.find(c => c.battleId === drag.battleId);
-    if (!card) { setDrag(null); return; }
-
-    // Tap (small movement) → click-to-select. Drag (large movement) → drop-to-play.
-    const dx = drag.x - drag.startX;
-    const dy = drag.y - drag.startY;
-    const wasTap = (dx * dx + dy * dy) < 64; // <8px movement
-
-    if (wasTap) {
-      const idx = state.player.hand.findIndex(c => c.battleId === drag.battleId);
-      handleHandTap(card, idx);
-      setDrag(null);
-      return;
-    }
-
     // Card plays / spell casts are a MAIN-PHASE action. Gate the
     // whole drop here so we don't accidentally summon during Battle.
     if (playerPhase !== 'main') {
@@ -1843,8 +1842,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   return (
     <div
       ref={boardRef}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      // Drag handlers moved off the board root — each motion.div in the
+      // hand owns its own drag lifecycle via Framer Motion now.
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       style={{
@@ -2186,9 +2185,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
           .filter(card => !pendingDrawIds.has(card.battleId))
           .map((card, i, visibleHand) => {
-          const isDragging = drag?.battleId === card.battleId;
+          // Spells in mid-cast use a centered reveal animation —
+          // hide the hand card while that plays so the player only
+          // sees one copy. The dragged card, in contrast, STAYS
+          // mounted: Framer Motion translates it in place, so we
+          // never want a duplicate ghost.
           const isCasting = playerSpellReveal?.battleId === card.battleId;
-          if (isDragging || isCasting) return null;
+          if (isCasting) return null;
           const cardCount = visibleHand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
@@ -2209,28 +2212,63 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const xOff = offset * stride;
           const rot = cardCount === 1 ? 0 : offset * 6;            // edges fan outward
           const yArc = Math.abs(offset) * 3;                       // edges sink slightly
+          // Drag is enabled only when the player can actually act. We
+          // skip the drag wrapper entirely otherwise so a non-active
+          // hand card can still be tapped (tap = preview) without
+          // accidentally engaging Framer's drag threshold.
+          const canDrag = state.turn === 'player' && state.outcome === 'ongoing' && pendingDrawIds.size === 0;
+          const isDraggingThis = drag?.battleId === card.battleId;
           return (
-            <div
+            <motion.div
               key={card.battleId}
-              onPointerDown={(e) => onCardPointerDown(e, card)}
+              // Drag behavior: Framer manages the translation while the
+              // pointer is held; dragSnapToOrigin springs back to the
+              // hand position if the drop logic doesn't consume the
+              // card. dragElastic gives a slight rubber-band feel; the
+              // 0.8 multiplier keeps the card mostly under the finger
+              // (1 = no resistance, 0 = locked to start).
+              drag={canDrag}
+              dragSnapToOrigin
+              dragMomentum={false}
+              dragElastic={0.8}
+              // Spring config for the snap-back. Stiff + damped so the
+              // card settles quickly instead of overshooting.
+              dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+              onDragStart={() => handleDragStart(card)}
+              onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
+              onDragEnd={() => handleDragEnd(card)}
+              onTap={() => {
+                if (!canDrag) return;
+                const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
+                if (idx >= 0) handleHandTap(card, idx);
+              }}
               style={{
                 position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(calc(-50% + ${xOff}px))`,
+                // Use marginLeft to center; Framer composes its drag
+                // translation on top of `x`. The base x = xOff carries
+                // the fan-stride placement, and dragSnapToOrigin springs
+                // the card back to this exact x on release.
+                x: xOff,
+                marginLeft: -(cardW + 8) / 2,
                 width: cardW + 8,
                 height: 320 * baseScale + 16,
-                zIndex: isSelected ? 60 : 10 + i,
-                cursor: 'pointer',
+                zIndex: isDraggingThis ? 200 : isSelected ? 60 : 10 + i,
+                cursor: canDrag ? 'grab' : 'pointer',
                 touchAction: 'none',
                 pointerEvents: 'auto',
-                opacity: selectedHandIdx !== null ? (isSelected ? 0 : 0.55) : 1,
+                opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
                 transition: 'opacity .15s',
+                willChange: 'transform',
               }}
+              whileDrag={{ cursor: 'grabbing', scale: 1.08, filter: 'drop-shadow(0 12px 24px rgba(0,0,0,.45))' }}
             >
               <div style={{
                 position: 'absolute', bottom: 0, left: '50%',
                 // Selected card rises and straightens out so the player can
-                // read it; non-selected stay fanned in their arc.
-                transform: isSelected
+                // read it. While dragging we also straighten so the player
+                // sees a clean card silhouette under the finger instead of
+                // its fan-rotated pose.
+                transform: (isSelected || isDraggingThis)
                   ? `translateX(-50%) translateY(-12px) rotate(0deg)`
                   : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
                 transformOrigin: 'bottom center',
@@ -2242,13 +2280,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 // so playable cards stand out from unaffordable ones at a
                 // glance. The keyframe only animates `filter`, so it
                 // doesn't conflict with the static fanned `transform`.
-                animation: playableNow && state.turn === 'player' && !isSelected && playerPhase === 'main'
+                animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
                   ? 'playablePulse 2.4s ease-in-out infinite'
                   : undefined,
               }}>
-                <Card card={card} scale={baseScale} hovered={isSelected} unaffordable={!playableNow} />
+                <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
               </div>
-            </div>
+            </motion.div>
           );
         })}
       </div>
@@ -2365,25 +2403,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Dragged card — rendered at fixed viewport position so it follows the finger exactly */}
-      {drag && (() => {
-        const card = state.player.hand.find(c => c.battleId === drag.battleId);
-        if (!card) return null;
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              left: drag.x - drag.ox,
-              top: drag.y - drag.oy,
-              zIndex: 9999,
-              pointerEvents: 'none',
-              filter: drag.overField ? 'drop-shadow(0 8px 18px rgba(244,208,74,.45))' : 'drop-shadow(0 6px 12px rgba(0,0,0,.35))',
-            }}
-          >
-            <Card card={card} scale={0.56} />
-          </div>
-        );
-      })()}
+      {/* Legacy fixed-position drag ghost removed — the hand card now
+          moves in place via Framer Motion's drag, so a separate ghost
+          would render a duplicate copy. */}
 
       {/* Card draw flights — one DOM node per in-flight card-back so that
           a multi-draw (Suitcase = 2, Reflecting Pool = 2) shows TWO
