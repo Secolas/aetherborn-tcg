@@ -271,6 +271,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       card straight onto the field instead of having to aim at the divider. */
   const playerFieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
+  const oppHeaderRef = useRef<HTMLDivElement | null>(null);
   /** DOM nodes of every creature on the field + the two faces, keyed by battleId
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
   const cardEls = useRef<Map<string, HTMLElement>>(new Map());
@@ -1807,7 +1808,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {/* Opponent header strip — mirrors the player stats row at the bottom:
           portrait + mana on the left, deck + graveyard on the right. The
           give-up flag moved to the divider band so it sits next to End Turn. */}
-      <div style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
+      <div ref={oppHeaderRef} style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <OpponentPortrait
             boss={boss}
@@ -2907,6 +2908,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {infoSide && (() => {
         const me = infoSide === 'player' ? state.player : state.opponent;
         const label = infoSide === 'player' ? 'You' : boss.name;
+        const oppPanelTop = (() => {
+          if (infoSide !== 'opponent') return 88;
+          const hdr = oppHeaderRef.current;
+          const board = boardRef.current;
+          if (!hdr || !board) return 88;
+          return hdr.getBoundingClientRect().bottom - board.getBoundingClientRect().top + 4;
+        })();
         return (
           <div
             onClick={() => setInfoSide(null)}
@@ -2921,7 +2929,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               onClick={e => e.stopPropagation()}
               style={{
                 position: 'absolute',
-                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: 88, left: 16 }),
+                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: oppPanelTop, left: 16 }),
                 width: 220,
                 background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
                 borderRadius: 14,
