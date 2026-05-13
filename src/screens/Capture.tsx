@@ -237,11 +237,20 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
 
       {(stage === 'framing' || stage === 'denied') && (
         <div style={{
-          textAlign: 'center', fontSize: 12, opacity: 0.7,
-          padding: '0 30px', fontStyle: 'italic',
-          position: 'relative', zIndex: 2,
+          textAlign: 'center', fontSize: 12, opacity: 0.75,
+          padding: '0 30px', position: 'relative', zIndex: 2,
         }}>
-          Frame {template.suggested} to bring this card to life
+          <div style={{ fontStyle: 'italic' }}>
+            Frame {template.suggested} to bring this card to life
+          </div>
+          {stage === 'framing' && (
+            <div style={{
+              fontSize: 9.5, letterSpacing: '0.18em', textTransform: 'uppercase',
+              marginTop: 6, opacity: 0.7, fontWeight: 600,
+            }}>
+              Pick a filter on the next screen
+            </div>
+          )}
         </div>
       )}
 

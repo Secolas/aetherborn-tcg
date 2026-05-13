@@ -112,10 +112,33 @@ export function Cosmetics(props: Props) {
               ))}
             </Grid>
             <div style={{
-              marginTop: 12, fontSize: 11, color: PALETTE.textMid,
-              fontStyle: 'italic', textAlign: 'center', lineHeight: 1.4,
+              marginTop: 14, padding: '10px 14px',
+              background: '#fff', borderRadius: 12,
+              border: `1.5px solid ${PALETTE.border}`,
+              fontSize: 11, color: PALETTE.text, lineHeight: 1.5,
             }}>
-              Filters apply per-card. Choose one when you summon a card with a photo.
+              <div style={{
+                fontSize: 9, letterSpacing: '0.25em', textTransform: 'uppercase',
+                color: PALETTE.textMid, fontWeight: 700, marginBottom: 6,
+              }}>
+                How filters work
+              </div>
+              <div>
+                Filters are <strong>per-card</strong>, not equipped globally
+                like frames. To apply one:
+              </div>
+              <ol style={{ margin: '6px 0 0', paddingLeft: 18 }}>
+                <li>Open <strong>Collection</strong> &rarr; tap a dormant card (the camera opens).</li>
+                <li>Frame your photo, tap the shutter.</li>
+                <li>On the next screen, a strip of filter previews appears under the card.
+                  Tap any unlocked filter to apply it. Locked ones can be bought there
+                  for coins if you haven&apos;t already.</li>
+                <li>Name the card, tap <strong>Add to Collection</strong>.</li>
+              </ol>
+              <div style={{ marginTop: 6, fontStyle: 'italic', color: PALETTE.textMid }}>
+                Each card remembers its own filter — Sepia on your dog, Holo on your dad,
+                whatever fits the photo.
+              </div>
             </div>
           </>
         )}
