@@ -1,29 +1,40 @@
 import type { CSSProperties } from 'react';
+import {
+  BRAND, BRAND_LIGHT, BRAND_DEEP,
+  OWNED, PREMIUM,
+  TEXT, TEXT_MID, TEXT_LIGHT, PAPER, BG, BG_WARM, BG_PEACH, BORDER,
+} from '../design/tokens';
 
 /**
- * Fun, bright button language. Sunset coral primary, cream secondary,
- * soft drop shadows. Designed for a warm light background.
+ * PALETTE is the legacy import surface that the rest of the app uses
+ * (e.g. `PALETTE.accent`, `PALETTE.textMid`). Its keys are kept
+ * stable, but their values now come from the central design tokens in
+ * src/design/tokens.ts. New code is encouraged to import the semantic
+ * token directly (BRAND, OWNED, DAMAGE, etc.) — PALETTE will
+ * eventually become a thin compatibility shim.
+ *
+ * No visual change in this commit: every token maps to the exact hex
+ * the codebase was already using.
  */
-
 export const PALETTE = {
-  bg:        '#fef8f0',
-  bgWarm:    '#ffe8d6',
-  bgPeach:   '#ffd1b3',
-  paper:     '#ffffff',
-  text:      '#3a2e2a',
-  textMid:   '#7a5a52',
-  textLight: '#a89580',
-  accent:    '#ff7e5f', // sunset coral
-  accentDeep:'#e85d3c',
-  yellow:    '#ffd166',
-  green:     '#06d6a0',
+  bg:        BG,
+  bgWarm:    BG_WARM,
+  bgPeach:   BG_PEACH,
+  paper:     PAPER,
+  text:      TEXT,
+  textMid:   TEXT_MID,
+  textLight: TEXT_LIGHT,
+  accent:    BRAND_LIGHT,   // sunset coral
+  accentDeep:BRAND_DEEP,
+  yellow:    PREMIUM,
+  green:     OWNED,
   shadow:    'rgba(255, 126, 95, 0.18)',
-  border:    'rgba(58, 46, 42, 0.10)',
+  border:    BORDER,
 };
 
 export const btnPrimary: CSSProperties = {
-  background: 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 60%, #ee5a52 100%)',
-  color: '#ffffff',
+  background: `linear-gradient(180deg, #ffa07a 0%, ${BRAND_LIGHT} 60%, ${BRAND} 100%)`,
+  color: PAPER,
   border: 'none',
   borderRadius: 22,
   padding: '14px 24px',
@@ -38,9 +49,9 @@ export const btnPrimary: CSSProperties = {
 
 export const btnSecondary: CSSProperties = {
   flex: 1,
-  background: '#ffffff',
-  color: PALETTE.text,
-  border: `1.5px solid ${PALETTE.border}`,
+  background: PAPER,
+  color: TEXT,
+  border: `1.5px solid ${BORDER}`,
   borderRadius: 18,
   padding: '11px 0',
   fontSize: 12,
@@ -54,9 +65,9 @@ export const btnSecondary: CSSProperties = {
 
 export const iconBtn: CSSProperties = {
   width: 36, height: 36, borderRadius: '50%',
-  background: '#ffffff',
-  border: `1.5px solid ${PALETTE.border}`,
-  color: PALETTE.text,
+  background: PAPER,
+  border: `1.5px solid ${BORDER}`,
+  color: TEXT,
   fontSize: 18,
   display: 'grid', placeItems: 'center',
   cursor: 'pointer',
