@@ -1561,12 +1561,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // movement and onDragEnd only after an actual drag — no manual
   // distance threshold needed.
 
+  /** Set to true as soon as a drag actually starts, and reset shortly
+   *  after the drag ends. Used in onTap below to skip the tap path
+   *  when Framer fires onTap on the same gesture release as a drag.
+   *  Without this guard, a successful drag-summon would also fire onTap
+   *  with a stale closure (hand state pre-summon), which would call
+   *  setSelectedHandIdx with the soon-to-be-shifted index — and on the
+   *  next render that index points to a DIFFERENT card, surfacing a
+   *  surprise preview after every play. Ref instead of state because
+   *  the flag is purely transient and we don't want a re-render on
+   *  every drag start. */
+  const dragOccurredRef = useRef(false);
+
   /** Called by Framer when the user actually starts dragging a card
    *  (past the drag threshold). We snapshot the dragged card so other
    *  UI (drop zones, hand opacity) can react. */
   const handleDragStart = (card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     if (pendingDrawIds.size > 0) return;
+    dragOccurredRef.current = true;
     setDrag({
       battleId: card.battleId,
       cardType: card.type,
@@ -1647,6 +1660,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
     }
     setDrag(null);
+    // Clear the drag flag on the next tick so an onTap fired on the
+    // same gesture release skips. setTimeout 0 is enough — onTap fires
+    // synchronously after onDragEnd in Framer's pointer handler chain.
+    setTimeout(() => { dragOccurredRef.current = false; }, 0);
   };
 
   /** Tap a hand card: toggle selection. The card lifts up as a preview. */
@@ -2218,83 +2235,64 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // accidentally engaging Framer's drag threshold.
           const canDrag = state.turn === 'player' && state.outcome === 'ongoing' && pendingDrawIds.size === 0;
           const isDraggingThis = drag?.battleId === card.battleId;
+          // While dragging or selected, the card pops up to a flat
+          // pose so the player reads a clean silhouette. Otherwise it
+          // sits in its fan pose. We push rotation + offset through
+          // motion's `rotate` and `y` so the motion.div ITSELF is
+          // rotated — that way browser hit-testing uses the rotated
+          // bounds, not the axis-aligned rect. Without this, adjacent
+          // fanned cards' bounding boxes overlap and a click on one
+          // card lands on its neighbour.
+          const poseRot = (isSelected || isDraggingThis) ? 0 : rot;
+          const poseY = (isSelected || isDraggingThis) ? -12 : yArc;
           return (
-            // Outer positioning wrapper — owns the fan placement via
-            // plain CSS transform. The motion.div lives INSIDE this
-            // wrapper so when drag ends, dragSnapToOrigin returns to
-            // 0/0 inside the wrapper (i.e. exactly its fan slot).
-            // Earlier we put `x: xOff` on the motion.div directly,
-            // which caused every card to snap back to x=0 after the
-            // first drag because `dragSnapToOrigin` returns to the
-            // motion value's frame origin, not to its initial style.
-            <div
+            <motion.div
               key={card.battleId}
+              drag={canDrag}
+              dragSnapToOrigin
+              dragMomentum={false}
+              dragElastic={0.8}
+              dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+              initial={false}
+              animate={{ rotate: poseRot, y: poseY }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              onDragStart={() => handleDragStart(card)}
+              onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
+              onDragEnd={() => handleDragEnd(card)}
+              onTap={() => {
+                if (!canDrag) return;
+                // Bail if a drag just ended on this same gesture —
+                // Framer can fire onTap synchronously after onDragEnd
+                // and the stale closure would select a shifted index.
+                if (dragOccurredRef.current) return;
+                const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
+                if (idx >= 0) handleHandTap(card, idx);
+              }}
+              whileDrag={{ cursor: 'grabbing', scale: 1.08 }}
               style={{
-                position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(calc(-50% + ${xOff}px))`,
-                width: cardW + 8,
-                height: 320 * baseScale + 16,
+                position: 'absolute',
+                bottom: 0,
+                left: `calc(50% + ${xOff}px)`,
+                marginLeft: -cardW / 2,
+                width: cardW,
+                height: 320 * baseScale,
+                transformOrigin: 'bottom center',
                 zIndex: isDraggingThis ? 200 : isSelected ? 60 : 10 + i,
+                cursor: canDrag ? 'grab' : 'pointer',
+                touchAction: 'none',
                 opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
                 transition: 'opacity .15s',
-                pointerEvents: 'none',
+                willChange: 'transform',
+                // Visual flourishes that don't conflict with the
+                // transform pipeline above.
+                filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
+                animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
+                  ? 'playablePulse 2.4s ease-in-out infinite'
+                  : undefined,
               }}
             >
-              <motion.div
-                // Drag behavior: Framer manages the translation while
-                // the pointer is held; dragSnapToOrigin springs back to
-                // the motion.div's own origin (0,0 inside the wrapper
-                // above = the card's fan slot). dragElastic gives a
-                // slight rubber-band feel as you pull it; the spring
-                // config settles the snap-back quickly without
-                // overshoot.
-                drag={canDrag}
-                dragSnapToOrigin
-                dragMomentum={false}
-                dragElastic={0.8}
-                dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
-                onDragStart={() => handleDragStart(card)}
-                onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
-                onDragEnd={() => handleDragEnd(card)}
-                onTap={() => {
-                  if (!canDrag) return;
-                  const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
-                  if (idx >= 0) handleHandTap(card, idx);
-                }}
-                style={{
-                  width: '100%', height: '100%',
-                  cursor: canDrag ? 'grab' : 'pointer',
-                  touchAction: 'none',
-                  pointerEvents: 'auto',
-                  willChange: 'transform',
-                }}
-                whileDrag={{ cursor: 'grabbing', scale: 1.08, filter: 'drop-shadow(0 12px 24px rgba(0,0,0,.45))' }}
-              >
-                <div style={{
-                  position: 'absolute', bottom: 0, left: '50%',
-                  // Selected card rises and straightens out so the
-                  // player can read it. While dragging we also
-                  // straighten so the player sees a clean silhouette
-                  // under the finger instead of a fan-rotated card.
-                  transform: (isSelected || isDraggingThis)
-                    ? `translateX(-50%) translateY(-12px) rotate(0deg)`
-                    : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
-                  transformOrigin: 'bottom center',
-                  transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
-                  pointerEvents: 'none',
-                  willChange: 'transform, filter',
-                  filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
-                  // Affordable cards on your turn breathe a soft
-                  // yellow glow so playable cards stand out from
-                  // unaffordable ones at a glance.
-                  animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
-                    ? 'playablePulse 2.4s ease-in-out infinite'
-                    : undefined,
-                }}>
-                  <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
-                </div>
-              </motion.div>
-            </div>
+              <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+            </motion.div>
           );
         })}
       </div>
