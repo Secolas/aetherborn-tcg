@@ -3,6 +3,8 @@ import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Link2 } from 'lucide-
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import { RESOURCE, SPELL } from '../design/tokens';
+import { useCosmetics } from '../state/cosmeticsContext';
+import { getFrame } from '../data/frames';
 import type { BattleCard } from '../game/types';
 
 interface Props {
@@ -44,6 +46,10 @@ interface Props {
    *  icon: gold/glowing when active, dim when waiting for the partner. */
   bondState?: 'active' | 'waiting';
   highlight?: 'attack' | 'spell' | null;
+  /** True when the tile belongs to the player's side. Drives whether
+   *  the equipped cosmetic frame applies — boss creatures stay in
+   *  their baseline chrome (same rule as the full Card component). */
+  owned?: boolean;
   onClick?: () => void;
   onLongPress?: () => void;
 }
@@ -52,11 +58,19 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, displayStats, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, trigger, bondState, highlight,
+  buff, trigger, bondState, highlight, owned = false,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
   const sleeping = card.justPlayed && card.abilityKind !== 'rush';
+  // Equipped cosmetic frame. Same gate as the full Card component:
+  // only applies to the player's tiles, and only while inMatch is
+  // true on the context. Boss cards stay in their baseline chrome.
+  const cosm = useCosmetics();
+  const frameEnabled = owned && cosm.inMatch;
+  const frame = frameEnabled ? getFrame(cosm.frame) : getFrame('classic');
+  const frameOuter = frame.outer?.boxShadow as string | undefined;
+  const frameInner = frame.inner?.boxShadow as string | undefined;
   const exhausted = card.tapped && !card.justPlayed;
   const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
   // Track first-mount so the cardSlam keyframe + summon dust fire whenever
@@ -139,9 +153,19 @@ export function BattlefieldCard({
         width: 56, height: 76,
         borderRadius: 8,
         background: `linear-gradient(180deg, ${tp.top}, ${tp.deep})`,
+        // BoxShadow stack:
+        //   1. ringColor takes priority on its own (selection, attack
+        //      target, spell target, taunt) so the gameplay cue isn't
+        //      buried under cosmetic chrome.
+        //   2. Otherwise, compose: frameOuter (equipped cosmetic) +
+        //      base depth shadow + the subtle inner highlight. When
+        //      no frame is equipped (Classic) frameOuter is undefined
+        //      and the base shadow stands alone — same look as before.
         boxShadow: ringColor
           ? `0 0 0 2.5px ${ringColor}, 0 0 14px ${ringColor}88, 0 4px 10px rgba(0,0,0,.25)`
-          : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
+          : frameOuter
+            ? `${frameOuter}, inset 0 0 0 1.5px rgba(255,255,255,.2)`
+            : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
         // Tapped player creatures fade so you can see at a glance who's
@@ -156,6 +180,22 @@ export function BattlefieldCard({
         touchAction: 'manipulation',
       }}
     >
+      {/* Cosmetic frame inner-ring overlay (e.g. Gilded gold-glow
+          inset). Painted above the photo but below all status pills
+          and stat orbs so it never obscures gameplay information. */}
+      {frameInner && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0,
+            borderRadius: 'inherit',
+            boxShadow: frameInner,
+            pointerEvents: 'none',
+            zIndex: 3,
+          }}
+        />
+      )}
+
       {/* Inner photo + chrome (clipped) */}
       <div style={{
         position: 'absolute', inset: 0, borderRadius: 'inherit',
