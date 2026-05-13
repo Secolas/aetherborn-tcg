@@ -2594,7 +2594,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           the divider band — see the activeBanner overlay in the divider above. */}
 
       {bondFire && (() => {
-        const isPlayer = bondFire.side === 'player';
         return (
           <div
             key={bondFire.key}
