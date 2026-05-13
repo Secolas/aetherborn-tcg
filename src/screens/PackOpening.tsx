@@ -216,7 +216,7 @@ export function PackOpening({ coins, onPackOpened, onMemoryPackOpened, openedMem
               <span style={{ flex: 1, height: 1, background: PALETTE.border, maxWidth: 60 }} />
             </div>
             <div style={{ textAlign: 'center', fontSize: 11, color: PALETTE.textMid, fontStyle: 'italic', marginBottom: 2 }}>
-              Cards built around moments. First open unlocks a free cosmetic.
+              Cards built around moments. First open unlocks a free cosmetic filter for your photos.
             </div>
             {MEMORY_PACKS.map(def => (
               <MemoryPackOption
@@ -276,10 +276,13 @@ export function PackOpening({ coins, onPackOpened, onMemoryPackOpened, openedMem
                 <Sparkles size={18} color={pick.vibe.glow} fill={pick.vibe.glow} />
                 <div style={{ textAlign: 'left', flex: 1 }}>
                   <div style={{ fontSize: 10, opacity: 0.8, letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-                    Filter unlocked
+                    Cosmetic Filter Unlocked
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>
                     {FILTERS[pick.pack.bonusFilter].name}
+                  </div>
+                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2, fontStyle: 'italic' }}>
+                    Apply it to any card when you take its photo.
                   </div>
                 </div>
               </div>
@@ -562,7 +565,9 @@ function MemoryPackOption({
           fontWeight: 600,
         }}>
           {firstOpen ? <Sparkles size={10} /> : <Lock size={10} />}
-          {firstOpen ? 'Unlocks' : 'Already unlocked:'} {filter.name}
+          {firstOpen
+            ? `Unlocks ${filter.name} cosmetic filter`
+            : `${filter.name} cosmetic already unlocked`}
         </div>
       </div>
       <div style={{
