@@ -1211,9 +1211,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     lastRectsRef.current = next;
   });
 
-  // Measure bond icon positions after each render so the connection lines
-  // always reflect real DOM layout. Using useLayoutEffect + state ensures
-  // we read fresh getBoundingClientRect values, not stale ref data.
+  // Measure bond icon positions when the field or claimed bonds change.
+  // Dependency array prevents running on every render; rounding prevents
+  // sub-pixel jitter from triggering spurious re-renders.
   useLayoutEffect(() => {
     const board = boardRef.current;
     if (!board) { setBondLineData([]); return; }
@@ -1242,10 +1242,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         if (!elA || !elB) continue;
         const rA = elA.getBoundingClientRect();
         const rB = elB.getBoundingClientRect();
-        const ax = rA.left + rA.width / 2 - boardRect.left;
-        const ay = rA.top + rA.height - boardRect.top;
-        const bx = rB.left + rB.width / 2 - boardRect.left;
-        const by = rB.top + rB.height - boardRect.top;
+        const ax = Math.round(rA.left + rA.width / 2 - boardRect.left);
+        const ay = Math.round(rA.top + rA.height - boardRect.top);
+        const bx = Math.round(rB.left + rB.width / 2 - boardRect.left);
+        const by = Math.round(rB.top + rB.height - boardRect.top);
 
         if (bondedCount <= 2) {
           lines.push({ key: `${bond.id}-line`, x1: ax, y1: ay, x2: bx, y2: by });
@@ -1253,8 +1253,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const pillEl = bondPillEls.current.get(bond.id);
           if (!pillEl) continue;
           const pR = pillEl.getBoundingClientRect();
-          const px = pR.left + pR.width / 2 - boardRect.left;
-          const py = pR.top + pR.height / 2 - boardRect.top;
+          const px = Math.round(pR.left + pR.width / 2 - boardRect.left);
+          const py = Math.round(pR.top + pR.height / 2 - boardRect.top);
           lines.push(
             { key: `${bond.id}-lineA`, x1: ax, y1: ay, x2: px, y2: py },
             { key: `${bond.id}-lineB`, x1: bx, y1: by, x2: px, y2: py },
@@ -1262,8 +1262,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
     }
-    // Only update state when positions actually changed — returning `prev`
-    // from a functional updater skips the re-render, breaking the loop.
     setBondLineData(prev => {
       if (prev.length !== lines.length) return lines;
       for (let i = 0; i < lines.length; i++) {
@@ -1272,7 +1270,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
       return prev;
     });
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.player.field, state.opponent.field, state.player.claimedBonds, state.opponent.claimedBonds]);
 
   // DOM positions of the attacker and defender (or the face portrait) and
   // hand them to the SVG overlay below.
