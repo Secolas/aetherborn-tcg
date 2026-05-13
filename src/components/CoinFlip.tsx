@@ -77,30 +77,34 @@ export function CoinFlip({ result, bossAvatar, bossName, onDone }: Props) {
         </div>
       </div>
 
-      {phase === 'result' && (
-        <div style={{
-          animation: 'coinFlipResult .5s cubic-bezier(.2,.8,.3,1) forwards',
-          textAlign: 'center',
-        }}>
+      {/* Result plate — always occupies the same space (minHeight) so the
+          coin above it never shifts position when the text fades in. */}
+      <div style={{ minHeight: 84, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {phase === 'result' && (
           <div style={{
-            fontSize: 12, letterSpacing: '0.3em', textTransform: 'uppercase',
-            color: '#f4d04a', fontWeight: 700, marginBottom: 8,
+            animation: 'coinFlipResult .5s cubic-bezier(.2,.8,.3,1) forwards',
+            textAlign: 'center',
           }}>
-            {result === 'player' ? 'You go first' : `${bossName} goes first`}
+            <div style={{
+              fontSize: 12, letterSpacing: '0.3em', textTransform: 'uppercase',
+              color: '#f4d04a', fontWeight: 700, marginBottom: 8,
+            }}>
+              {result === 'player' ? 'You go first' : `${bossName} goes first`}
+            </div>
+            <div style={{
+              fontSize: 30, fontWeight: 800,
+              background: result === 'player'
+                ? 'linear-gradient(180deg, #ffe9a8, #f4d04a)'
+                : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
+              WebkitBackgroundClip: 'text', backgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              letterSpacing: '0.05em',
+            }}>
+              {result === 'player' ? 'YOUR TURN' : `${bossName.toUpperCase()}'S TURN`}
+            </div>
           </div>
-          <div style={{
-            fontSize: 30, fontWeight: 800,
-            background: result === 'player'
-              ? 'linear-gradient(180deg, #ffe9a8, #f4d04a)'
-              : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
-            WebkitBackgroundClip: 'text', backgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            letterSpacing: '0.05em',
-          }}>
-            {result === 'player' ? 'YOUR TURN' : `${bossName.toUpperCase()}'S TURN`}
-          </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
