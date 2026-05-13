@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Info } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -51,6 +51,8 @@ interface DragState {
   startX: number; startY: number; // where the press began — used to detect tap-vs-drag
   ox: number; oy: number;   // finger offset within card at drag start
   overField: boolean;
+  /** Specific field slot (0-2) the drag is hovering over, or null. */
+  overSlot: number | null;
 }
 
 interface CombatFx {
@@ -1443,21 +1445,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       startX: ev.clientX, startY: ev.clientY,
       ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
+      overSlot: null,
     });
     ev.currentTarget.setPointerCapture(ev.pointerId);
   };
 
   const onPointerMove = (ev: React.PointerEvent) => {
     if (!drag) return;
-    // Drop zone = divider band OR the player creature row. Releasing on
-    // either plays the card; aiming at the thin center line was too fiddly.
     const inside = (rect: DOMRect | undefined) =>
       !!rect &&
       ev.clientX >= rect.left && ev.clientX <= rect.right &&
       ev.clientY >= rect.top && ev.clientY <= rect.bottom;
     const overField = inside(fieldRef.current?.getBoundingClientRect())
       || inside(playerFieldRef.current?.getBoundingClientRect());
-    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField } : d);
+    // For Creatures, find the specific field slot under the cursor so we
+    // can highlight it and land the card there on drop.
+    let overSlot: number | null = null;
+    if (overField && drag.cardType === 'Creature') {
+      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+      const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
+      if (slotEl?.dataset.slot != null) {
+        const idx = parseInt(slotEl.dataset.slot);
+        if (!isNaN(idx)) overSlot = idx;
+      }
+    }
+    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField, overSlot } : d);
   };
 
   const onPointerUp = () => {
@@ -1487,8 +1499,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (card.type === 'Creature') {
       if (drag.overField) {
         const r = playCard(state, 'player', card.battleId);
-        if (r.ok) { setState(r.state); sfx('summon'); }
-        else flashMsg(r.reason ?? 'Cannot play');
+        if (r.ok) {
+          // If the player dropped on a specific free slot, pre-assign it
+          // before reconcile runs so the card lands exactly where released.
+          if (drag.overSlot != null) {
+            const usedSlots = new Set<number>();
+            for (const [id, s] of Object.entries(playerSlots)) {
+              if (state.player.field.some(c => c.battleId === id)) usedSlots.add(s);
+            }
+            for (const d of Object.values(dying)) {
+              if (d.side === 'player') usedSlots.add(d.slot);
+            }
+            if (!usedSlots.has(drag.overSlot)) {
+              const targetSlot = drag.overSlot;
+              setPlayerSlots(s => ({ ...s, [card.battleId]: targetSlot }));
+            }
+          }
+          setState(r.state);
+          sfx('summon');
+        } else {
+          flashMsg(r.reason ?? 'Cannot play');
+        }
       }
     } else {
       if (isNoTargetSpell(card)) {
@@ -1609,11 +1640,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       castPendingAt({ kind: 'face', owner: 'opponent' });
       return;
     }
-    if (selectedAttacker) playerAttack('face');
+    if (selectedAttacker) {
+      playerAttack('face');
+      return;
+    }
+    setInfoSide('opponent');
   };
 
   const onMyFaceClick = () => {
-    if (pendingSpell) castPendingAt({ kind: 'face', owner: 'player' });
+    if (pendingSpell) {
+      castPendingAt({ kind: 'face', owner: 'player' });
+      return;
+    }
+    setInfoSide('player');
   };
 
   const castPendingAt = (target: SpellTarget) => {
@@ -1777,11 +1816,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_OPP] ?? null}
             elRef={(el) => registerEl(FACE_OPP, el)}
           />
-          <InfoChip onClick={() => setInfoSide('opponent')} />
           <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton
             count={state.opponent.discard.length}
             onClick={() => setGraveyardOpen('opponent')}
@@ -1977,7 +2014,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
           slotMap={playerSlots}
-          highlightEmpty={selectedHandIdx !== null}
+          highlightEmpty={selectedHandIdx !== null || (!!drag && drag.cardType === 'Creature' && drag.overField)}
+          dragOverSlot={drag?.cardType === 'Creature' ? (drag?.overSlot ?? null) : null}
           registerEl={registerEl}
           onCardClick={(c) => {
             const ak = pendingSpell?.abilityKind;
@@ -2006,11 +2044,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_PLAYER] ?? null}
             elRef={(el) => registerEl(FACE_PLAYER, el)}
           />
-          <InfoChip onClick={() => setInfoSide('player')} />
           <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} pulseKey={manaPulse} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
           <GraveyardButton
             count={state.player.discard.length}
             onClick={() => setGraveyardOpen('player')}
@@ -3229,41 +3265,26 @@ function BondPillStack({
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, slotMap,
-  highlightEmpty, registerEl, onCardClick, onCardLongPress,
+  highlightEmpty, dragOverSlot, registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
-  /** Creatures currently mid-flight to the graveyard. Keyed by battleId.
-   *  We continue rendering them in their old slot and apply flyToGrave
-   *  on the live BattlefieldCard so the card itself arcs out — no
-   *  overlay ghost. After the flight ends MatchBoard removes them. */
   dying: Record<string, { card: BattleCard; side: Owner; slot: number; gx: number; gy: number; delayMs: number }>;
-  /** Whose turn is currently active. Player creatures only get the
-   *  attack-ready Swords badge on the player's own turn. */
   turn: Owner;
-  /** True when the player is in Battle Phase — gates the attack-ready
-   *  swords icon so it only appears when attacks are actually possible. */
   battlePhaseActive?: boolean;
   combat: CombatFx | null;
   damages: DamageMap;
-  /** Per-creature buff popup data — "+atk/+hp" surfaced on the slot. */
   buffs: Record<string, { atk: number; hp: number }>;
-  /** Per-creature silence trigger — bumping the value replays the flash. */
   silencedAt: Record<string, number>;
-  /** Per-creature on-play trigger label ("DRAW +1") shown briefly. */
   triggers: Record<string, string>;
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
-  /** Per-card-template bond state. 'active' = partner is on the field too,
-   *  'waiting' = bonded card is here but partner isn't yet. */
   bondLookup: Record<string, 'active' | 'waiting'>;
-  /** Stable slot assignment: card.battleId → slot index (0..2). Surviving
-   *  creatures stay in their assigned slot even when a neighbour dies;
-   *  empty slots stay empty instead of being filled by the next card to
-   *  the left. */
   slotMap: Record<string, number>;
   /** Brighten empty slot outlines so the player can see where a card will go. */
   highlightEmpty: boolean;
+  /** Which slot (0-2) a drag is currently hovering over. Null = no slot targeted. */
+  dragOverSlot?: number | null;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
@@ -3296,21 +3317,33 @@ function FieldRow({
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
         if (!c) {
+          const isTarget = dragOverSlot === i;
           return (
-            <div key={`empty-${i}`} style={{
-              width: 64, height: 88,
-              borderRadius: 8,
-              border: highlightEmpty
-                ? '2px dashed #f4d04a'
-                : '1.5px dashed rgba(58,46,42,.18)',
-              background: highlightEmpty
-                ? 'rgba(244,208,74,.12)'
-                : 'rgba(255,255,255,.18)',
-              transition: 'border-color .15s, background .15s',
-              flex: '0 0 auto',
-            }} />
+            <div
+              key={`empty-${i}`}
+              data-slot={i}
+              style={{
+                width: 64, height: 88,
+                borderRadius: 8,
+                border: isTarget
+                  ? '2px solid #f4d04a'
+                  : highlightEmpty
+                    ? '2px dashed #f4d04a'
+                    : '1.5px dashed rgba(58,46,42,.18)',
+                background: isTarget
+                  ? 'rgba(244,208,74,.28)'
+                  : highlightEmpty
+                    ? 'rgba(244,208,74,.12)'
+                    : 'rgba(255,255,255,.18)',
+                boxShadow: isTarget ? '0 0 12px rgba(244,208,74,.5)' : undefined,
+                transform: isTarget ? 'scale(1.04)' : 'none',
+                transition: 'border-color .1s, background .1s, transform .1s, box-shadow .1s',
+                flex: '0 0 auto',
+              }}
+            />
           );
         }
+        const isSlotTarget = dragOverSlot === i;
         const targetable = isTargetableForSpell(c, pendingSpell, side);
         const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
         const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
@@ -3320,17 +3353,18 @@ function FieldRow({
           pendingSpell?.abilityKind === 'spell_heal_friend'
         );
         const dyingEntry = dying[c.battleId];
-        // The live BattlefieldCard plays NO slice animation. When a
-        // creature dies, its slot wrapper plays flyToGrave (translating
-        // the live card up and into the graveyard icon via CSS vars).
-        // Same path for combat AND non-combat deaths.
         return (
           <div
             key={c.battleId}
+            data-slot={i}
             ref={(el) => registerEl(c.battleId, el)}
             style={{
               display: 'flex',
               flex: '0 0 auto',
+              borderRadius: 8,
+              // Occupied slot targeted by drag → subtle red "blocked" ring
+              boxShadow: isSlotTarget ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)' : undefined,
+              transition: 'box-shadow .1s',
               ...(dyingEntry ? {
                 animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
                 animationDelay: `${dyingEntry.delayMs}ms`,
@@ -3708,7 +3742,7 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   return (
     <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
-      cursor: ring ? 'pointer' : 'default',
+      cursor: 'pointer',
       padding: 4, borderRadius: 30,
       background: '#fff',
       boxShadow: ring
@@ -3755,11 +3789,6 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   );
 }
 
-/**
- * Small chevron-pill next to a portrait. Tapping it opens the InfoPopover
- * for that side (hand/deck/graveyard counts + Action Log shortcut). Sized
- * to look like an unobtrusive companion to the portrait, not a button.
- */
 function InfoRow({ label, value }: { label: string; value: number }) {
   return (
     <div style={{
@@ -3771,27 +3800,6 @@ function InfoRow({ label, value }: { label: string; value: number }) {
       <span style={{ fontWeight: 500 }}>{label}</span>
       <span style={{ fontWeight: 800 }}>{value}</span>
     </div>
-  );
-}
-
-function InfoChip({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label="More info"
-      style={{
-        width: 18, height: 18, borderRadius: '50%',
-        border: 'none',
-        background: 'rgba(255,255,255,0.85)',
-        color: '#7a6258',
-        boxShadow: '0 2px 4px rgba(58,46,42,0.18)',
-        cursor: 'pointer',
-        display: 'grid', placeItems: 'center',
-        flex: '0 0 auto',
-      }}
-    >
-      <Info size={11} strokeWidth={2.6} />
-    </button>
   );
 }
 
@@ -3829,39 +3837,12 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
   );
 }
 
-function DeckChip({ count, handSize }: { count: number; handSize: number }) {
-  // Tight number-only chip — labels were pushing the right cluster off the
-  // screen edge on narrow phones. Layers icon + deck count + thin divider +
-  // hand count is enough to read at a glance.
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: '#fff',
-      padding: '5px 9px', borderRadius: 14,
-      boxShadow: '0 3px 8px rgba(58,46,42,.10)',
-      fontSize: 12, fontWeight: 700, color: PALETTE.text,
-      fontFamily: '"Fredoka", "Inter", system-ui',
-    }}>
-      <Layers size={13} color={PALETTE.accentDeep} strokeWidth={2.4} />
-      <span>{count}</span>
-      <span style={{ width: 1, height: 12, background: 'rgba(58,46,42,.15)' }} />
-      <span style={{ color: PALETTE.textMid }}>{handSize}</span>
-    </div>
-  );
-}
-
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
-  // Compact "5 / 7" pill with a vertical "vial" showing the actual fill
-  // level as a rising liquid. A CSS height transition handles the fill
-  // animation when mana changes; a wave overlay at the meniscus keeps the
-  // surface alive between turns. The chip remounts on every pulseKey
-  // change so the manaGain pop replays at the start of the player's turn.
-  const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;
   return (
     <div
       key={pulseKey}
       style={{
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: 'flex', alignItems: 'center', gap: 5,
         background: '#fff',
         padding: '5px 10px 5px 8px', borderRadius: 14,
         boxShadow: '0 4px 10px rgba(58,46,42,.12)',
@@ -3869,35 +3850,7 @@ function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: numb
         animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
       }}
     >
-      {/* Liquid vial — diamond shape, transparent shell, fill rises from
-          the bottom. The wave is a small radial gradient that wobbles
-          horizontally so the surface looks like real liquid. */}
-      <div style={{
-        position: 'relative',
-        width: 16, height: 22,
-        clipPath: 'polygon(50% 0, 100% 30%, 82% 100%, 18% 100%, 0 30%)',
-        background: 'rgba(58,143,196,.18)',
-        overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(28,84,120,.2)',
-      }}>
-        <div style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0,
-          height: `${fillPct * 100}%`,
-          background: 'linear-gradient(180deg, #6ec8ff 0%, #3a8fc4 60%, #1c5478 100%)',
-          // Smooth height transition fires automatically when mana rises
-          // (or drops, after a play). Cubic-bezier matches the manaGain pop.
-          transition: 'height .6s cubic-bezier(.2,.8,.3,1)',
-          boxShadow: 'inset 0 4px 6px rgba(255,255,255,.35)',
-        }}>
-          {/* Meniscus highlight + lateral wobble for "alive" feel. */}
-          <div style={{
-            position: 'absolute', top: -2, left: -3, right: -3, height: 4,
-            background: 'radial-gradient(ellipse 50% 100% at 50% 100%, #9ed6f7 0%, transparent 70%)',
-            animation: 'manaWave 2.4s ease-in-out infinite',
-            opacity: fillPct > 0 ? 1 : 0,
-          }} />
-        </div>
-      </div>
+      <Zap size={14} fill="#3a8fc4" color="#3a8fc4" strokeWidth={2} />
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
