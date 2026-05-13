@@ -198,7 +198,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       of the match feels like a real card-game opening. UI hides cards in
       both hands beyond these counts until the deal finishes. */
   const [playerInitialDealt, setPlayerInitialDealt] = useState(0);
-  const [oppInitialDealt, setOppInitialDealt] = useState(0);
+
   const [initialDealing, setInitialDealing] = useState(true);
   /** Give-up confirmation modal. We never quit on the first tap — too easy
       to lose 20 minutes of progress to a misclick. */
@@ -1150,7 +1150,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       const side: Owner = i % 2 === 0 ? 'player' : 'opponent';
       fireDraw(side, 0);
       if (side === 'player') setPlayerInitialDealt(d => d + 1);
-      else setOppInitialDealt(d => d + 1);
       i++;
       setTimeout(tick, 380);
     };
@@ -3574,34 +3573,6 @@ function GraveyardButton({ count, onClick, elRef, pulseKey }: {
 }
 
 /** Face-down hand at the top — visualizes how many cards the boss is holding. */
-function OpponentHand({ size }: { size: number }) {
-  // Always render the container so the spacer height is stable during the
-  // opening deal. Without this, the null → content transition causes the
-  // entire field layout to shift when the first opponent card appears.
-  const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
-  return (
-    <div style={{
-      display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
-      pointerEvents: 'none',
-      zIndex: 4,
-      minHeight: 70,
-    }}>
-      {Array.from({ length: size }).map((_, i) => {
-        const offset = i - (size - 1) / 2;
-        const rot = offset * 4;
-        return (
-          <div key={i} style={{
-            marginLeft: i === 0 ? 0 : overlap,
-            transform: `translateY(${Math.abs(offset) * 1.5}px)`,
-            zIndex: i,
-          }}>
-            <CardBack scale={0.32} rotate={rot} />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /** Plain-English hint telling the player what kind of target a pending spell needs. */
 function spellTargetHint(card: BattleCard): string {
