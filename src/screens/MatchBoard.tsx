@@ -3097,6 +3097,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         <GraveyardModal
           cards={graveyardOpen === 'player' ? state.player.discard : state.opponent.discard}
           title={graveyardOpen === 'player' ? 'You' : boss.name}
+          owner={graveyardOpen}
           onClose={() => setGraveyardOpen(null)}
         />
       )}
