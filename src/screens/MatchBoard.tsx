@@ -2901,8 +2901,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
-      {/* Bond connection lines — SVG bezier curves from each bonded card's
-          bottom-center icon down to the bond pill chip below the field row. */}
+      {/* Bond connection lines — straight line between 2 bonded card icons;
+          3-card groups fan to the pill center. */}
       {(() => {
         const board = boardRef.current;
         if (!board) return null;
@@ -2914,6 +2914,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           [playerActiveBonds, state.player.field],
           [opponentActiveBonds, state.opponent.field],
         ] as [typeof playerActiveBonds, typeof state.player.field][]) {
+          // Collect all unique card battleIds that participate in any bond.
+          const bondedIds = new Set<string>();
+          for (const bond of bonds) {
+            const a = field.find(c => c.id === bond.cardA);
+            const b = field.find(c => c.id === bond.cardB);
+            if (a) bondedIds.add(a.battleId);
+            if (b) bondedIds.add(b.battleId);
+          }
+          const bondedCount = bondedIds.size;
+
           for (const bond of bonds) {
             const cardA = field.find(c => c.id === bond.cardA);
             const cardB = field.find(c => c.id === bond.cardB);
@@ -2921,35 +2931,44 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
             const rA = lastRectsRef.current.get(cardA.battleId);
             const rB = lastRectsRef.current.get(cardB.battleId);
-            const pillEl = bondPillEls.current.get(bond.id);
-            if (!rA || !rB || !pillEl) continue;
-
-            const pillRect = pillEl.getBoundingClientRect();
-            const px = pillRect.left + pillRect.width / 2 - boardRect.left;
-            const py = pillRect.top + pillRect.height / 2 - boardRect.top;
+            if (!rA || !rB) continue;
 
             const ax = rA.x + rA.w / 2;
             const ay = rA.y + rA.h + 1;
             const bx = rB.x + rB.w / 2;
             const by = rB.y + rB.h + 1;
 
-            const midAY = (ay + py) / 2;
-            const midBY = (by + py) / 2;
+            if (bondedCount <= 2) {
+              // Simple straight line between the two bond icons.
+              paths.push(
+                <line
+                  key={`${bond.id}-line`}
+                  x1={ax} y1={ay} x2={bx} y2={by}
+                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
+                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
+                />
+              );
+            } else {
+              // 3+ bonded cards — each icon connects to the pill center.
+              const pillEl = bondPillEls.current.get(bond.id);
+              if (!pillEl) continue;
+              const pillRect = pillEl.getBoundingClientRect();
+              const px = pillRect.left + pillRect.width / 2 - boardRect.left;
+              const py = pillRect.top + pillRect.height / 2 - boardRect.top;
 
-            paths.push(
-              <path
-                key={`${bond.id}-lineA`}
-                d={`M ${ax} ${ay} C ${ax} ${midAY} ${px} ${midAY} ${px} ${py}`}
-                fill="none" stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
-                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-              />,
-              <path
-                key={`${bond.id}-lineB`}
-                d={`M ${bx} ${by} C ${bx} ${midBY} ${px} ${midBY} ${px} ${py}`}
-                fill="none" stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
-                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite', animationDelay: '0.25s' }}
-              />
-            );
+              paths.push(
+                <line key={`${bond.id}-lineA`}
+                  x1={ax} y1={ay} x2={px} y2={py}
+                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
+                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
+                />,
+                <line key={`${bond.id}-lineB`}
+                  x1={bx} y1={by} x2={px} y2={py}
+                  stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
+                  style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite', animationDelay: '0.2s' }}
+                />
+              );
+            }
           }
         }
 
@@ -2968,9 +2987,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
               </filter>
             </defs>
-            <g filter="url(#bondGlow)">
-              {paths}
-            </g>
+            <g filter="url(#bondGlow)">{paths}</g>
           </svg>
         );
       })()}
