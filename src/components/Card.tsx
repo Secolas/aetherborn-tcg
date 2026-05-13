@@ -17,13 +17,20 @@ interface Props {
   displayHp?: number;
   /** Highlight the cost as unaffordable (red) instead of cream. */
   unaffordable?: boolean;
+  /** When false, skip player-only cosmetics (frame) so the card renders
+   *  in its baseline visual. Defaults to true — most callsites are
+   *  rendering the player's own cards (Collection, DeckBuilder, packs,
+   *  hand, previews of player plays). MatchBoard sets this to false on
+   *  opponent reveals and the inspect modal for opponent cards so the
+   *  player's equipped frame doesn't "skin" the boss's cards. */
+  owned?: boolean;
 }
 
 function isCollectionCard(c: CardTemplate | CollectionCard): c is CollectionCard {
   return 'photo' in c;
 }
 
-export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false }: Props) {
+export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false, owned = true }: Props) {
   const photo = isCollectionCard(card) ? card.photo : null;
   const dormant = !photo;
   const isSpell = card.type === 'Spell';
@@ -39,10 +46,12 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
     ? `linear-gradient(180deg, ${tp.top}aa 0%, ${tp.deep}cc 100%)`
     : `linear-gradient(180deg, ${tp.top} 0%, ${tp.deep} 100%)`;
 
-  // Equipped frame cosmetic (read from app-wide context). Classic returns
-  // an empty outer/inner so the default chrome below stays intact.
+  // Equipped frame cosmetic (read from app-wide context). Only applied
+  // when this card is the player's own — opponent renders pass owned=
+  // false so the boss's cards stay in their baseline chrome. Classic
+  // returns an empty outer/inner so the default styling shows through.
   const cosm = useCosmetics();
-  const frame = getFrame(cosm.frame);
+  const frame = owned ? getFrame(cosm.frame) : getFrame('classic');
   const frameOuterShadow = frame.outer?.boxShadow as string | undefined;
   const frameInnerShadow = frame.inner?.boxShadow as string | undefined;
   // Hovered cards still get the warm yellow ring (selection affordance);
