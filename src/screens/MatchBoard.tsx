@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
+import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Info } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -186,6 +186,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
   const [logOpen, setLogOpen] = useState(false);
+  /** Which side's info panel popover is currently open (hand/deck/grave counts
+   *  + quick-link to the action log). Null when neither is open. */
+  const [infoSide, setInfoSide] = useState<Owner | null>(null);
   /** Pre-match coin flip is animating. While true, the AI driver is paused
       and the player can't interact — keeps the opening uniform either way. */
   const [flipping, setFlipping] = useState(true);
@@ -1774,6 +1777,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_OPP] ?? null}
             elRef={(el) => registerEl(FACE_OPP, el)}
           />
+          <InfoChip onClick={() => setInfoSide('opponent')} />
           <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1853,9 +1857,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           <TurnChip turnNumber={state.turnNumber} limit={TURN_LIMIT} />
           <button onClick={() => setConfirmGiveUp(true)} aria-label="Give up" style={iconBtn}>
             <Flag size={16} strokeWidth={2.4} />
-          </button>
-          <button onClick={() => setLogOpen(o => !o)} aria-label="Action log" style={iconBtn}>
-            <ScrollText size={16} strokeWidth={2.4} />
           </button>
         </div>
         {drag?.overField ? (
@@ -2005,6 +2006,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_PLAYER] ?? null}
             elRef={(el) => registerEl(FACE_PLAYER, el)}
           />
+          <InfoChip onClick={() => setInfoSide('player')} />
           <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} pulseKey={manaPulse} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2040,7 +2042,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // playable even at its on-card cost. We don't tint cards red just
           // because it's the boss's turn — that'd flash every card every turn.
           const playableNow = effectiveCost(state.player, card) <= state.player.mana;
-          const baseScale = 0.66;
+          const baseScale = 0.56;
           const cardW = 220 * baseScale;
           // Tighter stride + per-card rotation = a real fan instead of a
           // flat row, mirroring the opponent's face-down fan at the top.
@@ -2960,6 +2962,64 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           log entry in reverse-chronological order so the most recent
           action is always at the top. Dismissed by tapping the backdrop
           or the same icon button again. */}
+      {infoSide && (() => {
+        const me = infoSide === 'player' ? state.player : state.opponent;
+        const label = infoSide === 'player' ? 'You' : boss.name;
+        return (
+          <div
+            onClick={() => setInfoSide(null)}
+            style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(8,4,12,.5)',
+              zIndex: 270,
+              animation: 'fadeIn .12s',
+            }}
+          >
+            <div
+              onClick={e => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                ...(infoSide === 'player' ? { bottom: 88, left: 16 } : { top: 88, left: 16 }),
+                width: 220,
+                background: 'linear-gradient(180deg, #fef8f0 0%, #f4e8d8 100%)',
+                borderRadius: 14,
+                boxShadow: '0 8px 24px rgba(0,0,0,.25)',
+                padding: '12px 14px',
+                fontFamily: '"Fredoka", system-ui',
+                animation: 'fadeIn .12s',
+              }}
+            >
+              <div style={{
+                fontSize: 12, fontWeight: 800, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: '#3a2e2a',
+                marginBottom: 10,
+              }}>{label}</div>
+              <InfoRow label="Hand" value={me.hand.length} />
+              <InfoRow label="Deck" value={me.deck.length} />
+              <InfoRow label="Graveyard" value={me.discard.length} />
+              <InfoRow label="HP" value={me.hp} />
+              <button
+                onClick={() => { setInfoSide(null); setLogOpen(true); }}
+                style={{
+                  marginTop: 10, width: '100%',
+                  background: '#3a2e2a', color: '#fef8f0',
+                  border: 'none', borderRadius: 10,
+                  padding: '8px 12px',
+                  fontSize: 12, fontWeight: 700,
+                  letterSpacing: '0.06em',
+                  cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  fontFamily: 'inherit',
+                }}
+              >
+                <ScrollText size={13} strokeWidth={2.4} />
+                View Action Log
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {logOpen && (
         <div
           onClick={() => setLogOpen(false)}
@@ -3692,6 +3752,46 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
         }}>{damage > 0 ? `−${damage}` : `+${-damage}`}</div>
       )}
     </div>
+  );
+}
+
+/**
+ * Small chevron-pill next to a portrait. Tapping it opens the InfoPopover
+ * for that side (hand/deck/graveyard counts + Action Log shortcut). Sized
+ * to look like an unobtrusive companion to the portrait, not a button.
+ */
+function InfoRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div style={{
+      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      padding: '5px 0',
+      borderBottom: '1px solid rgba(58,46,42,0.08)',
+      fontSize: 13, color: '#3a2e2a',
+    }}>
+      <span style={{ fontWeight: 500 }}>{label}</span>
+      <span style={{ fontWeight: 800 }}>{value}</span>
+    </div>
+  );
+}
+
+function InfoChip({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-label="More info"
+      style={{
+        width: 18, height: 18, borderRadius: '50%',
+        border: 'none',
+        background: 'rgba(255,255,255,0.85)',
+        color: '#7a6258',
+        boxShadow: '0 2px 4px rgba(58,46,42,0.18)',
+        cursor: 'pointer',
+        display: 'grid', placeItems: 'center',
+        flex: '0 0 auto',
+      }}
+    >
+      <Info size={11} strokeWidth={2.6} />
+    </button>
   );
 }
 
