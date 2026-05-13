@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban } from 'lucide-react';
+import { Snowflake, ShieldHalf, Target, Moon, Swords, Ban, Link2 } from 'lucide-react';
 import { TYPE_PALETTE } from '../data/elements';
 import { SmartImage } from './SmartImage';
 import type { BattleCard } from '../game/types';
@@ -443,16 +443,25 @@ export function BattlefieldCard({
           aria-label={bondState === 'active' ? 'Bond active' : 'Bond waiting'}
           style={{
             position: 'absolute',
-            top: -3, left: -3,
-            width: 8, height: 8, borderRadius: '50%',
-            background: bondState === 'active' ? '#06d6a0' : 'rgba(180,170,160,.7)',
+            top: -5, left: -5,
+            width: 16, height: 16, borderRadius: '50%',
+            background: bondState === 'active'
+              ? 'linear-gradient(135deg, #06d6a0, #04a87d)'
+              : 'rgba(160,152,144,.85)',
             boxShadow: bondState === 'active'
-              ? '0 0 0 1.5px #fff, 0 0 6px rgba(6,214,160,.6)'
-              : '0 0 0 1px #fff',
+              ? '0 0 0 1.5px #fff, 0 0 8px rgba(6,214,160,.55)'
+              : '0 0 0 1px rgba(255,255,255,.6)',
             zIndex: 5,
             pointerEvents: 'none',
+            display: 'grid', placeItems: 'center',
           }}
-        />
+        >
+          <Link2
+            size={8}
+            strokeWidth={2.8}
+            color={bondState === 'active' ? '#fff' : 'rgba(255,255,255,.8)'}
+          />
+        </div>
       )}
     </div>
   );
