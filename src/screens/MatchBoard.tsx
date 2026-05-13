@@ -2732,25 +2732,34 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {turnBanner && (
         <div style={{
           position: 'absolute', top: '38%', left: 0, right: 0,
-          display: 'flex', justifyContent: 'center', alignItems: 'center',
           zIndex: 220,
           pointerEvents: 'none',
-          animation: 'turnBanner 1.4s cubic-bezier(.2,.8,.3,1) forwards',
+          animation: 'ygoPhaseEnter 950ms cubic-bezier(.25,.8,.3,1) both',
         }}>
           <div style={{
-            background: turnBanner === 'player'
-              ? 'linear-gradient(180deg, #ffa07a, #ff7e5f)'
-              : 'linear-gradient(180deg, #6a4a3a, #3a2018)',
-            color: '#fff',
-            padding: '14px 38px',
-            fontSize: 20, fontWeight: 900, letterSpacing: '0.2em',
-            boxShadow: '0 12px 28px rgba(0,0,0,.35)',
-            transform: 'skewX(-10deg)',
-            fontFamily: '"Fredoka", system-ui',
-            textShadow: '0 2px 0 rgba(0,0,0,.25)',
+            background: 'linear-gradient(90deg, #1a1008 0%, #3a2810 20%, #2a1e0c 50%, #3a2810 80%, #1a1008 100%)',
+            boxShadow: '0 0 28px rgba(244,208,74,.22), 0 4px 18px rgba(0,0,0,.55)',
+            padding: '9px 0',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+            borderTop: '1.5px solid rgba(244,208,74,.35)',
+            borderBottom: '1.5px solid rgba(244,208,74,.35)',
           }}>
-            <div style={{ transform: 'skewX(10deg)' }}>
-              {turnBanner === 'player' ? 'YOUR TURN' : `${boss.name.toUpperCase()}'S TURN`}
+            <div style={{
+              fontSize: 9, fontWeight: 700, letterSpacing: '0.28em',
+              textTransform: 'uppercase', color: 'rgba(244,208,74,.65)',
+              animation: 'ygoPhaseLabel 950ms ease both',
+              fontFamily: '"Inter", system-ui',
+            }}>
+              {turnBanner === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`}
+            </div>
+            <div style={{
+              fontSize: 21, fontWeight: 900, letterSpacing: '0.16em',
+              textTransform: 'uppercase', color: '#f4d04a',
+              textShadow: '0 2px 8px rgba(0,0,0,.7), 0 0 18px rgba(244,208,74,.4)',
+              fontFamily: '"Fredoka", system-ui',
+              animation: 'ygoPhaseLabel 950ms ease both',
+            }}>
+              TURN
             </div>
           </div>
         </div>
