@@ -586,3 +586,7 @@ input {
   0%   { opacity: 1; }
   100% { opacity: 0; }
 }
+@keyframes bondLineGlow {
+  0%, 100% { opacity: 0.9; }
+  50%       { opacity: 0.35; }
+}

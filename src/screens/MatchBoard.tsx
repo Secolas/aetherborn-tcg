@@ -272,6 +272,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const playerFieldRef = useRef<HTMLDivElement | null>(null);
   const boardRef = useRef<HTMLDivElement | null>(null);
   const oppHeaderRef = useRef<HTMLDivElement | null>(null);
+  const bondPillEls = useRef<Map<string, HTMLDivElement>>(new Map());
   /** DOM nodes of every creature on the field + the two faces, keyed by battleId
       (or FACE_PLAYER / FACE_OPP). Used to draw the attack arrow during combat. */
   const cardEls = useRef<Map<string, HTMLElement>>(new Map());
@@ -1495,7 +1496,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // Card plays / spell casts are a MAIN-PHASE action. Gate the
     // whole drop here so we don't accidentally summon during Battle.
     if (playerPhase !== 'main') {
-      if (drag.overField) flashMsg('Cards can only be played in Main Phase');
+      if (drag.overField) flashMsg('Main Phase only');
       setDrag(null);
       return;
     }
@@ -1552,7 +1553,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const card = state.player.hand[selectedHandIdx];
     if (!card) { setSelectedHandIdx(null); return; }
     if (playerPhase !== 'main') {
-      flashMsg('Cards can only be played in Main Phase');
+      flashMsg('Main Phase only');
       return;
     }
 
@@ -1866,7 +1867,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
-        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" />
+        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" onPillRef={(id, el) => { if (el) bondPillEls.current.set(id, el); else bondPillEls.current.delete(id); }} />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -2027,7 +2028,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }}
           onCardLongPress={(c) => setInspect(c)}
         />
-        <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" />
+        <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" onPillRef={(id, el) => { if (el) bondPillEls.current.set(id, el); else bondPillEls.current.delete(id); }} />
       </div>
 
       {/* Bottom spacer */}
@@ -2900,6 +2901,80 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
+      {/* Bond connection lines — SVG bezier curves from each bonded card's
+          bottom-center icon down to the bond pill chip below the field row. */}
+      {(() => {
+        const board = boardRef.current;
+        if (!board) return null;
+        const boardRect = board.getBoundingClientRect();
+
+        const paths: React.ReactNode[] = [];
+
+        for (const [bonds, field] of [
+          [playerActiveBonds, state.player.field],
+          [opponentActiveBonds, state.opponent.field],
+        ] as [typeof playerActiveBonds, typeof state.player.field][]) {
+          for (const bond of bonds) {
+            const cardA = field.find(c => c.id === bond.cardA);
+            const cardB = field.find(c => c.id === bond.cardB);
+            if (!cardA || !cardB) continue;
+
+            const rA = lastRectsRef.current.get(cardA.battleId);
+            const rB = lastRectsRef.current.get(cardB.battleId);
+            const pillEl = bondPillEls.current.get(bond.id);
+            if (!rA || !rB || !pillEl) continue;
+
+            const pillRect = pillEl.getBoundingClientRect();
+            const px = pillRect.left + pillRect.width / 2 - boardRect.left;
+            const py = pillRect.top + pillRect.height / 2 - boardRect.top;
+
+            const ax = rA.x + rA.w / 2;
+            const ay = rA.y + rA.h + 1;
+            const bx = rB.x + rB.w / 2;
+            const by = rB.y + rB.h + 1;
+
+            const midAY = (ay + py) / 2;
+            const midBY = (by + py) / 2;
+
+            paths.push(
+              <path
+                key={`${bond.id}-lineA`}
+                d={`M ${ax} ${ay} C ${ax} ${midAY} ${px} ${midAY} ${px} ${py}`}
+                fill="none" stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
+                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
+              />,
+              <path
+                key={`${bond.id}-lineB`}
+                d={`M ${bx} ${by} C ${bx} ${midBY} ${px} ${midBY} ${px} ${py}`}
+                fill="none" stroke="#f4d04a" strokeWidth={1.5} strokeLinecap="round"
+                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite', animationDelay: '0.25s' }}
+              />
+            );
+          }
+        }
+
+        if (paths.length === 0) return null;
+
+        return (
+          <svg style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%',
+            pointerEvents: 'none', zIndex: 8,
+            overflow: 'visible',
+          }}>
+            <defs>
+              <filter id="bondGlow">
+                <feGaussianBlur stdDeviation="2" result="blur" />
+                <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g filter="url(#bondGlow)">
+              {paths}
+            </g>
+          </svg>
+        );
+      })()}
+
       {/* Action-log history panel — slide-up drawer listing every engine
           log entry in reverse-chronological order so the most recent
           action is always at the top. Dismissed by tapping the backdrop
@@ -3122,11 +3197,12 @@ const SLOTS_PER_ROW = 3;
  * the player, dark plate for the boss, anchored to that side's field zone.
  */
 function BondPillStack({
-  bonds, newlyActiveIds,
+  bonds, newlyActiveIds, onPillRef,
 }: {
   bonds: BondDef[];
   newlyActiveIds: string[];
   side: 'player' | 'opponent';
+  onPillRef?: (bondId: string, el: HTMLDivElement | null) => void;
 }) {
   if (bonds.length === 0) return null;
   return (
@@ -3140,6 +3216,7 @@ function BondPillStack({
         return (
           <div
             key={`${b.id}-${isNewly ? 'new' : 'steady'}`}
+            ref={(el) => onPillRef?.(b.id, el as HTMLDivElement | null)}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               padding: '3px 8px 3px 6px',
