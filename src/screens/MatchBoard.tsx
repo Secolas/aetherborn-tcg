@@ -2179,25 +2179,26 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           return (
             <motion.div
               key={card.battleId}
+              // `layout` springs the card to its new position whenever
+              // the fan reflows (e.g. a card leaves). Framer measures
+              // the bounding box before/after and animates the
+              // transition via transform — totally separate from
+              // Framer's drag, which owns its own x motion value.
+              layout
               drag={canDrag}
               dragSnapToOrigin
               dragMomentum={false}
               dragElastic={0.8}
               dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
               initial={false}
-              // x is excluded from `animate` for the card currently
-              // being dragged so Framer's drag owns the motion value
-              // without interference. The animate.x kept fighting the
-              // drag write on mobile (each re-render during drag would
-              // reassert x = xOff momentarily), leaving the card in
-              // the wrong slot after release. When isDraggingThis
-              // flips back to false on drag end, animate.x = xOff
-              // kicks in and the card slots back to its fan position.
-              animate={
-                isDraggingThis
-                  ? { rotate: poseRot, y: poseY }
-                  : { x: xOff, rotate: poseRot, y: poseY }
-              }
+              // Pose only — rotation and y-lift for selected/dragged
+              // states. x is NOT in animate; the card's horizontal slot
+              // is set via the static `left` style below and gets
+              // re-animated by `layout` on changes. This separation
+              // prevents the mobile race we had where animate.x kept
+              // re-asserting xOff against Framer's drag write during
+              // the gesture, leaving cards in the wrong slot on release.
+              animate={{ rotate: poseRot, y: poseY }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               onDragStart={() => handleDragStart(card)}
               onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
@@ -2215,7 +2216,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               style={{
                 position: 'absolute',
                 bottom: 0,
-                left: '50%',
+                // Horizontal slot lives in static CSS so drag's x
+                // motion value never has to fight it. `layout` above
+                // springs to the new `left` whenever the fan reshapes.
+                left: `calc(50% + ${xOff}px)`,
                 marginLeft: -cardW / 2,
                 width: cardW,
                 height: 320 * baseScale,
