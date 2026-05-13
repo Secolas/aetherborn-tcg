@@ -21,6 +21,9 @@ import type { BossDef } from '../data/bosses';
 import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState, Difficulty } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
+import { useCosmetics } from '../state/cosmeticsContext';
+import { getBoardSkin } from '../data/boardSkins';
+import { getEmote } from '../data/victoryEmotes';
 
 interface Props {
   deck: CollectionCard[];
@@ -85,6 +88,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   settingsRef.current = settings;
   /** Fire an SFX cue at the user's chosen volume — no-op if muted. */
   const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, settingsRef.current.sfxVolume);
+  /** Cosmetic state — board skin paints the bedrock background, victory
+   *  emote shows on the match-end overlay. Card frame is read by the
+   *  Card component directly via the same context. */
+  const cosmetics = useCosmetics();
+  const boardSkin = getBoardSkin(cosmetics.boardSkin);
+  const victoryEmote = getEmote(cosmetics.emote);
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss, difficulty));
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
@@ -1797,6 +1806,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         playerHp={state.player.hp}
         opponentHp={state.opponent.hp}
         turnLimitReached={state.turnNumber > TURN_LIMIT}
+        victoryEmote={victoryEmote}
         onExit={onExit}
       />
     );
@@ -1839,12 +1849,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       onDragStart={(e) => e.preventDefault()}
       style={{
         width: '100%', height: '100%',
-        // Tinted base gradient by boss element so each fight has a slightly
-        // different ambient hue. Specific scene comes from the backdrop
-        // image layer below; this gradient is the bedrock.
+        // Two layers: the player's equipped board skin paints the bedrock
+        // gradient, and the boss's element tint sits on top to keep each
+        // fight ambient-coloured. Order matters — boss tint must follow so
+        // semi-transparent stops layer on top of the chosen skin.
         background: `
-          radial-gradient(ellipse at 50% 50%, #fef3e0 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
-          linear-gradient(180deg, #fef3e0 0%, #ffe0bf 60%, #f8c89c 100%)
+          radial-gradient(ellipse at 50% 50%, transparent 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
+          ${boardSkin.background}
         `,
         position: 'relative', overflow: 'hidden',
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
@@ -3976,7 +3987,7 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
   },
 };
 
-function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, onExit }: {
+function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, victoryEmote, onExit }: {
   outcome: 'win' | 'loss' | 'draw';
   boss: BossDef;
   difficulty: Difficulty;
@@ -3988,6 +3999,9 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
   /** True when the match ended because we hit TURN_LIMIT, not because
    *  someone hit 0 HP. Drives the "why" sentence under the title. */
   turnLimitReached: boolean;
+  /** Equipped victory emote — shown on the win screen only as a big
+   *  headline above the title. Loss / draw don't taunt the player. */
+  victoryEmote?: import('../data/victoryEmotes').EmoteDef;
   onExit: (o: 'win' | 'loss' | 'draw' | 'quit') => void;
 }) {
   const isWin = outcome === 'win';
@@ -4078,6 +4092,33 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
           {boss.name}
         </div>
       </div>
+
+      {/* Victory emote — equipped cosmetic that lands as a big headline
+          above the standard Victory label. Loss + draw skip this so the
+          player isn't taunted by their own emote. The headline drops in
+          with a small bounce; the sub-line slides under it. */}
+      {isWin && victoryEmote && (
+        <div style={{
+          position: 'relative', zIndex: 2,
+          marginTop: 24, marginBottom: -8,
+          animation: 'toastDrop 1.8s ease-out both',
+        }}>
+          <div style={{
+            fontSize: 32, fontWeight: 800, lineHeight: 1.05,
+            background: `linear-gradient(180deg, #fff, ${victoryEmote.glow ?? '#ffd166'})`,
+            WebkitBackgroundClip: 'text', backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: `0 0 18px ${(victoryEmote.glow ?? '#ffd166')}88`,
+            fontFamily: '"Fredoka", system-ui',
+            letterSpacing: '-0.01em',
+          }}>{victoryEmote.headline}</div>
+          {victoryEmote.sub && (
+            <div style={{
+              fontSize: 12, color: '#6e5a52', fontStyle: 'italic', marginTop: 2,
+            }}>{victoryEmote.sub}</div>
+          )}
+        </div>
+      )}
 
       <div style={{
         fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase',

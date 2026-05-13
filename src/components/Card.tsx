@@ -3,6 +3,8 @@ import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
 import { ElementGlyph } from './ElementGlyph';
 import { PhotoFrame } from './PhotoFrame';
+import { getFrame } from '../data/frames';
+import { useCosmetics } from '../state/cosmeticsContext';
 
 interface Props {
   card: CardTemplate | CollectionCard | BattleCard;
@@ -37,15 +39,29 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
     ? `linear-gradient(180deg, ${tp.top}aa 0%, ${tp.deep}cc 100%)`
     : `linear-gradient(180deg, ${tp.top} 0%, ${tp.deep} 100%)`;
 
+  // Equipped frame cosmetic (read from app-wide context). Classic returns
+  // an empty outer/inner so the default chrome below stays intact.
+  const cosm = useCosmetics();
+  const frame = getFrame(cosm.frame);
+  const frameOuterShadow = frame.outer?.boxShadow as string | undefined;
+  const frameInnerShadow = frame.inner?.boxShadow as string | undefined;
+  // Hovered cards still get the warm yellow ring (selection affordance);
+  // when a frame is equipped we add the frame's outer glow as an extra
+  // layer on top of that. Otherwise the base shadows below take over.
+  const baseShadow = hovered
+    ? '0 18px 40px rgba(0,0,0,.45), 0 0 0 3px #f4d04a, inset 0 0 0 2px rgba(255,255,255,.2)'
+    : '0 6px 16px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.15)';
+  const composedShadow = frameOuterShadow
+    ? `${frameOuterShadow}, ${baseShadow}`
+    : baseShadow;
+
   return (
     <div style={{
       width: 220 * scale, height: 320 * scale,
       borderRadius: 18 * scale,
       background: cardBg,
       padding: 8 * scale,
-      boxShadow: hovered
-        ? `0 18px 40px rgba(0,0,0,.45), 0 0 0 3px #f4d04a, inset 0 0 0 2px rgba(255,255,255,.2)`
-        : `0 6px 16px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.15)`,
+      boxShadow: composedShadow,
       transform: hovered ? 'translateY(-6px) scale(1.02)' : 'none',
       transition: 'transform .2s, box-shadow .2s',
       fontFamily: '"Fredoka", "Quicksand", system-ui, sans-serif',
@@ -54,6 +70,18 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
       display: 'flex', flexDirection: 'column', gap: 6 * scale,
       filter: dormant ? 'saturate(0.75)' : 'none',
     }}>
+      {frameInnerShadow && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0,
+            borderRadius: 'inherit',
+            boxShadow: frameInnerShadow,
+            pointerEvents: 'none',
+            zIndex: 4,
+          }}
+        />
+      )}
       {dormant && (
         <div style={{
           position: 'absolute', top: 14 * scale, right: -22 * scale,

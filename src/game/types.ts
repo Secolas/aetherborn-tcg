@@ -213,6 +213,16 @@ export interface SaveData {
    *  additional filters on first open; the cosmetic picker can also buy
    *  filters directly with coins. */
   unlockedFilters?: import('../data/filters').FilterId[];
+  /** Card frame ids the player has unlocked. One frame is equipped
+   *  globally (see equippedFrame) and applied to every card render. */
+  unlockedFrames?: import('../data/frames').FrameId[];
+  equippedFrame?: import('../data/frames').FrameId;
+  /** Board skin ids the player has unlocked. One is equipped globally. */
+  unlockedBoardSkins?: import('../data/boardSkins').BoardSkinId[];
+  equippedBoardSkin?: import('../data/boardSkins').BoardSkinId;
+  /** Victory emote ids the player has unlocked. One is equipped. */
+  unlockedEmotes?: import('../data/victoryEmotes').EmoteId[];
+  equippedEmote?: import('../data/victoryEmotes').EmoteId;
   /** Memory pack ids the player has opened at least once. Used to gate
    *  the "first-open bonus filter" — subsequent opens of the same memory
    *  pack don't re-grant the cosmetic. */

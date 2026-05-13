@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon, Flame } from 'lucide-react';
+import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon, Flame, Palette } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -10,7 +10,7 @@ interface Props {
   /** Total claimable items in Daily (completed quests + unclaimed streak).
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily') => void;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics') => void;
   onQuickFill: () => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
@@ -297,6 +297,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           <NavButton label="Collection" icon={<Layers     size={18} />} onClick={() => onNav('collection')} />
           <NavButton label="Deck"       icon={<ScrollText size={18} />} onClick={() => onNav('deck')} />
           <NavButton label="Album"      icon={<Images     size={18} />} onClick={() => onNav('album')} />
+          <NavButton label="Cosmetics"  icon={<Palette    size={18} />} onClick={() => onNav('cosmetics')} />
         </div>
       </div>
     </div>

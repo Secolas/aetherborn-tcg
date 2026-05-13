@@ -18,6 +18,11 @@ import {
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
 import { STARTER_FILTERS, type FilterId } from './data/filters';
+import { STARTER_FRAMES, type FrameId } from './data/frames';
+import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
+import { STARTER_EMOTES, type EmoteId } from './data/victoryEmotes';
+import { CosmeticsProvider } from './state/cosmetics';
+import { Cosmetics } from './screens/Cosmetics';
 import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
@@ -48,11 +53,17 @@ function makeInitialSave(): SaveData {
     matchesLost: 0,
     bossesDefeated: [],
     unlockedFilters: [...STARTER_FILTERS],
+    unlockedFrames: [...STARTER_FRAMES],
+    unlockedBoardSkins: [...STARTER_BOARD_SKINS],
+    unlockedEmotes: [...STARTER_EMOTES],
+    equippedFrame: 'classic',
+    equippedBoardSkin: 'daylight',
+    equippedEmote: 'gg',
     openedMemoryPacks: [],
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
@@ -89,18 +100,27 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** Backfill cosmetic state on legacy saves that predate filters/memory
-   *  packs. Idempotent — if the fields are already populated we leave
-   *  them alone so the player doesn't get re-granted starter filters
-   *  after later changes. */
+  /** Backfill cosmetic state on legacy saves that predate the various
+   *  cosmetic systems. Each field is checked independently so this
+   *  migration stays idempotent across schema rollouts. */
   useEffect(() => {
     setSave(s => {
       const needsFilters = !s.unlockedFilters || s.unlockedFilters.length === 0;
       const needsMemory = !s.openedMemoryPacks;
-      if (!needsFilters && !needsMemory) return s;
+      const needsFrames = !s.unlockedFrames || s.unlockedFrames.length === 0;
+      const needsBoards = !s.unlockedBoardSkins || s.unlockedBoardSkins.length === 0;
+      const needsEmotes = !s.unlockedEmotes || s.unlockedEmotes.length === 0;
+      const needsEquipped = !s.equippedFrame || !s.equippedBoardSkin || !s.equippedEmote;
+      if (!needsFilters && !needsMemory && !needsFrames && !needsBoards && !needsEmotes && !needsEquipped) return s;
       return {
         ...s,
         unlockedFilters: needsFilters ? [...STARTER_FILTERS] : s.unlockedFilters,
+        unlockedFrames: needsFrames ? [...STARTER_FRAMES] : s.unlockedFrames,
+        unlockedBoardSkins: needsBoards ? [...STARTER_BOARD_SKINS] : s.unlockedBoardSkins,
+        unlockedEmotes: needsEmotes ? [...STARTER_EMOTES] : s.unlockedEmotes,
+        equippedFrame: s.equippedFrame ?? 'classic',
+        equippedBoardSkin: s.equippedBoardSkin ?? 'daylight',
+        equippedEmote: s.equippedEmote ?? 'gg',
         openedMemoryPacks: needsMemory ? [] : s.openedMemoryPacks,
       };
     });
@@ -367,6 +387,35 @@ export default function App() {
     });
   };
 
+  /** Buy a card frame, board skin, or victory emote. Shared closure
+   *  shape so the four buy callbacks below stay one-liners. */
+  const buyCosmetic = <K extends 'unlockedFrames' | 'unlockedBoardSkins' | 'unlockedEmotes'>(
+    key: K,
+    starter: string[],
+    id: string,
+    cost: number,
+  ) => {
+    setSave(s => {
+      const unlocked = (s[key] as string[] | undefined) ?? starter;
+      if (unlocked.includes(id)) return s;
+      if (s.coins < cost) return s;
+      playSfx('questClaim', settings.sfxVolume);
+      return { ...s, coins: s.coins - cost, [key]: [...unlocked, id] } as SaveData;
+    });
+  };
+  const onBuyFrame = (id: FrameId, cost: number) => buyCosmetic('unlockedFrames', [...STARTER_FRAMES], id, cost);
+  const onBuyBoardSkin = (id: BoardSkinId, cost: number) => buyCosmetic('unlockedBoardSkins', [...STARTER_BOARD_SKINS], id, cost);
+  const onBuyEmote = (id: EmoteId, cost: number) => buyCosmetic('unlockedEmotes', [...STARTER_EMOTES], id, cost);
+
+  /** Equip handlers — only commit if the cosmetic is actually unlocked,
+   *  so accidental URL state or buggy callers can't equip a locked one. */
+  const onEquipFrame = (id: FrameId) => setSave(s =>
+    (s.unlockedFrames ?? STARTER_FRAMES).includes(id) ? { ...s, equippedFrame: id } : s);
+  const onEquipBoardSkin = (id: BoardSkinId) => setSave(s =>
+    (s.unlockedBoardSkins ?? STARTER_BOARD_SKINS).includes(id) ? { ...s, equippedBoardSkin: id } : s);
+  const onEquipEmote = (id: EmoteId) => setSave(s =>
+    (s.unlockedEmotes ?? STARTER_EMOTES).includes(id) ? { ...s, equippedEmote: id } : s);
+
   /** Helper: rewrite a specific deck slot's uids. Mirrors the active
    *  deck's uids back into the legacy `deckUids` field so any code still
    *  reading the old shape stays in sync. */
@@ -517,6 +566,11 @@ export default function App() {
     (save.daily?.quests.filter(q => q.progress >= q.goal && !q.claimed).length ?? 0);
 
   return (
+    <CosmeticsProvider
+      frame={save.equippedFrame}
+      boardSkin={save.equippedBoardSkin}
+      emote={save.equippedEmote}
+    >
     <PhoneShell>
       {screen === 'home' && (
         <HomeMenu
@@ -597,6 +651,26 @@ export default function App() {
           onBack={() => setScreen('home')}
         />
       )}
+      {screen === 'cosmetics' && (
+        <Cosmetics
+          coins={save.coins}
+          unlockedFrames={save.unlockedFrames ?? [...STARTER_FRAMES]}
+          unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
+          unlockedBoardSkins={save.unlockedBoardSkins ?? [...STARTER_BOARD_SKINS]}
+          unlockedEmotes={save.unlockedEmotes ?? [...STARTER_EMOTES]}
+          equippedFrame={save.equippedFrame ?? 'classic'}
+          equippedBoardSkin={save.equippedBoardSkin ?? 'daylight'}
+          equippedEmote={save.equippedEmote ?? 'gg'}
+          onBuyFrame={onBuyFrame}
+          onBuyFilter={onBuyFilter}
+          onBuyBoardSkin={onBuyBoardSkin}
+          onBuyEmote={onBuyEmote}
+          onEquipFrame={onEquipFrame}
+          onEquipBoardSkin={onEquipBoardSkin}
+          onEquipEmote={onEquipEmote}
+          onBack={() => setScreen('home')}
+        />
+      )}
       {screen === 'boss-picker' && (
         <BossPicker
           defeatedIds={save.bossesDefeated}
@@ -636,5 +710,6 @@ export default function App() {
         />
       )}
     </PhoneShell>
+    </CosmeticsProvider>
   );
 }
