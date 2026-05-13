@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -1932,31 +1932,22 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           (() => {
             const isPlayer = state.turn === 'player';
             const inBattle = isPlayer && playerPhase === 'battle';
-            const label = inBattle ? 'End Turn →' : 'Go to Battle →';
             const handleClick = inBattle ? onEndTurn : handleGoBattle;
             return (
               <button
                 onClick={(e) => { e.stopPropagation(); if (isPlayer) handleClick(); }}
                 disabled={!isPlayer}
+                aria-label={inBattle ? 'End Turn' : 'Go to Battle'}
                 style={{
-                  background: isPlayer
-                    ? (inBattle
-                        ? 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 100%)'
-                        : 'linear-gradient(180deg, #3a2e2a 0%, #1a1414 100%)')
-                    : '#e8d8c8',
-                  color: isPlayer ? '#fff' : '#9a8678',
-                  border: 'none', borderRadius: 22, padding: '10px 24px',
-                  fontSize: 13, fontWeight: 700, letterSpacing: '0.04em',
+                  ...iconBtn,
+                  opacity: isPlayer ? 1 : 0.4,
                   cursor: isPlayer ? 'pointer' : 'default',
-                  boxShadow: isPlayer
-                    ? (inBattle
-                        ? '0 4px 12px rgba(255,94,60,.35)'
-                        : '0 4px 12px rgba(58,46,42,.35)')
-                    : 'none',
-                  fontFamily: '"Fredoka", system-ui',
+                  color: isPlayer ? PALETTE.text : PALETTE.textMid,
                 }}
               >
-                {label}
+                {inBattle
+                  ? <ChevronsRight size={18} strokeWidth={2.4} />
+                  : <Swords size={18} strokeWidth={2.2} />}
               </button>
             );
           })()
@@ -3777,29 +3768,19 @@ function InfoRow({ label, value }: { label: string; value: number }) {
  * player always knows whether they need to push for the kill or hold HP.
  */
 function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
-  const left = Math.max(0, limit - turnNumber + 1); // includes current turn
-  const palette =
-    left <= 2 ? { bg: '#ee5a52', fg: '#fff', sub: 'rgba(255,255,255,.85)' }
-    : left <= 5 ? { bg: '#ffa07a', fg: '#fff', sub: 'rgba(255,255,255,.9)' }
-    : { bg: '#fff', fg: PALETTE.text, sub: PALETTE.textMid };
   return (
     <div style={{
-      background: palette.bg,
-      color: palette.fg,
-      padding: '3px 10px', borderRadius: 12,
-      fontWeight: 700, letterSpacing: '0.05em',
+      background: '#fff',
+      color: PALETTE.text,
+      padding: '0 10px', height: 36, borderRadius: 12,
+      fontWeight: 800, letterSpacing: '0.04em',
       boxShadow: '0 2px 6px rgba(58,46,42,.10)',
-      transition: 'background .2s, color .2s',
-      textAlign: 'center', lineHeight: 1.1,
+      display: 'flex', alignItems: 'center',
       fontFamily: '"Fredoka", "Inter", system-ui',
-      minWidth: 56,
+      fontSize: 13,
+      border: `1.5px solid ${PALETTE.border}`,
     }}>
-      <div style={{ fontSize: 9, opacity: 0.85, color: palette.sub }}>
-        TURN {turnNumber}/{limit}
-      </div>
-      <div style={{ fontSize: 12, fontWeight: 800, marginTop: 1 }}>
-        {left} left
-      </div>
+      {turnNumber}<span style={{ opacity: 0.35, fontWeight: 500, margin: '0 1px' }}>/</span>{limit}
     </div>
   );
 }
