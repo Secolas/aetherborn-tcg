@@ -393,6 +393,81 @@ input {
   100% { opacity: 0; transform: translate(-50%, -50%) scale(2.6); }
 }
 
+/* Pulse on a claimable quest's Claim button — gently calls the eye to it. */
+@keyframes questClaimPulse {
+  0%, 100% { transform: scale(1);    box-shadow: 0 3px 10px rgba(238, 90, 82, .35); }
+  50%      { transform: scale(1.06); box-shadow: 0 6px 18px rgba(238, 90, 82, .55), 0 0 0 4px rgba(255, 209, 102, .35); }
+}
+/* Toast that drops from the top of the screen with a soft bounce. Used for
+   quest progress + completion. */
+@keyframes toastDrop {
+  0%   { opacity: 0; transform: translate(-50%, -28px) scale(0.92); }
+  18%  { opacity: 1; transform: translate(-50%, 4px) scale(1.02); }
+  28%  { transform: translate(-50%, 0) scale(1); }
+  82%  { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -10px) scale(0.96); }
+}
+/* Pack-opening cinematic — pack lifts off the table, then explodes
+   outward, then darkens for the card flip. */
+@keyframes packLift {
+  0%   { transform: translateY(40px) scale(0.7) rotate(0deg); opacity: 0; }
+  25%  { transform: translateY(0) scale(1) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-12px) scale(1.05) rotate(0deg); opacity: 1; }
+}
+/* Tense shake before the burst — pack rattles in the player's grip. */
+@keyframes packTension {
+  0%, 100% { transform: translate(0, -12px) rotate(0) scale(1.05); filter: brightness(1); }
+  20%      { transform: translate(-4px, -10px) rotate(-3deg) scale(1.06); filter: brightness(1.05); }
+  40%      { transform: translate(5px, -14px) rotate(3deg) scale(1.07); filter: brightness(1.10); }
+  60%      { transform: translate(-3px, -10px) rotate(-2deg) scale(1.06); filter: brightness(1.15); }
+  80%      { transform: translate(4px, -14px) rotate(2deg) scale(1.08); filter: brightness(1.20); }
+}
+/* Final explosive scale-up + fade as the seal breaks. */
+@keyframes packExplode {
+  0%   { transform: translateY(-12px) scale(1.08); opacity: 1; filter: brightness(1.3); }
+  35%  { transform: translateY(-30px) scale(1.4); opacity: 1; filter: brightness(2.2) blur(1px); }
+  100% { transform: translateY(-60px) scale(2.6); opacity: 0; filter: brightness(2.5) blur(8px); }
+}
+/* Shockwave ring that ripples out from the pack's center on explode. */
+@keyframes packShockRing {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.2); }
+  20%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(3.4); }
+}
+/* Streaks of light that streak away from the pack center on burst. */
+@keyframes packLightStreak {
+  0%   { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r, 0deg)) translateY(0) scaleY(0.3); }
+  25%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -50%) rotate(var(--r, 0deg)) translateY(-160px) scaleY(1.6); }
+}
+/* Each revealed card flies in from a slight angle then settles. */
+@keyframes cardRevealFlight {
+  0%   { opacity: 0; transform: translateY(80px) scale(0.35) rotate(-10deg); filter: blur(6px); }
+  35%  { opacity: 1; filter: blur(0); }
+  60%  { transform: translateY(-10px) scale(1.08) rotate(2deg); }
+  78%  { transform: translateY(0) scale(0.98) rotate(0deg); }
+  100% { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
+}
+/* Holo sheen sweep for rare+ cards on reveal. */
+@keyframes cardHoloSheen {
+  0%   { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+  20%  { opacity: 0.9; }
+  100% { transform: translateX(220%) skewX(-20deg); opacity: 0; }
+}
+/* Rarity halo for the moment a legendary/epic card hits the screen. */
+@keyframes rarityHalo {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  35%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1); }
+  70%  { opacity: 0.6; transform: translate(-50%, -50%) scale(1.6); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.4); }
+}
+/* Screen flash for the moment of the burst. */
+@keyframes screenWhiteFlash {
+  0%   { opacity: 0; }
+  35%  { opacity: 0.95; }
+  100% { opacity: 0; }
+}
+
 @keyframes coinPulse {
   0%   { transform: scale(0.85); }
   10%  { transform: scale(1.05); }

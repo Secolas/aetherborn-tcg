@@ -200,4 +200,8 @@ export interface SaveData {
       on the boss picker as a small medal. Bosses not yet beaten on Normal
       have no entry. */
   bossesBeatenAt?: Record<string, Difficulty>;
+  /** Daily quests + login streak. Lazily initialized on first boot of the
+   *  schema (App.tsx migration). Rolled over to a fresh day on the first
+   *  session of any new calendar day. */
+  daily?: import('./quests').DailyState;
 }

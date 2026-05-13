@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PhoneShell } from './components/PhoneShell';
 import { HomeMenu } from './screens/HomeMenu';
 import { Collection } from './screens/Collection';
@@ -9,6 +9,12 @@ import { MatchBoard } from './screens/MatchBoard';
 import { BossPicker } from './screens/BossPicker';
 import { Album } from './screens/Album';
 import { SettingsScreen } from './screens/Settings';
+import { Daily } from './screens/Daily';
+import { QuestToast } from './components/QuestToast';
+import {
+  advanceDaily, claimQuest, claimStreak, initialDaily, recordEvent,
+  type DailyState, type Quest, type QuestEvent,
+} from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
 import { aiPhoto } from './data/samplePhotos';
@@ -24,7 +30,7 @@ function newDeckId(): string {
 }
 import { difficultyProfile } from './game/match';
 import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings';
-import { unlockAudio } from './audio/sfx';
+import { unlockAudio, setMusicVolume, playSfx } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
 
@@ -42,7 +48,7 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
@@ -56,17 +62,86 @@ export default function App() {
    *  you test boss balance without first capturing 12+ photos. Cleared
    *  on match exit. */
   const [activeTestTheme, setActiveTestTheme] = useState<ElementId | null>(null);
+  /** Toast queue for quest progress + completion. Drains FIFO with a
+   *  fixed lifetime per toast; multiple completions stack visibly. */
+  const [questToasts, setQuestToasts] = useState<{ id: number; quest: Quest; reason: 'done' | 'streak'; coins?: number }[]>([]);
+  const toastIdRef = useRef(0);
+  const pushToast = (quest: Quest, reason: 'done' | 'streak' = 'done', coins?: number) => {
+    const id = ++toastIdRef.current;
+    setQuestToasts(t => [...t, { id, quest, reason, coins }]);
+    setTimeout(() => setQuestToasts(t => t.filter(x => x.id !== id)), 2600);
+  };
+
+  /** Roll quests + advance the streak on first boot of the day. Wrapped
+   *  in a ref-guard so multiple boots in the same calendar day are no-ops. */
+  useEffect(() => {
+    setSave(s => {
+      const next = advanceDaily(s.daily);
+      if (s.daily && s.daily.dayKey === next.dayKey && s.daily.streak === next.streak) {
+        return s;
+      }
+      return { ...s, daily: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Apply a quest event to the player's save. Surfaces toasts for any
+   *  newly-completed quest so the player gets immediate feedback. */
+  const trackEvent = (event: QuestEvent) => {
+    setSave(s => {
+      const current: DailyState = s.daily ?? initialDaily();
+      const { state, newlyCompleted } = recordEvent(current, event);
+      newlyCompleted.forEach(q => pushToast(q, 'done'));
+      return { ...s, daily: state };
+    });
+  };
+
+  const onClaimQuest = (questId: string) => {
+    setSave(s => {
+      if (!s.daily) return s;
+      const { state, payout } = claimQuest(s.daily, questId);
+      if (payout <= 0) return s;
+      claimSfx();
+      return { ...s, daily: state, coins: s.coins + payout };
+    });
+  };
+
+  const onClaimStreak = () => {
+    setSave(s => {
+      if (!s.daily) return s;
+      const { state, payout } = claimStreak(s.daily);
+      if (payout <= 0) return s;
+      claimSfx();
+      return { ...s, daily: state, coins: s.coins + payout };
+    });
+  };
 
   // Browsers require a user gesture before AudioContext can play. Unlock on
-  // the first pointerdown anywhere in the app, then detach.
+  // the first pointerdown anywhere in the app, then detach. We also kick
+  // off the music engine on first unlock so the ambient pad starts as soon
+  // as the player taps anywhere.
   useEffect(() => {
     const onFirstTap = () => {
       unlockAudio();
+      setMusicVolume(settings.bgmVolume);
       window.removeEventListener('pointerdown', onFirstTap);
     };
     window.addEventListener('pointerdown', onFirstTap, { once: true });
     return () => window.removeEventListener('pointerdown', onFirstTap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-apply music volume whenever the setting changes. setMusicVolume
+  // ramps for ~400ms so dragging the slider sounds smooth instead of
+  // clicky.
+  useEffect(() => {
+    setMusicVolume(settings.bgmVolume);
+  }, [settings.bgmVolume]);
+
+  // Coin chime + sparkle on every claim — fires when the player taps
+  // Claim on either the streak card or a completed quest. Routed through
+  // the SFX volume so muting respects.
+  const claimSfx = () => playSfx('questClaim', settings.sfxVolume);
 
   // Migrate the legacy single-deck representation (`deckUids`) into the
   // multi-deck `decks` array on first boot of the new schema. Existing
@@ -225,6 +300,7 @@ export default function App() {
       collection: [...s.collection, ...cards],
       packsOpened: s.packsOpened + 1,
     }));
+    trackEvent({ kind: 'pack_opened' });
   };
 
   /** Helper: rewrite a specific deck slot's uids. Mirrors the active
@@ -306,6 +382,12 @@ export default function App() {
       setScreen('home');
       return;
     }
+    // Every non-test match — win, loss, or draw — counts as a played match
+    // for quest tracking. Quits don't (the player bailed without a
+    // resolution).
+    if (outcome !== 'quit') trackEvent({ kind: 'match_played' });
+    if (outcome === 'win') trackEvent({ kind: 'match_win', difficulty });
+    if (outcome === 'win' && boss) trackEvent({ kind: 'boss_defeated', bossId: boss.id });
     if (outcome === 'win') {
       setSave(s => {
         const firstTime = boss && !s.bossesDefeated.includes(boss.id);
@@ -364,11 +446,18 @@ export default function App() {
         .map(uid => save.collection.find(c => c.uid === uid))
         .filter((c): c is CollectionCard => !!c && !!c.photo);
 
+  // Surface a small "ready to claim" indicator on the Home menu daily
+  // button. Counts unclaimed-but-completed quests + unclaimed streak.
+  const dailyReadyCount =
+    (save.daily?.streakClaimed ? 0 : 1) +
+    (save.daily?.quests.filter(q => q.progress >= q.goal && !q.claimed).length ?? 0);
+
   return (
     <PhoneShell>
       {screen === 'home' && (
         <HomeMenu
           save={save}
+          dailyReadyCount={dailyReadyCount}
           onQuickFill={onQuickFill}
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
@@ -418,6 +507,7 @@ export default function App() {
       {screen === 'pack' && (
         <PackOpening
           coins={save.coins}
+          settings={settings}
           onPackOpened={onPackOpened}
           onBack={() => setScreen('home')}
         />
@@ -429,6 +519,15 @@ export default function App() {
           onBack={() => setScreen('home')}
         />
       )}
+      {screen === 'daily' && save.daily && (
+        <Daily
+          daily={save.daily}
+          coins={save.coins}
+          onClaimQuest={onClaimQuest}
+          onClaimStreak={onClaimStreak}
+          onBack={() => setScreen('home')}
+        />
+      )}
       {screen === 'boss-picker' && (
         <BossPicker
           defeatedIds={save.bossesDefeated}
@@ -436,6 +535,19 @@ export default function App() {
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
         />
+      )}
+      {/* Quest toast layer — sits above every screen so completion feedback
+          plays mid-match without interrupting gameplay. */}
+      {questToasts.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'max(70px, env(safe-area-inset-top, 70px))', left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          pointerEvents: 'none', zIndex: 1000,
+        }}>
+          {questToasts.map(t => (
+            <QuestToast key={t.id} quest={t.quest} />
+          ))}
+        </div>
       )}
       {screen === 'match' && activeBoss && (
         <MatchBoard
@@ -449,6 +561,8 @@ export default function App() {
             const have = s.discoveredBonds ?? [];
             return have.includes(id) ? s : { ...s, discoveredBonds: [...have, id] };
           })}
+          onCreaturePlayed={() => trackEvent({ kind: 'creature_played' })}
+          onBondTriggered={() => trackEvent({ kind: 'bond_triggered' })}
           onExit={onMatchExit}
         />
       )}

@@ -37,6 +37,11 @@ interface Props {
   /** Called when a bond first activates this match. Used to mark it as
    *  "discovered" in the player's save. */
   onBondDiscovered?: (bondId: string) => void;
+  /** Called once per player creature successfully summoned. Quest tracker. */
+  onCreaturePlayed?: () => void;
+  /** Called once per new bond that activates on the player's side. Quest tracker.
+   *  Distinct from `onBondDiscovered` (which only fires for first-ever bonds). */
+  onBondTriggered?: () => void;
   /** True when the player has already defeated this boss before, so the
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
@@ -73,7 +78,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -399,9 +404,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             step.played.type === 'Spell' ||
             step.played.abilityKind === 'aoe_on_play' ||
             step.played.abilityKind === 'draw_on_play';
-          const holdMs = step.played.type === 'Spell' ? 2700
-            : isImpactful ? 2300
-            : 1900;
+          // Match-pacing pass — original holds (2700/2300/1900ms) made every
+          // boss play feel sluggish. The card is still readable at these
+          // shorter durations while keeping turns under ~5s on average,
+          // which puts a full match in the 3-min sweet spot.
+          const holdMs = step.played.type === 'Spell' ? 2000
+            : isImpactful ? 1500
+            : 1200;
           // Reserve the busy clock for the full reveal hold so the
           // AI driver doesn't tick another action mid-reveal. The
           // post-reveal setState fires its own state-diff which
@@ -423,10 +432,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             setState(step.next);
           }, holdMs);
         } else {
-          // Plain non-animated action — boss "thinking" beat between
-          // moves. Bumped to 1700ms so back-to-back actions read as
-          // deliberate decisions, not reflex spam.
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 1700);
+          // Plain non-animated action — short "thinking" beat between
+          // moves. Trimmed from 1700ms → 950ms so back-to-back actions
+          // feel decisive rather than sluggish.
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
         }
       } else {
         // No more steps — pass the turn back. Use endTurn (not
@@ -438,14 +447,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => endTurn(s));
-        }, 1700);
+        }, 950);
       }
     };
-    // Boss "thinking" delay before any AI action — gives the player
-    // a beat to register the turn change AND finish reading any
-    // queued animations before the boss starts moving. Bumped to
-    // 1800ms so the boss reads as deliberate.
-    const t = setTimeout(tick, 1800);
+    // Initial boss "thinking" beat — trimmed from 1800ms → 1000ms. Still
+    // long enough to let the turn banner land and any queued popups
+    // finish, short enough to keep total match time in the 3-min range.
+    const t = setTimeout(tick, 1000);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -524,6 +532,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (newOpp.length) setNewOppBonds(newOpp);
     sfx('summon');
     for (const id of newPlayer) onBondDiscovered?.(id);
+    // Every newly-active player bond counts toward quest progress, whether
+    // or not it's the player's first encounter with that bond.
+    for (let i = 0; i < newPlayer.length; i++) onBondTriggered?.();
 
     // Cinematic — the first newly-active bond on either side opens a brief
     // center-stage "link up" preview so the activation lands as A Moment,
@@ -1588,6 +1599,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }
           setState(r.state);
           sfx('summon');
+          onCreaturePlayed?.();
         } else {
           flashMsg(r.reason ?? 'Cannot play');
         }
@@ -1630,6 +1642,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setState(r.state);
         setSelectedHandIdx(null);
         sfx('summon');
+        onCreaturePlayed?.();
       } else {
         flashMsg(r.reason ?? 'Cannot play');
       }

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon } from 'lucide-react';
+import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon, Flame } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -7,12 +7,15 @@ import type { CardTemplate, CollectionCard, SaveData } from '../game/types';
 
 interface Props {
   save: SaveData;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings') => void;
+  /** Total claimable items in Daily (completed quests + unclaimed streak).
+   *  Drives the badge on the Daily nav chip. */
+  dailyReadyCount?: number;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily') => void;
   onQuickFill: () => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
 
-export function HomeMenu({ save, onNav, onQuickFill, onSetAvatar }: Props) {
+export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetAvatar }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -130,6 +133,32 @@ export function HomeMenu({ save, onNav, onQuickFill, onSetAvatar }: Props) {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={() => onNav('daily')}
+            aria-label="Daily quests"
+            style={{
+              position: 'relative',
+              width: 36, height: 36, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #ff9f1c, #ee5a52)',
+              border: '2px solid #fff',
+              boxShadow: '0 3px 10px rgba(238,90,82,.40)',
+              display: 'grid', placeItems: 'center',
+              cursor: 'pointer',
+              padding: 0,
+              color: '#fff',
+            }}
+          >
+            <Flame size={18} strokeWidth={2.2} fill="#ffd166" color="#ffd166" />
+            {dailyReadyCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -3, right: -3,
+                minWidth: 16, height: 16, padding: '0 4px',
+                borderRadius: 999, background: '#06d6a0', color: '#fff',
+                fontSize: 9, fontWeight: 800, lineHeight: '16px',
+                border: '2px solid #fff',
+              }}>{dailyReadyCount}</span>
+            )}
+          </button>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 6,
             background: '#fff',
