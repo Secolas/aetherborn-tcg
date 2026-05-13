@@ -1830,11 +1830,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       </div>
 
-      {/* Top spacer — absorbs extra vertical space and hosts the face-down
-          opponent hand so it floats between the header and the opp field row. */}
-      <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4, overflow: 'hidden' }}>
-        <OpponentHand size={initialDealing ? oppInitialDealt : state.opponent.hand.length} />
-      </div>
+      {/* Top spacer — empty flex space that keeps the opponent field row
+          vertically balanced with the player field. The hand fan is hidden
+          to keep the battlefield clean; draws still show the fly animation. */}
+      <div style={{ flex: '1 1 auto', minHeight: 8 }} />
 
       {/* Opponent's creature row. Stacked above the divider (zIndex 4) so
           damage/buff popups that overshoot upward off the card render on top
