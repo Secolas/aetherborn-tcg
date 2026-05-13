@@ -34,25 +34,37 @@ Surface neutrals (`TEXT`, `TEXT_MID`, `TEXT_LIGHT`, `PAPER`, `BG`,
 **Stage 1 (done):** Tokens defined, `PALETTE` in
 `src/components/styles.ts` consumes them. Zero visual change.
 
-**Stage 2 (open):** Collapse near-duplicate hues in actual usage. The
-audit identified:
+**Stage 2 (done):** Visible unifications applied.
 
-- **Three greens** → one `OWNED` (currently the mint).
-  Creature card chrome (`#3d8e57`) should shift to a desaturated teal
-  that doesn't read as "yours". Animals theme tint stays in
-  `src/data/elements.ts`.
+- ✅ **Creature chrome → muted teal.** `TYPE_PALETTE.Creature` moved
+  from forest green (`#5ea76b` / `#1f4d2d`) to teal (`#5a8a7e` /
+  `#1f4641`). The Type · Theme chip on each creature card matches via
+  a new `chip` field on `TYPE_PALETTE` (`#3d7a72` for creatures).
+  Removes the three-greens collision with `OWNED` mint.
+- ✅ **Silence status → `SPELL` violet.** Silence is a spell effect,
+  so the status pill on a silenced creature now matches the violet
+  used on spell-card chrome.
+- ✅ **Frozen status → `RESOURCE` token.** Same hex, just sourced from
+  the token instead of a literal — frozen ≈ mana-locked.
+- ✅ **Unaffordable cost ring → `DAMAGE` token.** The "you can't pay
+  this" affordance reads consistently with HP/destructive surfaces.
+- ✅ **Tapped → opacity 0.6.** Already in place pre-audit; no change
+  required.
+
+**Stage 3 (open):** Lower-priority unifications.
+
 - **Gold has 5 jobs** → keep two distinct golds: `SELECTION`
-  (selection/bond) and `PREMIUM` (coins/legendary). Attack-ready
-  pulse should reuse `SELECTION`.
-- **Coral vs Damage red.** `BRAND` (coral, "go") and `DAMAGE` (deeper
-  crimson, "harm") are already distinct in tokens — but inline hex
-  literals across `MatchBoard.tsx` still mix them. Migrate as edits
-  touch those areas.
-- **Spell violet absorbs silence status.** Silence already _is_ a
-  spell effect; reuse `SPELL`.
-- **Resource blue absorbs frozen status.** Frozen ≈ mana-locked;
-  reuse `RESOURCE`.
-- **Tapped → opacity 0.6** (no unique grey overlay).
+  (selection/bond/attack-ready) and `PREMIUM` (coins/legendary). The
+  two hexes are already distinct in tokens; this is a tokenize-the-
+  literal pass, not a recolor.
+- **Coral vs Damage red gap.** `BRAND` and `DAMAGE` are distinct in
+  tokens, but destructive-action button gradients still pull from
+  `#ee5a52` (BRAND) instead of a DAMAGE-family hue. The "Remove from
+  deck" / "Delete deck" / "Give up" buttons could shift to a tighter
+  crimson range so "primary CTA" and "destructive CTA" don't visually
+  collapse.
+- **Element tints** still live in `src/data/elements.ts` and won't
+  move — they're foundational card identity.
 
 ### How to migrate
 

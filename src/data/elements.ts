@@ -33,10 +33,17 @@ export const ELEMENTS: Record<ElementId, ElementDef> = {
  * Card chrome is colored by TYPE, not theme. Every creature looks the same;
  * every spell looks the same. Themes are signaled via the element glyph and
  * the type chip text, never the card color.
+ *
+ * Stage 2 of the color unification (see src/design/README.md): Creature
+ * chrome moved from forest green (#5ea76b / #1f4d2d) to a muted teal so
+ * it no longer reads as "yours" in competition with the OWNED mint
+ * (#06d6a0) used for player-side bond badges + reward indicators.
+ * Distance from OWNED is the goal — a desaturated cyan-teal is far
+ * enough from mint that the eye reads them as two separate cues.
  */
 export const TYPE_PALETTE = {
-  Creature: { top: '#5ea76b', deep: '#1f4d2d' },
-  Spell:    { top: '#9c6fc8', deep: '#3d2456' },
+  Creature: { top: '#5a8a7e', deep: '#1f4641', chip: '#3d7a72' },
+  Spell:    { top: '#9c6fc8', deep: '#3d2456', chip: '#7a4ea8' },
 } as const;
 
 export const RARITY_COLOR: Record<string, string> = {
