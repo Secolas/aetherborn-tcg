@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Layers, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Info } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -1609,11 +1609,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       castPendingAt({ kind: 'face', owner: 'opponent' });
       return;
     }
-    if (selectedAttacker) playerAttack('face');
+    if (selectedAttacker) {
+      playerAttack('face');
+      return;
+    }
+    setInfoSide('opponent');
   };
 
   const onMyFaceClick = () => {
-    if (pendingSpell) castPendingAt({ kind: 'face', owner: 'player' });
+    if (pendingSpell) {
+      castPendingAt({ kind: 'face', owner: 'player' });
+      return;
+    }
+    setInfoSide('player');
   };
 
   const castPendingAt = (target: SpellTarget) => {
@@ -1777,11 +1785,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_OPP] ?? null}
             elRef={(el) => registerEl(FACE_OPP, el)}
           />
-          <InfoChip onClick={() => setInfoSide('opponent')} />
           <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <DeckChip count={state.opponent.deck.length} handSize={state.opponent.hand.length} />
           <GraveyardButton
             count={state.opponent.discard.length}
             onClick={() => setGraveyardOpen('opponent')}
@@ -2006,11 +2012,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             damage={damages[FACE_PLAYER] ?? null}
             elRef={(el) => registerEl(FACE_PLAYER, el)}
           />
-          <InfoChip onClick={() => setInfoSide('player')} />
           <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} pulseKey={manaPulse} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <DeckChip count={state.player.deck.length} handSize={state.player.hand.length} />
           <GraveyardButton
             count={state.player.discard.length}
             onClick={() => setGraveyardOpen('player')}
@@ -3708,7 +3712,7 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   return (
     <div ref={elRef} onClick={onClick} style={{
       display: 'flex', alignItems: 'center', gap: 8, position: 'relative',
-      cursor: ring ? 'pointer' : 'default',
+      cursor: 'pointer',
       padding: 4, borderRadius: 30,
       background: '#fff',
       boxShadow: ring
@@ -3755,11 +3759,6 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   );
 }
 
-/**
- * Small chevron-pill next to a portrait. Tapping it opens the InfoPopover
- * for that side (hand/deck/graveyard counts + Action Log shortcut). Sized
- * to look like an unobtrusive companion to the portrait, not a button.
- */
 function InfoRow({ label, value }: { label: string; value: number }) {
   return (
     <div style={{
@@ -3771,27 +3770,6 @@ function InfoRow({ label, value }: { label: string; value: number }) {
       <span style={{ fontWeight: 500 }}>{label}</span>
       <span style={{ fontWeight: 800 }}>{value}</span>
     </div>
-  );
-}
-
-function InfoChip({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      aria-label="More info"
-      style={{
-        width: 18, height: 18, borderRadius: '50%',
-        border: 'none',
-        background: 'rgba(255,255,255,0.85)',
-        color: '#7a6258',
-        boxShadow: '0 2px 4px rgba(58,46,42,0.18)',
-        cursor: 'pointer',
-        display: 'grid', placeItems: 'center',
-        flex: '0 0 auto',
-      }}
-    >
-      <Info size={11} strokeWidth={2.6} />
-    </button>
   );
 }
 
@@ -3829,39 +3807,12 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
   );
 }
 
-function DeckChip({ count, handSize }: { count: number; handSize: number }) {
-  // Tight number-only chip — labels were pushing the right cluster off the
-  // screen edge on narrow phones. Layers icon + deck count + thin divider +
-  // hand count is enough to read at a glance.
-  return (
-    <div style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      background: '#fff',
-      padding: '5px 9px', borderRadius: 14,
-      boxShadow: '0 3px 8px rgba(58,46,42,.10)',
-      fontSize: 12, fontWeight: 700, color: PALETTE.text,
-      fontFamily: '"Fredoka", "Inter", system-ui',
-    }}>
-      <Layers size={13} color={PALETTE.accentDeep} strokeWidth={2.4} />
-      <span>{count}</span>
-      <span style={{ width: 1, height: 12, background: 'rgba(58,46,42,.15)' }} />
-      <span style={{ color: PALETTE.textMid }}>{handSize}</span>
-    </div>
-  );
-}
-
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
-  // Compact "5 / 7" pill with a vertical "vial" showing the actual fill
-  // level as a rising liquid. A CSS height transition handles the fill
-  // animation when mana changes; a wave overlay at the meniscus keeps the
-  // surface alive between turns. The chip remounts on every pulseKey
-  // change so the manaGain pop replays at the start of the player's turn.
-  const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;
   return (
     <div
       key={pulseKey}
       style={{
-        display: 'flex', alignItems: 'center', gap: 6,
+        display: 'flex', alignItems: 'center', gap: 5,
         background: '#fff',
         padding: '5px 10px 5px 8px', borderRadius: 14,
         boxShadow: '0 4px 10px rgba(58,46,42,.12)',
@@ -3869,35 +3820,7 @@ function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: numb
         animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
       }}
     >
-      {/* Liquid vial — diamond shape, transparent shell, fill rises from
-          the bottom. The wave is a small radial gradient that wobbles
-          horizontally so the surface looks like real liquid. */}
-      <div style={{
-        position: 'relative',
-        width: 16, height: 22,
-        clipPath: 'polygon(50% 0, 100% 30%, 82% 100%, 18% 100%, 0 30%)',
-        background: 'rgba(58,143,196,.18)',
-        overflow: 'hidden',
-        boxShadow: 'inset 0 0 0 1px rgba(28,84,120,.2)',
-      }}>
-        <div style={{
-          position: 'absolute', left: 0, right: 0, bottom: 0,
-          height: `${fillPct * 100}%`,
-          background: 'linear-gradient(180deg, #6ec8ff 0%, #3a8fc4 60%, #1c5478 100%)',
-          // Smooth height transition fires automatically when mana rises
-          // (or drops, after a play). Cubic-bezier matches the manaGain pop.
-          transition: 'height .6s cubic-bezier(.2,.8,.3,1)',
-          boxShadow: 'inset 0 4px 6px rgba(255,255,255,.35)',
-        }}>
-          {/* Meniscus highlight + lateral wobble for "alive" feel. */}
-          <div style={{
-            position: 'absolute', top: -2, left: -3, right: -3, height: 4,
-            background: 'radial-gradient(ellipse 50% 100% at 50% 100%, #9ed6f7 0%, transparent 70%)',
-            animation: 'manaWave 2.4s ease-in-out infinite',
-            opacity: fillPct > 0 ? 1 : 0,
-          }} />
-        </div>
-      </div>
+      <Zap size={14} fill="#3a8fc4" color="#3a8fc4" strokeWidth={2} />
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
