@@ -211,21 +211,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  banners + AI delays present it as a sequence even though the
    *  engine just calls aiStep iteratively. */
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
-  /** Measured board-relative positions for bond connection lines.
-   *  Populated by a useLayoutEffect so positions come from real DOM rects.
-   *  Two shapes:
-   *   - 'arc' connects two cards with a curved bridge arching away from
-   *     the center divider (above the player's cards / below the
-   *     opponent's). Used for ordinary pair bonds — single bond, two
-   *     bonded cards on a side.
-   *   - 'line' is a straight stroke from a card to a pill hub. Used when
-   *     three or more cards on the same side share bonds (chain bonds);
-   *     the pill becomes a Y-shape hub since a single arc can't connect
-   *     three points cleanly. */
-  type BondLine =
-    | { key: string; kind: 'arc'; x1: number; y1: number; x2: number; y2: number; cx: number; cy: number }
-    | { key: string; kind: 'line'; x1: number; y1: number; x2: number; y2: number };
-  const [bondLineData, setBondLineData] = useState<BondLine[]>([]);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
@@ -1271,91 +1256,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     lastRectsRef.current = next;
   });
 
-  // Measure bond icon positions when the field or claimed bonds change.
-  // Dependency array prevents running on every render; rounding prevents
-  // sub-pixel jitter from triggering spurious re-renders.
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board) { setBondLineData([]); return; }
-    const boardRect = board.getBoundingClientRect();
-    const lines: BondLine[] = [];
-
-    for (const [bonds, field, side] of [
-      [playerActiveBonds, state.player.field, 'player' as const],
-      [opponentActiveBonds, state.opponent.field, 'opponent' as const],
-    ] as [BondDef[], typeof state.player.field, 'player' | 'opponent'][]) {
-      const bondedIds = new Set<string>();
-      for (const bond of bonds) {
-        const a = field.find(c => c.id === bond.cardA);
-        const b = field.find(c => c.id === bond.cardB);
-        if (a) bondedIds.add(a.battleId);
-        if (b) bondedIds.add(b.battleId);
-      }
-      const bondedCount = bondedIds.size;
-
-      for (const bond of bonds) {
-        const cardA = field.find(c => c.id === bond.cardA);
-        const cardB = field.find(c => c.id === bond.cardB);
-        if (!cardA || !cardB) continue;
-        const elA = cardEls.current.get(cardA.battleId);
-        const elB = cardEls.current.get(cardB.battleId);
-        if (!elA || !elB) continue;
-        const rA = elA.getBoundingClientRect();
-        const rB = elB.getBoundingClientRect();
-        // Anchor on the outside edge of each card — top for player
-        // creatures, bottom for opponent — so the arc reads as a halo
-        // arching AWAY from the center divider. Pill positions mirror
-        // this: player pill below cards, opponent pill above.
-        const useTop = side === 'player';
-        const ax = Math.round(rA.left + rA.width / 2 - boardRect.left);
-        const ay = Math.round((useTop ? rA.top : rA.top + rA.height) - boardRect.top);
-        const bx = Math.round(rB.left + rB.width / 2 - boardRect.left);
-        const by = Math.round((useTop ? rB.top : rB.top + rB.height) - boardRect.top);
-
-        if (bondedCount <= 2) {
-          // Quadratic Bezier: control point sits perpendicular to the
-          // anchor midline, pushed away from the divider. Arc height
-          // scales with horizontal distance so adjacent cards get a
-          // gentle dome and far-apart cards get a pronounced bridge.
-          const midX = (ax + bx) / 2;
-          const midY = (ay + by) / 2;
-          const dist = Math.abs(bx - ax);
-          const arc = Math.max(28, Math.min(72, dist * 0.32));
-          const cy = useTop ? (midY - arc) : (midY + arc);
-          lines.push({
-            key: `${bond.id}-arc`,
-            kind: 'arc',
-            x1: ax, y1: ay, x2: bx, y2: by,
-            cx: midX, cy,
-          });
-        } else {
-          // Chain-bond fallback: pill becomes a Y-hub since a single
-          // arc can't visit three or more endpoints cleanly. Straight
-          // lines back to the pill, same as before — only the anchor
-          // edge moved to match the new arc-style cards.
-          const pillEl = bondPillEls.current.get(bond.id);
-          if (!pillEl) continue;
-          const pR = pillEl.getBoundingClientRect();
-          const px = Math.round(pR.left + pR.width / 2 - boardRect.left);
-          const py = Math.round(pR.top + pR.height / 2 - boardRect.top);
-          lines.push(
-            { key: `${bond.id}-lineA`, kind: 'line', x1: ax, y1: ay, x2: px, y2: py },
-            { key: `${bond.id}-lineB`, kind: 'line', x1: bx, y1: by, x2: px, y2: py },
-          );
-        }
-      }
-    }
-    setBondLineData(prev => {
-      if (prev.length !== lines.length) return lines;
-      for (let i = 0; i < lines.length; i++) {
-        const a = prev[i], b = lines[i];
-        if (a.kind !== b.kind || a.key !== b.key || a.x1 !== b.x1 || a.y1 !== b.y1 || a.x2 !== b.x2 || a.y2 !== b.y2) return lines;
-        if (a.kind === 'arc' && b.kind === 'arc' && (a.cx !== b.cx || a.cy !== b.cy)) return lines;
-      }
-      return prev;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.player.field, state.opponent.field, state.player.claimedBonds, state.opponent.claimedBonds]);
+  // Bond line measurement effect removed along with the SVG overlay
+  // below. The bond pill (per side, above/below cards) plus the
+  // per-card link badge cover the same information without the visual
+  // noise of an extra SVG layer.
 
   // DOM positions of the attacker and defender (or the face portrait) and
   // hand them to the SVG overlay below.
@@ -2281,7 +2185,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               dragElastic={0.8}
               dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
               initial={false}
-              animate={{ rotate: poseRot, y: poseY }}
+              // Horizontal stride (xOff) is now part of `animate` so when
+              // the hand reflows (a card leaves and the rest fan into a
+              // new layout), Framer springs every remaining card to its
+              // new slot instead of snapping. dragSnapToOrigin returns x
+              // to whatever its pre-drag value was — which IS xOff — so
+              // grabbed cards still bounce home cleanly.
+              animate={{ x: xOff, rotate: poseRot, y: poseY }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               onDragStart={() => handleDragStart(card)}
               onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
@@ -2299,7 +2209,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               style={{
                 position: 'absolute',
                 bottom: 0,
-                left: `calc(50% + ${xOff}px)`,
+                left: '50%',
                 marginLeft: -cardW / 2,
                 width: cardW,
                 height: 320 * baseScale,
@@ -3153,41 +3063,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
-      {/* Bond connection lines — rendered from useLayoutEffect-measured
-          positions so they always land on real DOM geometry. */}
-      {bondLineData.length > 0 && (
-        <svg style={{
-          position: 'absolute', inset: 0,
-          width: '100%', height: '100%',
-          pointerEvents: 'none', zIndex: 8,
-          overflow: 'visible',
-        }}>
-          <defs>
-            <filter id="bondGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <g filter="url(#bondGlow)">
-            {bondLineData.map(l => l.kind === 'arc' ? (
-              <path
-                key={l.key}
-                d={`M ${l.x1},${l.y1} Q ${l.cx},${l.cy} ${l.x2},${l.y2}`}
-                stroke="#f4d04a" strokeWidth={2.5} strokeLinecap="round"
-                fill="none"
-                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-              />
-            ) : (
-              <line
-                key={l.key}
-                x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                stroke="#f4d04a" strokeWidth={2} strokeLinecap="round"
-                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-              />
-            ))}
-          </g>
-        </svg>
-      )}
+      {/* Bond connection lines removed — the bond pill above/below each
+          side's field is the canonical "this bond is active" indicator.
+          Per-card link badges already show which creatures are bonded;
+          drawing additional arcs added visual noise without information. */}
 
       {/* Action-log history panel — slide-up drawer listing every engine
           log entry in reverse-chronological order so the most recent

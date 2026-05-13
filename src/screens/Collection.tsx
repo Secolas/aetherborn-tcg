@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Lock, Camera, Trash2, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { iconBtn, PALETTE } from '../components/styles';
@@ -224,9 +225,15 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
             justifyItems: 'center',
             alignContent: 'start',
           }}>
+            <AnimatePresence initial={false} mode="popLayout">
             {filtered.map(card => {
               return (
-                <div key={card.uid}
+                <motion.div key={card.uid}
+                  layout
+                  initial={{ opacity: 0, scale: 0.7 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.7 }}
+                  transition={{ type: 'spring', stiffness: 480, damping: 32 }}
                   onClick={() => {
                     // Dormant card → go capture a photo
                     if (!card.photo) onCapture(card);
@@ -267,9 +274,10 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
                       placeholder
                     </div>
                   )}
-                </div>
+                </motion.div>
               );
             })}
+            </AnimatePresence>
           </div>
         )}
       </div>

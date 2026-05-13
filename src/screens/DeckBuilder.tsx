@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
@@ -306,19 +307,30 @@ export function DeckBuilder({
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {sortedDeckUids.map(uid => {
-            const c = collection.find(x => x.uid === uid);
-            if (!c) return null;
-            return (
-              <div
-                key={uid}
-                onClick={() => setInspectActive(c)}
-                style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
-              >
-                <Card card={c} scale={0.32} />
-              </div>
-            );
-          })}
+          {/* Deck strip — uses AnimatePresence so toggling a card in or
+              out of the deck plays a brief scale + fade transition
+              instead of snapping. layout makes the remaining cards
+              glide horizontally to fill the gap. */}
+          <AnimatePresence initial={false}>
+            {sortedDeckUids.map(uid => {
+              const c = collection.find(x => x.uid === uid);
+              if (!c) return null;
+              return (
+                <motion.div
+                  key={uid}
+                  layout
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  onClick={() => setInspectActive(c)}
+                  style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
+                >
+                  <Card card={c} scale={0.32} />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
           {deckUids.length === 0 && (
             <div style={{ fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic' }}>
               Tap a summoned card below to add it.
@@ -393,18 +405,21 @@ export function DeckBuilder({
         justifyItems: 'center',
         alignContent: 'start',
       }}>
+        <AnimatePresence initial={false} mode="popLayout">
         {filtered.map(card => {
           const inDeck = deckUids.includes(card.uid);
           const playable = !!card.photo;
           return (
-            <div key={card.uid}
+            <motion.div key={card.uid}
+              layout
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: playable ? 1 : 0.6, scale: inDeck ? 0.95 : 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 32 }}
               onClick={() => playable && toggle(card.uid)}
               style={{
                 cursor: playable ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                opacity: playable ? 1 : 0.6,
-                transform: inDeck ? 'scale(0.95)' : 'scale(1)',
-                transition: 'transform .15s',
               }}>
               <Card card={card} scale={layout === 'compact' ? 0.4 : 0.65} hovered={inDeck} />
               {inDeck && (
@@ -433,9 +448,10 @@ export function DeckBuilder({
                   {layout === 'compact' ? '' : ' Dormant'}
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5, padding: 40, fontSize: 13 }}>
             {collection.length === 0 ? 'Open a pack to start building.' : 'Nothing matches this filter.'}
