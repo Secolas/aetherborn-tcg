@@ -21,6 +21,10 @@ export interface BoardSkinDef {
    *  uses MatchBoard's default warm tone. */
   ambient?: string;
   background: string;
+  /** True when the skin renders a dark background. Text overlays
+   *  (center divider message, dashed drop-zone outlines) switch to a
+   *  light palette so they stay readable. */
+  isDark?: boolean;
 }
 
 export const BOARD_SKINS: Record<BoardSkinId, BoardSkinDef> = {
@@ -45,6 +49,7 @@ export const BOARD_SKINS: Record<BoardSkinId, BoardSkinDef> = {
       linear-gradient(180deg, #2a2546 0%, #3d2b56 50%, #5b3a6e 100%)
     `,
     ambient: '#7d62a4',
+    isDark: true,
   },
   inkwell: {
     id: 'inkwell',
@@ -60,6 +65,7 @@ export const BOARD_SKINS: Record<BoardSkinId, BoardSkinDef> = {
       linear-gradient(180deg, #0e1730 0%, #131e3d 60%, #1c2a52 100%)
     `,
     ambient: '#3a5380',
+    isDark: true,
   },
 };
 
