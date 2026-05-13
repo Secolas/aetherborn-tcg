@@ -1957,7 +1957,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             absolute child with pointer-events:none so it never intercepts
             clicks. Hidden while the band is showing the casting hint or
             drop hint. */}
-        {!pendingSpell && !drag?.overField && (
+        {!pendingSpell && !drag?.overField && msg !== 'Your turn' && msg !== `${boss.name}'s turn` && (
           <div style={{
             position: 'absolute', top: 6, left: 0, right: 0,
             textAlign: 'center', pointerEvents: 'none',
@@ -1965,9 +1965,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             textTransform: 'uppercase',
             color: PALETTE.textMid,
           }}>
-            {msg !== 'Your turn' && msg !== `${boss.name}'s turn`
-              ? msg
-              : (state.turn === 'player' ? 'Your Turn' : "Opponent's Turn")}
+            {msg}
           </div>
         )}
       </div>

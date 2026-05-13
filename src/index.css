@@ -297,9 +297,9 @@ input {
 }
 @keyframes drawFlyOpp {
   0%   { opacity: 0; transform: translate(0, 0) rotate(0deg) scale(0.55); }
-  15%  { opacity: 1; transform: translate(-30px, 10px) rotate(4deg) scale(0.7); }
-  60%  { opacity: 1; transform: translate(-160px, 90px) rotate(18deg) scale(1.0); }
-  100% { opacity: 0; transform: translate(-200px, 130px) rotate(22deg) scale(0.9); }
+  15%  { opacity: 1; transform: translate(-30px, -8px) rotate(-5deg) scale(0.7); }
+  60%  { opacity: 1; transform: translate(-160px, -24px) rotate(-10deg) scale(1.0); }
+  100% { opacity: 0; transform: translate(-200px, -40px) rotate(-14deg) scale(0.9); }
 }
 
 /* Mana chip pulse — when the active player gains a mana point at the start
