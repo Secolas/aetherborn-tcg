@@ -2185,13 +2185,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               dragElastic={0.8}
               dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
               initial={false}
-              // Horizontal stride (xOff) is now part of `animate` so when
-              // the hand reflows (a card leaves and the rest fan into a
-              // new layout), Framer springs every remaining card to its
-              // new slot instead of snapping. dragSnapToOrigin returns x
-              // to whatever its pre-drag value was — which IS xOff — so
-              // grabbed cards still bounce home cleanly.
-              animate={{ x: xOff, rotate: poseRot, y: poseY }}
+              // x is excluded from `animate` for the card currently
+              // being dragged so Framer's drag owns the motion value
+              // without interference. The animate.x kept fighting the
+              // drag write on mobile (each re-render during drag would
+              // reassert x = xOff momentarily), leaving the card in
+              // the wrong slot after release. When isDraggingThis
+              // flips back to false on drag end, animate.x = xOff
+              // kicks in and the card slots back to its fan position.
+              animate={
+                isDraggingThis
+                  ? { rotate: poseRot, y: poseY }
+                  : { x: xOff, rotate: poseRot, y: poseY }
+              }
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
               onDragStart={() => handleDragStart(card)}
               onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
