@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Gem } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -1435,6 +1435,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // ============== Drag from hand ==============
   const onCardPointerDown = (ev: React.PointerEvent, card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    if (pendingDrawIds.size > 0) return;
     // Note: we no longer block pointer-down on unaffordable cards. Players can
     // still tap them to preview — the mana check happens at PLAY time.
     const rect = ev.currentTarget.getBoundingClientRect();
@@ -1535,6 +1536,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** Tap a hand card: toggle selection. The card lifts up as a preview. */
   const handleHandTap = (_card: BattleCard, idx: number) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    if (pendingDrawIds.size > 0) return;
     // Selection is allowed even if mana is short — the player can still preview
     // a card. The mana check fires when they actually try to play.
     setSelectedHandIdx(prev => prev === idx ? null : idx);
@@ -1830,7 +1832,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
       {/* Top spacer — absorbs extra vertical space and hosts the face-down
           opponent hand so it floats between the header and the opp field row. */}
-      <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4 }}>
+      <div style={{ flex: '1 1 auto', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center', minHeight: 30, paddingBottom: 4, overflow: 'hidden' }}>
         <OpponentHand size={initialDealing ? oppInitialDealt : state.opponent.hand.length} />
       </div>
 
@@ -2599,14 +2601,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           left, announces the phase, then exits right. Color-coded by phase
           so Draw/Main/Battle/End each read as a distinct beat. */}
       {phaseBanner && (() => {
-        const phaseColors: Record<string, { bar: string; glow: string; text: string }> = {
-          'Draw Phase':   { bar: 'linear-gradient(90deg, #0a6e4a, #06d6a0, #0a6e4a)', glow: '#06d6a088', text: '#d4fff4' },
-          'Main Phase':   { bar: 'linear-gradient(90deg, #1a3a8a, #4a90e2, #1a3a8a)', glow: '#4a90e288', text: '#d8eeff' },
-          'Battle Phase': { bar: 'linear-gradient(90deg, #7a1010, #ee5a52, #7a1010)', glow: '#ee5a5288', text: '#ffe8e8' },
-          'End Phase':    { bar: 'linear-gradient(90deg, #3a2060, #8060c8, #3a2060)', glow: '#8060c888', text: '#ede0ff' },
-        };
-        const colors = phaseColors[phaseBanner.text] ?? { bar: 'linear-gradient(90deg, #3a2e2a, #7a6e62, #3a2e2a)', glow: '#7a6e6288', text: '#fff' };
         const DURATION = 950;
+        const ownerLabel = phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`;
         return (
           <div
             key={phaseBanner.key}
@@ -2618,24 +2614,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }}
           >
             <div style={{
-              background: colors.bar,
-              boxShadow: `0 0 32px ${colors.glow}, 0 4px 18px rgba(0,0,0,.45)`,
-              padding: '10px 0',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-              borderTop: `1.5px solid rgba(255,255,255,.18)`,
-              borderBottom: `1.5px solid rgba(255,255,255,.18)`,
+              background: 'linear-gradient(90deg, #1a1008 0%, #3a2810 20%, #2a1e0c 50%, #3a2810 80%, #1a1008 100%)',
+              boxShadow: '0 0 28px rgba(244,208,74,.22), 0 4px 18px rgba(0,0,0,.55)',
+              padding: '9px 0',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              borderTop: '1.5px solid rgba(244,208,74,.35)',
+              borderBottom: '1.5px solid rgba(244,208,74,.35)',
             }}>
               <div style={{
-                fontSize: 9, fontWeight: 700, letterSpacing: '0.25em',
-                textTransform: 'uppercase', color: 'rgba(255,255,255,.6)',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.28em',
+                textTransform: 'uppercase', color: 'rgba(244,208,74,.65)',
                 animation: `ygoPhaseLabel ${DURATION}ms ease both`,
+                fontFamily: '"Inter", system-ui',
               }}>
-                {phaseBanner.side === 'player' ? 'YOUR' : `${boss.name.toUpperCase()}'S`}
+                {ownerLabel}
               </div>
               <div style={{
-                fontSize: 22, fontWeight: 900, letterSpacing: '0.18em',
-                textTransform: 'uppercase', color: colors.text,
-                textShadow: `0 2px 8px rgba(0,0,0,.5), 0 0 20px ${colors.glow}`,
+                fontSize: 21, fontWeight: 900, letterSpacing: '0.16em',
+                textTransform: 'uppercase', color: '#f4d04a',
+                textShadow: '0 2px 8px rgba(0,0,0,.7), 0 0 18px rgba(244,208,74,.4)',
                 fontFamily: '"Fredoka", system-ui',
                 animation: `ygoPhaseLabel ${DURATION}ms ease both`,
               }}>
@@ -3316,66 +3313,66 @@ function FieldRow({
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6 }}>
       {slots.map((c, i) => {
-        if (!c) {
-          const isTarget = dragOverSlot === i;
-          return (
-            <div
-              key={`empty-${i}`}
-              data-slot={i}
-              style={{
-                width: 64, height: 88,
-                borderRadius: 8,
-                border: isTarget
-                  ? '2px solid #f4d04a'
-                  : highlightEmpty
-                    ? '2px dashed #f4d04a'
-                    : '1.5px dashed rgba(58,46,42,.18)',
-                background: isTarget
-                  ? 'rgba(244,208,74,.28)'
-                  : highlightEmpty
-                    ? 'rgba(244,208,74,.12)'
-                    : 'rgba(255,255,255,.18)',
-                boxShadow: isTarget ? '0 0 12px rgba(244,208,74,.5)' : undefined,
-                transform: isTarget ? 'scale(1.04)' : 'none',
-                transition: 'border-color .1s, background .1s, transform .1s, box-shadow .1s',
-                flex: '0 0 auto',
-              }}
-            />
-          );
-        }
-        const isSlotTarget = dragOverSlot === i;
-        const targetable = isTargetableForSpell(c, pendingSpell, side);
-        const isCombatAttacker = combat?.attackerId === c.battleId && combat.attackerOwner === side;
-        const isCombatDefender = combat?.defenderId === c.battleId && combat.defenderOwner === side;
+        const isEmpty = !c;
+        const isDragTarget = isEmpty && dragOverSlot === i;
+        const isBlockedTarget = !isEmpty && dragOverSlot === i;
+        const targetable = c ? isTargetableForSpell(c, pendingSpell, side) : false;
+        const isCombatAttacker = c ? combat?.attackerId === c.battleId && combat.attackerOwner === side : false;
+        const isCombatDefender = c ? combat?.defenderId === c.battleId && combat.defenderOwner === side : false;
         const friendlySpell = side === 'player' && (
           pendingSpell?.abilityKind === 'spell_buff' ||
           pendingSpell?.abilityKind === 'spell_nourish' ||
           pendingSpell?.abilityKind === 'spell_heal_friend'
         );
-        const dyingEntry = dying[c.battleId];
+        const dyingEntry = c ? dying[c.battleId] : null;
+
+        // Single stable wrapper per slot — always present so the dashed
+        // border never pops in/out when a creature enters or leaves.
         return (
           <div
-            key={c.battleId}
+            key={`slot-${i}`}
             data-slot={i}
-            ref={(el) => registerEl(c.battleId, el)}
+            ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
-              display: 'flex',
-              flex: '0 0 auto',
+              width: 64, height: 88,
               borderRadius: 8,
-              // Occupied slot targeted by drag → subtle red "blocked" ring
-              boxShadow: isSlotTarget ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)' : undefined,
-              transition: 'box-shadow .1s',
+              flex: '0 0 auto',
+              position: 'relative',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              // Always show a slot outline; scale opacity down when occupied
+              // so the border is invisible under a card but never needs to
+              // "appear" — eliminating the pop when a creature leaves.
+              border: isDragTarget
+                ? '2px solid #f4d04a'
+                : highlightEmpty && isEmpty
+                  ? '2px dashed #f4d04a'
+                  : `1.5px dashed rgba(58,46,42,${isEmpty ? '.18' : '.06'})`,
+              background: isDragTarget
+                ? 'rgba(244,208,74,.28)'
+                : highlightEmpty && isEmpty
+                  ? 'rgba(244,208,74,.12)'
+                  : isEmpty
+                    ? 'rgba(255,255,255,.18)'
+                    : 'transparent',
+              boxShadow: isDragTarget
+                ? '0 0 12px rgba(244,208,74,.5)'
+                : isBlockedTarget
+                  ? '0 0 0 2px #ee5a52, 0 0 10px rgba(238,90,82,.35)'
+                  : undefined,
+              transform: isDragTarget ? 'scale(1.04)' : 'none',
+              transition: 'transform .1s, box-shadow .1s',
               ...(dyingEntry ? {
                 animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
                 animationDelay: `${dyingEntry.delayMs}ms`,
                 pointerEvents: 'none',
                 zIndex: 8,
-                position: 'relative',
                 ['--gx' as string]: `${dyingEntry.gx}px`,
                 ['--gy' as string]: `${dyingEntry.gy}px`,
-              } : null),
+              } : {}),
             }}
           >
+          {c && (
+            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <BattlefieldCard
               card={c}
               shaking={isCombatDefender}
@@ -3402,6 +3399,8 @@ function FieldRow({
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />
+            </div>
+          )}
           </div>
         );
       })}
@@ -3579,16 +3578,16 @@ function GraveyardButton({ count, onClick, elRef, pulseKey }: {
 
 /** Face-down hand at the top — visualizes how many cards the boss is holding. */
 function OpponentHand({ size }: { size: number }) {
-  if (size <= 0) return null;
-  // Negative margin compresses the cards into a fan. Tighter for big hands.
+  // Always render the container so the spacer height is stable during the
+  // opening deal. Without this, the null → content transition causes the
+  // entire field layout to shift when the first opponent card appears.
   const overlap = size <= 4 ? -28 : size <= 6 ? -38 : -46;
-  // Lives inside the top spacer (flex column). No absolute positioning —
-  // the spacer sizes itself based on available room.
   return (
     <div style={{
       display: 'flex', justifyContent: 'center', alignItems: 'flex-start',
       pointerEvents: 'none',
       zIndex: 4,
+      minHeight: 70,
     }}>
       {Array.from({ length: size }).map((_, i) => {
         const offset = i - (size - 1) / 2;
@@ -3838,6 +3837,8 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
 }
 
 function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
+  // Gem icon matches the card-cost badge shape (both are the "mana currency"
+  // of the game). Players learn: circle on card = these gems = spend to play.
   return (
     <div
       key={pulseKey}
@@ -3850,7 +3851,7 @@ function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: numb
         animation: pulseKey ? 'manaGain .6s ease-out' : undefined,
       }}
     >
-      <Zap size={14} fill="#3a8fc4" color="#3a8fc4" strokeWidth={2} />
+      <Gem size={14} fill="#3a8fc4" color="#1c5478" strokeWidth={1.5} />
       <span style={{ fontSize: 14, fontWeight: 800, color: '#1c5478', letterSpacing: '-0.01em' }}>
         {mana}
       </span>
