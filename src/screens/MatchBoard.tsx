@@ -3544,8 +3544,16 @@ function FieldRow({
         );
         const dyingEntry = c ? dying[c.battleId] : null;
 
-        // Single stable wrapper per slot — always present so the dashed
-        // border never pops in/out when a creature enters or leaves.
+        // Single stable wrapper per slot — always present in the DOM
+        // so layout doesn't reflow when a creature enters or leaves.
+        // Visually, the slot outline is hidden when the slot is empty
+        // AND we're not in a "show targets" state (drag-over or
+        // pendingSpell). Showing empty boxes by default cluttered the
+        // field. The outline becomes visible during drag-over (yellow
+        // highlight) so the player still has a drop target, and stays
+        // behind any card that's actually in the slot (or animating
+        // out via dyingEntry).
+        const showOutline = !isEmpty || !!dyingEntry || isDragTarget || (highlightEmpty && isEmpty);
         return (
           <div
             key={`slot-${i}`}
@@ -3557,21 +3565,18 @@ function FieldRow({
               flex: '0 0 auto',
               position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              // Always show a slot outline; scale opacity down when occupied
-              // so the border is invisible under a card but never needs to
-              // "appear" — eliminating the pop when a creature leaves.
               border: isDragTarget
                 ? '2px solid #f4d04a'
                 : highlightEmpty && isEmpty
                   ? '2px dashed #f4d04a'
-                  : '1.5px dashed rgba(58,46,42,.14)',
+                  : showOutline
+                    ? '1.5px dashed rgba(58,46,42,.14)'
+                    : '1.5px solid transparent',
               background: isDragTarget
                 ? 'rgba(244,208,74,.28)'
                 : highlightEmpty && isEmpty
                   ? 'rgba(244,208,74,.12)'
-                  : isEmpty
-                    ? 'rgba(255,255,255,.18)'
-                    : 'transparent',
+                  : 'transparent',
               boxShadow: isDragTarget
                 ? '0 0 12px rgba(244,208,74,.5)'
                 : isBlockedTarget
@@ -3596,6 +3601,7 @@ function FieldRow({
             }}>
             <BattlefieldCard
               card={c}
+              owned={side === 'player'}
               shaking={isCombatDefender}
               dying={false}
               dimWhenExhausted={side === 'player'}
