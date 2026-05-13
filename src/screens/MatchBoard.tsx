@@ -1882,7 +1882,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const centerText = drag?.overField
           ? (drag.cardType === 'Creature' ? '↓ Summon ↓' : '↓ Choose target ↓')
           : pendingSpell
-            ? `Casting · ${pendingSpell.name}`
+            ? `${pendingSpell.name} · ${spellTargetHint(pendingSpell)}`
             : (msg !== 'Your turn' && msg !== `${boss.name}'s turn` ? msg : '');
         return (
           <div ref={fieldRef} style={{
