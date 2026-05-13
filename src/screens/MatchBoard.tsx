@@ -2258,14 +2258,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               position: 'fixed',
               left: drag.x - drag.ox,
               top: drag.y - drag.oy,
-              transform: 'scale(0.85)',
-              transformOrigin: 'top left',
               zIndex: 9999,
               pointerEvents: 'none',
-              filter: drag.overField ? 'drop-shadow(0 12px 24px rgba(244,208,74,.4))' : 'drop-shadow(0 8px 16px rgba(0,0,0,.4))',
+              filter: drag.overField ? 'drop-shadow(0 8px 18px rgba(244,208,74,.45))' : 'drop-shadow(0 6px 12px rgba(0,0,0,.35))',
             }}
           >
-            <Card card={card} scale={1} hovered />
+            <Card card={card} scale={0.56} />
           </div>
         );
       })()}
