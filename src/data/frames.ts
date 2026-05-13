@@ -56,7 +56,11 @@ export const FRAMES: Record<FrameId, FrameDef> = {
         '0 0 0 1px #8a6a14, 0 0 0 3.5px #f4d04a, 0 0 24px rgba(244,208,74,.65), 0 10px 26px rgba(0,0,0,.40)',
     },
     inner: {
-      boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.6), inset 0 0 14px rgba(244,208,74,.35)',
+      // Reduced inner-glow inset from 14px → 8px so the gold tint
+      // stays near the card edge instead of bleeding into the corners
+      // where the ATK / HP orbs sit. With 14px the yellow ATK orb
+      // visually merged with the gold glow.
+      boxShadow: 'inset 0 0 0 1.5px rgba(255,255,255,.6), inset 0 0 8px rgba(244,208,74,.30)',
     },
     accent: '#f4d04a',
   },

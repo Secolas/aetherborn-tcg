@@ -47,12 +47,16 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
     ? `linear-gradient(180deg, ${tp.top}aa 0%, ${tp.deep}cc 100%)`
     : `linear-gradient(180deg, ${tp.top} 0%, ${tp.deep} 100%)`;
 
-  // Equipped frame cosmetic (read from app-wide context). Only applied
-  // when this card is the player's own — opponent renders pass owned=
-  // false so the boss's cards stay in their baseline chrome. Classic
-  // returns an empty outer/inner so the default styling shows through.
+  // Equipped frame cosmetic. Two gates: must be the player's own card
+  // (owned) AND we must be inside the match UI (inMatch). Browsing
+  // surfaces — Collection, DeckBuilder, Capture, the Cosmetics locker
+  // — leave inMatch=false at the app root so the frame doesn't bleed
+  // into every Card render. MatchBoard wraps its content in a nested
+  // CosmeticsProvider with inMatch=true so the frame shows only during
+  // actual gameplay.
   const cosm = useCosmetics();
-  const frame = owned ? getFrame(cosm.frame) : getFrame('classic');
+  const frameEnabled = owned && cosm.inMatch;
+  const frame = frameEnabled ? getFrame(cosm.frame) : getFrame('classic');
   const frameOuterShadow = frame.outer?.boxShadow as string | undefined;
   const frameInnerShadow = frame.inner?.boxShadow as string | undefined;
   // Hovered cards still get the warm yellow ring (selection affordance);
@@ -263,9 +267,16 @@ function StatOrb({ value, bg, border, textColor, position, scale }: {
       color: textColor,
       display: 'grid', placeItems: 'center',
       fontSize: 19 * scale, fontWeight: 800,
-      boxShadow: `0 0 0 ${2.5 * scale}px ${border}, 0 ${3 * scale}px ${5 * scale}px rgba(0,0,0,.4)`,
+      // Outer dark "halo" so the orb edge always separates from
+      // whatever the card chrome / frame is doing behind it. Without
+      // the halo, the yellow ATK orb blended into the Gilded frame's
+      // gold inset glow and the orb edge disappeared.
+      boxShadow: `0 0 0 ${2.5 * scale}px ${border}, 0 0 0 ${3.5 * scale}px rgba(0,0,0,.45), 0 ${3 * scale}px ${5 * scale}px rgba(0,0,0,.4)`,
       fontFamily: '"Fredoka", system-ui',
       lineHeight: 1,
+      // Stat orbs always sit on top of any inner frame overlay so
+      // they read cleanly through the cosmetic chrome.
+      zIndex: 10,
     }}>{value}</div>
   );
 }

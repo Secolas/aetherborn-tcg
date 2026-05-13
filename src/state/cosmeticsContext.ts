@@ -10,17 +10,26 @@ import { type EmoteId } from '../data/victoryEmotes';
  *
  * Default values match the starter cosmetics so any consumer rendered
  * outside the provider (storybook, tests, dev tools) still works.
+ *
+ * `inMatch` gates frame cosmetics specifically: frames are intended to
+ * decorate the player's cards during an actual match, not in the
+ * Collection / DeckBuilder / Capture browsing surfaces. The MatchBoard
+ * wraps its render with a nested provider that flips inMatch to true.
+ * Board-skin and emote are match-only by nature already, so they don't
+ * need their own gate.
  */
 export interface CosmeticsCtx {
   frame: FrameId;
   boardSkin: BoardSkinId;
   emote: EmoteId;
+  inMatch: boolean;
 }
 
 export const DEFAULT_COSMETICS: CosmeticsCtx = {
   frame: 'classic',
   boardSkin: 'daylight',
   emote: 'gg',
+  inMatch: false,
 };
 
 export const CosmeticsContext = createContext<CosmeticsCtx>(DEFAULT_COSMETICS);

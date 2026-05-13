@@ -23,6 +23,7 @@ import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState, Diffic
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { useCosmetics } from '../state/cosmeticsContext';
+import { CosmeticsProvider } from '../state/cosmetics';
 import { getBoardSkin } from '../data/boardSkins';
 import { getEmote } from '../data/victoryEmotes';
 
@@ -1803,6 +1804,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const opponentActiveBonds = activeBonds(state.opponent);
 
   return (
+    // Wrap the match render with a nested CosmeticsProvider that flips
+    // inMatch on. Card's frame logic gates on (owned && inMatch), so
+    // this is where the equipped frame "activates" — every Card
+    // outside the match (Collection, DeckBuilder, Capture, Cosmetics
+    // locker) stays in its baseline chrome.
+    <CosmeticsProvider
+      frame={cosmetics.frame}
+      boardSkin={cosmetics.boardSkin}
+      emote={cosmetics.emote}
+      inMatch
+    >
     <div
       ref={boardRef}
       // Drag handlers moved off the board root — each motion.div in the
@@ -2251,7 +2263,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 // space between cards doesn't catch clicks. Each card
                 // must opt back in or taps/drags won't register.
                 pointerEvents: 'auto',
-                opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
+                // When ONE hand card is selected for preview, the
+                // others fade to a low opacity so the player can read
+                // the centered preview without the rest of the hand
+                // competing for attention. Selected card itself goes
+                // to 0 since the centered preview takes its place.
+                opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.2) : 1,
                 transition: 'opacity .15s',
                 willChange: 'transform',
                 // Visual flourishes that don't conflict with the
@@ -3379,6 +3396,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         </div>
       )}
     </div>
+    </CosmeticsProvider>
   );
 }
 

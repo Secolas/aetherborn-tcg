@@ -13,15 +13,22 @@ interface ProviderProps {
   frame?: FrameId;
   boardSkin?: BoardSkinId;
   emote?: EmoteId;
+  /** When true, the equipped frame is applied to player Card renders.
+   *  Defaults to false at the app root so frames don't bleed into
+   *  Collection, DeckBuilder, Capture, or the Cosmetics locker. The
+   *  MatchBoard wraps its match UI with a nested provider that flips
+   *  this to true. */
+  inMatch?: boolean;
   children: ReactNode;
 }
 
-export function CosmeticsProvider({ frame, boardSkin, emote, children }: ProviderProps) {
+export function CosmeticsProvider({ frame, boardSkin, emote, inMatch = false, children }: ProviderProps) {
   return (
     <CosmeticsContext.Provider value={{
       frame: frame ?? 'classic',
       boardSkin: boardSkin ?? 'daylight',
       emote: emote ?? 'gg',
+      inMatch,
     }}>
       {children}
     </CosmeticsContext.Provider>
