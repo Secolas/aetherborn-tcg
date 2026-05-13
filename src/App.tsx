@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { PhoneShell } from './components/PhoneShell';
 import { HomeMenu } from './screens/HomeMenu';
 import { Collection } from './screens/Collection';
@@ -9,8 +9,21 @@ import { MatchBoard } from './screens/MatchBoard';
 import { BossPicker } from './screens/BossPicker';
 import { Album } from './screens/Album';
 import { SettingsScreen } from './screens/Settings';
+import { Daily } from './screens/Daily';
+import { QuestToast } from './components/QuestToast';
+import {
+  advanceDaily, claimQuest, claimStreak, initialDaily, recordEvent,
+  type DailyState, type Quest, type QuestEvent,
+} from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
 import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { STARTER_FILTERS, type FilterId } from './data/filters';
+import { STARTER_FRAMES, type FrameId } from './data/frames';
+import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
+import { STARTER_EMOTES, type EmoteId } from './data/victoryEmotes';
+import { CosmeticsProvider } from './state/cosmetics';
+import { Cosmetics } from './screens/Cosmetics';
+import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
@@ -24,7 +37,7 @@ function newDeckId(): string {
 }
 import { difficultyProfile } from './game/match';
 import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings';
-import { unlockAudio } from './audio/sfx';
+import { unlockAudio, setMusicVolume, playSfx } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
 
@@ -39,10 +52,18 @@ function makeInitialSave(): SaveData {
     matchesWon: 0,
     matchesLost: 0,
     bossesDefeated: [],
+    unlockedFilters: [...STARTER_FILTERS],
+    unlockedFrames: [...STARTER_FRAMES],
+    unlockedBoardSkins: [...STARTER_BOARD_SKINS],
+    unlockedEmotes: [...STARTER_EMOTES],
+    equippedFrame: 'classic',
+    equippedBoardSkin: 'daylight',
+    equippedEmote: 'gg',
+    openedMemoryPacks: [],
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
@@ -56,17 +77,113 @@ export default function App() {
    *  you test boss balance without first capturing 12+ photos. Cleared
    *  on match exit. */
   const [activeTestTheme, setActiveTestTheme] = useState<ElementId | null>(null);
+  /** Toast queue for quest progress + completion. Drains FIFO with a
+   *  fixed lifetime per toast; multiple completions stack visibly. */
+  const [questToasts, setQuestToasts] = useState<{ id: number; quest: Quest; reason: 'done' | 'streak'; coins?: number }[]>([]);
+  const toastIdRef = useRef(0);
+  const pushToast = (quest: Quest, reason: 'done' | 'streak' = 'done', coins?: number) => {
+    const id = ++toastIdRef.current;
+    setQuestToasts(t => [...t, { id, quest, reason, coins }]);
+    setTimeout(() => setQuestToasts(t => t.filter(x => x.id !== id)), 2600);
+  };
+
+  /** Roll quests + advance the streak on first boot of the day. Wrapped
+   *  in a ref-guard so multiple boots in the same calendar day are no-ops. */
+  useEffect(() => {
+    setSave(s => {
+      const next = advanceDaily(s.daily);
+      if (s.daily && s.daily.dayKey === next.dayKey && s.daily.streak === next.streak) {
+        return s;
+      }
+      return { ...s, daily: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Backfill cosmetic state on legacy saves that predate the various
+   *  cosmetic systems. Each field is checked independently so this
+   *  migration stays idempotent across schema rollouts. */
+  useEffect(() => {
+    setSave(s => {
+      const needsFilters = !s.unlockedFilters || s.unlockedFilters.length === 0;
+      const needsMemory = !s.openedMemoryPacks;
+      const needsFrames = !s.unlockedFrames || s.unlockedFrames.length === 0;
+      const needsBoards = !s.unlockedBoardSkins || s.unlockedBoardSkins.length === 0;
+      const needsEmotes = !s.unlockedEmotes || s.unlockedEmotes.length === 0;
+      const needsEquipped = !s.equippedFrame || !s.equippedBoardSkin || !s.equippedEmote;
+      if (!needsFilters && !needsMemory && !needsFrames && !needsBoards && !needsEmotes && !needsEquipped) return s;
+      return {
+        ...s,
+        unlockedFilters: needsFilters ? [...STARTER_FILTERS] : s.unlockedFilters,
+        unlockedFrames: needsFrames ? [...STARTER_FRAMES] : s.unlockedFrames,
+        unlockedBoardSkins: needsBoards ? [...STARTER_BOARD_SKINS] : s.unlockedBoardSkins,
+        unlockedEmotes: needsEmotes ? [...STARTER_EMOTES] : s.unlockedEmotes,
+        equippedFrame: s.equippedFrame ?? 'classic',
+        equippedBoardSkin: s.equippedBoardSkin ?? 'daylight',
+        equippedEmote: s.equippedEmote ?? 'gg',
+        openedMemoryPacks: needsMemory ? [] : s.openedMemoryPacks,
+      };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Apply a quest event to the player's save. Surfaces toasts for any
+   *  newly-completed quest so the player gets immediate feedback. */
+  const trackEvent = (event: QuestEvent) => {
+    setSave(s => {
+      const current: DailyState = s.daily ?? initialDaily();
+      const { state, newlyCompleted } = recordEvent(current, event);
+      newlyCompleted.forEach(q => pushToast(q, 'done'));
+      return { ...s, daily: state };
+    });
+  };
+
+  const onClaimQuest = (questId: string) => {
+    setSave(s => {
+      if (!s.daily) return s;
+      const { state, payout } = claimQuest(s.daily, questId);
+      if (payout <= 0) return s;
+      claimSfx();
+      return { ...s, daily: state, coins: s.coins + payout };
+    });
+  };
+
+  const onClaimStreak = () => {
+    setSave(s => {
+      if (!s.daily) return s;
+      const { state, payout } = claimStreak(s.daily);
+      if (payout <= 0) return s;
+      claimSfx();
+      return { ...s, daily: state, coins: s.coins + payout };
+    });
+  };
 
   // Browsers require a user gesture before AudioContext can play. Unlock on
-  // the first pointerdown anywhere in the app, then detach.
+  // the first pointerdown anywhere in the app, then detach. We also kick
+  // off the music engine on first unlock so the ambient pad starts as soon
+  // as the player taps anywhere.
   useEffect(() => {
     const onFirstTap = () => {
       unlockAudio();
+      setMusicVolume(settings.bgmVolume);
       window.removeEventListener('pointerdown', onFirstTap);
     };
     window.addEventListener('pointerdown', onFirstTap, { once: true });
     return () => window.removeEventListener('pointerdown', onFirstTap);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-apply music volume whenever the setting changes. setMusicVolume
+  // ramps for ~400ms so dragging the slider sounds smooth instead of
+  // clicky.
+  useEffect(() => {
+    setMusicVolume(settings.bgmVolume);
+  }, [settings.bgmVolume]);
+
+  // Coin chime + sparkle on every claim — fires when the player taps
+  // Claim on either the streak card or a completed quest. Routed through
+  // the SFX volume so muting respects.
+  const claimSfx = () => playSfx('questClaim', settings.sfxVolume);
 
   // Migrate the legacy single-deck representation (`deckUids`) into the
   // multi-deck `decks` array on first boot of the new schema. Existing
@@ -225,7 +342,79 @@ export default function App() {
       collection: [...s.collection, ...cards],
       packsOpened: s.packsOpened + 1,
     }));
+    trackEvent({ kind: 'pack_opened' });
   };
+
+  /** Memory pack open. Debits coins, appends cards, marks the pack as
+   *  opened, and on first-open grants the pack's bonus cosmetic filter. */
+  const onMemoryPackOpened = (packId: string, cards: CollectionCard[], cost: number) => {
+    const def = getMemoryPack(packId);
+    setSave(s => {
+      const already = (s.openedMemoryPacks ?? []).includes(packId);
+      const unlocked = s.unlockedFilters ?? [...STARTER_FILTERS];
+      const bonus = def?.bonusFilter;
+      const grantFilter = !already && bonus && !unlocked.includes(bonus);
+      return {
+        ...s,
+        coins: s.coins - cost,
+        collection: [...s.collection, ...cards],
+        packsOpened: s.packsOpened + 1,
+        openedMemoryPacks: already
+          ? s.openedMemoryPacks
+          : [...(s.openedMemoryPacks ?? []), packId],
+        unlockedFilters: grantFilter ? [...unlocked, bonus] : unlocked,
+      };
+    });
+    trackEvent({ kind: 'pack_opened' });
+  };
+
+  /** Buy a filter inline from the Capture cosmetic picker. Debits coins
+   *  and adds the filter to the unlocked list. No-ops on insufficient
+   *  funds or an already-unlocked filter so callers can fire freely. */
+  const onBuyFilter = (filterId: FilterId, cost: number) => {
+    setSave(s => {
+      const unlocked = s.unlockedFilters ?? [...STARTER_FILTERS];
+      if (unlocked.includes(filterId)) return s;
+      if (s.coins < cost) return s;
+      // Cheap UX sparkle — same chime used for quest claim. Cosmetic
+      // unlocks deserve the same little payoff moment.
+      playSfx('questClaim', settings.sfxVolume);
+      return {
+        ...s,
+        coins: s.coins - cost,
+        unlockedFilters: [...unlocked, filterId],
+      };
+    });
+  };
+
+  /** Buy a card frame, board skin, or victory emote. Shared closure
+   *  shape so the four buy callbacks below stay one-liners. */
+  const buyCosmetic = <K extends 'unlockedFrames' | 'unlockedBoardSkins' | 'unlockedEmotes'>(
+    key: K,
+    starter: string[],
+    id: string,
+    cost: number,
+  ) => {
+    setSave(s => {
+      const unlocked = (s[key] as string[] | undefined) ?? starter;
+      if (unlocked.includes(id)) return s;
+      if (s.coins < cost) return s;
+      playSfx('questClaim', settings.sfxVolume);
+      return { ...s, coins: s.coins - cost, [key]: [...unlocked, id] } as SaveData;
+    });
+  };
+  const onBuyFrame = (id: FrameId, cost: number) => buyCosmetic('unlockedFrames', [...STARTER_FRAMES], id, cost);
+  const onBuyBoardSkin = (id: BoardSkinId, cost: number) => buyCosmetic('unlockedBoardSkins', [...STARTER_BOARD_SKINS], id, cost);
+  const onBuyEmote = (id: EmoteId, cost: number) => buyCosmetic('unlockedEmotes', [...STARTER_EMOTES], id, cost);
+
+  /** Equip handlers — only commit if the cosmetic is actually unlocked,
+   *  so accidental URL state or buggy callers can't equip a locked one. */
+  const onEquipFrame = (id: FrameId) => setSave(s =>
+    (s.unlockedFrames ?? STARTER_FRAMES).includes(id) ? { ...s, equippedFrame: id } : s);
+  const onEquipBoardSkin = (id: BoardSkinId) => setSave(s =>
+    (s.unlockedBoardSkins ?? STARTER_BOARD_SKINS).includes(id) ? { ...s, equippedBoardSkin: id } : s);
+  const onEquipEmote = (id: EmoteId) => setSave(s =>
+    (s.unlockedEmotes ?? STARTER_EMOTES).includes(id) ? { ...s, equippedEmote: id } : s);
 
   /** Helper: rewrite a specific deck slot's uids. Mirrors the active
    *  deck's uids back into the legacy `deckUids` field so any code still
@@ -306,6 +495,12 @@ export default function App() {
       setScreen('home');
       return;
     }
+    // Every non-test match — win, loss, or draw — counts as a played match
+    // for quest tracking. Quits don't (the player bailed without a
+    // resolution).
+    if (outcome !== 'quit') trackEvent({ kind: 'match_played' });
+    if (outcome === 'win') trackEvent({ kind: 'match_win', difficulty });
+    if (outcome === 'win' && boss) trackEvent({ kind: 'boss_defeated', bossId: boss.id });
     if (outcome === 'win') {
       setSave(s => {
         const firstTime = boss && !s.bossesDefeated.includes(boss.id);
@@ -364,11 +559,23 @@ export default function App() {
         .map(uid => save.collection.find(c => c.uid === uid))
         .filter((c): c is CollectionCard => !!c && !!c.photo);
 
+  // Surface a small "ready to claim" indicator on the Home menu daily
+  // button. Counts unclaimed-but-completed quests + unclaimed streak.
+  const dailyReadyCount =
+    (save.daily?.streakClaimed ? 0 : 1) +
+    (save.daily?.quests.filter(q => q.progress >= q.goal && !q.claimed).length ?? 0);
+
   return (
+    <CosmeticsProvider
+      frame={save.equippedFrame}
+      boardSkin={save.equippedBoardSkin}
+      emote={save.equippedEmote}
+    >
     <PhoneShell>
       {screen === 'home' && (
         <HomeMenu
           save={save}
+          dailyReadyCount={dailyReadyCount}
           onQuickFill={onQuickFill}
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
@@ -397,6 +604,9 @@ export default function App() {
       {screen === 'capture' && (
         <Capture
           template={capturing}
+          coins={save.coins}
+          unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
+          onBuyFilter={onBuyFilter}
           onComplete={onCaptureComplete}
           onBack={() => { setCapturing(null); setScreen('collection'); }}
         />
@@ -418,7 +628,10 @@ export default function App() {
       {screen === 'pack' && (
         <PackOpening
           coins={save.coins}
+          settings={settings}
+          openedMemoryPacks={save.openedMemoryPacks ?? []}
           onPackOpened={onPackOpened}
+          onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
         />
       )}
@@ -429,6 +642,35 @@ export default function App() {
           onBack={() => setScreen('home')}
         />
       )}
+      {screen === 'daily' && save.daily && (
+        <Daily
+          daily={save.daily}
+          coins={save.coins}
+          onClaimQuest={onClaimQuest}
+          onClaimStreak={onClaimStreak}
+          onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'cosmetics' && (
+        <Cosmetics
+          coins={save.coins}
+          unlockedFrames={save.unlockedFrames ?? [...STARTER_FRAMES]}
+          unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
+          unlockedBoardSkins={save.unlockedBoardSkins ?? [...STARTER_BOARD_SKINS]}
+          unlockedEmotes={save.unlockedEmotes ?? [...STARTER_EMOTES]}
+          equippedFrame={save.equippedFrame ?? 'classic'}
+          equippedBoardSkin={save.equippedBoardSkin ?? 'daylight'}
+          equippedEmote={save.equippedEmote ?? 'gg'}
+          onBuyFrame={onBuyFrame}
+          onBuyFilter={onBuyFilter}
+          onBuyBoardSkin={onBuyBoardSkin}
+          onBuyEmote={onBuyEmote}
+          onEquipFrame={onEquipFrame}
+          onEquipBoardSkin={onEquipBoardSkin}
+          onEquipEmote={onEquipEmote}
+          onBack={() => setScreen('home')}
+        />
+      )}
       {screen === 'boss-picker' && (
         <BossPicker
           defeatedIds={save.bossesDefeated}
@@ -436,6 +678,19 @@ export default function App() {
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
         />
+      )}
+      {/* Quest toast layer — sits above every screen so completion feedback
+          plays mid-match without interrupting gameplay. */}
+      {questToasts.length > 0 && (
+        <div style={{
+          position: 'absolute', top: 'max(70px, env(safe-area-inset-top, 70px))', left: 0, right: 0,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+          pointerEvents: 'none', zIndex: 1000,
+        }}>
+          {questToasts.map(t => (
+            <QuestToast key={t.id} quest={t.quest} />
+          ))}
+        </div>
       )}
       {screen === 'match' && activeBoss && (
         <MatchBoard
@@ -449,9 +704,12 @@ export default function App() {
             const have = s.discoveredBonds ?? [];
             return have.includes(id) ? s : { ...s, discoveredBonds: [...have, id] };
           })}
+          onCreaturePlayed={() => trackEvent({ kind: 'creature_played' })}
+          onBondTriggered={() => trackEvent({ kind: 'bond_triggered' })}
           onExit={onMatchExit}
         />
       )}
     </PhoneShell>
+    </CosmeticsProvider>
   );
 }

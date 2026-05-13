@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { motion } from 'framer-motion';
 import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
@@ -21,6 +22,9 @@ import type { BossDef } from '../data/bosses';
 import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState, Difficulty } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
+import { useCosmetics } from '../state/cosmeticsContext';
+import { getBoardSkin } from '../data/boardSkins';
+import { getEmote } from '../data/victoryEmotes';
 
 interface Props {
   deck: CollectionCard[];
@@ -37,6 +41,11 @@ interface Props {
   /** Called when a bond first activates this match. Used to mark it as
    *  "discovered" in the player's save. */
   onBondDiscovered?: (bondId: string) => void;
+  /** Called once per player creature successfully summoned. Quest tracker. */
+  onCreaturePlayed?: () => void;
+  /** Called once per new bond that activates on the player's side. Quest tracker.
+   *  Distinct from `onBondDiscovered` (which only fires for first-ever bonds). */
+  onBondTriggered?: () => void;
   /** True when the player has already defeated this boss before, so the
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
@@ -44,12 +53,16 @@ interface Props {
   onExit: (outcome: 'win' | 'loss' | 'draw' | 'quit') => void;
 }
 
+/**
+ * Drag state for the hand → field interaction. Framer Motion owns the
+ * visual position of the dragged card (via motion.div transforms), so we
+ * only track what the drop logic needs: which card is being dragged, its
+ * type (creature vs spell — gates drop targeting), and whether it's
+ * currently hovering over the field / a specific slot for highlighting.
+ */
 interface DragState {
   battleId: string;
   cardType: 'Creature' | 'Spell';
-  x: number; y: number;     // current finger position (viewport coords)
-  startX: number; startY: number; // where the press began — used to detect tap-vs-drag
-  ox: number; oy: number;   // finger offset within card at drag start
   overField: boolean;
   /** Specific field slot (0-2) the drag is hovering over, or null. */
   overSlot: number | null;
@@ -73,13 +86,19 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
   /** Fire an SFX cue at the user's chosen volume — no-op if muted. */
   const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, settingsRef.current.sfxVolume);
+  /** Cosmetic state — board skin paints the bedrock background, victory
+   *  emote shows on the match-end overlay. Card frame is read by the
+   *  Card component directly via the same context. */
+  const cosmetics = useCosmetics();
+  const boardSkin = getBoardSkin(cosmetics.boardSkin);
+  const victoryEmote = getEmote(cosmetics.emote);
   const [state, setState] = useState<MatchState>(() => createMatch(deck, boss, difficulty));
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
@@ -130,6 +149,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [inspect, setInspect] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
+  /** Legendary-summon cinematic. Whenever a creature of rarity `legendary`
+   *  hits the field on either side, we briefly darken the screen, render
+   *  a halo behind the card at full size, and shake the board. Auto-clears
+   *  ~1400ms later. Plays in addition to the standard summonHalo + cardSlam
+   *  so non-legendary summons still get their normal beat. */
+  const [legendarySummon, setLegendarySummon] = useState<{
+    card: BattleCard; owner: Owner;
+  } | null>(null);
   /** Spell the player just cast, shown as a centered reveal — same beat as opponentReveal. */
   const [playerSpellReveal, setPlayerSpellReveal] = useState<BattleCard | null>(null);
   /** Sliding "YOUR TURN" / "BOSS TURN" banner — drives the keyframe on turn change. */
@@ -184,11 +211,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  banners + AI delays present it as a sequence even though the
    *  engine just calls aiStep iteratively. */
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
-  /** Measured board-relative positions for bond connection lines.
-   *  Populated by a useLayoutEffect so positions come from real DOM rects. */
-  const [bondLineData, setBondLineData] = useState<
-    Array<{ key: string; x1: number; y1: number; x2: number; y2: number }>
-  >([]);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
@@ -233,6 +255,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   /** Bumps any time a hold is extended, so the AI driver re-runs and
    *  re-schedules its tick against the latest deadline. */
   const [animTick, setAnimTick] = useState(0);
+
+  /** Trigger the legendary-summon cinematic if the just-played card is
+   *  legendary. Holds the animation pipeline for ~1400ms so subsequent
+   *  AI actions don't tick over it; sfx 'summon' is already fired by
+   *  the caller so this only adds the visual layer. */
+  const LEGENDARY_FX_MS = 1400;
+  const fireLegendarySummon = (card: BattleCard, owner: Owner) => {
+    if (card.rarity !== 'legendary' || card.type !== 'Creature') return;
+    setLegendarySummon({ card, owner });
+    holdAnim(LEGENDARY_FX_MS);
+    setTimeout(() => setLegendarySummon(s => (s && s.card.battleId === card.battleId ? null : s)), LEGENDARY_FX_MS);
+  };
   const drawIdRef = useRef(0);
   /** Fire a single card-back flight for `side` after `delay` ms. The
    *  flight ID is unique per call so React keys the animation
@@ -399,9 +433,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             step.played.type === 'Spell' ||
             step.played.abilityKind === 'aoe_on_play' ||
             step.played.abilityKind === 'draw_on_play';
-          const holdMs = step.played.type === 'Spell' ? 2700
-            : isImpactful ? 2300
-            : 1900;
+          // Match-pacing pass — original holds (2700/2300/1900ms) made every
+          // boss play feel sluggish. The card is still readable at these
+          // shorter durations while keeping turns under ~5s on average,
+          // which puts a full match in the 3-min sweet spot.
+          const holdMs = step.played.type === 'Spell' ? 2000
+            : isImpactful ? 1500
+            : 1200;
           // Reserve the busy clock for the full reveal hold so the
           // AI driver doesn't tick another action mid-reveal. The
           // post-reveal setState fires its own state-diff which
@@ -421,12 +459,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             if (cancelled) return;
             setOpponentReveal(null);
             setState(step.next);
+            // Fire the legendary cinematic after state advances so the
+            // creature is already on the field — the overlay reads as
+            // "this big card just landed on the board", not floating in
+            // a vacuum. Skipped for spells; rarity check inside.
+            if (step.played) fireLegendarySummon(step.played, 'opponent');
           }, holdMs);
         } else {
-          // Plain non-animated action — boss "thinking" beat between
-          // moves. Bumped to 1700ms so back-to-back actions read as
-          // deliberate decisions, not reflex spam.
-          setTimeout(() => { if (!cancelled) setState(step.next); }, 1700);
+          // Plain non-animated action — short "thinking" beat between
+          // moves. Trimmed from 1700ms → 950ms so back-to-back actions
+          // feel decisive rather than sluggish.
+          setTimeout(() => { if (!cancelled) setState(step.next); }, 950);
         }
       } else {
         // No more steps — pass the turn back. Use endTurn (not
@@ -438,14 +481,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           if (cancelled) return;
           showMsg('Your turn');
           setState(s => endTurn(s));
-        }, 1700);
+        }, 950);
       }
     };
-    // Boss "thinking" delay before any AI action — gives the player
-    // a beat to register the turn change AND finish reading any
-    // queued animations before the boss starts moving. Bumped to
-    // 1800ms so the boss reads as deliberate.
-    const t = setTimeout(tick, 1800);
+    // Initial boss "thinking" beat — trimmed from 1800ms → 1000ms. Still
+    // long enough to let the turn banner land and any queued popups
+    // finish, short enough to keep total match time in the 3-min range.
+    const t = setTimeout(tick, 1000);
     return () => {
       cancelled = true;
       clearTimeout(t);
@@ -524,6 +566,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (newOpp.length) setNewOppBonds(newOpp);
     sfx('summon');
     for (const id of newPlayer) onBondDiscovered?.(id);
+    // Every newly-active player bond counts toward quest progress, whether
+    // or not it's the player's first encounter with that bond.
+    for (let i = 0; i < newPlayer.length; i++) onBondTriggered?.();
 
     // Cinematic — the first newly-active bond on either side opens a brief
     // center-stage "link up" preview so the activation lands as A Moment,
@@ -1211,67 +1256,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     lastRectsRef.current = next;
   });
 
-  // Measure bond icon positions when the field or claimed bonds change.
-  // Dependency array prevents running on every render; rounding prevents
-  // sub-pixel jitter from triggering spurious re-renders.
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board) { setBondLineData([]); return; }
-    const boardRect = board.getBoundingClientRect();
-    const lines: typeof bondLineData = [];
-
-    for (const [bonds, field] of [
-      [playerActiveBonds, state.player.field],
-      [opponentActiveBonds, state.opponent.field],
-    ] as [typeof playerActiveBonds, typeof state.player.field][]) {
-      const bondedIds = new Set<string>();
-      for (const bond of bonds) {
-        const a = field.find(c => c.id === bond.cardA);
-        const b = field.find(c => c.id === bond.cardB);
-        if (a) bondedIds.add(a.battleId);
-        if (b) bondedIds.add(b.battleId);
-      }
-      const bondedCount = bondedIds.size;
-
-      for (const bond of bonds) {
-        const cardA = field.find(c => c.id === bond.cardA);
-        const cardB = field.find(c => c.id === bond.cardB);
-        if (!cardA || !cardB) continue;
-        const elA = cardEls.current.get(cardA.battleId);
-        const elB = cardEls.current.get(cardB.battleId);
-        if (!elA || !elB) continue;
-        const rA = elA.getBoundingClientRect();
-        const rB = elB.getBoundingClientRect();
-        const ax = Math.round(rA.left + rA.width / 2 - boardRect.left);
-        const ay = Math.round(rA.top + rA.height - boardRect.top);
-        const bx = Math.round(rB.left + rB.width / 2 - boardRect.left);
-        const by = Math.round(rB.top + rB.height - boardRect.top);
-
-        if (bondedCount <= 2) {
-          lines.push({ key: `${bond.id}-line`, x1: ax, y1: ay, x2: bx, y2: by });
-        } else {
-          const pillEl = bondPillEls.current.get(bond.id);
-          if (!pillEl) continue;
-          const pR = pillEl.getBoundingClientRect();
-          const px = Math.round(pR.left + pR.width / 2 - boardRect.left);
-          const py = Math.round(pR.top + pR.height / 2 - boardRect.top);
-          lines.push(
-            { key: `${bond.id}-lineA`, x1: ax, y1: ay, x2: px, y2: py },
-            { key: `${bond.id}-lineB`, x1: bx, y1: by, x2: px, y2: py },
-          );
-        }
-      }
-    }
-    setBondLineData(prev => {
-      if (prev.length !== lines.length) return lines;
-      for (let i = 0; i < lines.length; i++) {
-        const a = prev[i], b = lines[i];
-        if (a.key !== b.key || a.x1 !== b.x1 || a.y1 !== b.y1 || a.x2 !== b.x2 || a.y2 !== b.y2) return lines;
-      }
-      return prev;
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.player.field, state.opponent.field, state.player.claimedBonds, state.opponent.claimedBonds]);
+  // Bond line measurement effect removed along with the SVG overlay
+  // below. The bond pill (per side, above/below cards) plus the
+  // per-card link badge cover the same information without the visual
+  // noise of an extra SVG layer.
 
   // DOM positions of the attacker and defender (or the face portrait) and
   // hand them to the SVG overlay below.
@@ -1502,64 +1490,71 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     return true;
   };
 
-  // ============== Drag from hand ==============
-  const onCardPointerDown = (ev: React.PointerEvent, card: BattleCard) => {
+  // ============== Drag from hand (Framer Motion) ==============
+  // Each hand card is a motion.div with `drag` enabled. Framer handles
+  // the visual translation + spring-back on release; we only track which
+  // card is being dragged and what it's currently hovering over so the
+  // drop zones can highlight + so the drop handler can route to the
+  // right effect. Tap-vs-drag is split: Framer fires onTap below ~5px
+  // movement and onDragEnd only after an actual drag — no manual
+  // distance threshold needed.
+
+  /** Set to true as soon as a drag actually starts, and reset shortly
+   *  after the drag ends. Used in onTap below to skip the tap path
+   *  when Framer fires onTap on the same gesture release as a drag.
+   *  Without this guard, a successful drag-summon would also fire onTap
+   *  with a stale closure (hand state pre-summon), which would call
+   *  setSelectedHandIdx with the soon-to-be-shifted index — and on the
+   *  next render that index points to a DIFFERENT card, surfacing a
+   *  surprise preview after every play. Ref instead of state because
+   *  the flag is purely transient and we don't want a re-render on
+   *  every drag start. */
+  const dragOccurredRef = useRef(false);
+
+  /** Called by Framer when the user actually starts dragging a card
+   *  (past the drag threshold). We snapshot the dragged card so other
+   *  UI (drop zones, hand opacity) can react. */
+  const handleDragStart = (card: BattleCard) => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
     if (pendingDrawIds.size > 0) return;
-    // Note: we no longer block pointer-down on unaffordable cards. Players can
-    // still tap them to preview — the mana check happens at PLAY time.
-    const rect = ev.currentTarget.getBoundingClientRect();
+    dragOccurredRef.current = true;
     setDrag({
       battleId: card.battleId,
       cardType: card.type,
-      x: ev.clientX, y: ev.clientY,
-      startX: ev.clientX, startY: ev.clientY,
-      ox: ev.clientX - rect.left, oy: ev.clientY - rect.top,
       overField: false,
       overSlot: null,
     });
-    ev.currentTarget.setPointerCapture(ev.pointerId);
   };
 
-  const onPointerMove = (ev: React.PointerEvent) => {
-    if (!drag) return;
+  /** Called by Framer on every drag frame with the current pointer
+   *  position (viewport coords). Hit-test against the field rects +
+   *  per-slot data-attribute so the drop zones can highlight and the
+   *  drop handler knows where to route the card on release. */
+  const handleDrag = (clientX: number, clientY: number) => {
     const inside = (rect: DOMRect | undefined) =>
       !!rect &&
-      ev.clientX >= rect.left && ev.clientX <= rect.right &&
-      ev.clientY >= rect.top && ev.clientY <= rect.bottom;
+      clientX >= rect.left && clientX <= rect.right &&
+      clientY >= rect.top && clientY <= rect.bottom;
     const overField = inside(fieldRef.current?.getBoundingClientRect())
       || inside(playerFieldRef.current?.getBoundingClientRect());
-    // For Creatures, find the specific field slot under the cursor so we
-    // can highlight it and land the card there on drop.
     let overSlot: number | null = null;
-    if (overField && drag.cardType === 'Creature') {
-      const el = document.elementFromPoint(ev.clientX, ev.clientY);
+    if (overField && drag?.cardType === 'Creature') {
+      const el = document.elementFromPoint(clientX, clientY);
       const slotEl = el?.closest('[data-slot]') as HTMLElement | null;
       if (slotEl?.dataset.slot != null) {
         const idx = parseInt(slotEl.dataset.slot);
         if (!isNaN(idx)) overSlot = idx;
       }
     }
-    setDrag(d => d ? { ...d, x: ev.clientX, y: ev.clientY, overField, overSlot } : d);
+    setDrag(d => d ? { ...d, overField, overSlot } : d);
   };
 
-  const onPointerUp = () => {
+  /** Called by Framer when the drag ends. If the card was over the field
+   *  on release, run the drop logic. Otherwise Framer's dragSnapToOrigin
+   *  springs the card back to its hand position automatically — we just
+   *  clear our state. */
+  const handleDragEnd = (card: BattleCard) => {
     if (!drag) return;
-    const card = state.player.hand.find(c => c.battleId === drag.battleId);
-    if (!card) { setDrag(null); return; }
-
-    // Tap (small movement) → click-to-select. Drag (large movement) → drop-to-play.
-    const dx = drag.x - drag.startX;
-    const dy = drag.y - drag.startY;
-    const wasTap = (dx * dx + dy * dy) < 64; // <8px movement
-
-    if (wasTap) {
-      const idx = state.player.hand.findIndex(c => c.battleId === drag.battleId);
-      handleHandTap(card, idx);
-      setDrag(null);
-      return;
-    }
-
     // Card plays / spell casts are a MAIN-PHASE action. Gate the
     // whole drop here so we don't accidentally summon during Battle.
     if (playerPhase !== 'main') {
@@ -1588,6 +1583,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           }
           setState(r.state);
           sfx('summon');
+          fireLegendarySummon(card, 'player');
+          onCreaturePlayed?.();
         } else {
           flashMsg(r.reason ?? 'Cannot play');
         }
@@ -1601,6 +1598,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
     }
     setDrag(null);
+    // Clear the drag flag on the next tick so an onTap fired on the
+    // same gesture release skips. setTimeout 0 is enough — onTap fires
+    // synchronously after onDragEnd in Framer's pointer handler chain.
+    setTimeout(() => { dragOccurredRef.current = false; }, 0);
   };
 
   /** Tap a hand card: toggle selection. The card lifts up as a preview. */
@@ -1630,6 +1631,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setState(r.state);
         setSelectedHandIdx(null);
         sfx('summon');
+        fireLegendarySummon(card, 'player');
+        onCreaturePlayed?.();
       } else {
         flashMsg(r.reason ?? 'Cannot play');
       }
@@ -1757,6 +1760,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         playerHp={state.player.hp}
         opponentHp={state.opponent.hp}
         turnLimitReached={state.turnNumber > TURN_LIMIT}
+        victoryEmote={victoryEmote}
         onExit={onExit}
       />
     );
@@ -1793,18 +1797,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   return (
     <div
       ref={boardRef}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      // Drag handlers moved off the board root — each motion.div in the
+      // hand owns its own drag lifecycle via Framer Motion now.
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       style={{
         width: '100%', height: '100%',
-        // Tinted base gradient by boss element so each fight has a slightly
-        // different ambient hue. Specific scene comes from the backdrop
-        // image layer below; this gradient is the bedrock.
+        // Two layers: the player's equipped board skin paints the bedrock
+        // gradient, and the boss's element tint sits on top to keep each
+        // fight ambient-coloured. Order matters — boss tint must follow so
+        // semi-transparent stops layer on top of the chosen skin.
         background: `
-          radial-gradient(ellipse at 50% 50%, #fef3e0 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
-          linear-gradient(180deg, #fef3e0 0%, #ffe0bf 60%, #f8c89c 100%)
+          radial-gradient(ellipse at 50% 50%, transparent 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
+          ${boardSkin.background}
         `,
         position: 'relative', overflow: 'hidden',
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
@@ -1818,22 +1823,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         display: 'flex', flexDirection: 'column',
       }}
     >
-      {/* Themed boss backdrop — heavily blurred + de-saturated photo of
-          where this duel is happening. Sits behind everything else (zIndex
-          0) and never catches pointer events. Falls back to nothing when
-          the boss has no `backdrop` defined — the base gradient still
-          carries the theme tint. */}
-      {boss.backdrop && (
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: `url(${boss.backdrop})`,
-          backgroundSize: 'cover', backgroundPosition: 'center',
-          filter: 'blur(14px) saturate(0.7) brightness(1.05)',
-          opacity: 0.32,
-          zIndex: 0,
-          pointerEvents: 'none',
-        }} />
-      )}
+      {/* Themed boss backdrop removed — the blurred photo behind the
+          field competed with the player's own card photos and made the
+          board feel busy. The equipped board skin + the boss element
+          tint above it carry enough atmosphere on their own. */}
 
       {/* Stage texture — a faint repeating grid + radial vignette suggesting
           a duel mat under the field. Pure CSS, no image asset, very low
@@ -1915,6 +1908,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         position: 'relative',
         paddingBottom: 4,
       }}>
+        {/* Opponent bond pills sit ABOVE the cards (closer to the top
+            of the screen) so the boss's bonds read as "their" bonds,
+            mirroring the player's pills which sit below the player's
+            cards. Bond arcs below extend on the OUTSIDE edge of each
+            field accordingly. */}
+        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" onPillRef={(id, el) => { if (el) bondPillEls.current.set(id, el); else bondPillEls.current.delete(id); }} />
         <FieldRow
           side="opponent"
           cards={state.opponent.field}
@@ -1934,7 +1933,6 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           onCardClick={(c) => onOppCreatureClick(c)}
           onCardLongPress={(c) => setInspect(c)}
         />
-        <BondPillStack bonds={opponentActiveBonds} newlyActiveIds={newOppBonds} side="opponent" onPillRef={(id, el) => { if (el) bondPillEls.current.set(id, el); else bondPillEls.current.delete(id); }} />
       </div>
 
       {/* Center divider band — the drop zone for drag-to-summon. Dashed top
@@ -2135,9 +2133,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         {(initialDealing ? state.player.hand.slice(0, playerInitialDealt) : state.player.hand)
           .filter(card => !pendingDrawIds.has(card.battleId))
           .map((card, i, visibleHand) => {
-          const isDragging = drag?.battleId === card.battleId;
+          // Spells in mid-cast use a centered reveal animation —
+          // hide the hand card while that plays so the player only
+          // sees one copy. The dragged card, in contrast, STAYS
+          // mounted: Framer Motion translates it in place, so we
+          // never want a duplicate ghost.
           const isCasting = playerSpellReveal?.battleId === card.battleId;
-          if (isDragging || isCasting) return null;
+          if (isCasting) return null;
           const cardCount = visibleHand.length;
           const offset = i - (cardCount - 1) / 2;
           const isSelected = selectedHandIdx === i && !drag;
@@ -2158,46 +2160,80 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           const xOff = offset * stride;
           const rot = cardCount === 1 ? 0 : offset * 6;            // edges fan outward
           const yArc = Math.abs(offset) * 3;                       // edges sink slightly
+          // Drag is enabled only when the player can actually act. We
+          // skip the drag wrapper entirely otherwise so a non-active
+          // hand card can still be tapped (tap = preview) without
+          // accidentally engaging Framer's drag threshold.
+          const canDrag = state.turn === 'player' && state.outcome === 'ongoing' && pendingDrawIds.size === 0;
+          const isDraggingThis = drag?.battleId === card.battleId;
+          // While dragging or selected, the card pops up to a flat
+          // pose so the player reads a clean silhouette. Otherwise it
+          // sits in its fan pose. We push rotation + offset through
+          // motion's `rotate` and `y` so the motion.div ITSELF is
+          // rotated — that way browser hit-testing uses the rotated
+          // bounds, not the axis-aligned rect. Without this, adjacent
+          // fanned cards' bounding boxes overlap and a click on one
+          // card lands on its neighbour.
+          const poseRot = (isSelected || isDraggingThis) ? 0 : rot;
+          const poseY = (isSelected || isDraggingThis) ? -12 : yArc;
           return (
-            <div
+            <motion.div
               key={card.battleId}
-              onPointerDown={(e) => onCardPointerDown(e, card)}
-              style={{
-                position: 'absolute', bottom: 0, left: '50%',
-                transform: `translateX(calc(-50% + ${xOff}px))`,
-                width: cardW + 8,
-                height: 320 * baseScale + 16,
-                zIndex: isSelected ? 60 : 10 + i,
-                cursor: 'pointer',
-                touchAction: 'none',
-                pointerEvents: 'auto',
-                opacity: selectedHandIdx !== null ? (isSelected ? 0 : 0.55) : 1,
-                transition: 'opacity .15s',
+              drag={canDrag}
+              dragSnapToOrigin
+              dragMomentum={false}
+              dragElastic={0.8}
+              dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+              initial={false}
+              // Horizontal stride (xOff) is now part of `animate` so when
+              // the hand reflows (a card leaves and the rest fan into a
+              // new layout), Framer springs every remaining card to its
+              // new slot instead of snapping. dragSnapToOrigin returns x
+              // to whatever its pre-drag value was — which IS xOff — so
+              // grabbed cards still bounce home cleanly.
+              animate={{ x: xOff, rotate: poseRot, y: poseY }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              onDragStart={() => handleDragStart(card)}
+              onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
+              onDragEnd={() => handleDragEnd(card)}
+              onTap={() => {
+                if (!canDrag) return;
+                // Bail if a drag just ended on this same gesture —
+                // Framer can fire onTap synchronously after onDragEnd
+                // and the stale closure would select a shifted index.
+                if (dragOccurredRef.current) return;
+                const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
+                if (idx >= 0) handleHandTap(card, idx);
               }}
-            >
-              <div style={{
-                position: 'absolute', bottom: 0, left: '50%',
-                // Selected card rises and straightens out so the player can
-                // read it; non-selected stay fanned in their arc.
-                transform: isSelected
-                  ? `translateX(-50%) translateY(-12px) rotate(0deg)`
-                  : `translateX(-50%) translateY(${yArc}px) rotate(${rot}deg)`,
+              whileDrag={{ cursor: 'grabbing', scale: 1.08 }}
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: '50%',
+                marginLeft: -cardW / 2,
+                width: cardW,
+                height: 320 * baseScale,
                 transformOrigin: 'bottom center',
-                transition: 'transform .22s cubic-bezier(.2,.8,.3,1)',
-                pointerEvents: 'none',
-                willChange: 'transform, filter',
+                zIndex: isDraggingThis ? 200 : isSelected ? 60 : 10 + i,
+                cursor: canDrag ? 'grab' : 'pointer',
+                touchAction: 'none',
+                // The hand container is pointerEvents:none so the empty
+                // space between cards doesn't catch clicks. Each card
+                // must opt back in or taps/drags won't register.
+                pointerEvents: 'auto',
+                opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.55) : 1,
+                transition: 'opacity .15s',
+                willChange: 'transform',
+                // Visual flourishes that don't conflict with the
+                // transform pipeline above.
                 filter: isSelected ? 'drop-shadow(0 0 14px rgba(244,208,74,.7))' : 'none',
-                // Affordable cards on your turn breathe a soft yellow glow
-                // so playable cards stand out from unaffordable ones at a
-                // glance. The keyframe only animates `filter`, so it
-                // doesn't conflict with the static fanned `transform`.
-                animation: playableNow && state.turn === 'player' && !isSelected && playerPhase === 'main'
+                animation: playableNow && state.turn === 'player' && !isSelected && !isDraggingThis && playerPhase === 'main'
                   ? 'playablePulse 2.4s ease-in-out infinite'
                   : undefined,
-              }}>
-                <Card card={card} scale={baseScale} hovered={isSelected} unaffordable={!playableNow} />
-              </div>
-            </div>
+              }}
+            >
+              <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+            </motion.div>
           );
         })}
       </div>
@@ -2314,25 +2350,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
-      {/* Dragged card — rendered at fixed viewport position so it follows the finger exactly */}
-      {drag && (() => {
-        const card = state.player.hand.find(c => c.battleId === drag.battleId);
-        if (!card) return null;
-        return (
-          <div
-            style={{
-              position: 'fixed',
-              left: drag.x - drag.ox,
-              top: drag.y - drag.oy,
-              zIndex: 9999,
-              pointerEvents: 'none',
-              filter: drag.overField ? 'drop-shadow(0 8px 18px rgba(244,208,74,.45))' : 'drop-shadow(0 6px 12px rgba(0,0,0,.35))',
-            }}
-          >
-            <Card card={card} scale={0.56} />
-          </div>
-        );
-      })()}
+      {/* Legacy fixed-position drag ghost removed — the hand card now
+          moves in place via Framer Motion's drag, so a separate ghost
+          would render a duplicate copy. */}
 
       {/* Card draw flights — one DOM node per in-flight card-back so that
           a multi-draw (Suitcase = 2, Reflecting Pool = 2) shows TWO
@@ -2857,6 +2877,81 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         );
       })()}
 
+      {/* Legendary-summon cinematic — full-screen darkening overlay with
+          a large halo + rotating golden rays + a hero-sized card that
+          scales in, holds for a beat, and fades. Plays additively over
+          the standard summon FX. Triggered for either side. */}
+      {legendarySummon && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute', inset: 0,
+            zIndex: 80, pointerEvents: 'none',
+            display: 'grid', placeItems: 'center',
+            background: 'rgba(0,0,0,.55)',
+            animation: 'legendaryOverlayFade 1.4s ease-out both',
+            willChange: 'opacity',
+          }}
+        >
+          {/* Rotating ray fan — sits behind the card. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 480, height: 480,
+            background: `conic-gradient(
+              from 0deg,
+              transparent 0deg,
+              rgba(255,209,102,.65) 12deg,
+              transparent 28deg,
+              rgba(255,209,102,.55) 60deg,
+              transparent 80deg,
+              rgba(255,209,102,.6) 130deg,
+              transparent 156deg,
+              rgba(255,209,102,.5) 200deg,
+              transparent 224deg,
+              rgba(255,209,102,.6) 280deg,
+              transparent 304deg,
+              rgba(255,209,102,.5) 340deg,
+              transparent 360deg
+            )`,
+            transformOrigin: 'center',
+            animation: 'legendaryRayRotate 1.4s ease-out both',
+            mixBlendMode: 'screen',
+            filter: 'blur(2px)',
+            willChange: 'transform, opacity',
+          }} />
+          {/* Soft halo glow behind the card. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 360, height: 360, borderRadius: '50%',
+            background: 'radial-gradient(circle, #ffd166 0%, rgba(255,209,102,.4) 35%, transparent 70%)',
+            transformOrigin: 'center',
+            animation: 'legendaryHalo 1.4s ease-out both',
+            mixBlendMode: 'screen',
+            willChange: 'transform, opacity',
+          }} />
+          {/* Hero-sized card itself. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            animation: 'legendaryHero 1.4s cubic-bezier(.18,.85,.3,1.1) both',
+            willChange: 'transform, opacity, filter',
+          }}>
+            <Card card={legendarySummon.card} hovered scale={1.15} />
+          </div>
+          {/* Title strip. */}
+          <div style={{
+            position: 'absolute', left: '50%', top: 'calc(50% + 230px)',
+            transform: 'translateX(-50%)',
+            color: '#ffd166', fontFamily: '"Cinzel", Georgia, serif',
+            fontSize: 14, letterSpacing: '0.4em', fontWeight: 700,
+            textTransform: 'uppercase',
+            textShadow: '0 0 12px rgba(255,209,102,.85), 0 2px 4px #000',
+            animation: 'fadeIn 0.35s ease-out 0.25s both',
+          }}>
+            Legendary {legendarySummon.owner === 'player' ? 'Summon' : 'Foe'}
+          </div>
+        </div>
+      )}
+
       {/* Player spell reveal — the spell card sits center-screen for ~900ms so
           casting feels like an event, not a silent state mutation. */}
       {playerSpellReveal && (
@@ -2968,33 +3063,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         />
       )}
 
-      {/* Bond connection lines — rendered from useLayoutEffect-measured
-          positions so they always land on real DOM geometry. */}
-      {bondLineData.length > 0 && (
-        <svg style={{
-          position: 'absolute', inset: 0,
-          width: '100%', height: '100%',
-          pointerEvents: 'none', zIndex: 8,
-          overflow: 'visible',
-        }}>
-          <defs>
-            <filter id="bondGlow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
-          </defs>
-          <g filter="url(#bondGlow)">
-            {bondLineData.map(l => (
-              <line
-                key={l.key}
-                x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2}
-                stroke="#f4d04a" strokeWidth={2} strokeLinecap="round"
-                style={{ animation: 'bondLineGlow 1.6s ease-in-out infinite' }}
-              />
-            ))}
-          </g>
-        </svg>
-      )}
+      {/* Bond connection lines removed — the bond pill above/below each
+          side's field is the canonical "this bond is active" indicator.
+          Per-card link badges already show which creatures are bonded;
+          drawing additional arcs added visual noise without information. */}
 
       {/* Action-log history panel — slide-up drawer listing every engine
           log entry in reverse-chronological order so the most recent
@@ -3861,7 +3933,7 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
   },
 };
 
-function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, onExit }: {
+function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, victoryEmote, onExit }: {
   outcome: 'win' | 'loss' | 'draw';
   boss: BossDef;
   difficulty: Difficulty;
@@ -3873,6 +3945,9 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
   /** True when the match ended because we hit TURN_LIMIT, not because
    *  someone hit 0 HP. Drives the "why" sentence under the title. */
   turnLimitReached: boolean;
+  /** Equipped victory emote — shown on the win screen only as a big
+   *  headline above the title. Loss / draw don't taunt the player. */
+  victoryEmote?: import('../data/victoryEmotes').EmoteDef;
   onExit: (o: 'win' | 'loss' | 'draw' | 'quit') => void;
 }) {
   const isWin = outcome === 'win';
@@ -3963,6 +4038,33 @@ function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponent
           {boss.name}
         </div>
       </div>
+
+      {/* Victory emote — equipped cosmetic that lands as a big headline
+          above the standard Victory label. Loss + draw skip this so the
+          player isn't taunted by their own emote. The headline drops in
+          with a small bounce; the sub-line slides under it. */}
+      {isWin && victoryEmote && (
+        <div style={{
+          position: 'relative', zIndex: 2,
+          marginTop: 24, marginBottom: -8,
+          animation: 'toastDrop 1.8s ease-out both',
+        }}>
+          <div style={{
+            fontSize: 32, fontWeight: 800, lineHeight: 1.05,
+            background: `linear-gradient(180deg, #fff, ${victoryEmote.glow ?? '#ffd166'})`,
+            WebkitBackgroundClip: 'text', backgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            textShadow: `0 0 18px ${(victoryEmote.glow ?? '#ffd166')}88`,
+            fontFamily: '"Fredoka", system-ui',
+            letterSpacing: '-0.01em',
+          }}>{victoryEmote.headline}</div>
+          {victoryEmote.sub && (
+            <div style={{
+              fontSize: 12, color: '#6e5a52', fontStyle: 'italic', marginTop: 2,
+            }}>{victoryEmote.sub}</div>
+          )}
+        </div>
+      )}
 
       <div style={{
         fontSize: 11, letterSpacing: '0.3em', textTransform: 'uppercase',

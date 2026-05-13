@@ -1,37 +1,148 @@
-import { useState } from 'react';
-import { ArrowLeft, Coins } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Coins, Sparkles, Lock } from 'lucide-react';
 import { Card } from '../components/Card';
+import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
-import { openPack, PACK_COST, PACK_SIZE } from '../game/pack';
+import { openPack, openMemoryPack, PACK_COST, PACK_SIZE } from '../game/pack';
 import { ELEMENTS, RARITY_COLOR } from '../data/elements';
-import type { CollectionCard, ElementId } from '../game/types';
+import { MEMORY_PACKS, type MemoryPackDef } from '../data/memoryPacks';
+import { FILTERS } from '../data/filters';
+import { playSfx } from '../audio/sfx';
+import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
+import type { CollectionCard, ElementId, Rarity } from '../game/types';
 
-type Stage = 'pick' | 'shaking' | 'revealing' | 'done';
+/** Pack-opening cinematic stages.
+ *  - pick:       choose a theme or memory pack
+ *  - lift:       pack rises from below (~600ms)
+ *  - tension:    pack rattles + brightens, building anticipation (~900ms)
+ *  - burst:      shockwave + light streaks + screen flash (~700ms)
+ *  - revealing:  cards fly in one-by-one, rarity-scaled flourish
+ *  - done:       summary + actions */
+type Stage = 'pick' | 'lift' | 'tension' | 'burst' | 'revealing' | 'done';
+
 const THEMES: ElementId[] = ['family', 'work', 'animals', 'travel', 'food', 'education'];
+
+/** Visual contract for the cinematic + reveal stages. Element packs and
+ *  memory packs are both reduced to this shape so the cinematic doesn't
+ *  need to know which kind it's displaying. */
+interface PackVibe {
+  deep: string;
+  color: string;
+  glow: string;
+  title: string;
+  /** Center icon. Element packs use the theme glyph SVG; memory packs
+   *  pass null and let the pack art carry identity through gradient +
+   *  title alone. */
+  icon: React.ReactNode | null;
+  /** Element to use for color overlays on photos inside this pack (e.g.
+   *  the warm theme glaze in PhotoFrame). Element packs use their own;
+   *  memory packs pick their first contributing theme as a stand-in. */
+  el: ElementId;
+}
+
+type PackPick =
+  | { kind: 'theme'; theme: ElementId; vibe: PackVibe }
+  | { kind: 'memory'; pack: MemoryPackDef; vibe: PackVibe; firstOpen: boolean };
 
 interface Props {
   coins: number;
   onPackOpened: (cards: CollectionCard[], coinsSpent: number) => void;
+  /** Memory-pack-aware variant of onPackOpened. App uses this to grant
+   *  the bonus filter on first open and mark the pack as opened. */
+  onMemoryPackOpened?: (packId: string, cards: CollectionCard[], cost: number) => void;
+  /** Memory packs the player has opened before — drives the "FIRST" badge
+   *  + the bonus filter grant. */
+  openedMemoryPacks?: string[];
   onBack: () => void;
+  settings?: Settings;
 }
 
-export function PackOpening({ coins, onPackOpened, onBack }: Props) {
+const STAGE_DURATIONS: Record<Exclude<Stage, 'pick' | 'revealing' | 'done'>, number> = {
+  lift: 600,
+  tension: 900,
+  burst: 700,
+};
+
+export function PackOpening({ coins, onPackOpened, onMemoryPackOpened, openedMemoryPacks = [], onBack, settings = DEFAULT_SETTINGS }: Props) {
   const [stage, setStage] = useState<Stage>('pick');
-  const [pickedTheme, setPickedTheme] = useState<ElementId | null>(null);
+  const [pick, setPick] = useState<PackPick | null>(null);
   const [pack, setPack] = useState<CollectionCard[]>([]);
   const [revealedIdx, setRevealedIdx] = useState(0);
+  // SFX cues read the current volume from props directly. The cinematic
+  // is short enough that re-binding sfx on each render is fine.
+  const sfxVol = settings.sfxVolume;
+  const sfx = (cue: Parameters<typeof playSfx>[0]) => playSfx(cue, sfxVol);
 
-  const canBuy = coins >= PACK_COST;
+  const canBuyTheme = coins >= PACK_COST;
 
-  const buy = (theme: ElementId) => {
-    if (!canBuy) return;
+  // Drive the cinematic timeline forward. Each non-interactive stage has
+  // a fixed duration; setTimeout chains them. Reveal stage is player-paced
+  // (taps to advance).
+  useEffect(() => {
+    if (stage === 'pick' || stage === 'revealing' || stage === 'done') return;
+    const dur = STAGE_DURATIONS[stage];
+    const next: Record<typeof stage, Stage> = {
+      lift: 'tension',
+      tension: 'burst',
+      burst: 'revealing',
+    };
+    const t = setTimeout(() => setStage(next[stage]), dur);
+    return () => clearTimeout(t);
+  }, [stage]);
+
+  // SFX cues fire on stage entry. packRip when the tension builds,
+  // packBurst at the moment of explosion.
+  useEffect(() => {
+    if (stage === 'tension') sfx('packRip');
+    if (stage === 'burst') sfx('packBurst');
+    if (stage === 'revealing' && pack[revealedIdx]) {
+      sfx(rarityCue(pack[revealedIdx].rarity));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage]);
+
+  // Fire the per-card rarity stinger every time the player advances to a
+  // new card during the reveal.
+  useEffect(() => {
+    if (stage !== 'revealing') return;
+    const card = pack[revealedIdx];
+    if (!card) return;
+    sfx(rarityCue(card.rarity));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revealedIdx]);
+
+  const buyTheme = (theme: ElementId) => {
+    if (!canBuyTheme) return;
     const cards = openPack(theme);
-    setPickedTheme(theme);
+    const e = ELEMENTS[theme];
+    const vibe: PackVibe = {
+      deep: e.deep, color: e.color, glow: e.glow, title: e.name,
+      icon: <ElementGlyph el={theme} size={70} />, el: theme,
+    };
+    setPick({ kind: 'theme', theme, vibe });
     setPack(cards);
-    setStage('shaking');
     onPackOpened(cards, PACK_COST);
-    setTimeout(() => setStage('revealing'), 1200);
+    setStage('lift');
+  };
+
+  const buyMemory = (def: MemoryPackDef) => {
+    if (coins < def.cost) return;
+    const cards = openMemoryPack(def.id);
+    if (cards.length === 0) return;
+    const firstOpen = !openedMemoryPacks.includes(def.id);
+    const [deep, color] = def.gradient;
+    const vibe: PackVibe = {
+      deep, color, glow: def.glow, title: def.name,
+      // Memory packs intentionally skip a center icon — gradient + title
+      // carry the identity. Pass null and let PackArt handle the gap.
+      icon: null,
+      el: def.themes[0],
+    };
+    setPick({ kind: 'memory', pack: def, vibe, firstOpen });
+    setPack(cards);
+    onMemoryPackOpened?.(def.id, cards, def.cost);
+    setStage('lift');
   };
 
   const revealNext = () => {
@@ -44,7 +155,7 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
 
   const reset = () => {
     setStage('pick');
-    setPickedTheme(null);
+    setPick(null);
     setPack([]);
     setRevealedIdx(0);
   };
@@ -61,7 +172,7 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
       position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12, position: 'relative', zIndex: 4 }}>
         <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 700 }}>Packs</div>
@@ -72,74 +183,82 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '0 16px' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', padding: '0 16px', minHeight: 0 }}>
         {stage === 'pick' && (
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <div style={{ textAlign: 'center', fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic', marginBottom: 4 }}>
+          <div
+            className="no-scrollbar"
+            style={{
+              width: '100%', height: '100%',
+              display: 'flex', flexDirection: 'column', gap: 14,
+              overflowY: 'auto', paddingBottom: 24,
+            }}>
+            <div style={{ textAlign: 'center', fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic', marginBottom: 2 }}>
               Choose what to photograph today
             </div>
             {THEMES.map(theme => (
               <ThemePackOption
                 key={theme}
                 theme={theme}
-                disabled={!canBuy}
-                onClick={() => buy(theme)}
+                disabled={!canBuyTheme}
+                onClick={() => buyTheme(theme)}
               />
             ))}
-            {!canBuy && (
+            {!canBuyTheme && (
               <div style={{ textAlign: 'center', fontSize: 10, opacity: 0.6, marginTop: 4 }}>
                 Need {PACK_COST} coins. Win matches to earn more.
               </div>
             )}
-          </div>
-        )}
 
-        {stage === 'shaking' && pickedTheme && (
-          <div style={{ position: 'relative' }}>
-            <div style={{ animation: 'packShake 0.3s ease-in-out infinite' }}>
-              <PackArt theme={pickedTheme} />
-            </div>
             <div style={{
-              position: 'absolute', inset: '50%',
-              width: 200, height: 200, borderRadius: '50%',
-              background: `radial-gradient(circle, ${ELEMENTS[pickedTheme].glow} 0%, transparent 70%)`,
-              transform: 'translate(-50%, -50%)',
-              animation: 'packBurst 1s ease-out forwards',
-              pointerEvents: 'none',
-            }} />
-          </div>
-        )}
-
-        {stage === 'revealing' && (
-          <div
-            onClick={revealNext}
-            style={{
-              cursor: 'pointer',
-              animation: 'cardSummon 0.5s cubic-bezier(.2,.8,.3,1)',
-              textAlign: 'center',
-            }}
-            key={revealedIdx}
-          >
-            <Card card={pack[revealedIdx]} hovered />
-            <div style={{
-              marginTop: 18, fontSize: 11, letterSpacing: '0.25em',
-              textTransform: 'uppercase', color: RARITY_COLOR[pack[revealedIdx].rarity],
-              fontWeight: 700,
+              marginTop: 18, marginBottom: 4, textAlign: 'center',
+              fontSize: 11, color: PALETTE.textMid, fontWeight: 700,
+              letterSpacing: '0.3em', textTransform: 'uppercase',
+              display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'center',
             }}>
-              {pack[revealedIdx].rarity} · {revealedIdx + 1} / {PACK_SIZE}
+              <span style={{ flex: 1, height: 1, background: PALETTE.border, maxWidth: 60 }} />
+              Memory Packs
+              <span style={{ flex: 1, height: 1, background: PALETTE.border, maxWidth: 60 }} />
             </div>
-            <div style={{ fontSize: 10, opacity: 0.5, marginTop: 6 }}>tap to continue</div>
+            <div style={{ textAlign: 'center', fontSize: 11, color: PALETTE.textMid, fontStyle: 'italic', marginBottom: 2 }}>
+              Cards built around moments. First open unlocks a free cosmetic filter for your photos.
+            </div>
+            {MEMORY_PACKS.map(def => (
+              <MemoryPackOption
+                key={def.id}
+                def={def}
+                coins={coins}
+                firstOpen={!openedMemoryPacks.includes(def.id)}
+                onClick={() => buyMemory(def)}
+              />
+            ))}
           </div>
         )}
 
-        {stage === 'done' && (
-          <div style={{ textAlign: 'center', padding: 30 }}>
+        {pick && (stage === 'lift' || stage === 'tension' || stage === 'burst') && (
+          <PackCinematic vibe={pick.vibe} stage={stage} />
+        )}
+
+        {stage === 'revealing' && pack[revealedIdx] && pick && (
+          <RevealCard
+            card={pack[revealedIdx]}
+            idx={revealedIdx}
+            total={pack.length}
+            vibe={pick.vibe}
+            onTap={revealNext}
+          />
+        )}
+
+        {stage === 'done' && pick && (
+          <div
+            className="no-scrollbar"
+            style={{ textAlign: 'center', padding: 24, animation: 'fadeIn .35s ease-out both', overflowY: 'auto', maxHeight: '100%' }}
+          >
             <div style={{ fontSize: 14, opacity: 0.7, letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: 16 }}>
               {PACK_SIZE} new dormant cards
             </div>
             <div style={{
               display: 'flex', justifyContent: 'center',
-              gap: 8, marginBottom: 24,
+              gap: 8, marginBottom: 18,
             }}>
               {pack.map(c => (
                 <div key={c.uid} style={{ transform: 'scale(0.55)', transformOrigin: 'top center', height: 180, width: 130 }}>
@@ -147,6 +266,32 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
                 </div>
               ))}
             </div>
+
+            {/* First-open bonus banner for memory packs. */}
+            {pick.kind === 'memory' && pick.firstOpen && (
+              <div style={{
+                margin: '0 auto 18px', maxWidth: 280,
+                padding: '12px 14px', borderRadius: 14,
+                background: `linear-gradient(135deg, ${pick.vibe.deep}, ${pick.vibe.color})`,
+                color: '#fff',
+                boxShadow: `0 6px 18px ${pick.vibe.glow}55`,
+                display: 'flex', alignItems: 'center', gap: 10,
+              }}>
+                <Sparkles size={18} color={pick.vibe.glow} fill={pick.vibe.glow} />
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                  <div style={{ fontSize: 10, opacity: 0.8, letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
+                    Cosmetic Filter Unlocked
+                  </div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>
+                    {FILTERS[pick.pack.bonusFilter].name}
+                  </div>
+                  <div style={{ fontSize: 10, opacity: 0.8, marginTop: 2, fontStyle: 'italic' }}>
+                    Apply it to any card when you take its photo.
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div style={{ fontSize: 11, opacity: 0.6, marginBottom: 18, fontStyle: 'italic' }}>
               Visit Collection and tap any card to summon it with a photo.
             </div>
@@ -159,6 +304,159 @@ export function PackOpening({ coins, onPackOpened, onBack }: Props) {
       </div>
     </div>
   );
+}
+
+/** Cinematic stages preceding the reveal. The packs animate in a single
+ *  element whose animation switches per stage so each transition is a
+ *  clean keyframe change instead of remount + flicker. */
+function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tension' | 'burst' }) {
+  const animation =
+    stage === 'lift'    ? 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both'
+  : stage === 'tension' ? 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both, packTension 0.32s ease-in-out 0.6s 3'
+  :                       'packExplode 0.7s cubic-bezier(.4,.1,.6,1) both';
+
+  return (
+    <div style={{ position: 'relative', width: 240, height: 320, display: 'grid', placeItems: 'center' }}>
+      {stage === 'burst' && (
+        <>
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 240, height: 240, borderRadius: '50%',
+            border: `4px solid ${vibe.glow}`,
+            animation: 'packShockRing 0.7s ease-out both',
+            pointerEvents: 'none',
+          }} />
+          <div style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 180, height: 180, borderRadius: '50%',
+            background: `radial-gradient(circle, #fff 0%, ${vibe.glow} 35%, transparent 75%)`,
+            transform: 'translate(-50%,-50%) scale(0.5)',
+            animation: 'packBurst 0.7s ease-out both',
+            pointerEvents: 'none',
+            mixBlendMode: 'screen',
+          }} />
+          {Array.from({ length: 8 }).map((_, i) => {
+            const angle = (i * 360 / 8) + 12;
+            return (
+              <div key={i} style={{
+                position: 'absolute', left: '50%', top: '50%',
+                width: 6, height: 90,
+                background: `linear-gradient(180deg, ${vibe.glow}, transparent)`,
+                borderRadius: 3,
+                transformOrigin: 'center bottom',
+                ['--r' as string]: `${angle}deg`,
+                animation: 'packLightStreak 0.7s ease-out both',
+                pointerEvents: 'none',
+                mixBlendMode: 'screen',
+              }} />
+            );
+          })}
+          <div style={{
+            position: 'fixed', inset: 0,
+            background: '#fff',
+            animation: 'screenWhiteFlash 0.55s ease-out both',
+            pointerEvents: 'none',
+            zIndex: 3,
+            mixBlendMode: 'screen',
+          }} />
+        </>
+      )}
+
+      <div style={{ animation, position: 'relative', zIndex: 2 }}>
+        <PackArt vibe={vibe} />
+      </div>
+
+      {(stage === 'lift' || stage === 'tension') && (
+        <div style={{
+          position: 'absolute', left: '50%', top: '50%',
+          width: 200, height: 200, borderRadius: '50%',
+          background: `radial-gradient(circle, ${vibe.glow}88 0%, transparent 65%)`,
+          transform: 'translate(-50%,-50%)',
+          animation: stage === 'tension' ? 'flash 0.32s ease-in-out 3 both' : undefined,
+          opacity: stage === 'tension' ? undefined : 0.45,
+          pointerEvents: 'none',
+          zIndex: 1,
+        }} />
+      )}
+    </div>
+  );
+}
+
+function RevealCard({
+  card, idx, total, vibe, onTap,
+}: { card: CollectionCard; idx: number; total: number; vibe: PackVibe; onTap: () => void }) {
+  const showHalo = card.rarity === 'epic' || card.rarity === 'legendary';
+  const showSheen = card.rarity !== 'common';
+  return (
+    <div
+      key={idx}
+      onClick={onTap}
+      style={{ cursor: 'pointer', textAlign: 'center', position: 'relative' }}
+    >
+      {showHalo && (
+        <div style={{
+          position: 'absolute', left: '50%', top: '50%',
+          width: 320, height: 320, borderRadius: '50%',
+          background: `radial-gradient(circle,
+            ${card.rarity === 'legendary' ? '#ffd166' : vibe.glow} 0%,
+            transparent 60%)`,
+          animation: 'rarityHalo 1.4s ease-out both',
+          pointerEvents: 'none', zIndex: 0,
+          mixBlendMode: 'screen',
+        }} />
+      )}
+      <div style={{
+        position: 'relative',
+        animation: 'cardRevealFlight 0.8s cubic-bezier(.18,.85,.3,1.1) both',
+        zIndex: 1,
+        display: 'inline-block',
+        willChange: 'transform, opacity',
+      }}>
+        {/* Tilt wrapper enables 3D parallax + a pointer-tracking sheen
+            on the freshly-revealed card. Shine is gated to rare+ so
+            commons stay clean. The wrapper itself clips to borderRadius
+            so the sheen never escapes the card silhouette. */}
+        <TiltCard
+          maxTilt={12}
+          hoverScale={1.04}
+          shine={showSheen}
+          style={{ overflow: 'hidden', borderRadius: 18 }}
+        >
+          <Card card={card} hovered />
+          {showSheen && (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
+              animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+              borderRadius: 18,
+            }} />
+          )}
+        </TiltCard>
+      </div>
+      <div style={{
+        marginTop: 18, fontSize: 11, letterSpacing: '0.25em',
+        textTransform: 'uppercase', color: RARITY_COLOR[card.rarity],
+        fontWeight: 700, position: 'relative', zIndex: 2,
+        textShadow: card.rarity === 'legendary' ? '0 0 12px rgba(255, 209, 102, .6)' : 'none',
+      }}>
+        {card.rarity} · {idx + 1} / {total}
+      </div>
+      <div style={{ fontSize: 10, opacity: 0.5, marginTop: 6, position: 'relative', zIndex: 2 }}>
+        tap to continue
+      </div>
+    </div>
+  );
+}
+
+function rarityCue(r: Rarity): Parameters<typeof playSfx>[0] {
+  switch (r) {
+    case 'common':    return 'rarityCommon';
+    case 'rare':      return 'rarityRare';
+    case 'epic':      return 'rarityEpic';
+    case 'legendary': return 'rarityLegendary';
+  }
 }
 
 function ThemePackOption({
@@ -215,18 +513,95 @@ function ThemePackOption({
   );
 }
 
-function PackArt({ theme }: { theme: ElementId }) {
-  const e = ELEMENTS[theme];
+function MemoryPackOption({
+  def, coins, firstOpen, onClick,
+}: { def: MemoryPackDef; coins: number; firstOpen: boolean; onClick: () => void }) {
+  const canAfford = coins >= def.cost;
+  const filter = FILTERS[def.bonusFilter];
+  const [deep, color] = def.gradient;
+  return (
+    <button
+      onClick={canAfford ? onClick : undefined}
+      disabled={!canAfford}
+      style={{
+        width: '100%',
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '14px 16px',
+        borderRadius: 14,
+        border: 'none',
+        background: `linear-gradient(135deg, ${deep} 0%, ${color} 100%)`,
+        boxShadow: `0 6px 16px rgba(0,0,0,.35), inset 0 0 0 1.5px ${def.glow}66`,
+        color: '#fff',
+        cursor: canAfford ? 'pointer' : 'not-allowed',
+        opacity: canAfford ? 1 : 0.55,
+        textAlign: 'left',
+        transition: 'transform .15s',
+        fontFamily: 'inherit',
+        position: 'relative',
+      }}
+      onMouseDown={(ev) => { if (canAfford) (ev.currentTarget as HTMLElement).style.transform = 'scale(0.98)'; }}
+      onMouseUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+      onMouseLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 18, fontWeight: 700,
+          fontFamily: '"Cinzel", Georgia, serif',
+          letterSpacing: '0.05em',
+          display: 'flex', alignItems: 'center', gap: 6,
+        }}>
+          {def.name}
+          {firstOpen && (
+            <span style={{
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.2em',
+              padding: '2px 6px', borderRadius: 6,
+              background: def.glow, color: deep,
+              fontFamily: '"Fredoka", system-ui',
+            }} title="First open includes a free cosmetic filter">BONUS</span>
+          )}
+        </div>
+        <div style={{ fontSize: 11, opacity: 0.85, marginTop: 2, fontStyle: 'italic' }}>
+          {def.blurb}
+        </div>
+        <div style={{
+          fontSize: 10, opacity: 0.95, marginTop: 4,
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          background: 'rgba(0,0,0,.20)', padding: '2px 7px', borderRadius: 8,
+          fontWeight: 600,
+        }}>
+          {firstOpen ? <Sparkles size={10} /> : <Lock size={10} />}
+          {firstOpen
+            ? `Unlocks ${filter.name} cosmetic filter`
+            : `${filter.name} cosmetic already unlocked`}
+        </div>
+      </div>
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'flex-end',
+        fontSize: 11, fontWeight: 700,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
+          <Coins size={14} fill="#ffd166" color="#e8a93a" strokeWidth={2.2} />
+          {def.cost}
+        </div>
+        <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2, fontWeight: 500 }}>
+          {PACK_SIZE} cards
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function PackArt({ vibe }: { vibe: PackVibe }) {
   return (
     <div style={{
       width: 200, height: 280,
       borderRadius: 16,
-      background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 50%, ${e.deep} 100%)`,
+      background: `linear-gradient(135deg, ${vibe.deep} 0%, ${vibe.color} 50%, ${vibe.deep} 100%)`,
       boxShadow: `
         0 18px 40px rgba(0,0,0,.5),
-        inset 0 0 0 3px ${e.glow},
-        inset 0 0 30px ${e.glow}55,
-        0 0 60px ${e.glow}55
+        inset 0 0 0 3px ${vibe.glow},
+        inset 0 0 30px ${vibe.glow}55,
+        0 0 60px ${vibe.glow}55
       `,
       position: 'relative',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
@@ -235,14 +610,15 @@ function PackArt({ theme }: { theme: ElementId }) {
     }}>
       <div style={{
         fontSize: 11, letterSpacing: '0.4em', textTransform: 'uppercase',
-        color: e.glow, fontFamily: '"Cinzel", Georgia, serif',
+        color: vibe.glow, fontFamily: '"Cinzel", Georgia, serif',
       }}>Lifedeck</div>
       <div style={{
-        fontSize: 32, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif',
-        color: '#fff', textShadow: `0 0 20px ${e.glow}`,
+        fontSize: 28, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif',
+        color: '#fff', textShadow: `0 0 20px ${vibe.glow}`,
         letterSpacing: '0.05em', textTransform: 'uppercase',
-      }}>{e.name}</div>
-      <ElementGlyph el={theme} size={70} />
+        textAlign: 'center', padding: '0 8px',
+      }}>{vibe.title}</div>
+      {vibe.icon}
       <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85 }}>
         {PACK_SIZE} dormant cards
       </div>

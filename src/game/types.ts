@@ -69,6 +69,10 @@ export interface CollectionCard extends CardTemplate {
    * mark these cards so the player knows which ones to retake.
    */
   isPlaceholder?: boolean;
+  /** Cosmetic filter id applied to the photo on this card. Defaults to
+   *  `none` when missing. See src/data/filters.ts. Pure presentation —
+   *  never affects gameplay. */
+  filterId?: import('../data/filters').FilterId;
 }
 
 /** Live battlefield instance — copy of a card with mutable battle state. */
@@ -200,4 +204,27 @@ export interface SaveData {
       on the boss picker as a small medal. Bosses not yet beaten on Normal
       have no entry. */
   bossesBeatenAt?: Record<string, Difficulty>;
+  /** Daily quests + login streak. Lazily initialized on first boot of the
+   *  schema (App.tsx migration). Rolled over to a fresh day on the first
+   *  session of any new calendar day. */
+  daily?: import('./quests').DailyState;
+  /** Filter ids the player has unlocked. Starter filters (see
+   *  STARTER_FILTERS) are added at save creation time. Memory packs grant
+   *  additional filters on first open; the cosmetic picker can also buy
+   *  filters directly with coins. */
+  unlockedFilters?: import('../data/filters').FilterId[];
+  /** Card frame ids the player has unlocked. One frame is equipped
+   *  globally (see equippedFrame) and applied to every card render. */
+  unlockedFrames?: import('../data/frames').FrameId[];
+  equippedFrame?: import('../data/frames').FrameId;
+  /** Board skin ids the player has unlocked. One is equipped globally. */
+  unlockedBoardSkins?: import('../data/boardSkins').BoardSkinId[];
+  equippedBoardSkin?: import('../data/boardSkins').BoardSkinId;
+  /** Victory emote ids the player has unlocked. One is equipped. */
+  unlockedEmotes?: import('../data/victoryEmotes').EmoteId[];
+  equippedEmote?: import('../data/victoryEmotes').EmoteId;
+  /** Memory pack ids the player has opened at least once. Used to gate
+   *  the "first-open bonus filter" — subsequent opens of the same memory
+   *  pack don't re-grant the cosmetic. */
+  openedMemoryPacks?: string[];
 }

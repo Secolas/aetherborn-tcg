@@ -1,5 +1,6 @@
 import { ELEMENTS } from '../data/elements';
 import { SmartImage } from './SmartImage';
+import { getFilter, type FilterId } from '../data/filters';
 import type { ElementId } from '../game/types';
 
 interface Props {
@@ -9,10 +10,14 @@ interface Props {
   dashed?: boolean;
   /** Used for picsum fallback if photo URL fails to load. */
   fallbackSeed?: string;
+  /** Cosmetic photo filter to apply (sepia, holo, etc.). Defaults to
+   *  `none`. Has no effect when `photo` is null. */
+  filterId?: FilterId;
 }
 
-export function PhotoFrame({ photo, el, scale = 1, dashed = true, fallbackSeed = el }: Props) {
+export function PhotoFrame({ photo, el, scale = 1, dashed = true, fallbackSeed = el, filterId }: Props) {
   const e = ELEMENTS[el];
+  const filter = getFilter(filterId);
 
   if (photo) {
     return (
@@ -21,8 +26,32 @@ export function PhotoFrame({ photo, el, scale = 1, dashed = true, fallbackSeed =
           src={photo}
           alt=""
           fallbackSeed={fallbackSeed}
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+          style={{
+            width: '100%', height: '100%', objectFit: 'cover', display: 'block',
+            // Per-card cosmetic filter. Applied to the image element only
+            // so it doesn't drag the element-theme overlay below into the
+            // tonal shift (which would look muddy on top of an already
+            // sepia / noir photo).
+            filter: filter.cssFilter === 'none' ? undefined : filter.cssFilter,
+          }}
         />
+        {/* Optional cosmetic overlay — paints over the photo with the
+            filter's mood color. Sits BELOW the element-theme glaze so the
+            element identity still reads through. */}
+        {filter.overlay && (
+          <div style={{
+            position: 'absolute', inset: 0,
+            background: filter.overlay.background,
+            mixBlendMode: filter.overlay.mixBlendMode,
+            animation: filter.overlay.animation,
+            pointerEvents: 'none',
+            // Slight width bump so the holo sweep can translate without
+            // exposing the photo's edge through a gap; container's
+            // overflow:hidden still clips it to the frame.
+            width: filter.overlay.animation ? '160%' : '100%',
+            left: filter.overlay.animation ? '-30%' : 0,
+          }} />
+        )}
         <div style={{
           position: 'absolute', inset: 0,
           background: `linear-gradient(160deg, ${e.color}30 0%, transparent 40%, ${e.deep}55 100%)`,
@@ -31,7 +60,10 @@ export function PhotoFrame({ photo, el, scale = 1, dashed = true, fallbackSeed =
         }} />
         <div style={{
           position: 'absolute', inset: 0,
-          boxShadow: `inset 0 0 20px ${e.glow}33`,
+          // Cosmetic accent ring overrides the element glow when a filter
+          // sets one. Keeps the photo frame visually tied to the chosen
+          // filter (e.g. Holo gets a violet inner glow).
+          boxShadow: `inset 0 0 20px ${(filter.accent ?? e.glow)}55`,
           pointerEvents: 'none',
         }} />
       </div>

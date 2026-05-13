@@ -1,5 +1,6 @@
 import { TEMPLATES, templatesByTheme } from '../data/templates';
 import { RARITY_WEIGHT } from '../data/elements';
+import { getMemoryPack } from '../data/memoryPacks';
 import type { CardTemplate, CollectionCard, ElementId, Rarity } from './types';
 
 export const PACK_SIZE = 3;
@@ -37,6 +38,37 @@ function pickAtLeast(pool: CardTemplate[], minRarity: Rarity): CardTemplate {
  */
 export function openPack(theme: ElementId): CollectionCard[] {
   const pool = templatesByTheme(theme);
+  const cards: CollectionCard[] = [];
+  for (let i = 0; i < PACK_SIZE - 1; i++) {
+    const t = pickWeighted(pool);
+    cards.push({ ...t, uid: newUid(), photo: null });
+  }
+  const guaranteed = pickAtLeast(pool, 'rare');
+  cards.push({ ...guaranteed, uid: newUid(), photo: null });
+  return cards;
+}
+
+/**
+ * Open a Memory Pack: 3 cards drawn from the union of the pack's themes.
+ * Same rare+ guarantee as element packs so opens always feel rewarding.
+ * Returns an empty array if the pack id is unknown (defensive — callers
+ * should validate first).
+ */
+export function openMemoryPack(packId: string): CollectionCard[] {
+  const def = getMemoryPack(packId);
+  if (!def) return [];
+  // Union of templates from every contributing theme, de-duplicated by id.
+  // The combined pool preserves each card's baseline rarity weight so a
+  // food/family birthday pack doesn't artificially over-pick rares from
+  // whichever theme is smaller.
+  const seen = new Set<string>();
+  const pool: CardTemplate[] = [];
+  for (const t of def.themes.flatMap(th => templatesByTheme(th))) {
+    if (seen.has(t.id)) continue;
+    seen.add(t.id);
+    pool.push(t);
+  }
+  if (pool.length === 0) return [];
   const cards: CollectionCard[] = [];
   for (let i = 0; i < PACK_SIZE - 1; i++) {
     const t = pickWeighted(pool);

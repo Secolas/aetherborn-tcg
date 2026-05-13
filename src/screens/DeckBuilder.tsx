@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
@@ -306,19 +307,30 @@ export function DeckBuilder({
             WebkitOverflowScrolling: 'touch',
           }}
         >
-          {sortedDeckUids.map(uid => {
-            const c = collection.find(x => x.uid === uid);
-            if (!c) return null;
-            return (
-              <div
-                key={uid}
-                onClick={() => setInspectActive(c)}
-                style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
-              >
-                <Card card={c} scale={0.32} />
-              </div>
-            );
-          })}
+          {/* Deck strip — uses AnimatePresence so toggling a card in or
+              out of the deck plays a brief scale + fade transition
+              instead of snapping. layout makes the remaining cards
+              glide horizontally to fill the gap. */}
+          <AnimatePresence initial={false}>
+            {sortedDeckUids.map(uid => {
+              const c = collection.find(x => x.uid === uid);
+              if (!c) return null;
+              return (
+                <motion.div
+                  key={uid}
+                  layout
+                  initial={{ opacity: 0, scale: 0.6 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.6 }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  onClick={() => setInspectActive(c)}
+                  style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
+                >
+                  <Card card={c} scale={0.32} />
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
           {deckUids.length === 0 && (
             <div style={{ fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic' }}>
               Tap a summoned card below to add it.
@@ -393,18 +405,21 @@ export function DeckBuilder({
         justifyItems: 'center',
         alignContent: 'start',
       }}>
+        <AnimatePresence initial={false} mode="popLayout">
         {filtered.map(card => {
           const inDeck = deckUids.includes(card.uid);
           const playable = !!card.photo;
           return (
-            <div key={card.uid}
-              onClick={() => playable && toggle(card.uid)}
+            <motion.div key={card.uid}
+              layout
+              initial={{ opacity: 0, scale: 0.85 }}
+              animate={{ opacity: playable ? 1 : 0.6, scale: inDeck ? 0.95 : 1 }}
+              exit={{ opacity: 0, scale: 0.85 }}
+              transition={{ type: 'spring', stiffness: 480, damping: 32 }}
+              onClick={() => playable && setInspectActive(card)}
               style={{
                 cursor: playable ? 'pointer' : 'not-allowed',
                 position: 'relative',
-                opacity: playable ? 1 : 0.6,
-                transform: inDeck ? 'scale(0.95)' : 'scale(1)',
-                transition: 'transform .15s',
               }}>
               <Card card={card} scale={layout === 'compact' ? 0.4 : 0.65} hovered={inDeck} />
               {inDeck && (
@@ -433,9 +448,10 @@ export function DeckBuilder({
                   {layout === 'compact' ? '' : ' Dormant'}
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
+        </AnimatePresence>
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5, padding: 40, fontSize: 13 }}>
             {collection.length === 0 ? 'Open a pack to start building.' : 'Nothing matches this filter.'}
@@ -443,63 +459,72 @@ export function DeckBuilder({
         )}
       </div>
 
-      {/* Active-deck preview modal — tap any chip in the active deck strip
-          to see the full card and pull it out of the deck (or just close
-          the preview). Reads-only otherwise. */}
-      {inspectActive && (
-        <div
-          onClick={() => setInspectActive(null)}
-          style={{
-            position: 'absolute', inset: 0,
-            background: 'rgba(8,4,12,.7)',
-            display: 'grid', placeItems: 'center',
-            zIndex: 220,
-            animation: 'fadeIn .2s',
-          }}
-        >
+      {/* Card preview modal — opened from either the deck strip or the
+          library grid. The action button below is contextual: cards
+          already in the deck show "Remove from deck" (red); cards not
+          in the deck show "Add to deck" (orange) so the player can add
+          + read in one motion. Tapping the backdrop or Close dismisses. */}
+      {inspectActive && (() => {
+        const inDeck = deckUids.includes(inspectActive.uid);
+        return (
           <div
-            onClick={(e) => e.stopPropagation()}
+            onClick={() => setInspectActive(null)}
             style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              gap: 14,
-              animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
+              position: 'absolute', inset: 0,
+              background: 'rgba(8,4,12,.7)',
+              display: 'grid', placeItems: 'center',
+              zIndex: 220,
+              animation: 'fadeIn .2s',
             }}
           >
-            <Card card={inspectActive} hovered scale={1.0} />
-            <div style={{ display: 'flex', gap: 10 }}>
-              <button
-                onClick={() => setInspectActive(null)}
-                style={{
-                  background: '#fff', color: PALETTE.text,
-                  border: `1.5px solid ${PALETTE.border}`,
-                  borderRadius: 18, padding: '10px 18px',
-                  fontSize: 13, fontWeight: 700,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 4px 10px rgba(58,46,42,.15)',
-                }}
-              >Close</button>
-              <button
-                onClick={() => {
-                  toggle(inspectActive.uid);
-                  setInspectActive(null);
-                }}
-                style={{
-                  background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: 18, padding: '10px 22px',
-                  fontSize: 13, fontWeight: 800,
-                  letterSpacing: '0.04em',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                  boxShadow: '0 4px 14px rgba(200,54,46,.4)',
-                }}
-              >Remove from deck</button>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: 14,
+                animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
+              }}
+            >
+              <Card card={inspectActive} hovered scale={1.0} />
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setInspectActive(null)}
+                  style={{
+                    background: '#fff', color: PALETTE.text,
+                    border: `1.5px solid ${PALETTE.border}`,
+                    borderRadius: 18, padding: '10px 18px',
+                    fontSize: 13, fontWeight: 700,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    boxShadow: '0 4px 10px rgba(58,46,42,.15)',
+                  }}
+                >Close</button>
+                <button
+                  onClick={() => {
+                    toggle(inspectActive.uid);
+                    setInspectActive(null);
+                  }}
+                  style={{
+                    background: inDeck
+                      ? 'linear-gradient(180deg, #ee5a52, #c8362e)'
+                      : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
+                    color: '#fff',
+                    border: 'none',
+                    borderRadius: 18, padding: '10px 22px',
+                    fontSize: 13, fontWeight: 800,
+                    letterSpacing: '0.04em',
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
+                    boxShadow: inDeck
+                      ? '0 4px 14px rgba(200,54,46,.4)'
+                      : '0 4px 14px rgba(238,90,82,.4)',
+                  }}
+                >{inDeck ? 'Remove from deck' : 'Add to deck'}</button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
