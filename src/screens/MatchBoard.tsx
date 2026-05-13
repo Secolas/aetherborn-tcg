@@ -318,10 +318,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         if (dying[id].side !== side) continue;
         used.add(dying[id].slot);
       }
-      // Assign new battleIds to the lowest free slot.
+      // Assign new battleIds center-first so a lone creature always
+      // appears in the middle slot rather than the leftmost.
+      const slotOrder = [1, 0, 2].slice(0, maxSlots);
       for (const c of field) {
         if (next[c.battleId] != null) continue;
-        for (let i = 0; i < maxSlots; i++) {
+        for (const i of slotOrder) {
           if (!used.has(i)) {
             next[c.battleId] = i;
             used.add(i);
@@ -3016,23 +3018,25 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               <InfoRow label="Deck" value={me.deck.length} />
               <InfoRow label="Graveyard" value={me.discard.length} />
               <InfoRow label="HP" value={me.hp} />
-              <button
-                onClick={() => { setInfoSide(null); setLogOpen(true); }}
-                style={{
-                  marginTop: 10, width: '100%',
-                  background: '#3a2e2a', color: '#fef8f0',
-                  border: 'none', borderRadius: 10,
-                  padding: '8px 12px',
-                  fontSize: 12, fontWeight: 700,
-                  letterSpacing: '0.06em',
-                  cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  fontFamily: 'inherit',
-                }}
-              >
-                <ScrollText size={13} strokeWidth={2.4} />
-                View Action Log
-              </button>
+              {infoSide === 'player' && (
+                <button
+                  onClick={() => { setInfoSide(null); setLogOpen(true); }}
+                  style={{
+                    marginTop: 10, width: '100%',
+                    background: '#3a2e2a', color: '#fef8f0',
+                    border: 'none', borderRadius: 10,
+                    padding: '8px 12px',
+                    fontSize: 12, fontWeight: 700,
+                    letterSpacing: '0.06em',
+                    cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                    fontFamily: 'inherit',
+                  }}
+                >
+                  <ScrollText size={13} strokeWidth={2.4} />
+                  View Action Log
+                </button>
+              )}
             </div>
           </div>
         );
