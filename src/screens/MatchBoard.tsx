@@ -2198,16 +2198,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // accidentally engaging Framer's drag threshold.
           const canDrag = state.turn === 'player' && state.outcome === 'ongoing' && pendingDrawIds.size === 0;
           const isDraggingThis = drag?.battleId === card.battleId;
-          // While dragging or selected, the card pops up to a flat
-          // pose so the player reads a clean silhouette. Otherwise it
-          // sits in its fan pose. We push rotation + offset through
-          // motion's `rotate` and `y` so the motion.div ITSELF is
-          // rotated — that way browser hit-testing uses the rotated
-          // bounds, not the axis-aligned rect. Without this, adjacent
-          // fanned cards' bounding boxes overlap and a click on one
-          // card lands on its neighbour.
-          const poseRot = (isSelected || isDraggingThis) ? 0 : rot;
-          const poseY = (isSelected || isDraggingThis) ? -12 : yArc;
+          // Pose only changes when the card is SELECTED for preview
+          // (lifted + straightened at center). While DRAGGING we keep
+          // the fan pose untouched — animating rotate/y during drag
+          // start caused the card to "jump" out from under the
+          // finger as those values transitioned, which read as the
+          // sluggish/weird touch behavior. With the fan pose held,
+          // Framer's drag handler is the only thing moving the card,
+          // and `whileDrag` adds a clean scale + shadow lift cue
+          // without competing with the drag translation.
+          //
+          // We still push rotation + offset through motion's `rotate`
+          // and `y` so the motion.div itself is rotated — that way
+          // browser hit-testing uses the rotated bounds, not the
+          // axis-aligned rect (adjacent fanned cards would otherwise
+          // overlap and a click on one would land on a neighbour).
+          const poseRot = isSelected ? 0 : rot;
+          const poseY = isSelected ? -12 : yArc;
           return (
             <motion.div
               key={card.battleId}
@@ -2220,8 +2227,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               drag={canDrag}
               dragSnapToOrigin
               dragMomentum={false}
-              dragElastic={0.8}
-              dragTransition={{ bounceStiffness: 600, bounceDamping: 30 }}
+              // dragElastic only matters when constraints are set; we
+              // leave drag unconstrained so the card follows the
+              // finger 1:1. Spring on release returns to the fan slot
+              // — stiffness/damping picked so the snap-back is fast
+              // enough to feel responsive (~250 ms) without
+              // overshooting noticeably.
+              dragElastic={1}
+              dragTransition={{ bounceStiffness: 700, bounceDamping: 36 }}
               initial={false}
               // Pose only — rotation and y-lift for selected/dragged
               // states. x is NOT in animate; the card's horizontal slot
@@ -2244,7 +2257,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 const idx = state.player.hand.findIndex(c => c.battleId === card.battleId);
                 if (idx >= 0) handleHandTap(card, idx);
               }}
-              whileDrag={{ cursor: 'grabbing', scale: 1.08 }}
+              // While dragging, scale up slightly and add a strong
+              // shadow so the card visibly "lifts off" the hand under
+              // the finger. Bigger scale + shadow than the previous
+              // 1.08 / soft shadow because on touch you want a clear
+              // "I'm holding this" signal — the card needs to read as
+              // distinctly elevated above its neighbours.
+              whileDrag={{
+                cursor: 'grabbing',
+                scale: 1.15,
+                filter: 'drop-shadow(0 16px 28px rgba(0,0,0,.55))',
+              }}
               style={{
                 position: 'absolute',
                 bottom: 0,
@@ -2263,12 +2286,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 // space between cards doesn't catch clicks. Each card
                 // must opt back in or taps/drags won't register.
                 pointerEvents: 'auto',
-                // When ONE hand card is selected for preview, the
-                // others fade to a low opacity so the player can read
-                // the centered preview without the rest of the hand
-                // competing for attention. Selected card itself goes
-                // to 0 since the centered preview takes its place.
-                opacity: selectedHandIdx !== null && !isDraggingThis ? (isSelected ? 0 : 0.2) : 1,
+                // The selected card hides (the centered preview takes
+                // its place); every OTHER hand card stays at full
+                // opacity so the player can still see what's in hand
+                // while reading the preview.
+                opacity: isSelected ? 0 : 1,
                 transition: 'opacity .15s',
                 willChange: 'transform',
                 // Visual flourishes that don't conflict with the
