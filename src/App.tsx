@@ -675,8 +675,13 @@ export default function App() {
         <BossPicker
           defeatedIds={save.bossesDefeated}
           beatenAt={save.bossesBeatenAt ?? {}}
+          decks={save.decks ?? []}
+          activeDeckId={save.activeDeckId}
+          collection={save.collection}
+          onSetActiveDeck={onSetActiveDeck}
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
+          onOpenDeckBuilder={() => setScreen('deck')}
         />
       )}
       {/* Quest toast layer — sits above every screen so completion feedback
