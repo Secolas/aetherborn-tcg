@@ -365,6 +365,17 @@ function chooseSpellTarget(card: BattleCard, state: MatchState, c: AiCaps): Spel
     return { kind: 'face', owner: 'opponent' };
   }
 
+  if (card.abilityKind === 'spell_lock') {
+    // Only valuable when the opponent has spells in hand AND mana to
+    // cast them next turn. Otherwise it's a wasted card. Patient cast:
+    // only fire if opponent has at least one spell ready (cost <= their
+    // next-turn mana). Targetless — payload is whole-side.
+    const oppNextMana = Math.min(7, state.player.maxMana + 1);
+    const liveSpells = state.player.hand.filter(c => c.type === 'Spell' && c.cost <= oppNextMana).length;
+    if (liveSpells === 0) return undefined;
+    return { kind: 'face', owner: 'opponent' };
+  }
+
   return undefined;
 }
 
@@ -472,6 +483,14 @@ function scoreCard(card: BattleCard, state: MatchState, c: AiCaps): number {
       s += damaged * 1.5;
     }
     if (card.abilityKind === 'spell_feast' && me.hp < 12) s += 5;
+    if (card.abilityKind === 'spell_lock') {
+      // Value scales with how many spells opponent has in hand. One
+      // spell = small priority, three+ = high priority. If they have
+      // no spells at all the chooseSpellTarget step refuses to play,
+      // so this score nudge is fine to apply unconditionally.
+      const oppSpells = state.player.hand.filter(c => c.type === 'Spell').length;
+      s += Math.min(4, oppSpells * 1.5);
+    }
 
     // Patient casts: don't fire spells that would do nothing right now.
     if (c.patientCasts) {

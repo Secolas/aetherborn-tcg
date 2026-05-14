@@ -135,18 +135,21 @@ export const BOSSES: BossDef[] = [
     deck: [
       'wrk-01',          // Intern
       'wrk-02',          // Spam Email (1c chip damage)
+      'wrk-14',          // Stand-up Meeting (cheap both-draw cycle)
       'wrk-05',          // IT Support
-      'wrk-06', 'wrk-06',// Sales Pitch x2 — removal
+      'wrk-06', 'wrk-06',// Sales Pitch x2 — removal (4 dmg, kills creatures)
+      'wrk-18',          // All-Hands Meeting — anti-heal spell lock.
+                         // Replaces Meeting freeze (wrk-09): Manager
+                         // already has 2 Sales Pitches that out-trade
+                         // freezing the creature, so freeze was redundant;
+                         // All-Hands hits heal decks (Mom/Cook/Partner)
+                         // where freeze did nothing.
       'wrk-07',          // HR — Untargetable 3/4 mid-curve threat
       'wrk-08',          // Senior Engineer
-      'wrk-09',          // Meeting — freeze
       'wrk-15',          // Payroll — board buff
       'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
-                         // to every Work creature. Manager's actual
-                         // finisher: pumps his cheap bodies into real
-                         // threats so the control plan can close.
+                         // to every Work creature. Real finisher.
       'wrk-11',          // Lunch Break — 7 face heal stabilizer
-      'wrk-14',          // Stand-up Meeting (cheap draw)
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo

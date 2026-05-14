@@ -2176,7 +2176,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // are baked into effectiveCost so a discounted spell shows as
           // playable even at its on-card cost. We don't tint cards red just
           // because it's the boss's turn — that'd flash every card every turn.
-          const playableNow = effectiveCost(state.player, card) <= state.player.mana;
+          // Spell-lock from All-Hands Meeting (wrk-18) — the opposing
+          // side cast it last turn, our spells are dead in hand until
+          // endTurn. Creatures still play normally.
+          const spellsLocked = state.player.spellLockedUntilTurn != null
+            && state.turnNumber < state.player.spellLockedUntilTurn;
+          const lockedForSpell = card.type === 'Spell' && spellsLocked;
+          const playableNow = effectiveCost(state.player, card) <= state.player.mana && !lockedForSpell;
           const baseScale = 0.56;
           const cardW = 220 * baseScale;
           // Tighter stride + per-card rotation = a real fan instead of a
@@ -2307,6 +2313,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}
             >
               <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+              {/* Spell-lock indicator — All-Hands Meeting (wrk-18)
+                  freezes the player's spells for one turn. Tint the
+                  card blue + pin a snowflake badge so the player can
+                  see at a glance why a spell card won't play this
+                  turn. Disappears on endTurn when the lock wears off. */}
+              {lockedForSpell && (
+                <>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(180deg, rgba(158,214,247,.4) 0%, rgba(58,143,196,.5) 100%)',
+                    borderRadius: 14,
+                    pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: 6, right: 6,
+                    width: 24, height: 24, borderRadius: 12,
+                    background: '#3a8fc4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,.4)',
+                    pointerEvents: 'none',
+                  }}>
+                    <Snowflake size={14} fill="#fff" strokeWidth={2.4} color="#fff" />
+                  </div>
+                </>
+              )}
             </motion.div>
           );
         })}

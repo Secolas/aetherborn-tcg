@@ -567,6 +567,18 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'common', suggested: 'a janitor, cleaning crew, or empty office at night' },
 
+  // Manager's signature anti-spell tech. 1-turn spell lock on the
+  // opposing side — they can still play creatures and attack, but their
+  // heals / removal / draws are dead in hand. Costs 3 so it's playable
+  // on curve and forces hard timing decisions: cast too early and the
+  // opponent's hand has no spells worth banning; cast too late and the
+  // game is already decided. Rare (not legendary) — fine in Normal.
+  { id: 'wrk-18', name: 'All-Hands Meeting', el: 'work', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Your opponent cannot cast spells next turn.',
+    flavor: 'Mandatory attendance. Cameras on.',
+    abilityKind: 'spell_lock',
+    rarity: 'rare', suggested: 'a packed conference room, raised hands, Zoom grid of faces' },
+
   // Manager's missing finisher. Work theme's epic body — a 5-cost 3/4
   // that pumps every other Work creature on play. Manager runs cheap
   // bodies (Intern, Coworker, Senior Engineer) that scale poorly into

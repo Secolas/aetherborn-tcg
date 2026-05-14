@@ -40,7 +40,9 @@ export type AbilityKind =
   | 'level_up'           // (Creature) at end of your turn, this gains +1/+1 permanently
   | 'graduate'           // (Creature) level up each turn; after X turns alive, gains +2/+2 AND Untargetable permanently
   | 'exam_pass'          // (Spell) if you have 3+ creatures, deal X to enemy face; otherwise heal owner X
-  | 'pop_quiz';          // (Spell) discard a random card from your hand, then draw 2
+  | 'pop_quiz'           // (Spell) discard a random card from your hand, then draw 2
+  // ---- Work theme: meta-control ----
+  | 'spell_lock';        // (Spell) opponent cannot cast spells on their next turn
 
 export interface CardTemplate {
   id: string;
@@ -156,6 +158,13 @@ export interface PlayerState {
       starts attacking, instead of interleaving summons and
       attacks the way it used to. */
   hasAttackedThisTurn?: boolean;
+  /** Turn number until which this side cannot cast spells. Set by the
+   *  opponent's `spell_lock` spell (All-Hands Meeting); compared in
+   *  playCard. Like freeze, lasts one owner-turn — set to
+   *  `state.turnNumber + 2` so the locked side's next beginTurn still
+   *  sees it active, and the spell ban naturally lifts at their
+   *  endTurn (or at the safety-net check in beginTurn). */
+  spellLockedUntilTurn?: number;
 }
 
 export interface MatchState {

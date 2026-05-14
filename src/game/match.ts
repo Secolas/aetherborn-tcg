@@ -391,6 +391,13 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     c.justPlayed = false;
   });
 
+  // Spell-lock safety net — same +2 model as freeze/silence. If the
+  // deadline has passed (e.g. multiple turns elapsed without endTurn
+  // cleanup), force-clear so the lock can never outlast its turn.
+  if (me.spellLockedUntilTurn != null && state.turnNumber >= me.spellLockedUntilTurn) {
+    me.spellLockedUntilTurn = undefined;
+  }
+
   // Heal-each-turn triggers. Skip when owner is already at max HP —
   // there's nothing to restore, and firing the ability would pop a
   // wasted reveal animation for "Library restores 1 HP" that did
@@ -552,6 +559,13 @@ export function endTurn(prev: MatchState): MatchState {
       }
     }
   }
+  // Spell-lock wears off at the end of the locked side's turn (parallels
+  // freeze/silence wear-off above). After this, the next beginTurn for
+  // the other side resets timers; the lock has done its single-turn job.
+  if (me.spellLockedUntilTurn != null) {
+    me.spellLockedUntilTurn = undefined;
+  }
+
   checkOutcome(cleared);
   if (cleared.outcome !== 'ongoing') return cleared;
 
@@ -595,6 +609,11 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
   const card = me.hand[idx];
   const cost = effectiveCost(me, card);
   if (cost > me.mana) return { state: prev, ok: false, reason: 'Not enough mana' };
+  // Spell-lock: All-Hands Meeting (wrk-18) bans the opposing side's
+  // spells for one full owner-turn. Creatures still play normally.
+  if (card.type === 'Spell' && me.spellLockedUntilTurn != null && state.turnNumber < me.spellLockedUntilTurn) {
+    return { state: prev, ok: false, reason: 'Your spells are locked this turn' };
+  }
   // Phase lock: once a side has attacked on its current turn it can't
   // play more cards. Mirrors the player's main → battle progression
   // for the AI so the boss can't interleave attacks and summons.
@@ -656,6 +675,7 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
   const noTarget: AbilityKind[] = [
     'draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast',
     'spell_both_draw', 'spell_buff_all', 'exam_pass', 'pop_quiz',
+    'spell_lock',
   ];
   if (noTarget.includes(card.abilityKind)) return true;
 
@@ -957,6 +977,14 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
         me.hand.push(c);
       }
     }
+  } else if (card.abilityKind === 'spell_lock') {
+    // All-Hands Meeting — opposing side can't cast spells next turn.
+    // Use the same +2 timing as freeze/silence: cast on turn N, the
+    // opposing side's turn N+1 beginTurn sees N+1 < N+2 (still locked),
+    // and the ban lifts at their endTurn. Doesn't stack — re-casting
+    // just resets the deadline.
+    them.spellLockedUntilTurn = state.turnNumber + 2;
+    state.log.push(`${displayName(card)} — opponent's spells are locked next turn`);
   }
 
   // Hide the unused `them` lint

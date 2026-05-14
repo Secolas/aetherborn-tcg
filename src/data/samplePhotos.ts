@@ -115,6 +115,7 @@ const THEMED: Record<string, string> = {
   'cou-18': U('photo-1518621736915-f3b1c41bfd00'),  // Holding Hands → silhouetted couple
   'fd-17':  U('photo-1547592180-85f173990554'),     // Stew Pot → bubbling soup pot
   'wrk-17': U('photo-1531403009284-440f080d1e12'),  // Colleagues → team around a desk
+  'wrk-18': U('photo-1517245386807-bb43f82c33c4'),  // All-Hands Meeting → packed conference room (placeholder, reuses wrk-09's conference-room photo)
 };
 
 /**
