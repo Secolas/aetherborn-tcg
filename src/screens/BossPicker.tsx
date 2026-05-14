@@ -193,9 +193,23 @@ export function BossPicker({
       `,
       color: PALETTE.text,
       fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
-      display: 'flex', flexDirection: 'column',
+      display: 'flex', justifyContent: 'center',
       overflow: 'hidden',
     }}>
+      {/* Centered content stage. The PhoneShell expands to 1200px on
+          desktop, but the picker is mobile-first — letting the carousel
+          / rails / CTA stretch that wide looks unfriendly. We cap the
+          content column at a phone-ish width and center it so desktop
+          feels like a comfortable game window. Mobile is unaffected
+          because the stage is already narrower than this max. */}
+      <div style={{
+        width: '100%',
+        maxWidth: 540,
+        height: '100%',
+        display: 'flex', flexDirection: 'column',
+        minHeight: 0,
+        position: 'relative',
+      }}>
       {/* ------------------------------------------------------- */}
       {/* 1) Header                                               */}
       {/* ------------------------------------------------------- */}
@@ -238,7 +252,6 @@ export function BossPicker({
       <BossRail
         currentIdx={pageIdx}
         defeatedIds={defeatedIds}
-        beatenAt={beatenAt}
         reducedMotion={reduced}
         onJump={(i) => setPageIdx(clampPage(i))}
       />
@@ -391,6 +404,7 @@ export function BossPicker({
           />
         </div>
       )}
+      </div>
     </div>
   );
 }
@@ -400,15 +414,17 @@ export function BossPicker({
 // =================================================================
 /**
  * Compact horizontal row of every boss. Tap an avatar to jump straight
- * to that boss in the carousel. Active boss is ringed; beaten bosses
- * carry a small medal so the player can see their progress at a glance.
+ * to that boss in the carousel. Active boss is ringed in its element
+ * gradient; beaten state is intentionally NOT marked on the rail —
+ * a checkmark on the rail avatar reads like a finished to-do, which
+ * undercuts the "pick a fight" mood. The beaten medal still appears
+ * in the boss banner when the boss is focused.
  */
 function BossRail({
-  currentIdx, defeatedIds, beatenAt, reducedMotion, onJump,
+  currentIdx, defeatedIds, reducedMotion, onJump,
 }: {
   currentIdx: number;
   defeatedIds: string[];
-  beatenAt: Record<string, Difficulty>;
   reducedMotion: boolean;
   onJump: (i: number) => void;
 }) {
@@ -448,7 +464,6 @@ function BossRail({
         const active = i === currentIdx;
         const e = ELEMENTS[b.themeId];
         const defeated = defeatedIds.includes(b.id);
-        const tier = beatenAt[b.id];
         return (
           <button
             key={b.id}
@@ -496,24 +511,11 @@ function BossRail({
               }} aria-hidden>
                 {!b.avatarPhoto && b.avatar}
               </div>
-              {defeated && (
-                <div
-                  aria-hidden
-                  style={{
-                    position: 'absolute', bottom: -2, right: -2,
-                    width: 18, height: 18, borderRadius: '50%',
-                    background: tier === 'mythic' ? '#3a2e2a'
-                              : tier === 'hard'   ? '#ff7e5f'
-                              : '#ffd166',
-                    color: tier === 'hard' ? '#fff' : tier === 'mythic' ? '#ffd166' : '#5a3a0e',
-                    display: 'grid', placeItems: 'center',
-                    border: '2px solid #fff',
-                    boxShadow: '0 2px 4px rgba(0,0,0,.18)',
-                  }}
-                >
-                  <Check size={10} strokeWidth={3.4} />
-                </div>
-              )}
+              {/* No "beaten" check badge on the rail avatar — the medal
+                  inside the boss banner already tells that story when
+                  the boss is focused. A small dot on the rail just
+                  makes the avatar read like a completed to-do, which
+                  isn't the vibe we want for the picker. */}
             </div>
             <div style={{
               fontSize: 10, fontWeight: 700,
@@ -1214,9 +1216,13 @@ function EmptyDecksState({
       `,
       color: PALETTE.text,
       fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
-      display: 'flex', flexDirection: 'column',
+      display: 'flex', justifyContent: 'center',
       overflow: 'hidden',
     }}>
+      <div style={{
+        width: '100%', maxWidth: 540, height: '100%',
+        display: 'flex', flexDirection: 'column',
+      }}>
       <div style={{ padding: '52px 16px 6px', display: 'flex', alignItems: 'center', gap: 12 }}>
         <button onClick={onBack} style={iconBtn} aria-label="Back">
           <ArrowLeft size={18} />
@@ -1258,6 +1264,7 @@ function EmptyDecksState({
             Go to Deck Builder
           </button>
         )}
+      </div>
       </div>
     </div>
   );
