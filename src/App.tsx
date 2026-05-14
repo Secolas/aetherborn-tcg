@@ -226,6 +226,22 @@ export default function App() {
             dirty = true;
           }
         }
+        // 1b. Nickname → memory migration. Card titles always show the
+        //     template name now; any text the player previously typed
+        //     into the (now-removed) nickname field is preserved by
+        //     moving it into the new `memory` slot — unless a memory
+        //     is already set (don't clobber). Then the nickname is
+        //     cleared so the rest of the app can stop reading it.
+        if (next.nickname !== undefined) {
+          const trimmed = next.nickname.trim();
+          const isMeaningful = trimmed.length > 0 && trimmed !== next.name;
+          if (isMeaningful && !next.memory) {
+            next = { ...next, memory: trimmed, nickname: undefined };
+          } else if (next.nickname !== undefined) {
+            next = { ...next, nickname: undefined };
+          }
+          dirty = true;
+        }
         // 2. Re-sync template fields. If the underlying template no
         //    longer matches the saved card (any of name/cost/atk/hp/
         //    ability/abilityKind/abilityValue/rarity/flavor/type/el
@@ -250,8 +266,9 @@ export default function App() {
               ...t,
               uid: next.uid,
               photo: next.photo,
-              nickname: next.nickname,
+              memory: next.memory,
               isPlaceholder: next.isPlaceholder,
+              filterId: next.filterId,
             };
             dirty = true;
           }
@@ -319,6 +336,20 @@ export default function App() {
    * Clear a card's photo so the player can retake it. Also drops it from
    * EVERY deck since dormant cards can't be played in any of them.
    */
+  /** Update (or clear) the player-written memory on a card. Empty/whitespace
+   *  collapses to undefined so the ⓘ marker disappears. */
+  const onUpdateMemory = (uid: string, memory: string) => {
+    const trimmed = memory.trim();
+    setSave(s => ({
+      ...s,
+      collection: s.collection.map(c =>
+        c.uid === uid
+          ? { ...c, memory: trimmed.length > 0 ? trimmed : undefined }
+          : c
+      ),
+    }));
+  };
+
   const onClearPhoto = (uid: string) => {
     setSave(s => {
       const decks = (s.decks ?? []).map(d => ({ ...d, uids: d.uids.filter(x => x !== uid) }));
@@ -598,6 +629,7 @@ export default function App() {
           onCapture={goCapture}
           onClearPhoto={onClearPhoto}
           onQuickFill={onQuickFill}
+          onUpdateMemory={onUpdateMemory}
           onBack={() => setScreen('home')}
         />
       )}
@@ -622,6 +654,7 @@ export default function App() {
           onCreate={onCreateDeck}
           onRename={onRenameDeck}
           onDelete={onDeleteDeck}
+          onUpdateMemory={onUpdateMemory}
           onBack={() => setScreen('home')}
         />
       )}

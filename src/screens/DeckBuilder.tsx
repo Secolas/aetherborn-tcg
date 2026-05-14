@@ -6,6 +6,7 @@ import {
   Trash2, X, Search, ChevronDown, ChevronUp, Activity,
 } from 'lucide-react';
 import { Card } from '../components/Card';
+import { MemoryPanel } from '../components/MemoryPanel';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import { useViewport } from '../hooks/useViewport';
@@ -40,12 +41,14 @@ interface Props {
   onCreate: () => void;
   onRename: (deckId: string, name: string) => void;
   onDelete: (deckId: string) => void;
+  /** Update the player's memory text for a card. Optional. */
+  onUpdateMemory?: (uid: string, memory: string) => void;
   onBack: () => void;
 }
 
 export function DeckBuilder({
   collection, decks, activeDeckId, maxDecks,
-  onChange, onSetActive, onCreate, onRename, onDelete, onBack,
+  onChange, onSetActive, onCreate, onRename, onDelete, onUpdateMemory, onBack,
 }: Props) {
   const { isMobile, isDesktop } = useViewport();
   /** Compact = dense grid; Big = roomier preview cards. */
@@ -71,7 +74,7 @@ export function DeckBuilder({
       if (!ca || !cb) return 0;
       if (ca.type !== cb.type) return ca.type === 'Creature' ? -1 : 1;
       if (ca.cost !== cb.cost) return ca.cost - cb.cost;
-      return (ca.nickname ?? ca.name).localeCompare(cb.nickname ?? cb.name);
+      return ca.name.localeCompare(cb.name);
     });
   }, [deckUids, collection]);
 
@@ -90,9 +93,10 @@ export function DeckBuilder({
         case 'Education': if (c.el !== 'education')  return false; break;
         default: break;
       }
-      // Search text — match name or nickname.
+      // Search text — match name or the player's memory text so the
+      // story they wrote at summon time is searchable.
       if (q) {
-        const haystack = `${c.name} ${c.nickname ?? ''}`.toLowerCase();
+        const haystack = `${c.name} ${c.memory ?? ''}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
       return true;
@@ -282,6 +286,10 @@ export function DeckBuilder({
             toggle(inspectActive.uid);
             setInspectActive(null);
           }}
+          onUpdateMemory={onUpdateMemory ? (text) => {
+            onUpdateMemory(inspectActive.uid, text);
+            setInspectActive({ ...inspectActive, memory: text.trim() || undefined });
+          } : undefined}
         />
       )}
     </div>
@@ -1008,12 +1016,13 @@ function ManageDeckModal({
 }
 
 function CardInspectModal({
-  card, inDeck, onClose, onToggle,
+  card, inDeck, onClose, onToggle, onUpdateMemory,
 }: {
   card: CollectionCard;
   inDeck: boolean;
   onClose: () => void;
   onToggle: () => void;
+  onUpdateMemory?: (text: string) => void;
 }) {
   return (
     <div
@@ -1037,6 +1046,13 @@ function CardInspectModal({
         }}
       >
         <Card card={card} hovered scale={0.9} />
+        {onUpdateMemory && (
+          <MemoryPanel
+            memory={card.memory}
+            surface="dark"
+            onSave={onUpdateMemory}
+          />
+        )}
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
           <button
             onClick={onClose}

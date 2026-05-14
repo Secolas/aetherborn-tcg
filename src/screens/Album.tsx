@@ -252,17 +252,8 @@ function PolaroidEntry({
         fontSize: compact ? 10 : 13, fontWeight: 600, color: PALETTE.text,
         whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
       }}>
-        {card.nickname || card.name}
+        {card.name}
       </div>
-      {!compact && card.nickname && (
-        <div style={{
-          fontSize: 10, color: PALETTE.textMid, marginTop: 1,
-          paddingLeft: 2,
-          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>
-          {card.name}
-        </div>
-      )}
     </button>
   );
 }

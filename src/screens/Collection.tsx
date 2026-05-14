@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Lock, Camera, Trash2, X, LayoutGrid, Rows3 } from 'lucide-react';
 import { Card } from '../components/Card';
+import { MemoryPanel } from '../components/MemoryPanel';
 import { iconBtn, PALETTE } from '../components/styles';
 import { ELEMENTS } from '../data/elements';
 import type { CollectionCard, ElementId } from '../game/types';
@@ -30,10 +31,13 @@ interface Props {
   onCapture: (card: CollectionCard) => void;
   onClearPhoto: (uid: string) => void;
   onQuickFill: () => void;
+  /** Update the player's memory text for a card. Optional so the screen
+   *  still renders when wired into older callers. */
+  onUpdateMemory?: (uid: string, memory: string) => void;
   onBack: () => void;
 }
 
-export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onBack }: Props) {
+export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onUpdateMemory, onBack }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
   const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
   /** Card opened for read-only preview — tapped a real-photo card. The
@@ -245,7 +249,11 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
                   }}
                   style={{ cursor: 'pointer', position: 'relative' }}
                 >
-                  <Card card={card} scale={layout === 'compact' ? 0.4 : 0.7} />
+                  <Card
+                    card={card}
+                    scale={layout === 'compact' ? 0.4 : 0.7}
+                    onMemoryClick={card.photo ? () => setPreview(card) : undefined}
+                  />
                   {!card.photo && (
                     <div style={{
                       position: 'absolute', bottom: -8, left: '50%', transform: 'translateX(-50%)',
@@ -290,24 +298,48 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
           onClick={() => setPreview(null)}
           style={{
             position: 'absolute', inset: 0,
-            // Dark backdrop so the card pops; same dim language used by
-            // the in-match long-press inspect and the Album / Graveyard
-            // previews across the app.
             background: 'rgba(8, 4, 12, 0.72)',
             display: 'grid', placeItems: 'center',
             zIndex: 200,
             animation: 'fadeIn .2s',
+            padding: 16,
+            overflowY: 'auto',
           }}
         >
-          <div style={{ animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)' }}>
-            <Card card={preview} hovered scale={1.1} />
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
+              maxHeight: '100%',
+            }}
+          >
+            <Card
+              card={preview}
+              hovered
+              scale={1.1}
+              onMemoryClick={undefined}
+            />
+            {onUpdateMemory && (
+              <MemoryPanel
+                memory={preview.memory}
+                surface="dark"
+                onSave={(text) => {
+                  onUpdateMemory(preview.uid, text);
+                  // Update the local preview state so the modal reflects
+                  // the change without a re-open. The persisted save
+                  // updates via the parent callback.
+                  setPreview({ ...preview, memory: text.trim() || undefined });
+                }}
+              />
+            )}
           </div>
           <div style={{
-            position: 'absolute', bottom: 50, left: 0, right: 0,
-            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.85,
-            fontStyle: 'italic',
+            position: 'absolute', bottom: 16, left: 0, right: 0,
+            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.65,
+            fontStyle: 'italic', pointerEvents: 'none',
           }}>
-            tap anywhere to close
+            tap outside to close
           </div>
         </div>
       )}
@@ -334,7 +366,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
             }}
           >
             <div style={{ fontSize: 16, fontWeight: 700, color: PALETTE.text, marginBottom: 2 }}>
-              {actionFor.nickname || actionFor.name}
+              {actionFor.name}
             </div>
             <div style={{ fontSize: 11, color: PALETTE.textMid, marginBottom: 16 }}>
               This card has a placeholder photo

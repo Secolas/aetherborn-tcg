@@ -96,7 +96,7 @@ export function GraveyardModal({ cards, title, owner = 'player', onClose }: Prop
               <button
                 key={c.battleId}
                 onClick={() => setPreview(c)}
-                aria-label={`Preview ${c.nickname || c.name}`}
+                aria-label={`Preview ${c.name}`}
                 style={{
                   background: 'transparent', border: 'none',
                   padding: 0, cursor: 'pointer',

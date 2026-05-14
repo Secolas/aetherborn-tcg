@@ -66,7 +66,22 @@ export interface CardTemplate {
 export interface CollectionCard extends CardTemplate {
   uid: string;
   photo: string | null;
+  /**
+   * Legacy field — used to override the card's displayed name. Kept on the
+   * type so old saves don't crash type-checks, but the UI no longer reads
+   * it: card titles always show the underlying template name. The
+   * migration in App.tsx moves any non-default nickname into `memory` and
+   * clears the field on load.
+   */
   nickname?: string;
+  /**
+   * Free-form story the player attaches to the card at summon time
+   * (or later). E.g. on Family Pet: "This is Hachi, our shiba inu —
+   * stubborn, smart, and old enough to know better." Cards with a
+   * memory show a small ⓘ icon and surface the text in an inspect
+   * modal. Purely cosmetic — never affects gameplay.
+   */
+  memory?: string;
   /**
    * True when this photo is a placeholder (thematic stock image filled in
    * by Quick Play) rather than a real photo the user took. Lets the UI

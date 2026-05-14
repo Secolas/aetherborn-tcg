@@ -2894,7 +2894,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 color: '#fff', textShadow: '0 1px 4px rgba(0,0,0,.6)',
                 fontFamily: '"Fredoka", system-ui',
               }}>
-                {owner} {effectToast.card.nickname || effectToast.card.name}
+                {owner} {effectToast.card.name}
               </div>
               <Card card={effectToast.card} hovered scale={0.95} owned={effectToast.side === 'player'} />
               <div style={{

@@ -263,7 +263,7 @@ export function BattlefieldCard({
           color: '#fff', textShadow: '0 1px 2px #000',
           padding: '0 4px', lineHeight: 1.1,
           whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-        }}>{card.nickname || card.name}</div>
+        }}>{card.name}</div>
 
         {card.type === 'Creature' && (
           <>
