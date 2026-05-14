@@ -54,13 +54,30 @@ function toBattleCard(c: CollectionCard): BattleCard {
   };
 }
 
-function shuffle<T>(arr: T[]): T[] {
+/** RNG type — match accepts an injected source for deterministic sims.
+ *  Defaults to Math.random in normal play. */
+export type Rng = () => number;
+
+export function shuffle<T>(arr: T[], rng: Rng = Math.random): T[] {
   const out = arr.slice();
   for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/** Per-state PRNG step using a mulberry32 stream over `rngState`. Mutates
+ *  the state in place and returns a value in [0, 1). When `rngState` isn't
+ *  set (default play), falls back to Math.random so behavior is unchanged.
+ *  Sim code seeds rngState on createMatch so in-engine randomness (pop_quiz,
+ *  recover_on_death) becomes deterministic too. */
+function nextRand(state: MatchState): number {
+  if (state.rngState == null) return Math.random();
+  let t = (state.rngState = (state.rngState + 0x6D2B79F5) >>> 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
 /**
@@ -73,7 +90,7 @@ function shuffle<T>(arr: T[]): T[] {
  * Without a boss spec we fall back to a random themed pool — used for
  * future free-play modes.
  */
-function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal'): CollectionCard[] {
+function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal', rng: Rng = Math.random): CollectionCard[] {
   if (boss) {
     const out: CollectionCard[] = [];
     // Difficulty-aware deck selection. Mythic uses the boss's mythic
@@ -99,7 +116,7 @@ function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal'): C
 
   // Fallback: random sample (used if no boss is specified)
   const pool = TEMPLATES.filter(t => t.cost <= 7);
-  const base = shuffle(pool);
+  const base = shuffle(pool, rng);
   const picks = base.concat(base.slice(0, Math.max(0, 12 - base.length))).slice(0, 12);
   return picks.map((t, i) => ({
     ...t,
@@ -217,14 +234,44 @@ function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
   return cardHasBondKind(p, card, 'pair_taunt') !== null;
 }
 
-export function createMatch(playerCards: CollectionCard[], boss?: BossDef, difficulty: Difficulty = 'normal'): MatchState {
-  const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  let oppDeck = shuffle(buildOpponentDeck(boss, difficulty)).map(toBattleCard);
+export function createMatch(
+  playerCards: CollectionCard[],
+  boss?: BossDef,
+  difficulty: Difficulty = 'normal',
+  rng: Rng = Math.random,
+): MatchState {
+  return assembleMatch(
+    playerCards.filter(c => c.photo),
+    buildOpponentDeck(boss, difficulty, rng),
+    difficulty,
+    rng,
+  );
+}
+
+/** Build a match from two raw CollectionCard decks. Used by the headless
+ *  sim where both sides are AI-controlled and the opponent isn't a
+ *  curated BossDef. Same shuffle + dealing logic as createMatch; the only
+ *  thing skipped is buildOpponentDeck. */
+export function createMatchFromDecks(
+  deckA: CollectionCard[],
+  deckB: CollectionCard[],
+  difficulty: Difficulty = 'normal',
+  rng: Rng = Math.random,
+): MatchState {
+  return assembleMatch(deckA, deckB, difficulty, rng);
+}
+
+function assembleMatch(
+  playerCards: CollectionCard[],
+  opponentCards: CollectionCard[],
+  difficulty: Difficulty,
+  rng: Rng,
+): MatchState {
+  const playerDeck = shuffle(playerCards, rng).map(toBattleCard);
+  let oppDeck = shuffle(opponentCards, rng).map(toBattleCard);
 
   // Keep the two decks the same length so neither side gets a draw advantage
-  // over the course of a match. If the player's collection is short, trim
-  // the boss's deck to match; if the player has more, trim theirs down to
-  // the boss's count.
+  // over the course of a match.
   const matchSize = Math.min(playerDeck.length, oppDeck.length);
   if (playerDeck.length > matchSize) playerDeck.length = matchSize;
   if (oppDeck.length > matchSize) oppDeck = oppDeck.slice(0, matchSize);
@@ -252,7 +299,13 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef, diffi
   opponent.deck = oppDeck;
 
   // Coin flip — neither side has an inherent "I go first" advantage.
-  const first: Owner = Math.random() < 0.5 ? 'player' : 'opponent';
+  const first: Owner = rng() < 0.5 ? 'player' : 'opponent';
+
+  // Seed an in-state PRNG so in-engine randomness (pop_quiz discard,
+  // recover_on_death spell pick) is deterministic when an rng was
+  // injected. When rng === Math.random the seed is itself random and
+  // play stays indistinguishable from the un-seeded version.
+  const rngState = Math.floor(rng() * 0xFFFFFFFF) >>> 0;
 
   return {
     player,
@@ -262,6 +315,7 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef, diffi
     log: [`Match begins — ${first === 'player' ? 'you' : 'the boss'} go first`],
     outcome: 'ongoing',
     difficulty,
+    rngState,
   };
 }
 
@@ -662,7 +716,7 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
   const them = side(state, opp(owner));
   if (card.abilityKind === 'aoe_on_play' && card.abilityValue) {
     them.field.forEach(c => { c.currentHp -= card.abilityValue!; });
-    cleanField(them);
+    cleanField(them, state);
     state.log.push(`${displayName(card)} blasts for ${card.abilityValue} to all`);
   } else if (card.abilityKind === 'draw_on_play' && card.abilityValue) {
     for (let i = 0; i < card.abilityValue; i++) {
@@ -727,7 +781,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       const c = t.field.find(x => x.battleId === target.battleId);
       if (c) {
         c.currentHp -= dmg;
-        cleanField(t);
+        cleanField(t, state);
       }
     }
     // Special: Soul Drain heals owner 3 (the only spell with both effects in our pool)
@@ -812,7 +866,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     // itself in the discard pool (it's already leaving hand via the
     // normal spell resolution path).
     if (me.hand.length > 0) {
-      const idx = Math.floor(Math.random() * me.hand.length);
+      const idx = Math.floor(nextRand(state) * me.hand.length);
       const [discarded] = me.hand.splice(idx, 1);
       me.discard.push(discarded);
       state.log.push(`${displayName(card)} discards ${displayName(discarded)}`);
@@ -904,7 +958,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
   void them;
 }
 
-function cleanField(p: PlayerState) {
+function cleanField(p: PlayerState, state: MatchState) {
   // Move dead creatures into the graveyard instead of dropping them on the
   // floor. The player can review what was killed via the graveyard button.
   const dead = p.field.filter(c => c.currentHp <= 0);
@@ -922,7 +976,7 @@ function cleanField(p: PlayerState) {
       if (p.discard[i].type === 'Spell') spellIdxs.push(i);
     }
     if (!spellIdxs.length) continue;
-    const pickIdx = spellIdxs[Math.floor(Math.random() * spellIdxs.length)];
+    const pickIdx = spellIdxs[Math.floor(nextRand(state) * spellIdxs.length)];
     const [recovered] = p.discard.splice(pickIdx, 1);
     recovered.tapped = false;
     p.hand.push(recovered);
@@ -991,8 +1045,8 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
     attacker.currentHp -= defValue;
     state.log.push(`${displayName(attacker)} ⚔ ${displayName(defender)}`);
     attacker.tapped = true;
-    cleanField(me);
-    cleanField(them);
+    cleanField(me, state);
+    cleanField(them, state);
   }
 
   // Bond: First Class Window — when a bonded creature attacks, draw 1

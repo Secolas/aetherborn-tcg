@@ -171,6 +171,13 @@ export interface MatchState {
       additionally tries to complete its own bonds and break the
       player's. */
   difficulty: Difficulty;
+  /** Optional PRNG state for in-engine randomness (pop_quiz discard,
+   *  recover_on_death spell pick). When set, engine helpers use a
+   *  mulberry32 step seeded by this value; when undefined, they fall
+   *  back to Math.random so live play is unchanged. The sim harness
+   *  seeds it from the same rng that drives shuffle + coin flip so an
+   *  entire match is reproducible from one seed. */
+  rngState?: number;
 }
 
 /** Difficulty tier for a single match. Picked by the player on the boss
