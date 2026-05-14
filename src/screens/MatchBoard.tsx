@@ -4084,6 +4084,10 @@ const BOSS_DIALOGUE: Record<string, { win: { title: string; line: string }; loss
     win:  { title: 'You won', line: "They left their address on a napkin. It's blank." },
     loss: { title: 'You lost', line: "By morning they're three time zones away." },
   },
+  partner: {
+    win:  { title: 'You won', line: "They smile. Wash one plate together. Tomorrow's another match." },
+    loss: { title: 'You lost', line: "A sink full of dishes. They'd already started rinsing." },
+  },
 };
 
 function MatchEnd({ outcome, boss, difficulty, alreadyBeaten, playerHp, opponentHp, turnLimitReached, victoryEmote, onExit }: {
