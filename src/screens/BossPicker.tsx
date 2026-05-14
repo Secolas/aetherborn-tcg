@@ -903,17 +903,25 @@ function BossPage({
       padding: '6px 0 4px',
       minHeight: 0,
     }}>
-      {/* Banner */}
+      {/* Banner — themed gradient with a faded signature-cards layer
+          on the right so the bar itself hints at what the boss plays. */}
       <div style={{
         background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
         borderRadius: 18,
-        padding: '14px 16px 14px',
+        padding: '14px 110px 14px 16px',
         position: 'relative',
         boxShadow: '0 8px 20px rgba(58,46,42,.15)',
         color: '#fff',
         display: 'flex', alignItems: 'center', gap: 14,
         flex: '0 0 auto',
+        overflow: 'hidden',
       }}>
+        {/* Signature-cards fan — peek at the cards this boss leans on.
+            Only rendered when this banner is the focused page so we
+            don't keep six pages' worth of mini-Cards mounted off-screen
+            on lower-end phones. */}
+        {visible && <SignatureCardsFan boss={boss} />}
+
         <div style={{
           width: 76, height: 76, borderRadius: '50%',
           background: '#fff',
@@ -921,6 +929,7 @@ function BossPage({
           display: 'grid', placeItems: 'center',
           flex: '0 0 auto',
           boxShadow: '0 4px 12px rgba(0,0,0,.18)',
+          position: 'relative', zIndex: 2,
         }}>
           <div style={{
             width: '100%', height: '100%', borderRadius: '50%',
@@ -933,8 +942,8 @@ function BossPage({
             fontFamily: '"Fredoka", system-ui',
           }} aria-hidden>{!boss.avatarPhoto && boss.avatar}</div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05 }}>{boss.name}</div>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 2 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05, textShadow: '0 1px 2px rgba(0,0,0,.18)' }}>{boss.name}</div>
           <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.92 }}>
             <ElementGlyph el={boss.themeId} size={13} />
             <span>{e.name} deck</span>
@@ -1187,6 +1196,86 @@ function chevronBtn(side: 'left' | 'right'): React.CSSProperties {
     boxShadow: '0 4px 10px rgba(0,0,0,.15)',
     zIndex: 3,
   };
+}
+
+/**
+ * Faded "signature cards" peek inside the boss banner. Picks up to
+ * three unique cards from the boss's deck (highest cost first — those
+ * tend to be the cards the player will actually remember being hit
+ * by) and fans them on the right edge of the banner with a soft mask
+ * so they read as background art, not as foreground content. The
+ * marquee below still scrolls the full deck for anyone who wants to
+ * inspect every card.
+ */
+function SignatureCardsFan({ boss }: { boss: BossDef }) {
+  const cards: CollectionCard[] = useMemo(() => {
+    const seen = new Set<string>();
+    const uniques: typeof TEMPLATES = [];
+    for (const tid of boss.deck) {
+      if (seen.has(tid)) continue;
+      seen.add(tid);
+      const tpl = TEMPLATES.find(t => t.id === tid);
+      if (tpl) uniques.push(tpl);
+    }
+    return uniques
+      .slice()
+      // Highest-cost first — proxy for "signature" / big-impact play.
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 3)
+      .map((tpl, i) => ({
+        ...tpl,
+        uid: `sig-${boss.id}-${tpl.id}-${i}`,
+        photo: boss.photoOverrides?.[tpl.id] ?? aiPhoto(tpl.id),
+        isPlaceholder: true,
+      }));
+  }, [boss]);
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        top: 0, right: 0, bottom: 0,
+        // Wider than the visible banner so the leftmost card fades
+        // through the mask rather than hard-clipping into the text.
+        width: 200,
+        pointerEvents: 'none',
+        // Linear mask: invisible on the left edge (where text lives),
+        // fully visible by ~45% in. Cards on the right are crisp.
+        maskImage: 'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 35%, #000 70%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 35%, #000 70%)',
+        zIndex: 1,
+      }}
+    >
+      {cards.map((c, i) => {
+        // Three-card fan: back card tilted left, mid upright, front
+        // tilted right. Slight x-offset so they stack from a single
+        // anchor on the right edge of the banner.
+        const tilt = [-12, -2, 9][i] ?? 0;
+        const rightOffset = [98, 56, 14][i] ?? 0;
+        const opacity = [0.55, 0.68, 0.82][i] ?? 0.6;
+        return (
+          <div
+            key={c.uid}
+            style={{
+              position: 'absolute',
+              top: '50%', right: rightOffset,
+              transform: `translateY(-50%) rotate(${tilt}deg)`,
+              opacity,
+              filter: 'saturate(0.92)',
+              // Render back-to-front via DOM order: rendering card 0
+              // first puts it at the bottom of the stack, card 2 on top.
+              zIndex: i + 1,
+            }}
+          >
+            <Card card={c} scale={0.28} owned={false} />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
