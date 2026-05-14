@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon, Flame, Palette } from 'lucide-react';
+import { Coins, Package, Images, Layers, Swords, ScrollText, Sparkles, Settings as SettingsIcon, Flame, Palette, UserRound, Camera } from 'lucide-react';
 import { Card } from '../components/Card';
 import { btnPrimary, btnSecondary, PALETTE } from '../components/styles';
 import { TEMPLATES } from '../data/templates';
@@ -107,12 +107,12 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           <button
             onClick={() => fileRef.current?.click()}
             style={{
+              position: 'relative',
               width: 40, height: 40, borderRadius: '50%',
               background: save.playerAvatar
                 ? `url(${save.playerAvatar}) center/cover`
                 : 'linear-gradient(135deg, #ff9f1c, #ee5a52)',
               display: 'grid', placeItems: 'center',
-              fontSize: 18, fontWeight: 700,
               color: '#fff',
               boxShadow: '0 4px 10px rgba(238, 90, 82, .35), inset 0 0 0 2px rgba(255,255,255,.5)',
               border: 'none',
@@ -123,7 +123,25 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
             aria-label={save.playerAvatar ? 'Change avatar' : 'Upload avatar'}
             title={save.playerAvatar ? 'Tap to change avatar' : 'Tap to upload your avatar'}
           >
-            {!save.playerAvatar && 'Y'}
+            {/* Default-state icon: a friendly silhouette + a tiny camera
+                badge on the corner so it reads as "tap to add your
+                photo" instead of an arbitrary letter. Once the player
+                uploads an avatar this whole block goes invisible since
+                background:url covers it. */}
+            {!save.playerAvatar && (
+              <>
+                <UserRound size={22} strokeWidth={2.2} fill="rgba(255,255,255,.6)" />
+                <div style={{
+                  position: 'absolute', bottom: -2, right: -2,
+                  width: 16, height: 16, borderRadius: '50%',
+                  background: '#fff', color: '#ee5a52',
+                  display: 'grid', placeItems: 'center',
+                  boxShadow: '0 2px 4px rgba(0,0,0,.25)',
+                }}>
+                  <Camera size={9} strokeWidth={2.6} />
+                </div>
+              </>
+            )}
           </button>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>You</div>

@@ -421,6 +421,10 @@ export const BOSSES: BossDef[] = [
     // still pulls from food + travel + work bond enablers.
     themeId: 'family',
     avatar: '♥',
+    // Universal silhouetted couple at sunset — keeps the boss
+    // identity intentionally neutral (any gender, any relationship
+    // shape). Long-stable Unsplash ID known to render reliably.
+    avatarPhoto: U('photo-1518621736915-f3b1c41bfd00'),
     intro: "Best two out of three. Loser does dishes for a month.",
     playstyle: "The relationship arc as a deck. Crush rushes early, Boyfriend/Girlfriend anchors mid, and once a bond clicks the board heals, draws, and discounts spells every turn.",
     rewardCoins: 175,
@@ -444,6 +448,17 @@ export const BOSSES: BossDef[] = [
       'cou-15',           // Cleaning Day (House Together enabler — heal + draw)
       'cou-17',           // House Hunting (mana ramp creature)
     ],
+    // Photo overrides for the boss's iconic couple cards so the player
+    // sees thematically-coherent photos when the boss plays them. Same
+    // pattern Mom and the Manager use for their signature cards.
+    photoOverrides: {
+      'cou-02': U('photo-1518621736915-f3b1c41bfd00'),  // Boyfriend/GF — silhouette couple
+      'cou-07': U('photo-1519741497674-611481863552'),  // Wedding Day — ceremony rings
+      'cou-10': U('photo-1507525428034-b723cf961d3e'),  // Beach Day — ocean shore
+      'cou-11': U('photo-1505228395891-9a51e7e86bf6'),  // Honeymoon — beach hut / tropical resort
+      'cou-13': U('photo-1556909114-f6e7ad7d3136'),    // Cooking Together — kitchen + plate
+      'cou-17': U('photo-1576941089067-2de3c901e126'),  // House Hunting — front door / keys
+    },
     // Mythic: 2x Boyfriend + 2x Wedding Day legendary so Soulmates
     // is almost guaranteed; 2x Cleaning + 2x Laundry for House
     // Together draw engine; adds Proposal (epic buff) and Honeymoon
