@@ -403,6 +403,65 @@ export const BOSSES: BossDef[] = [
       'edu-08',          // The Bully (one early threat)
     ],
   },
+
+  // ============================================================
+  // YOUR PARTNER — Couple-arc boss. Bond-synergy focused. Boyfriend/
+  // Girlfriend + Wedding Day on the field heals every turn (Soulmates
+  // bond); Cleaning + Laundry refills card draw (House Together);
+  // Movie Night + Date Dinner cuts spell costs (Date Routine). Plays
+  // patient: drops a small body, drops their partner, then bonds and
+  // grows. Loses to fast burn that finishes before bonds stack.
+  // ============================================================
+  {
+    id: 'partner',
+    name: 'Your Partner',
+    subtitle: 'Loser does dishes for a month',
+    // Themed family because most of their iconic cards live there
+    // (Boyfriend/Girlfriend, Wedding Day, Anniversary). The deck
+    // still pulls from food + travel + work bond enablers.
+    themeId: 'family',
+    avatar: '♥',
+    intro: "Best two out of three. Loser does dishes for a month.",
+    playstyle: "The relationship arc as a deck. Crush rushes early, Boyfriend/Girlfriend anchors mid, and once a bond clicks the board heals, draws, and discounts spells every turn.",
+    rewardCoins: 175,
+    // Normal-tier: NO legendary (Wedding Day) and NO epic (Proposal /
+    // Honeymoon). Twelve approachable cards drawn from all four
+    // contributing themes so new players see the cross-theme nature
+    // of the couple memory pack without getting swung by a 7-cost
+    // legendary first time. Bond enablers are present but only
+    // single copies, so synergies are possible but not guaranteed.
+    deck: [
+      'cou-01',           // Crush (1c Rush — early pressure)
+      'cou-02',           // Boyfriend / Girlfriend (Soulmates / Made It Official enabler)
+      'cou-04',           // Couple Photo (vanilla mid body)
+      'cou-05',           // Movie Night (Date Routine enabler — Taunt)
+      'cou-08',           // Anniversary (heal + draw)
+      'cou-09',           // First Date (1c draw — tempo)
+      'cou-10',           // Beach Day (creature + small board heal)
+      'cou-12',           // Date Night Dinner (Date Routine enabler — buff)
+      'cou-13',           // Cooking Together (Married Life enabler — buff)
+      'cou-14',           // Anniversary Cake (creature + heal)
+      'cou-15',           // Cleaning Day (House Together enabler — heal + draw)
+      'cou-17',           // House Hunting (mana ramp creature)
+    ],
+    // Mythic: 2x Boyfriend + 2x Wedding Day legendary so Soulmates
+    // is almost guaranteed; 2x Cleaning + 2x Laundry for House
+    // Together draw engine; adds Proposal (epic buff) and Honeymoon
+    // (epic board heal). Drops Couple Photo + Anniversary Cake to
+    // make room.
+    mythicDeck: [
+      'cou-01',           // Crush
+      'cou-02', 'cou-02', // Boyfriend / Girlfriend x2 — Soulmates enabler
+      'cou-05',           // Movie Night
+      'cou-06',           // Proposal (epic +3/+3 + Taunt)
+      'cou-07',           // Wedding Day LEGENDARY (Soulmates pair)
+      'cou-11',           // Honeymoon (epic board heal)
+      'cou-12',           // Date Night Dinner
+      'cou-13',           // Cooking Together
+      'cou-15', 'cou-15', // Cleaning Day x2 — House Together enabler
+      'cou-16',           // Laundry Day — House Together pair
+    ],
+  },
 ];
 
 export function getBoss(id: string): BossDef | undefined {
