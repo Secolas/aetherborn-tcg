@@ -679,12 +679,13 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
     }
     state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
   } else if (card.abilityKind === 'spell_buff_all' && card.type === 'Creature') {
-    // Graduation Day — on-play, gives every friendly creature a permanent +V/+V.
-    // Legendary/epic creatures buff any theme; others restrict to same theme.
+    // Graduation Day — on-play, gives every same-theme friendly
+    // creature a permanent +V/+V. Theme-locked at every rarity
+    // (legendary/epic no longer bypass) — buff_all on a wide board
+    // is too swingy when unrestricted. Same-theme creatures only.
     const amt = card.abilityValue ?? 1;
-    const baOnPlayUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
     for (const c of me.field) {
-      if (baOnPlayUnrestricted || c.el === card.el) {
+      if (c.el === card.el) {
         c.currentAtk += amt;
         c.currentHp += amt;
         c.hp += amt;
@@ -736,11 +737,9 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
   } else if (card.abilityKind === 'spell_share_meal') {
     // Board-wide creature heal. Only owner's creatures, capped at their
-    // max hp. Theme-restricted: only heals same-theme creatures unless
-    // the spell is legendary or epic.
-    const srUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
+    // max hp. Theme-locked at every rarity — same-theme creatures only.
     for (const c of me.field) {
-      if (srUnrestricted || c.el === card.el) {
+      if (c.el === card.el) {
         c.currentHp = Math.min(c.hp, c.currentHp + v);
       }
     }
@@ -772,11 +771,12 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
     state.log.push(`${displayName(card)} — both players draw`);
   } else if (card.abilityKind === 'spell_buff_all') {
-    // Payroll / Group Project / Graduation Day: +V/+V to friendly creatures.
-    // Theme-restricted: only buffs same-theme creatures unless legendary/epic.
-    const baUnrestricted = card.rarity === 'legendary' || card.rarity === 'epic';
+    // Payroll / Group Project / etc: +V/+V to friendly creatures.
+    // Theme-locked at every rarity — only same-theme creatures get
+    // the buff (was previously bypassed by legendary/epic, which let
+    // a single spell swing a mixed-theme board too aggressively).
     for (const c of me.field) {
-      if (baUnrestricted || c.el === card.el) {
+      if (c.el === card.el) {
         c.currentAtk += v;
         c.currentHp += v;
         c.hp += v;

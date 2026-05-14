@@ -72,6 +72,16 @@ export const MEMORY_PACKS: MemoryPackDef[] = [
     glow: '#ffb7d8',
     bonusFilter: 'holo',
   },
+  {
+    id: 'couple',
+    name: 'Couple',
+    blurb: 'First date to anniversary, and the laundry in between.',
+    themes: ['family', 'travel', 'food', 'work'],
+    cost: 180,
+    gradient: ['#ff79a4', '#a44a7a'],
+    glow: '#ffc6dc',
+    bonusFilter: 'dreamy',
+  },
 ];
 
 export function getMemoryPack(id: string): MemoryPackDef | undefined {
