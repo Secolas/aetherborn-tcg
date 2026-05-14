@@ -899,8 +899,13 @@ function BossPage({
     <div style={{
       width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-      gap: 8,
-      padding: '6px 0 4px',
+      // Center the content vertically inside the carousel viewport.
+      // Without this, any leftover space falls into one big empty
+      // band below the marquee on tall phones; with it, the slack is
+      // shared evenly above and below so the page reads as balanced.
+      justifyContent: 'center',
+      gap: 10,
+      padding: '4px 0',
       minHeight: 0,
     }}>
       {/* Banner — themed gradient with a faded signature-cards layer
@@ -970,8 +975,10 @@ function BossPage({
         {boss.playstyle}
       </div>
 
-      {/* Marquee preview */}
-      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      {/* Marquee preview — intrinsic height so it doesn't stretch and
+          leave an empty band on tall phones. The parent's
+          justify-content: center balances the leftover space. */}
+      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
         <BossDeckPreview boss={boss} paused={!visible} reducedMotion={reducedMotion} />
       </div>
     </div>
