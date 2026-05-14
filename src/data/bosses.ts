@@ -134,20 +134,17 @@ export const BOSSES: BossDef[] = [
     // exclusive. Hard uses this same deck under smarter AI.
     deck: [
       'wrk-01',          // Intern
-      'wrk-02', 'wrk-02',// Spam Email x2 — chip damage
+      'wrk-02',          // Spam Email (1c chip damage)
       'wrk-05',          // IT Support
       'wrk-06', 'wrk-06',// Sales Pitch x2 — removal
-      'wrk-07',          // HR — Untargetable 3/4 body. Replaces Coffee
-                         // (which was el='food' and could only buff Food
-                         // creatures Manager doesn't run — a dead card).
-                         // HR is the spell-proof mid-curve threat the
-                         // Normal deck previously lacked.
+      'wrk-07',          // HR — Untargetable 3/4 mid-curve threat
       'wrk-08',          // Senior Engineer
       'wrk-09',          // Meeting — freeze
-      'wrk-15',          // Payroll — board buff finisher (replaces
-                         // Promotion's single-target +4/+4; Payroll is
-                         // board-wide so it always does something with
-                         // Manager's small bodies)
+      'wrk-15',          // Payroll — board buff
+      'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
+                         // to every Work creature. Manager's actual
+                         // finisher: pumps his cheap bodies into real
+                         // threats so the control plan can close.
       'wrk-11',          // Lunch Break — 7 face heal stabilizer
       'wrk-14',          // Stand-up Meeting (cheap draw)
     ],

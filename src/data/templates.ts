@@ -567,6 +567,18 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'common', suggested: 'a janitor, cleaning crew, or empty office at night' },
 
+  // Manager's missing finisher. Work theme's epic body — a 5-cost 3/4
+  // that pumps every other Work creature on play. Manager runs cheap
+  // bodies (Intern, Coworker, Senior Engineer) that scale poorly into
+  // late game; Colleagues turns the whole desk into actual threats.
+  // Theme-locked on-play buff (rare/epic only hits same-theme) so it
+  // doesn't bleed into cross-theme abuse.
+  { id: 'wrk-17', name: 'Colleagues', el: 'work', cost: 5, atk: 3, hp: 4, type: 'Creature',
+    ability: 'On play: give each of your Work-type creatures +1/+1.',
+    flavor: 'Monday morning, coffee in hand. We can do this.',
+    abilityKind: 'spell_buff_all', abilityValue: 1,
+    rarity: 'epic', suggested: 'a team huddled around a desk, coworkers laughing, an office crew' },
+
   { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'No itinerary, no problem.',
