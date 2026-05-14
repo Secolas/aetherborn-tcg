@@ -64,8 +64,8 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a grandparent' },
 
   { id: 'fam-09', name: 'Birthday Cake', el: 'food', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 6 HP.',
-    abilityKind: 'spell_heal', abilityValue: 6,
+    ability: 'Restore 5 HP.',
+    abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'common', suggested: 'a birthday cake or dessert' },
 
   { id: 'fam-10', name: 'Family Photo', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
@@ -387,10 +387,10 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_nourish', abilityValue: 2,
     rarity: 'common', suggested: 'a bowl of soup or stew' },
 
-  { id: 'fd-03', name: 'Snack', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
-    ability: '',
+  { id: 'fd-03', name: 'Snack', el: 'food', cost: 1, atk: 2, hp: 1, type: 'Creature',
+    ability: 'Rush.',
     flavor: 'Just a little something.',
-    abilityKind: 'none',
+    abilityKind: 'rush',
     rarity: 'common', suggested: 'a chip bag, granola bar, or finger food' },
 
   { id: 'fd-04', name: 'Breakfast Plate', el: 'food', cost: 2, atk: 1, hp: 3, type: 'Creature',
@@ -567,6 +567,30 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'common', suggested: 'a janitor, cleaning crew, or empty office at night' },
 
+  // Manager's signature anti-spell tech. 1-turn spell lock on the
+  // opposing side — they can still play creatures and attack, but their
+  // heals / removal / draws are dead in hand. Costs 3 so it's playable
+  // on curve and forces hard timing decisions: cast too early and the
+  // opponent's hand has no spells worth banning; cast too late and the
+  // game is already decided. Rare (not legendary) — fine in Normal.
+  { id: 'wrk-18', name: 'All-Hands Meeting', el: 'work', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Your opponent cannot cast spells next turn.',
+    flavor: 'Mandatory attendance. Cameras on.',
+    abilityKind: 'spell_lock',
+    rarity: 'rare', suggested: 'a packed conference room, raised hands, Zoom grid of faces' },
+
+  // Manager's missing finisher. Work theme's epic body — a 5-cost 3/4
+  // that pumps every other Work creature on play. Manager runs cheap
+  // bodies (Intern, Coworker, Senior Engineer) that scale poorly into
+  // late game; Colleagues turns the whole desk into actual threats.
+  // Theme-locked on-play buff (rare/epic only hits same-theme) so it
+  // doesn't bleed into cross-theme abuse.
+  { id: 'wrk-17', name: 'Colleagues', el: 'work', cost: 5, atk: 3, hp: 4, type: 'Creature',
+    ability: 'On play: give each of your Work-type creatures +1/+1.',
+    flavor: 'Monday morning, coffee in hand. We can do this.',
+    abilityKind: 'spell_buff_all', abilityValue: 1,
+    rarity: 'epic', suggested: 'a team huddled around a desk, coworkers laughing, an office crew' },
+
   { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'No itinerary, no problem.',
@@ -654,10 +678,15 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'legendary', suggested: 'a wedding photo, vows, rings, the ceremony' },
 
-  { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 4 HP, then draw a card.',
+  { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +1/+1.',
     flavor: 'You remembered. You both did.',
-    abilityKind: 'spell_heal', abilityValue: 4,
+    // Cross-theme flex buff. The couple memory pack spans Family,
+    // Travel, Food, and Work, so theme-locked buffs barely fire in
+    // a true hybrid deck. Anniversary fills the gap as a same-cost
+    // counterpart to Date Night Dinner: small permanent stat bump
+    // on any friendly creature regardless of theme.
+    abilityKind: 'spell_buff_any', abilityValue: 1,
     rarity: 'rare', suggested: 'the dated photo, a card you wrote, a small gift' },
 
   { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
@@ -719,6 +748,26 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Every door, you wonder what your life would be.',
     abilityKind: 'mana_prep', abilityValue: 1,
     rarity: 'rare', suggested: 'a house tour, moving boxes, an empty apartment, "For Sale" sign' },
+
+  // Cheap rush body for the couple arc. The deck only had Crush at 1c
+  // Rush, so if it didn't draw Crush it had no early pressure. Holding
+  // Hands gives the deck a second 1-drop Rush option so the curve isn't
+  // dead by turn 3.
+  { id: 'cou-18', name: 'Holding Hands', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Fingers laced. Already in step.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'two hands clasped, fingers interlocked, a close-up' },
+
+  // FOOD — mid-cost burn. Food previously only had Spicy Sauce (2 dmg)
+  // for removal, which couldn't stabilize against early aggro. Stew
+  // gives Cook a 3-mana 4-damage option on parity with Sales Pitch
+  // (wrk-06) so the sustain plan can survive long enough to come online.
+  { id: 'fd-17', name: 'Stew Pot', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Deal 4 damage to any target.',
+    flavor: 'Hot enough to clear a room.',
+    abilityKind: 'spell_damage', abilityValue: 4,
+    rarity: 'rare', suggested: 'a bubbling pot, ladle, a thick stew' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {

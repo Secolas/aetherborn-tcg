@@ -54,13 +54,30 @@ function toBattleCard(c: CollectionCard): BattleCard {
   };
 }
 
-function shuffle<T>(arr: T[]): T[] {
+/** RNG type — match accepts an injected source for deterministic sims.
+ *  Defaults to Math.random in normal play. */
+export type Rng = () => number;
+
+export function shuffle<T>(arr: T[], rng: Rng = Math.random): T[] {
   const out = arr.slice();
   for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+/** Per-state PRNG step using a mulberry32 stream over `rngState`. Mutates
+ *  the state in place and returns a value in [0, 1). When `rngState` isn't
+ *  set (default play), falls back to Math.random so behavior is unchanged.
+ *  Sim code seeds rngState on createMatch so in-engine randomness (pop_quiz,
+ *  recover_on_death) becomes deterministic too. */
+function nextRand(state: MatchState): number {
+  if (state.rngState == null) return Math.random();
+  let t = (state.rngState = (state.rngState + 0x6D2B79F5) >>> 0);
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
 }
 
 /**
@@ -73,7 +90,7 @@ function shuffle<T>(arr: T[]): T[] {
  * Without a boss spec we fall back to a random themed pool — used for
  * future free-play modes.
  */
-function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal'): CollectionCard[] {
+function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal', rng: Rng = Math.random): CollectionCard[] {
   if (boss) {
     const out: CollectionCard[] = [];
     // Difficulty-aware deck selection. Mythic uses the boss's mythic
@@ -99,7 +116,7 @@ function buildOpponentDeck(boss?: BossDef, difficulty: Difficulty = 'normal'): C
 
   // Fallback: random sample (used if no boss is specified)
   const pool = TEMPLATES.filter(t => t.cost <= 7);
-  const base = shuffle(pool);
+  const base = shuffle(pool, rng);
   const picks = base.concat(base.slice(0, Math.max(0, 12 - base.length))).slice(0, 12);
   return picks.map((t, i) => ({
     ...t,
@@ -217,14 +234,44 @@ function effectiveTaunt(p: PlayerState, card: BattleCard): boolean {
   return cardHasBondKind(p, card, 'pair_taunt') !== null;
 }
 
-export function createMatch(playerCards: CollectionCard[], boss?: BossDef, difficulty: Difficulty = 'normal'): MatchState {
-  const playerDeck = shuffle(playerCards.filter(c => c.photo)).map(toBattleCard);
-  let oppDeck = shuffle(buildOpponentDeck(boss, difficulty)).map(toBattleCard);
+export function createMatch(
+  playerCards: CollectionCard[],
+  boss?: BossDef,
+  difficulty: Difficulty = 'normal',
+  rng: Rng = Math.random,
+): MatchState {
+  return assembleMatch(
+    playerCards.filter(c => c.photo),
+    buildOpponentDeck(boss, difficulty, rng),
+    difficulty,
+    rng,
+  );
+}
+
+/** Build a match from two raw CollectionCard decks. Used by the headless
+ *  sim where both sides are AI-controlled and the opponent isn't a
+ *  curated BossDef. Same shuffle + dealing logic as createMatch; the only
+ *  thing skipped is buildOpponentDeck. */
+export function createMatchFromDecks(
+  deckA: CollectionCard[],
+  deckB: CollectionCard[],
+  difficulty: Difficulty = 'normal',
+  rng: Rng = Math.random,
+): MatchState {
+  return assembleMatch(deckA, deckB, difficulty, rng);
+}
+
+function assembleMatch(
+  playerCards: CollectionCard[],
+  opponentCards: CollectionCard[],
+  difficulty: Difficulty,
+  rng: Rng,
+): MatchState {
+  const playerDeck = shuffle(playerCards, rng).map(toBattleCard);
+  let oppDeck = shuffle(opponentCards, rng).map(toBattleCard);
 
   // Keep the two decks the same length so neither side gets a draw advantage
-  // over the course of a match. If the player's collection is short, trim
-  // the boss's deck to match; if the player has more, trim theirs down to
-  // the boss's count.
+  // over the course of a match.
   const matchSize = Math.min(playerDeck.length, oppDeck.length);
   if (playerDeck.length > matchSize) playerDeck.length = matchSize;
   if (oppDeck.length > matchSize) oppDeck = oppDeck.slice(0, matchSize);
@@ -252,7 +299,13 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef, diffi
   opponent.deck = oppDeck;
 
   // Coin flip — neither side has an inherent "I go first" advantage.
-  const first: Owner = Math.random() < 0.5 ? 'player' : 'opponent';
+  const first: Owner = rng() < 0.5 ? 'player' : 'opponent';
+
+  // Seed an in-state PRNG so in-engine randomness (pop_quiz discard,
+  // recover_on_death spell pick) is deterministic when an rng was
+  // injected. When rng === Math.random the seed is itself random and
+  // play stays indistinguishable from the un-seeded version.
+  const rngState = Math.floor(rng() * 0xFFFFFFFF) >>> 0;
 
   return {
     player,
@@ -262,6 +315,7 @@ export function createMatch(playerCards: CollectionCard[], boss?: BossDef, diffi
     log: [`Match begins — ${first === 'player' ? 'you' : 'the boss'} go first`],
     outcome: 'ongoing',
     difficulty,
+    rngState,
   };
 }
 
@@ -336,6 +390,13 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     }
     c.justPlayed = false;
   });
+
+  // Spell-lock safety net — same +2 model as freeze/silence. If the
+  // deadline has passed (e.g. multiple turns elapsed without endTurn
+  // cleanup), force-clear so the lock can never outlast its turn.
+  if (me.spellLockedUntilTurn != null && state.turnNumber >= me.spellLockedUntilTurn) {
+    me.spellLockedUntilTurn = undefined;
+  }
 
   // Heal-each-turn triggers. Skip when owner is already at max HP —
   // there's nothing to restore, and firing the ability would pop a
@@ -498,6 +559,13 @@ export function endTurn(prev: MatchState): MatchState {
       }
     }
   }
+  // Spell-lock wears off at the end of the locked side's turn (parallels
+  // freeze/silence wear-off above). After this, the next beginTurn for
+  // the other side resets timers; the lock has done its single-turn job.
+  if (me.spellLockedUntilTurn != null) {
+    me.spellLockedUntilTurn = undefined;
+  }
+
   checkOutcome(cleared);
   if (cleared.outcome !== 'ongoing') return cleared;
 
@@ -541,6 +609,11 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
   const card = me.hand[idx];
   const cost = effectiveCost(me, card);
   if (cost > me.mana) return { state: prev, ok: false, reason: 'Not enough mana' };
+  // Spell-lock: All-Hands Meeting (wrk-18) bans the opposing side's
+  // spells for one full owner-turn. Creatures still play normally.
+  if (card.type === 'Spell' && me.spellLockedUntilTurn != null && state.turnNumber < me.spellLockedUntilTurn) {
+    return { state: prev, ok: false, reason: 'Your spells are locked this turn' };
+  }
   // Phase lock: once a side has attacked on its current turn it can't
   // play more cards. Mirrors the player's main → battle progression
   // for the AI so the boss can't interleave attacks and summons.
@@ -602,6 +675,7 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
   const noTarget: AbilityKind[] = [
     'draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast',
     'spell_both_draw', 'spell_buff_all', 'exam_pass', 'pop_quiz',
+    'spell_lock',
   ];
   if (noTarget.includes(card.abilityKind)) return true;
 
@@ -662,7 +736,7 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
   const them = side(state, opp(owner));
   if (card.abilityKind === 'aoe_on_play' && card.abilityValue) {
     them.field.forEach(c => { c.currentHp -= card.abilityValue!; });
-    cleanField(them);
+    cleanField(them, state);
     state.log.push(`${displayName(card)} blasts for ${card.abilityValue} to all`);
   } else if (card.abilityKind === 'draw_on_play' && card.abilityValue) {
     for (let i = 0; i < card.abilityValue; i++) {
@@ -690,13 +764,16 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
     }
     state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
   } else if (card.abilityKind === 'spell_buff_all' && card.type === 'Creature') {
-    // Graduation Day — on-play, gives every same-theme friendly
-    // creature a permanent +V/+V. Theme-locked at every rarity
-    // (legendary/epic no longer bypass) — buff_all on a wide board
-    // is too swingy when unrestricted. Same-theme creatures only.
+    // Graduation Day (legendary on-play variant) — at epic/legendary
+    // rarity, the buff hits every friendly creature regardless of
+    // theme; common/rare stays theme-locked so the cheap spells can't
+    // double-dip across themes. The premium rarity discount is the
+    // whole reason cross-theme decks (e.g. the couple memory pack)
+    // can ever build to a board-wide finisher.
     const amt = card.abilityValue ?? 1;
+    const crossTheme = card.rarity === 'epic' || card.rarity === 'legendary';
     for (const c of me.field) {
-      if (c.el === card.el) {
+      if (crossTheme || c.el === card.el) {
         c.currentAtk += amt;
         c.currentHp += amt;
         c.hp += amt;
@@ -727,7 +804,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       const c = t.field.find(x => x.battleId === target.battleId);
       if (c) {
         c.currentHp -= dmg;
-        cleanField(t);
+        cleanField(t, state);
       }
     }
     // Special: Soul Drain heals owner 3 (the only spell with both effects in our pool)
@@ -782,12 +859,14 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
     state.log.push(`${displayName(card)} — both players draw`);
   } else if (card.abilityKind === 'spell_buff_all') {
-    // Payroll / Group Project / etc: +V/+V to friendly creatures.
-    // Theme-locked at every rarity — only same-theme creatures get
-    // the buff (was previously bypassed by legendary/epic, which let
-    // a single spell swing a mixed-theme board too aggressively).
+    // Payroll / Group Project / Family Photo / etc: +V/+V to friendly
+    // creatures. Common/rare stays theme-locked. Epic and legendary
+    // bypass the theme lock so they can act as cross-theme finishers
+    // in hybrid decks (e.g. the couple memory pack) — the rarity gate
+    // keeps cheap spells from swinging mixed boards too aggressively.
+    const crossTheme = card.rarity === 'epic' || card.rarity === 'legendary';
     for (const c of me.field) {
-      if (c.el === card.el) {
+      if (crossTheme || c.el === card.el) {
         c.currentAtk += v;
         c.currentHp += v;
         c.hp += v;
@@ -812,7 +891,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     // itself in the discard pool (it's already leaving hand via the
     // normal spell resolution path).
     if (me.hand.length > 0) {
-      const idx = Math.floor(Math.random() * me.hand.length);
+      const idx = Math.floor(nextRand(state) * me.hand.length);
       const [discarded] = me.hand.splice(idx, 1);
       me.discard.push(discarded);
       state.log.push(`${displayName(card)} discards ${displayName(discarded)}`);
@@ -898,13 +977,21 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
         me.hand.push(c);
       }
     }
+  } else if (card.abilityKind === 'spell_lock') {
+    // All-Hands Meeting — opposing side can't cast spells next turn.
+    // Use the same +2 timing as freeze/silence: cast on turn N, the
+    // opposing side's turn N+1 beginTurn sees N+1 < N+2 (still locked),
+    // and the ban lifts at their endTurn. Doesn't stack — re-casting
+    // just resets the deadline.
+    them.spellLockedUntilTurn = state.turnNumber + 2;
+    state.log.push(`${displayName(card)} — opponent's spells are locked next turn`);
   }
 
   // Hide the unused `them` lint
   void them;
 }
 
-function cleanField(p: PlayerState) {
+function cleanField(p: PlayerState, state: MatchState) {
   // Move dead creatures into the graveyard instead of dropping them on the
   // floor. The player can review what was killed via the graveyard button.
   const dead = p.field.filter(c => c.currentHp <= 0);
@@ -922,7 +1009,7 @@ function cleanField(p: PlayerState) {
       if (p.discard[i].type === 'Spell') spellIdxs.push(i);
     }
     if (!spellIdxs.length) continue;
-    const pickIdx = spellIdxs[Math.floor(Math.random() * spellIdxs.length)];
+    const pickIdx = spellIdxs[Math.floor(nextRand(state) * spellIdxs.length)];
     const [recovered] = p.discard.splice(pickIdx, 1);
     recovered.tapped = false;
     p.hand.push(recovered);
@@ -991,8 +1078,8 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
     attacker.currentHp -= defValue;
     state.log.push(`${displayName(attacker)} ⚔ ${displayName(defender)}`);
     attacker.tapped = true;
-    cleanField(me);
-    cleanField(them);
+    cleanField(me, state);
+    cleanField(them, state);
   }
 
   // Bond: First Class Window — when a bonded creature attacks, draw 1

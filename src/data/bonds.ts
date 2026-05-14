@@ -63,9 +63,9 @@ export const BONDS: BondDef[] = [
     themeId: 'family',
     cardA: 'fam-08', // Abuela
     cardB: 'fam-05', // Mom
-    description: 'Heal +2 HP at the start of your turn.',
+    description: 'Heal +1 HP at the start of your turn.',
     flavor: 'She raised the woman who raised you.',
-    effect: { kind: 'heal_face_per_turn', amount: 2 },
+    effect: { kind: 'heal_face_per_turn', amount: 1 },
   },
   {
     id: 'the-kids',
@@ -135,9 +135,9 @@ export const BONDS: BondDef[] = [
     themeId: 'food',
     cardA: 'fd-01', // Coffee Mug
     cardB: 'fd-04', // Breakfast Plate
-    description: 'Heal each of your creatures +1 HP at the start of your turn.',
+    description: 'Heal each of your creatures +2 HP at the start of your turn.',
     flavor: "Coffee in one hand, plate in the other.",
-    effect: { kind: 'heal_creatures_per_turn', amount: 1 },
+    effect: { kind: 'heal_creatures_per_turn', amount: 2 },
   },
 
   // ============================================================

@@ -2176,7 +2176,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // are baked into effectiveCost so a discounted spell shows as
           // playable even at its on-card cost. We don't tint cards red just
           // because it's the boss's turn — that'd flash every card every turn.
-          const playableNow = effectiveCost(state.player, card) <= state.player.mana;
+          // Spell-lock from All-Hands Meeting (wrk-18) — the opposing
+          // side cast it last turn, our spells are dead in hand until
+          // endTurn. Creatures still play normally.
+          const spellsLocked = state.player.spellLockedUntilTurn != null
+            && state.turnNumber < state.player.spellLockedUntilTurn;
+          const lockedForSpell = card.type === 'Spell' && spellsLocked;
+          const playableNow = effectiveCost(state.player, card) <= state.player.mana && !lockedForSpell;
           const baseScale = 0.56;
           const cardW = 220 * baseScale;
           // Tighter stride + per-card rotation = a real fan instead of a
@@ -2307,6 +2313,31 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}
             >
               <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+              {/* Spell-lock indicator — All-Hands Meeting (wrk-18)
+                  freezes the player's spells for one turn. Tint the
+                  card blue + pin a snowflake badge so the player can
+                  see at a glance why a spell card won't play this
+                  turn. Disappears on endTurn when the lock wears off. */}
+              {lockedForSpell && (
+                <>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(180deg, rgba(158,214,247,.4) 0%, rgba(58,143,196,.5) 100%)',
+                    borderRadius: 14,
+                    pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: 6, right: 6,
+                    width: 24, height: 24, borderRadius: 12,
+                    background: '#3a8fc4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 6px rgba(0,0,0,.4)',
+                    pointerEvents: 'none',
+                  }}>
+                    <Snowflake size={14} fill="#fff" strokeWidth={2.4} color="#fff" />
+                  </div>
+                </>
+              )}
             </motion.div>
           );
         })}
@@ -2338,11 +2369,21 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           the field doesn't auto-play the card. */}
       {selectedHandIdx !== null && state.player.hand[selectedHandIdx] && !drag && (() => {
         const card = state.player.hand[selectedHandIdx];
-        const playableNow = effectiveCost(state.player, card) <= state.player.mana && state.turn === 'player';
+        // Spell-lock check — mirrors the in-hand render. If All-Hands
+        // Meeting froze the player's spells, any spell card in preview
+        // is unplayable for this turn even if mana / target are fine.
+        const spellsLocked = state.player.spellLockedUntilTurn != null
+          && state.turnNumber < state.player.spellLockedUntilTurn;
         const isSpell = card.type === 'Spell';
+        const lockedForSpell = isSpell && spellsLocked;
+        const playableNow = effectiveCost(state.player, card) <= state.player.mana
+          && state.turn === 'player'
+          && !lockedForSpell;
         const needsTarget = isSpell && !isNoTargetSpell(card);
         const actionLabel = !playableNow
-          ? (state.turn !== 'player' ? "Wait — it's their turn" : 'Not enough mana')
+          ? (lockedForSpell ? 'Spells locked — All-Hands Meeting'
+             : state.turn !== 'player' ? "Wait — it's their turn"
+             : 'Not enough mana')
           : isSpell
             ? (needsTarget ? 'Cast Spell →' : 'Cast')
             : 'Summon';
@@ -2359,6 +2400,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             <div
               onClick={(e) => e.stopPropagation()}
               style={{
+                position: 'relative',
                 // While deploying, replace the entry keyframe with the
                 // deploy keyframe so the preview card visibly flies up
                 // toward the field before vanishing into the slot.
@@ -2373,6 +2415,30 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}
             >
               <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
+              {/* Spell-lock indicator in the preview — matches the
+                  hand overlay so the player sees the same cue at any
+                  zoom level. The action-label below also reads
+                  "Spells locked — All-Hands Meeting" for the reason. */}
+              {lockedForSpell && (
+                <>
+                  <div style={{
+                    position: 'absolute', inset: 0,
+                    background: 'linear-gradient(180deg, rgba(158,214,247,.4) 0%, rgba(58,143,196,.5) 100%)',
+                    borderRadius: 18,
+                    pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: 10, right: 10,
+                    width: 32, height: 32, borderRadius: 16,
+                    background: '#3a8fc4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 2px 8px rgba(0,0,0,.45)',
+                    pointerEvents: 'none',
+                  }}>
+                    <Snowflake size={18} fill="#fff" strokeWidth={2.4} color="#fff" />
+                  </div>
+                </>
+              )}
             </div>
             <div style={{ display: 'flex', gap: 10, pointerEvents: 'auto', opacity: deploying ? 0 : 1, transition: 'opacity .15s' }}>
               <button
