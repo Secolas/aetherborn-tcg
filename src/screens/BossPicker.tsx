@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft, Check, Flame, Lock, Skull, Swords,
-  ChevronLeft, ChevronRight, Sparkles, AlertCircle, Layers,
+  ChevronLeft, ChevronRight, ChevronDown,
+  Sparkles, AlertCircle, Layers, FlaskConical,
 } from 'lucide-react';
 import { BOSSES, type BossDef } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
@@ -257,13 +258,14 @@ export function BossPicker({
       />
 
       {/* ------------------------------------------------------- */}
-      {/* 3) Deck Rail + readiness                                */}
+      {/* 3) Deck Picker (dropdown) + readiness                   */}
       {/* ------------------------------------------------------- */}
-      <DeckRail
+      <DeckPicker
         decks={decks}
         playableByDeck={playableByDeck}
         activeDeckId={activeDeck?.id ?? null}
         currentTestTheme={currentTestTheme}
+        minPlayable={MIN_PLAYABLE_DECK}
         onPickDeck={(id) => {
           // Picking a saved deck clears any test-theme override for
           // THIS boss so the user's intent ("fight with my deck") is
@@ -542,19 +544,67 @@ function BossRail({
  * Tapping a saved-deck chip sets it active globally; tapping a test
  * theme chip sets that test override locally (no rewards on win).
  */
-function DeckRail({
-  decks, playableByDeck, activeDeckId, currentTestTheme,
+function DeckPicker({
+  decks, playableByDeck, activeDeckId, currentTestTheme, minPlayable,
   onPickDeck, onPickTestTheme,
 }: {
   decks: DeckSlot[];
   playableByDeck: Record<string, number>;
   activeDeckId: string | null;
   currentTestTheme: ElementId | null;
+  minPlayable: number;
   onPickDeck: (id: string) => void;
   onPickTestTheme: (t: ElementId | null) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // Close the menu when the user taps outside the trigger / menu, or
+  // hits Escape. The dropdown sits absolutely over the carousel, so it
+  // needs explicit dismissal.
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (ev: PointerEvent) => {
+      if (!rootRef.current) return;
+      if (rootRef.current.contains(ev.target as Node)) return;
+      setOpen(false);
+    };
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === 'Escape') {
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    };
+    window.addEventListener('pointerdown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  // Selection summary on the trigger. Test-theme override takes
+  // precedence over the saved active deck — same as the actual fight
+  // logic, so the trigger never lies about what'll happen on FIGHT.
+  const activeDeck = decks.find(d => d.id === activeDeckId) ?? null;
+  const triggerLabel = currentTestTheme
+    ? `Test · ${ELEMENTS[currentTestTheme].name}`
+    : (activeDeck?.name ?? 'No deck');
+  const activeCount = activeDeck ? (playableByDeck[activeDeck.id] ?? 0) : 0;
+  const triggerCount = currentTestTheme ? null : activeCount;
+  const triggerReady = currentTestTheme !== null || activeCount >= minPlayable;
+  const triggerThemeColor = currentTestTheme ? ELEMENTS[currentTestTheme].color : null;
+
+  const pickAndClose = (fn: () => void) => {
+    fn();
+    setOpen(false);
+    // Return focus to the trigger so keyboard users don't lose place.
+    setTimeout(() => triggerRef.current?.focus(), 0);
+  };
+
   return (
-    <div data-no-swipe style={{ padding: '2px 16px 0' }}>
+    <div ref={rootRef} data-no-swipe style={{ padding: '2px 16px 0', position: 'relative', zIndex: 5 }}>
       <div style={{
         fontSize: 10, fontWeight: 800, letterSpacing: '0.18em',
         color: PALETTE.textMid, marginBottom: 5, paddingLeft: 2,
@@ -574,56 +624,219 @@ function DeckRail({
           </span>
         )}
       </div>
-      <div
-        role="radiogroup"
-        aria-label="Pick a deck"
-        className="no-scrollbar"
+
+      {/* Trigger — shows the current selection at a glance. */}
+      <button
+        ref={triggerRef}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={`Deck selection: ${triggerLabel}${triggerCount !== null ? `, ${triggerCount} cards` : ''}. Tap to change.`}
+        onClick={() => setOpen(o => !o)}
         style={{
-          display: 'flex', gap: 6,
-          overflowX: 'auto', overflowY: 'hidden',
-          paddingBottom: 4,
-          WebkitOverflowScrolling: 'touch',
+          width: '100%',
+          padding: '10px 12px',
+          borderRadius: 14,
+          border: `1.5px solid ${PALETTE.border}`,
+          background: '#fff',
+          color: PALETTE.text,
+          fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: open
+            ? '0 6px 14px rgba(58,46,42,.16)'
+            : '0 2px 6px rgba(58,46,42,.08)',
+          transition: 'box-shadow .15s, transform .1s',
+          outline: 'none',
+        }}
+        onFocus={(ev) => { (ev.currentTarget as HTMLElement).style.boxShadow = '0 0 0 3px rgba(244,208,74,.55)'; }}
+        onBlur={(ev) => {
+          (ev.currentTarget as HTMLElement).style.boxShadow = open
+            ? '0 6px 14px rgba(58,46,42,.16)'
+            : '0 2px 6px rgba(58,46,42,.08)';
         }}
       >
-        {decks.map(d => {
-          const count = playableByDeck[d.id] ?? 0;
-          const ready = count >= MIN_PLAYABLE_DECK;
-          const active = currentTestTheme === null && d.id === activeDeckId;
-          return (
-            <DeckChip
-              key={d.id}
-              label={d.name}
-              count={count}
-              ready={ready}
-              active={active}
-              onClick={() => onPickDeck(d.id)}
-            />
-          );
-        })}
-
-        {/* Visual divider before the test-deck section. */}
-        <div aria-hidden style={{
+        {/* Status dot — mint = ready, coral = low cards, themed for test. */}
+        <span aria-hidden style={{
+          width: 10, height: 10, borderRadius: '50%',
+          background: triggerThemeColor ?? (triggerReady ? PALETTE.green : PALETTE.accent),
+          boxShadow: triggerThemeColor
+            ? `0 0 0 2px ${triggerThemeColor}33`
+            : triggerReady
+              ? '0 0 0 2px rgba(6,214,160,.18)'
+              : '0 0 0 2px rgba(238,90,82,.18)',
           flex: '0 0 auto',
-          width: 1, alignSelf: 'stretch',
-          background: 'rgba(58,46,42,.18)',
-          margin: '4px 4px',
         }} />
+        <span style={{
+          flex: 1, textAlign: 'left',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {triggerLabel}
+        </span>
+        {triggerCount !== null && (
+          <span style={{
+            fontSize: 11, fontWeight: 800,
+            padding: '3px 8px', borderRadius: 10,
+            background: triggerReady ? 'rgba(6,214,160,.16)' : 'rgba(238,90,82,.14)',
+            color: triggerReady ? '#1f7a4c' : '#b04a2e',
+            letterSpacing: '0.04em',
+            flex: '0 0 auto',
+          }}>
+            {triggerCount} cards
+          </span>
+        )}
+        <ChevronDown
+          size={16} strokeWidth={2.4}
+          style={{
+            color: PALETTE.textMid,
+            transform: open ? 'rotate(180deg)' : 'rotate(0)',
+            transition: 'transform .15s',
+            flex: '0 0 auto',
+          }}
+          aria-hidden
+        />
+      </button>
 
-        {/* Test-deck theme chips — secondary group. */}
-        {(Object.keys(ELEMENTS) as ElementId[]).map(t => {
-          const active = currentTestTheme === t;
-          return (
-            <ThemeChip
-              key={t}
-              active={active}
-              label={`Test · ${ELEMENTS[t].name}`}
-              themeId={t}
-              onClick={() => onPickTestTheme(active ? null : t)}
-            />
-          );
-        })}
-      </div>
+      {/* Menu — absolute so it overlays the carousel below. */}
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Available decks"
+          style={{
+            position: 'absolute',
+            top: '100%', left: 16, right: 16,
+            marginTop: 6,
+            background: '#fff',
+            border: `1.5px solid ${PALETTE.border}`,
+            borderRadius: 14,
+            boxShadow: '0 14px 32px rgba(58,46,42,.22)',
+            padding: 6,
+            maxHeight: 320,
+            overflowY: 'auto',
+            zIndex: 10,
+          }}
+        >
+          {/* Section: saved decks */}
+          <div style={sectionLabelStyle}>YOUR DECKS</div>
+          {decks.map(d => {
+            const count = playableByDeck[d.id] ?? 0;
+            const ready = count >= minPlayable;
+            const selected = currentTestTheme === null && d.id === activeDeckId;
+            return (
+              <DeckMenuRow
+                key={d.id}
+                selected={selected}
+                onClick={() => pickAndClose(() => onPickDeck(d.id))}
+                left={
+                  <span aria-hidden style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: ready ? PALETTE.green : PALETTE.accent,
+                    boxShadow: ready
+                      ? '0 0 0 2px rgba(6,214,160,.18)'
+                      : '0 0 0 2px rgba(238,90,82,.18)',
+                  }} />
+                }
+                label={d.name}
+                meta={`${count} ${count === 1 ? 'card' : 'cards'}${ready ? '' : ' · low'}`}
+                metaTone={ready ? 'ok' : 'warn'}
+              />
+            );
+          })}
+
+          {/* Section: test decks */}
+          <div style={{ ...sectionLabelStyle, marginTop: 8 }}>
+            <FlaskConical size={10} strokeWidth={2.6} style={{ marginRight: 4, verticalAlign: '-1px' }} aria-hidden />
+            TEST DECKS · NO REWARDS
+          </div>
+          {(Object.keys(ELEMENTS) as ElementId[]).map(t => {
+            const selected = currentTestTheme === t;
+            const el = ELEMENTS[t];
+            return (
+              <DeckMenuRow
+                key={t}
+                selected={selected}
+                onClick={() => pickAndClose(() => onPickTestTheme(selected ? null : t))}
+                left={
+                  <span aria-hidden style={{
+                    width: 10, height: 10, borderRadius: '50%',
+                    background: el.color,
+                    boxShadow: `0 0 0 2px ${el.color}33`,
+                  }} />
+                }
+                label={`Test · ${el.name}`}
+                meta="placeholder"
+                metaTone="muted"
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
+  );
+}
+
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: 9, fontWeight: 800, letterSpacing: '0.16em',
+  color: PALETTE.textMid,
+  padding: '6px 10px 4px',
+};
+
+function DeckMenuRow({
+  selected, onClick, left, label, meta, metaTone,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  left: React.ReactNode;
+  label: string;
+  meta: string;
+  metaTone: 'ok' | 'warn' | 'muted';
+}) {
+  const metaColor =
+    metaTone === 'ok'   ? '#1f7a4c' :
+    metaTone === 'warn' ? '#b04a2e' :
+                          PALETTE.textMid;
+  return (
+    <button
+      role="option"
+      aria-selected={selected}
+      onClick={onClick}
+      style={{
+        width: '100%',
+        display: 'flex', alignItems: 'center', gap: 10,
+        padding: '9px 10px',
+        borderRadius: 10,
+        border: 'none',
+        background: selected ? 'rgba(58,46,42,.06)' : 'transparent',
+        color: PALETTE.text,
+        fontFamily: 'inherit', fontSize: 13, fontWeight: 700,
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'background .12s',
+        outline: 'none',
+      }}
+      onPointerEnter={(ev) => { (ev.currentTarget as HTMLElement).style.background = selected ? 'rgba(58,46,42,.10)' : 'rgba(58,46,42,.05)'; }}
+      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.background = selected ? 'rgba(58,46,42,.06)' : 'transparent'; }}
+      onFocus={(ev) => { (ev.currentTarget as HTMLElement).style.background = selected ? 'rgba(58,46,42,.10)' : 'rgba(58,46,42,.05)'; }}
+      onBlur={(ev) => { (ev.currentTarget as HTMLElement).style.background = selected ? 'rgba(58,46,42,.06)' : 'transparent'; }}
+    >
+      {left}
+      <span style={{
+        flex: 1,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+      }}>
+        {label}
+      </span>
+      <span style={{
+        fontSize: 11, fontWeight: 700, color: metaColor,
+        letterSpacing: '0.02em',
+        flex: '0 0 auto',
+      }}>
+        {meta}
+      </span>
+      {selected && (
+        <Check size={14} strokeWidth={3} color={PALETTE.text} aria-hidden style={{ flex: '0 0 auto' }} />
+      )}
+    </button>
   );
 }
 
@@ -687,20 +900,28 @@ function BossPage({
       width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch',
       gap: 8,
-      padding: '6px 0 4px',
+      padding: '4px 0',
       minHeight: 0,
     }}>
-      {/* Banner */}
+      {/* Banner — themed gradient with a faded signature-cards layer
+          on the right so the bar itself hints at what the boss plays. */}
       <div style={{
         background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
         borderRadius: 18,
-        padding: '14px 16px 14px',
+        padding: '14px 110px 14px 16px',
         position: 'relative',
         boxShadow: '0 8px 20px rgba(58,46,42,.15)',
         color: '#fff',
         display: 'flex', alignItems: 'center', gap: 14,
         flex: '0 0 auto',
+        overflow: 'hidden',
       }}>
+        {/* Signature-cards fan — peek at the cards this boss leans on.
+            Only rendered when this banner is the focused page so we
+            don't keep six pages' worth of mini-Cards mounted off-screen
+            on lower-end phones. */}
+        {visible && <SignatureCardsFan boss={boss} />}
+
         <div style={{
           width: 76, height: 76, borderRadius: '50%',
           background: '#fff',
@@ -708,6 +929,7 @@ function BossPage({
           display: 'grid', placeItems: 'center',
           flex: '0 0 auto',
           boxShadow: '0 4px 12px rgba(0,0,0,.18)',
+          position: 'relative', zIndex: 2,
         }}>
           <div style={{
             width: '100%', height: '100%', borderRadius: '50%',
@@ -720,8 +942,8 @@ function BossPage({
             fontFamily: '"Fredoka", system-ui',
           }} aria-hidden>{!boss.avatarPhoto && boss.avatar}</div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05 }}>{boss.name}</div>
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 2 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.05, textShadow: '0 1px 2px rgba(0,0,0,.18)' }}>{boss.name}</div>
           <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, opacity: 0.92 }}>
             <ElementGlyph el={boss.themeId} size={13} />
             <span>{e.name} deck</span>
@@ -748,8 +970,10 @@ function BossPage({
         {boss.playstyle}
       </div>
 
-      {/* Marquee preview */}
-      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      {/* Marquee preview — absorbs all leftover vertical space inside
+          the carousel viewport. The cards are scaled to fill that
+          band so no empty gaps appear above or below them. */}
+      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
         <BossDeckPreview boss={boss} paused={!visible} reducedMotion={reducedMotion} />
       </div>
     </div>
@@ -959,125 +1183,6 @@ function StartButton({
 }
 
 // =================================================================
-// DECK CHIP
-// =================================================================
-function DeckChip({
-  label, count, ready, active, onClick,
-}: {
-  label: string;
-  count: number;
-  ready: boolean;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      role="radio"
-      aria-checked={active}
-      aria-label={`${label}, ${count} playable cards${ready ? '' : ', not ready'}`}
-      onClick={onClick}
-      style={{
-        flex: '0 0 auto',
-        padding: '7px 11px',
-        borderRadius: 12,
-        border: active ? '2px solid #3a2e2a' : `1.5px solid ${PALETTE.border}`,
-        background: active ? PALETTE.text : '#fff',
-        color: active ? '#fff' : PALETTE.text,
-        fontSize: 12, fontWeight: 800,
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        display: 'flex', alignItems: 'center', gap: 6,
-        boxShadow: active ? '0 4px 10px rgba(58,46,42,.18)' : '0 1px 3px rgba(58,46,42,.05)',
-        transition: 'background .12s, color .12s, border-color .12s, transform .1s, box-shadow .12s',
-        outline: 'none',
-      }}
-      onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(0.96)'; }}
-      onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
-      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
-      onFocus={(ev) => { (ev.currentTarget as HTMLElement).style.boxShadow = '0 0 0 3px rgba(244,208,74,.6)'; }}
-      onBlur={(ev) => {
-        (ev.currentTarget as HTMLElement).style.boxShadow = active
-          ? '0 4px 10px rgba(58,46,42,.18)'
-          : '0 1px 3px rgba(58,46,42,.05)';
-      }}
-    >
-      {/* Status dot — mint for ready, coral for "low cards". */}
-      <span
-        aria-hidden
-        style={{
-          width: 8, height: 8, borderRadius: '50%',
-          background: ready ? PALETTE.green : PALETTE.accent,
-          boxShadow: ready ? '0 0 0 2px rgba(6,214,160,.18)' : '0 0 0 2px rgba(238,90,82,.18)',
-          flex: '0 0 auto',
-        }}
-      />
-      <span style={{
-        maxWidth: 110,
-        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-      }}>
-        {label}
-      </span>
-      <span style={{
-        fontSize: 10,
-        fontWeight: 800,
-        padding: '2px 6px',
-        borderRadius: 8,
-        background: active ? 'rgba(255,255,255,.18)' : 'rgba(58,46,42,.08)',
-        color: active ? '#fff' : PALETTE.textMid,
-        letterSpacing: '0.04em',
-      }}>
-        {count}
-      </span>
-    </button>
-  );
-}
-
-// =================================================================
-// THEME (TEST) CHIP
-// =================================================================
-function ThemeChip({
-  active, label, themeId, onClick,
-}: {
-  active: boolean;
-  label: string;
-  themeId: ElementId;
-  onClick: () => void;
-}) {
-  const el = ELEMENTS[themeId];
-  return (
-    <button
-      role="radio"
-      aria-checked={active}
-      aria-label={`${label}, placeholder deck (no rewards)`}
-      onClick={onClick}
-      style={{
-        flex: '0 0 auto',
-        padding: '7px 11px',
-        borderRadius: 999,
-        border: active ? `2px solid ${el.deep}` : `1.5px solid ${PALETTE.border}`,
-        background: active ? el.color : '#fff',
-        color: active ? '#fff' : PALETTE.textMid,
-        fontSize: 11, fontWeight: 700,
-        letterSpacing: '0.02em',
-        cursor: 'pointer',
-        fontFamily: 'inherit',
-        display: 'flex', alignItems: 'center', gap: 5,
-        transition: 'background .12s, color .12s, border-color .12s, transform .1s',
-        outline: 'none',
-      }}
-      onPointerDown={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(0.96)'; }}
-      onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
-      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'scale(1)'; }}
-      onFocus={(ev) => { (ev.currentTarget as HTMLElement).style.boxShadow = '0 0 0 3px rgba(244,208,74,.55)'; }}
-      onBlur={(ev) => { (ev.currentTarget as HTMLElement).style.boxShadow = 'none'; }}
-    >
-      <ElementGlyph el={themeId} size={11} />
-      {label}
-    </button>
-  );
-}
-
-// =================================================================
 // MISC
 // =================================================================
 function chevronBtn(side: 'left' | 'right'): React.CSSProperties {
@@ -1093,6 +1198,86 @@ function chevronBtn(side: 'left' | 'right'): React.CSSProperties {
     boxShadow: '0 4px 10px rgba(0,0,0,.15)',
     zIndex: 3,
   };
+}
+
+/**
+ * Faded "signature cards" peek inside the boss banner. Picks up to
+ * three unique cards from the boss's deck (highest cost first — those
+ * tend to be the cards the player will actually remember being hit
+ * by) and fans them on the right edge of the banner with a soft mask
+ * so they read as background art, not as foreground content. The
+ * marquee below still scrolls the full deck for anyone who wants to
+ * inspect every card.
+ */
+function SignatureCardsFan({ boss }: { boss: BossDef }) {
+  const cards: CollectionCard[] = useMemo(() => {
+    const seen = new Set<string>();
+    const uniques: typeof TEMPLATES = [];
+    for (const tid of boss.deck) {
+      if (seen.has(tid)) continue;
+      seen.add(tid);
+      const tpl = TEMPLATES.find(t => t.id === tid);
+      if (tpl) uniques.push(tpl);
+    }
+    return uniques
+      .slice()
+      // Highest-cost first — proxy for "signature" / big-impact play.
+      .sort((a, b) => b.cost - a.cost)
+      .slice(0, 3)
+      .map((tpl, i) => ({
+        ...tpl,
+        uid: `sig-${boss.id}-${tpl.id}-${i}`,
+        photo: boss.photoOverrides?.[tpl.id] ?? aiPhoto(tpl.id),
+        isPlaceholder: true,
+      }));
+  }, [boss]);
+
+  if (cards.length === 0) return null;
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        top: 0, right: 0, bottom: 0,
+        // Wider than the visible banner so the leftmost card fades
+        // through the mask rather than hard-clipping into the text.
+        width: 200,
+        pointerEvents: 'none',
+        // Linear mask: invisible on the left edge (where text lives),
+        // fully visible by ~45% in. Cards on the right are crisp.
+        maskImage: 'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 35%, #000 70%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0%, rgba(0,0,0,0.55) 35%, #000 70%)',
+        zIndex: 1,
+      }}
+    >
+      {cards.map((c, i) => {
+        // Three-card fan: back card tilted left, mid upright, front
+        // tilted right. Slight x-offset so they stack from a single
+        // anchor on the right edge of the banner.
+        const tilt = [-12, -2, 9][i] ?? 0;
+        const rightOffset = [98, 56, 14][i] ?? 0;
+        const opacity = [0.55, 0.68, 0.82][i] ?? 0.6;
+        return (
+          <div
+            key={c.uid}
+            style={{
+              position: 'absolute',
+              top: '50%', right: rightOffset,
+              transform: `translateY(-50%) rotate(${tilt}deg)`,
+              opacity,
+              filter: 'saturate(0.92)',
+              // Render back-to-front via DOM order: rendering card 0
+              // first puts it at the bottom of the stack, card 2 on top.
+              zIndex: i + 1,
+            }}
+          >
+            <Card card={c} scale={0.28} owned={false} />
+          </div>
+        );
+      })}
+    </div>
+  );
 }
 
 /**
@@ -1117,19 +1302,48 @@ function BossDeckPreview({
     return c;
   }).filter((c): c is CollectionCard => !!c);
 
+  // Card components render at a fixed 220×320 multiplied by `scale`.
+  // To fill whatever leftover height the carousel hands us, we measure
+  // our container and derive scale = (availableHeight - padding) / 320.
+  // Clamp to a comfortable range so very-tall desktop viewports don't
+  // produce comically large cards and very-short phones don't shrink
+  // the cards to illegibility.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.32);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const h = el.clientHeight;
+      if (h <= 0) return;
+      const s = Math.min(0.55, Math.max(0.28, (h - 12) / 320));
+      setScale(s);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   if (cards.length === 0) return null;
 
   const duration = 22;
   const doubled = [...cards, ...cards];
 
   return (
-    <div style={{
-      width: '100%',
-      position: 'relative',
-      overflow: 'hidden',
-      maskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
-      WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        maskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+      }}
+    >
       <div style={{
         display: 'flex',
         gap: 8,
@@ -1141,7 +1355,7 @@ function BossDeckPreview({
       }}>
         {doubled.map((c, i) => (
           <div key={`${c.uid}-${i}`} style={{ flex: '0 0 auto' }}>
-            <Card card={c} scale={0.32} owned={false} />
+            <Card card={c} scale={scale} owned={false} />
           </div>
         ))}
       </div>
