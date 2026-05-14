@@ -744,13 +744,16 @@ function resolveOnPlay(state: MatchState, owner: Owner, card: BattleCard) {
     }
     state.log.push(`${displayName(card)} feeds your creatures +${amt}`);
   } else if (card.abilityKind === 'spell_buff_all' && card.type === 'Creature') {
-    // Graduation Day — on-play, gives every same-theme friendly
-    // creature a permanent +V/+V. Theme-locked at every rarity
-    // (legendary/epic no longer bypass) — buff_all on a wide board
-    // is too swingy when unrestricted. Same-theme creatures only.
+    // Graduation Day (legendary on-play variant) — at epic/legendary
+    // rarity, the buff hits every friendly creature regardless of
+    // theme; common/rare stays theme-locked so the cheap spells can't
+    // double-dip across themes. The premium rarity discount is the
+    // whole reason cross-theme decks (e.g. the couple memory pack)
+    // can ever build to a board-wide finisher.
     const amt = card.abilityValue ?? 1;
+    const crossTheme = card.rarity === 'epic' || card.rarity === 'legendary';
     for (const c of me.field) {
-      if (c.el === card.el) {
+      if (crossTheme || c.el === card.el) {
         c.currentAtk += amt;
         c.currentHp += amt;
         c.hp += amt;
@@ -836,12 +839,14 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     }
     state.log.push(`${displayName(card)} — both players draw`);
   } else if (card.abilityKind === 'spell_buff_all') {
-    // Payroll / Group Project / etc: +V/+V to friendly creatures.
-    // Theme-locked at every rarity — only same-theme creatures get
-    // the buff (was previously bypassed by legendary/epic, which let
-    // a single spell swing a mixed-theme board too aggressively).
+    // Payroll / Group Project / Family Photo / etc: +V/+V to friendly
+    // creatures. Common/rare stays theme-locked. Epic and legendary
+    // bypass the theme lock so they can act as cross-theme finishers
+    // in hybrid decks (e.g. the couple memory pack) — the rarity gate
+    // keeps cheap spells from swinging mixed boards too aggressively.
+    const crossTheme = card.rarity === 'epic' || card.rarity === 'legendary';
     for (const c of me.field) {
-      if (c.el === card.el) {
+      if (crossTheme || c.el === card.el) {
         c.currentAtk += v;
         c.currentHp += v;
         c.hp += v;

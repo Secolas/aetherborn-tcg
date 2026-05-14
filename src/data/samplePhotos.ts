@@ -110,6 +110,10 @@ const THEMED: Record<string, string> = {
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
   'edu-12': U('photo-1627556704290-2b1f5853ff78'),  // Graduation Day → ceremony / diploma
   'edu-13': U('photo-1571902943202-507ec2618e8f'),  // Physical Ed Class → kids running / gym
+
+  // New balance-pass additions
+  'cou-18': U('photo-1518621736915-f3b1c41bfd00'),  // Holding Hands → silhouetted couple
+  'fd-17':  U('photo-1547592180-85f173990554'),     // Stew Pot → bubbling soup pot
 };
 
 /**

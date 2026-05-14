@@ -135,14 +135,18 @@ export const BOSSES: BossDef[] = [
     deck: [
       'wrk-01',          // Intern
       'wrk-02', 'wrk-02',// Spam Email x2 — chip damage
-      'wrk-04',          // Coffee — buff
       'wrk-05',          // IT Support
       'wrk-06', 'wrk-06',// Sales Pitch x2 — removal
+      'wrk-07',          // HR — Untargetable 3/4 body. Replaces Coffee
+                         // (which was el='food' and could only buff Food
+                         // creatures Manager doesn't run — a dead card).
+                         // HR is the spell-proof mid-curve threat the
+                         // Normal deck previously lacked.
       'wrk-08',          // Senior Engineer
       'wrk-09',          // Meeting — freeze
       'wrk-10',          // Promotion
-      'wrk-11',          // Lunch Break
-      'wrk-14',          // Stand-up Meeting (cheap draw — replaces The Boss)
+      'wrk-11',          // Lunch Break — 7 face heal stabilizer
+      'wrk-14',          // Stand-up Meeting (cheap draw)
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo
@@ -304,7 +308,9 @@ export const BOSSES: BossDef[] = [
       'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
       'fd-05',           // Lunch Box — recover_on_death
       'fd-06',           // Slow Cooker — ramp
-      'fd-14',           // Spicy Sauce — removal
+      'fd-17',           // Stew Pot — 4-damage removal (replaces Spicy
+                         // Sauce 2-dmg; lets the sustain plan survive
+                         // early aggression long enough to come online)
       'fd-08',           // Share the Meal — board heal
       'fd-09',           // Comfort Food — face heal
       'fd-10',           // Grandma's Pie — heal_each_turn
@@ -437,9 +443,11 @@ export const BOSSES: BossDef[] = [
     deck: [
       'cou-01',           // Crush (1c Rush — early pressure)
       'cou-02',           // Boyfriend / Girlfriend (Soulmates / Made It Official enabler)
-      'cou-04',           // Couple Photo (vanilla mid body)
+      'cou-18',           // Holding Hands (1c Rush — second 1-drop so
+                          // the deck doesn't brick its curve when Crush
+                          // is at the bottom of the deck)
       'cou-05',           // Movie Night (Date Routine enabler — Taunt)
-      'cou-08',           // Anniversary (heal + draw)
+      'cou-08',           // Anniversary (cross-theme +1/+1 buff)
       'cou-09',           // First Date (1c draw — tempo)
       'cou-10',           // Beach Day (creature + small board heal)
       'cou-12',           // Date Night Dinner (Date Routine enabler — buff)

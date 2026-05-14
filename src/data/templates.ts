@@ -654,10 +654,15 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'legendary', suggested: 'a wedding photo, vows, rings, the ceremony' },
 
-  { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 4 HP, then draw a card.',
+  { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +1/+1.',
     flavor: 'You remembered. You both did.',
-    abilityKind: 'spell_heal', abilityValue: 4,
+    // Cross-theme flex buff. The couple memory pack spans Family,
+    // Travel, Food, and Work, so theme-locked buffs barely fire in
+    // a true hybrid deck. Anniversary fills the gap as a same-cost
+    // counterpart to Date Night Dinner: small permanent stat bump
+    // on any friendly creature regardless of theme.
+    abilityKind: 'spell_buff_any', abilityValue: 1,
     rarity: 'rare', suggested: 'the dated photo, a card you wrote, a small gift' },
 
   { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
@@ -719,6 +724,26 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Every door, you wonder what your life would be.',
     abilityKind: 'mana_prep', abilityValue: 1,
     rarity: 'rare', suggested: 'a house tour, moving boxes, an empty apartment, "For Sale" sign' },
+
+  // Cheap rush body for the couple arc. The deck only had Crush at 1c
+  // Rush, so if it didn't draw Crush it had no early pressure. Holding
+  // Hands gives the deck a second 1-drop Rush option so the curve isn't
+  // dead by turn 3.
+  { id: 'cou-18', name: 'Holding Hands', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Fingers laced. Already in step.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'two hands clasped, fingers interlocked, a close-up' },
+
+  // FOOD — mid-cost burn. Food previously only had Spicy Sauce (2 dmg)
+  // for removal, which couldn't stabilize against early aggro. Stew
+  // gives Cook a 3-mana 4-damage option on parity with Sales Pitch
+  // (wrk-06) so the sustain plan can survive long enough to come online.
+  { id: 'fd-17', name: 'Stew Pot', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Deal 4 damage to any target.',
+    flavor: 'Hot enough to clear a room.',
+    abilityKind: 'spell_damage', abilityValue: 4,
+    rarity: 'rare', suggested: 'a bubbling pot, ladle, a thick stew' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {
