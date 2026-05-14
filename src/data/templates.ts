@@ -16,7 +16,7 @@ export const TEMPLATES: CardTemplate[] = [
   // FAMILY
   // ============================================================
 
-  { id: 'fam-01', name: 'Family Pet', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
+  { id: 'fam-01', name: 'Family Pet', el: 'animals', cost: 1, atk: 2, hp: 1, type: 'Creature',
     ability: 'Rush.',
     flavor: 'First to the rescue.',
     abilityKind: 'rush',
@@ -28,7 +28,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a cousin, niece, or nephew' },
 
-  { id: 'fam-03', name: "Abuela's Soup", el: 'family', cost: 3, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-03', name: "Abuela's Soup", el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 5 HP.',
     abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'common', suggested: 'a homemade soup or stew' },
@@ -63,7 +63,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'rare', suggested: 'a grandparent' },
 
-  { id: 'fam-09', name: 'Birthday Cake', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-09', name: 'Birthday Cake', el: 'food', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 6 HP.',
     abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'common', suggested: 'a birthday cake or dessert' },
@@ -80,7 +80,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'epic', suggested: 'your dad' },
 
-  { id: 'fam-12', name: 'Sunday Dinner', el: 'family', cost: 6, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-12', name: 'Sunday Dinner', el: 'food', cost: 6, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 8 HP.',
     flavor: 'Everyone is at the table.',
     abilityKind: 'spell_heal', abilityValue: 8,
@@ -126,7 +126,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a coworker or office buddy' },
 
-  { id: 'wrk-04', name: 'Coffee', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
+  { id: 'wrk-04', name: 'Coffee', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Work-type creature +2/+2.',
     flavor: 'Now they can think.',
     abilityKind: 'spell_buff', abilityValue: 2,
