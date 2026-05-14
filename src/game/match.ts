@@ -293,6 +293,9 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
 
   // Reset per-turn bond flags (e.g. First Class Window's "draw once per turn").
   me.bondFlags = {};
+  // Reset the "attacked this turn" lock so the side can play creatures
+  // and spells again until its first attack of the new turn.
+  me.hasAttackedThisTurn = false;
 
   // Mana ramp
   me.maxMana = Math.min(MAX_MANA, me.maxMana + 1);
@@ -538,6 +541,10 @@ export function playCard(prev: MatchState, owner: Owner, battleId: string, targe
   const card = me.hand[idx];
   const cost = effectiveCost(me, card);
   if (cost > me.mana) return { state: prev, ok: false, reason: 'Not enough mana' };
+  // Phase lock: once a side has attacked on its current turn it can't
+  // play more cards. Mirrors the player's main → battle progression
+  // for the AI so the boss can't interleave attacks and summons.
+  if (me.hasAttackedThisTurn) return { state: prev, ok: false, reason: 'Battle phase — no more plays this turn' };
 
   if (card.type === 'Creature') {
     if (me.field.length >= MAX_FIELD) return { state: prev, ok: false, reason: 'Field is full' };
@@ -935,6 +942,10 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
   // ATK (also potentially bond-boosted on the opposing side).
   const atkValue = effectiveAtk(me, attacker);
 
+  // Either branch below taps the attacker and marks the side as
+  // having attacked — once set, playCard refuses further plays this
+  // turn. Same lock applies to both player and AI.
+  me.hasAttackedThisTurn = true;
   if (target.kind === 'face') {
     them.hp -= atkValue;
     state.log.push(`${displayName(attacker)} hits face for ${atkValue}`);

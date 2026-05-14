@@ -2215,12 +2215,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           return (
             <motion.div
               key={card.battleId}
-              // `layout` springs the card to its new position whenever
-              // the fan reflows (e.g. a card leaves). Framer measures
-              // the bounding box before/after and animates the
-              // transition via transform — totally separate from
-              // Framer's drag, which owns its own x motion value.
-              layout
+              // `layout` was removed because it shares the same
+              // transform pipeline as Framer's drag. If the user
+              // touched a card while the hand was mid-reflow (turn
+              // start, a card just played), the drag captured the
+              // in-flight layout transform as its origin and
+              // dragSnapToOrigin sprang to that wrong spot — the
+              // card would visibly fly off-screen on the first
+              // touch each turn. Fan-stride changes now animate via
+              // a CSS transition on `left` (see style below); drag
+              // owns its own clean x motion value.
               drag={canDrag}
               dragSnapToOrigin
               dragMomentum={false}
@@ -2288,7 +2292,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 // opacity so the player can still see what's in hand
                 // while reading the preview.
                 opacity: isSelected ? 0 : 1,
-                transition: 'opacity .15s',
+                // `left` transition glides cards into their new slot
+                // when the hand reflows (replaces the previous
+                // `layout` prop). Drag is on a separate transform
+                // axis so the two never compete.
+                transition: 'opacity .15s, left .3s cubic-bezier(.2,.8,.3,1)',
                 willChange: 'transform',
                 // Visual flourishes that don't conflict with the
                 // transform pipeline above.

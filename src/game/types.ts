@@ -146,6 +146,14 @@ export interface PlayerState {
       future one-shot ramp effect. Doesn't raise maxMana — only the
       immediate spend for the upcoming turn — so ramp can't snowball. */
   manaBonusNextTurn?: number;
+  /** True once this side has resolved at least one attack on its
+      current turn. Reset to false on beginTurn. Engine refuses
+      playCard while this is true so the player's phase rule
+      (main → battle, no plays after attack) is mirrored on the AI:
+      the boss summons during its main phase and stops once it
+      starts attacking, instead of interleaving summons and
+      attacks the way it used to. */
+  hasAttackedThisTurn?: boolean;
 }
 
 export interface MatchState {
