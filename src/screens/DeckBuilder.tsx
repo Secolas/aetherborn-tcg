@@ -1,9 +1,14 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Plus, Pencil, Trash2, X } from 'lucide-react';
+import {
+  ArrowLeft, Check, Lock, LayoutGrid, Rows3, Heart, Briefcase, PawPrint,
+  Plane, UtensilsCrossed, GraduationCap, Swords, Sparkles, Plus, Pencil,
+  Trash2, X, Search, ChevronDown, ChevronUp, Activity,
+} from 'lucide-react';
 import { Card } from '../components/Card';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
+import { useViewport } from '../hooks/useViewport';
 import type { CollectionCard, DeckSlot, ElementId } from '../game/types';
 
 type Filter =
@@ -23,19 +28,12 @@ const FILTERS: { id: Filter; label: string; icon: React.ReactNode; tone?: 'theme
   { id: 'Spells',    label: 'Spells',    icon: <Sparkles  size={11} strokeWidth={2.4} />, tone: 'type' },
 ];
 
-// Matches the boss deck size in data/bosses.ts so player and opponent always
-// start with the same number of cards.
 const DECK_SIZE = 12;
 
 interface Props {
   collection: CollectionCard[];
-  /** All saved deck slots. Always at least one (App.tsx guarantees this).
-   *  The deck currently being edited is `activeDeckId` — every change
-   *  this screen makes flows back through `onChange(deckId, uids)`. */
   decks: DeckSlot[];
   activeDeckId: string;
-  /** Max number of saved decks the player can keep. Drives the disabled
-   *  state on the "+" pill in the switcher. */
   maxDecks: number;
   onChange: (deckId: string, uids: string[]) => void;
   onSetActive: (deckId: string) => void;
@@ -49,45 +47,57 @@ export function DeckBuilder({
   collection, decks, activeDeckId, maxDecks,
   onChange, onSetActive, onCreate, onRename, onDelete, onBack,
 }: Props) {
-  /** Compact = 4-column smaller cards (default — scans a large library
-      faster when picking the 12 deck slots); Big = 2-column for detail. */
+  const { isMobile, isDesktop } = useViewport();
+  /** Compact = dense grid; Big = roomier preview cards. */
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
   const [filter, setFilter] = useState<Filter>('All');
-  /** Card opened from the Active Deck strip — shows preview + Remove button. */
+  const [search, setSearch] = useState('');
   const [inspectActive, setInspectActive] = useState<CollectionCard | null>(null);
-  /** Deck-management modal state — null = closed; deckId = editing that deck. */
   const [managing, setManaging] = useState<string | null>(null);
+  /** Mobile-only: the deck-health panel collapses by default so the
+   *  library stays on-screen. On desktop the same panel lives in the
+   *  right sidebar permanently. */
+  const [healthOpen, setHealthOpen] = useState(false);
 
-  // Resolve the active deck. Fallback to first deck if activeDeckId is
-  // somehow stale (defensive — App.tsx keeps this in sync).
   const activeDeck = decks.find(d => d.id === activeDeckId) ?? decks[0];
   const deckUids = activeDeck?.uids ?? [];
 
-  // Sort the active deck so creatures come before spells, with cost
-  // ascending inside each group. Lets the player see deck composition
-  // at a glance — the green half is creatures, the violet half is spells.
-  const sortedDeckUids = [...deckUids].sort((a, b) => {
-    const ca = collection.find(x => x.uid === a);
-    const cb = collection.find(x => x.uid === b);
-    if (!ca || !cb) return 0;
-    if (ca.type !== cb.type) return ca.type === 'Creature' ? -1 : 1;
-    if (ca.cost !== cb.cost) return ca.cost - cb.cost;
-    return (ca.nickname ?? ca.name).localeCompare(cb.nickname ?? cb.name);
-  });
+  // Sort the active deck: creatures before spells, ascending cost
+  // within each group, then alphabetic.
+  const sortedDeckUids = useMemo(() => {
+    return [...deckUids].sort((a, b) => {
+      const ca = collection.find(x => x.uid === a);
+      const cb = collection.find(x => x.uid === b);
+      if (!ca || !cb) return 0;
+      if (ca.type !== cb.type) return ca.type === 'Creature' ? -1 : 1;
+      if (ca.cost !== cb.cost) return ca.cost - cb.cost;
+      return (ca.nickname ?? ca.name).localeCompare(cb.nickname ?? cb.name);
+    });
+  }, [deckUids, collection]);
 
-  const filtered = collection.filter(c => {
-    switch (filter) {
-      case 'Creatures': return c.type === 'Creature';
-      case 'Spells':    return c.type === 'Spell';
-      case 'Family':    return c.el === 'family';
-      case 'Work':      return c.el === 'work';
-      case 'Animals':   return c.el === 'animals';
-      case 'Travel':    return c.el === 'travel';
-      case 'Food':      return c.el === 'food';
-      case 'Education': return c.el === 'education';
-      default:          return true;
-    }
-  });
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return collection.filter(c => {
+      // Filter chip
+      switch (filter) {
+        case 'Creatures': if (c.type !== 'Creature') return false; break;
+        case 'Spells':    if (c.type !== 'Spell')    return false; break;
+        case 'Family':    if (c.el !== 'family')     return false; break;
+        case 'Work':      if (c.el !== 'work')       return false; break;
+        case 'Animals':   if (c.el !== 'animals')    return false; break;
+        case 'Travel':    if (c.el !== 'travel')     return false; break;
+        case 'Food':      if (c.el !== 'food')       return false; break;
+        case 'Education': if (c.el !== 'education')  return false; break;
+        default: break;
+      }
+      // Search text — match name or nickname.
+      if (q) {
+        const haystack = `${c.name} ${c.nickname ?? ''}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [collection, filter, search]);
 
   const countFor = (f: Filter): number => {
     switch (f) {
@@ -112,6 +122,13 @@ export function DeckBuilder({
     }
   };
 
+  // Pre-compute deck-health stats so both the sidebar panel and the
+  // mobile collapsible read from the same source of truth.
+  const deckCards = sortedDeckUids
+    .map(uid => collection.find(x => x.uid === uid))
+    .filter((c): c is CollectionCard => !!c);
+  const stats = useMemo(() => computeDeckStats(deckCards), [deckCards]);
+
   return (
     <div style={{
       width: '100%', height: '100%',
@@ -119,16 +136,29 @@ export function DeckBuilder({
       color: PALETTE.text,
       fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
+      overflow: 'hidden',
     }}>
-      <div style={{ padding: '52px 20px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>{activeDeck?.name ?? 'Deck'}</div>
+      {/* ===================== HEADER ===================== */}
+      <div style={{
+        padding: isMobile ? '52px 16px 8px' : '36px 24px 10px',
+        display: 'flex', alignItems: 'center', gap: 12,
+        width: '100%',
+      }}>
+        <button onClick={onBack} style={iconBtn} aria-label="Back"><ArrowLeft size={18} /></button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{
+            fontSize: isMobile ? 20 : 22, fontWeight: 700,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{activeDeck?.name ?? 'Deck'}</div>
           <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
             {deckUids.length} / {DECK_SIZE} cards
+            {!isMobile && stats.playableCount < deckUids.length && (
+              <span style={{ marginLeft: 8, color: '#b04a2e', fontWeight: 700 }}>
+                · {deckUids.length - stats.playableCount} dormant
+              </span>
+            )}
           </div>
         </div>
-        {/* Layout toggle — same big / compact switch as Collection + Album. */}
         <button
           onClick={() => setLayout(l => l === 'big' ? 'compact' : 'big')}
           style={{ ...iconBtn, display: 'grid', placeItems: 'center' }}
@@ -139,216 +169,603 @@ export function DeckBuilder({
         </button>
       </div>
 
-      {/* Deck switcher — horizontal pills, one per saved slot, plus a
-          trailing "+" to create a new deck. Tap a pill to switch the
-          active deck (the rest of the screen retargets to its uids). Tap
-          the active pill again to open a small Manage modal where you can
-          rename or delete it. */}
+      {/* ===================== BODY ===================== */}
       <div style={{
-        padding: '0 12px 8px',
-        display: 'flex', gap: 6,
-        overflowX: 'auto',
-      }} className="no-scrollbar">
-        {decks.map(d => {
-          const active = d.id === activeDeckId;
-          return (
-            <button
-              key={d.id}
-              onClick={() => active ? setManaging(d.id) : onSetActive(d.id)}
-              style={{
-                padding: '8px 12px',
-                borderRadius: 12,
-                border: 'none',
-                background: active ? '#fff' : 'rgba(255,255,255,.55)',
-                color: active ? PALETTE.text : PALETTE.textMid,
-                fontFamily: 'inherit',
-                fontWeight: 700, fontSize: 12,
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                boxShadow: active
-                  ? '0 4px 10px rgba(255, 126, 95, .18), 0 0 0 1.5px rgba(238,90,82,.55)'
-                  : '0 1px 3px rgba(58,46,42,.06)',
-                display: 'flex', alignItems: 'center', gap: 6,
-                transition: 'background .15s, box-shadow .15s',
-              }}
-            >
-              {active && <Check size={11} strokeWidth={3} color="#ee5a52" />}
-              {d.name}
-              <span style={{ fontSize: 10, color: PALETTE.textLight, fontWeight: 600 }}>
-                {d.uids.length}
-              </span>
-            </button>
-          );
-        })}
-        <button
-          onClick={onCreate}
-          disabled={decks.length >= maxDecks}
-          aria-label="New deck"
-          title={decks.length >= maxDecks ? `Max ${maxDecks} decks` : 'New deck'}
-          style={{
-            padding: '8px 10px',
-            borderRadius: 12,
-            border: '1.5px dashed rgba(58,46,42,.25)',
-            background: 'transparent',
-            color: PALETTE.textMid,
-            fontFamily: 'inherit',
-            fontWeight: 700, fontSize: 12,
-            cursor: decks.length >= maxDecks ? 'not-allowed' : 'pointer',
-            opacity: decks.length >= maxDecks ? 0.4 : 1,
-            display: 'flex', alignItems: 'center', gap: 4,
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <Plus size={13} strokeWidth={2.6} /> New
-        </button>
+        flex: 1, minHeight: 0,
+        display: 'flex',
+        // Desktop: main + right sidebar; mobile: single column.
+        flexDirection: isDesktop ? 'row' : 'column',
+        gap: isDesktop ? 16 : 0,
+        padding: isDesktop ? '0 24px 16px' : 0,
+      }}>
+        {/* ----- MAIN COLUMN ----- */}
+        <div style={{
+          flex: 1, minWidth: 0, minHeight: 0,
+          display: 'flex', flexDirection: 'column',
+        }}>
+          <DeckSwitcher
+            decks={decks}
+            activeDeckId={activeDeckId}
+            maxDecks={maxDecks}
+            onSetActive={onSetActive}
+            onCreate={onCreate}
+            onManage={(id) => setManaging(id)}
+          />
+
+          {/* Mobile-only active deck strip — desktop puts it in the
+              sidebar so the library doesn't have to share screen real
+              estate with it. */}
+          {!isDesktop && (
+            <ActiveDeckStrip
+              cards={sortedDeckUids
+                .map(uid => collection.find(x => x.uid === uid))
+                .filter((c): c is CollectionCard => !!c)}
+              onTap={(c) => setInspectActive(c)}
+            />
+          )}
+
+          {/* Mobile-only deck health collapsible. */}
+          {!isDesktop && (
+            <DeckHealthCollapsible
+              stats={stats}
+              open={healthOpen}
+              onToggle={() => setHealthOpen(o => !o)}
+            />
+          )}
+
+          {/* Search + filters live in a sticky utility bar so they
+              stay reachable while the library scrolls. */}
+          <SearchAndFilters
+            search={search} onSearch={setSearch}
+            filter={filter} onFilter={setFilter}
+            countFor={countFor}
+          />
+
+          {/* Library grid */}
+          <LibraryGrid
+            cards={filtered}
+            layout={layout}
+            deckUids={deckUids}
+            onInspect={setInspectActive}
+            isMobile={isMobile}
+            collectionEmpty={collection.length === 0}
+          />
+        </div>
+
+        {/* ----- DESKTOP RIGHT SIDEBAR ----- */}
+        {isDesktop && (
+          <aside style={{
+            width: 320, flex: '0 0 auto',
+            display: 'flex', flexDirection: 'column', gap: 12,
+            paddingTop: 6,
+          }}>
+            <DeckHealthPanel stats={stats} />
+            <ActiveDeckSidebar
+              cards={sortedDeckUids
+                .map(uid => collection.find(x => x.uid === uid))
+                .filter((c): c is CollectionCard => !!c)}
+              onTap={(c) => setInspectActive(c)}
+            />
+          </aside>
+        )}
       </div>
 
-      {/* Deck-management modal — opens when the player taps the
-          currently-active deck pill. Lets them rename or delete that
-          slot. Renames close the modal automatically; delete asks for
-          confirmation by hitting the button twice. */}
+      {/* ===================== MODALS ===================== */}
       {managing && (() => {
         const d = decks.find(x => x.id === managing);
         if (!d) { setManaging(null); return null; }
         const canDelete = decks.length > 1;
         return (
-          <div
-            onClick={() => setManaging(null)}
-            style={{
-              position: 'absolute', inset: 0,
-              background: 'rgba(0,0,0,.55)', zIndex: 200,
-              display: 'grid', placeItems: 'center',
-              animation: 'fadeIn .2s',
-            }}
-          >
-            <div
-              onClick={(ev) => ev.stopPropagation()}
-              style={{
-                background: '#fff', borderRadius: 18,
-                padding: '20px 22px',
-                width: '88%', maxWidth: 320,
-                boxShadow: '0 18px 40px rgba(0,0,0,.4)',
-                animation: 'cardSummon .3s cubic-bezier(.2,.8,.3,1)',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: PALETTE.text }}>Manage deck</div>
-                <button onClick={() => setManaging(null)} style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: 'transparent', border: '1.5px solid rgba(58,46,42,.15)',
-                  display: 'grid', placeItems: 'center',
-                  cursor: 'pointer', color: PALETTE.text,
-                }}>
-                  <X size={14} strokeWidth={2.4} />
-                </button>
-              </div>
-              <DeckRenameField
-                key={d.id}
-                initial={d.name}
-                onCommit={(name) => { onRename(d.id, name); setManaging(null); }}
-              />
-              <button
-                onClick={() => {
-                  if (!canDelete) return;
-                  onDelete(d.id);
-                  setManaging(null);
-                }}
-                disabled={!canDelete}
-                style={{
-                  width: '100%', marginTop: 12,
-                  padding: '11px 14px',
-                  background: canDelete ? '#fff' : '#f5ede2',
-                  color: canDelete ? '#c8362e' : PALETTE.textLight,
-                  border: `1.5px solid ${canDelete ? 'rgba(200,54,46,.4)' : 'rgba(58,46,42,.1)'}`,
-                  borderRadius: 12,
-                  fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
-                  cursor: canDelete ? 'pointer' : 'not-allowed',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                }}
-              >
-                <Trash2 size={14} strokeWidth={2.4} /> Delete deck
-              </button>
-              {!canDelete && (
-                <div style={{ fontSize: 10, color: PALETTE.textLight, marginTop: 6, textAlign: 'center' }}>
-                  Can't delete your last deck.
-                </div>
-              )}
-            </div>
-          </div>
+          <ManageDeckModal
+            deck={d}
+            canDelete={canDelete}
+            onRename={(name) => { onRename(d.id, name); setManaging(null); }}
+            onDelete={() => { onDelete(d.id); setManaging(null); }}
+            onClose={() => setManaging(null)}
+          />
         );
       })()}
 
-      {/* Active deck strip */}
-      <div style={{
-        margin: '0 16px 16px',
-        background: '#fff',
-        border: `2px dashed ${PALETTE.accent}`,
-        borderRadius: 14,
-        padding: 12,
-        minHeight: 90,
-        boxShadow: '0 4px 10px rgba(58,46,42,.06)',
-      }}>
-        <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 600 }}>
-          Active Deck
-        </div>
-        {/* Active-deck strip — single horizontal scrollable row. Saves
-            vertical space (was a 3-row grid that hogged half the screen)
-            so the library below stays visible while you tweak the deck.
-            Sorted creatures-first then spells, so swiping left → right
-            takes you from green half to violet half. */}
-        <div
-          className="no-scrollbar"
-          style={{
-            display: 'flex',
-            gap: 6,
-            overflowX: 'auto',
-            overflowY: 'hidden',
-            paddingBottom: 2,
-            WebkitOverflowScrolling: 'touch',
+      {inspectActive && (
+        <CardInspectModal
+          card={inspectActive}
+          inDeck={deckUids.includes(inspectActive.uid)}
+          onClose={() => setInspectActive(null)}
+          onToggle={() => {
+            toggle(inspectActive.uid);
+            setInspectActive(null);
           }}
-        >
-          {/* Deck strip — uses AnimatePresence so toggling a card in or
-              out of the deck plays a brief scale + fade transition
-              instead of snapping. layout makes the remaining cards
-              glide horizontally to fill the gap. */}
-          <AnimatePresence initial={false}>
-            {sortedDeckUids.map(uid => {
-              const c = collection.find(x => x.uid === uid);
-              if (!c) return null;
-              return (
-                <motion.div
-                  key={uid}
-                  layout
-                  initial={{ opacity: 0, scale: 0.6 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.6 }}
-                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                  onClick={() => setInspectActive(c)}
-                  style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
-                >
-                  <Card card={c} scale={0.32} />
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-          {deckUids.length === 0 && (
-            <div style={{ fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic' }}>
-              Tap a summoned card below to add it.
-            </div>
+        />
+      )}
+    </div>
+  );
+}
+
+// =================================================================
+// DECK SWITCHER
+// =================================================================
+function DeckSwitcher({
+  decks, activeDeckId, maxDecks, onSetActive, onCreate, onManage,
+}: {
+  decks: DeckSlot[]; activeDeckId: string; maxDecks: number;
+  onSetActive: (id: string) => void;
+  onCreate: () => void;
+  onManage: (id: string) => void;
+}) {
+  return (
+    <div className="no-scrollbar" style={{
+      padding: '0 12px 8px',
+      display: 'flex', gap: 6,
+      overflowX: 'auto',
+      flex: '0 0 auto',
+    }}>
+      {decks.map(d => {
+        const active = d.id === activeDeckId;
+        return (
+          <button
+            key={d.id}
+            onClick={() => active ? onManage(d.id) : onSetActive(d.id)}
+            aria-label={active ? `Manage ${d.name}` : `Switch to ${d.name}`}
+            style={{
+              padding: '10px 14px',
+              minHeight: 40,
+              borderRadius: 12,
+              border: 'none',
+              background: active ? '#fff' : 'rgba(255,255,255,.55)',
+              color: active ? PALETTE.text : PALETTE.textMid,
+              fontFamily: 'inherit',
+              fontWeight: 700, fontSize: 12,
+              whiteSpace: 'nowrap',
+              cursor: 'pointer',
+              boxShadow: active
+                ? '0 4px 10px rgba(255, 126, 95, .18), 0 0 0 1.5px rgba(238,90,82,.55)'
+                : '0 1px 3px rgba(58,46,42,.06)',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'background .15s, box-shadow .15s',
+            }}
+          >
+            {active && <Check size={11} strokeWidth={3} color="#ee5a52" />}
+            {d.name}
+            <span style={{ fontSize: 10, color: PALETTE.textLight, fontWeight: 600 }}>
+              {d.uids.length}
+            </span>
+          </button>
+        );
+      })}
+      <button
+        onClick={onCreate}
+        disabled={decks.length >= maxDecks}
+        aria-label="New deck"
+        title={decks.length >= maxDecks ? `Max ${maxDecks} decks` : 'New deck'}
+        style={{
+          padding: '10px 12px',
+          minHeight: 40,
+          borderRadius: 12,
+          border: '1.5px dashed rgba(58,46,42,.25)',
+          background: 'transparent',
+          color: PALETTE.textMid,
+          fontFamily: 'inherit',
+          fontWeight: 700, fontSize: 12,
+          cursor: decks.length >= maxDecks ? 'not-allowed' : 'pointer',
+          opacity: decks.length >= maxDecks ? 0.4 : 1,
+          display: 'flex', alignItems: 'center', gap: 4,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        <Plus size={13} strokeWidth={2.6} /> New
+      </button>
+    </div>
+  );
+}
+
+// =================================================================
+// ACTIVE DECK — MOBILE STRIP / DESKTOP SIDEBAR
+// =================================================================
+function ActiveDeckStrip({
+  cards, onTap,
+}: { cards: CollectionCard[]; onTap: (c: CollectionCard) => void }) {
+  return (
+    <div style={{
+      margin: '0 16px 12px',
+      background: '#fff',
+      border: `2px dashed ${PALETTE.accent}`,
+      borderRadius: 14,
+      padding: 10,
+      boxShadow: '0 4px 10px rgba(58,46,42,.06)',
+      flex: '0 0 auto',
+    }}>
+      <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 700 }}>
+        Active Deck
+      </div>
+      <div
+        className="no-scrollbar"
+        style={{
+          display: 'flex', gap: 6,
+          overflowX: 'auto', overflowY: 'hidden',
+          paddingBottom: 2,
+          WebkitOverflowScrolling: 'touch',
+          minHeight: 100,
+        }}
+      >
+        <AnimatePresence initial={false}>
+          {cards.map(c => (
+            <motion.div
+              key={c.uid}
+              layout
+              initial={{ opacity: 0, scale: 0.6 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.6 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+              onClick={() => onTap(c)}
+              style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
+            >
+              <Card card={c} scale={0.3} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {cards.length === 0 && (
+          <div style={{
+            fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic',
+            display: 'flex', alignItems: 'center', padding: '0 8px',
+          }}>
+            Tap a summoned card below to add it.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActiveDeckSidebar({
+  cards, onTap,
+}: { cards: CollectionCard[]; onTap: (c: CollectionCard) => void }) {
+  return (
+    <div style={{
+      background: '#fff',
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 14,
+      padding: 12,
+      boxShadow: '0 4px 10px rgba(58,46,42,.06)',
+      flex: '1 1 auto', minHeight: 0,
+      display: 'flex', flexDirection: 'column', gap: 8,
+    }}>
+      <div style={{
+        fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase',
+        color: PALETTE.textMid, fontWeight: 700,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span>Active Deck</span>
+        <span style={{ color: PALETTE.text, fontWeight: 800 }}>{cards.length} / {DECK_SIZE}</span>
+      </div>
+      <div
+        className="no-scrollbar"
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(70px, 1fr))',
+          gap: 6,
+          overflowY: 'auto',
+          paddingBottom: 4,
+          minHeight: 0, flex: '1 1 auto',
+          alignContent: 'start',
+          justifyItems: 'center',
+        }}
+      >
+        <AnimatePresence initial={false}>
+          {cards.map(c => (
+            <motion.div
+              key={c.uid}
+              layout
+              initial={{ opacity: 0, scale: 0.7 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.7 }}
+              transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+              onClick={() => onTap(c)}
+              style={{ cursor: 'pointer' }}
+            >
+              <Card card={c} scale={0.3} />
+            </motion.div>
+          ))}
+        </AnimatePresence>
+        {cards.length === 0 && (
+          <div style={{
+            gridColumn: '1 / -1', textAlign: 'center',
+            fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic',
+            padding: '12px 8px',
+          }}>
+            Tap a summoned card to add it.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// DECK HEALTH
+// =================================================================
+interface DeckStats {
+  total: number;
+  playableCount: number;
+  creatures: number;
+  spells: number;
+  byTheme: Record<ElementId, number>;
+  byCost: number[]; // index 0..7+, count per mana cost (cost 7+ rolls into 7)
+  avgCost: number;
+}
+
+function computeDeckStats(cards: CollectionCard[]): DeckStats {
+  const byTheme: Record<ElementId, number> = {
+    family: 0, work: 0, animals: 0, travel: 0, food: 0, education: 0,
+  };
+  const byCost = Array.from({ length: 8 }, () => 0);
+  let creatures = 0, spells = 0, costSum = 0, playableCount = 0;
+  for (const c of cards) {
+    if (c.type === 'Creature') creatures++; else spells++;
+    byTheme[c.el]++;
+    const ci = Math.min(c.cost, 7);
+    byCost[ci]++;
+    costSum += c.cost;
+    if (c.photo) playableCount++;
+  }
+  return {
+    total: cards.length,
+    playableCount,
+    creatures,
+    spells,
+    byTheme,
+    byCost,
+    avgCost: cards.length ? costSum / cards.length : 0,
+  };
+}
+
+function DeckHealthCollapsible({
+  stats, open, onToggle,
+}: { stats: DeckStats; open: boolean; onToggle: () => void }) {
+  const summary = stats.total === 0
+    ? 'Empty deck'
+    : `${stats.creatures}C / ${stats.spells}S · avg cost ${stats.avgCost.toFixed(1)}`;
+  return (
+    <div style={{
+      margin: '0 16px 10px',
+      background: '#fff',
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 12,
+      boxShadow: '0 2px 6px rgba(58,46,42,.05)',
+      flex: '0 0 auto',
+    }}>
+      <button
+        onClick={onToggle}
+        aria-expanded={open}
+        style={{
+          width: '100%', padding: '10px 14px',
+          display: 'flex', alignItems: 'center', gap: 10,
+          background: 'transparent', border: 'none',
+          fontFamily: 'inherit', cursor: 'pointer',
+          color: PALETTE.text,
+          minHeight: 44,
+        }}
+      >
+        <Activity size={14} strokeWidth={2.4} color={PALETTE.accent} />
+        <div style={{ flex: 1, textAlign: 'left' }}>
+          <div style={{ fontSize: 11, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, fontWeight: 700 }}>
+            Deck Health
+          </div>
+          <div style={{ fontSize: 12, color: PALETTE.text, fontWeight: 600, marginTop: 1 }}>
+            {summary}
+          </div>
+        </div>
+        {open ? <ChevronUp size={16} color={PALETTE.textMid} /> : <ChevronDown size={16} color={PALETTE.textMid} />}
+      </button>
+      {open && (
+        <div style={{ padding: '4px 14px 14px' }}>
+          <DeckHealthBody stats={stats} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DeckHealthPanel({ stats }: { stats: DeckStats }) {
+  return (
+    <div style={{
+      background: '#fff',
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 14,
+      padding: 14,
+      boxShadow: '0 4px 10px rgba(58,46,42,.06)',
+      flex: '0 0 auto',
+    }}>
+      <div style={{
+        fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase',
+        color: PALETTE.textMid, fontWeight: 700, marginBottom: 10,
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <Activity size={12} strokeWidth={2.4} color={PALETTE.accent} />
+        Deck Health
+      </div>
+      <DeckHealthBody stats={stats} />
+    </div>
+  );
+}
+
+function DeckHealthBody({ stats }: { stats: DeckStats }) {
+  const slots = Array.from({ length: DECK_SIZE });
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      {/* Slot progress */}
+      <div>
+        <div style={{ fontSize: 10, color: PALETTE.textMid, marginBottom: 4, fontWeight: 700 }}>
+          Slots · {stats.total} / {DECK_SIZE}
+        </div>
+        <div style={{ display: 'flex', gap: 3 }}>
+          {slots.map((_, i) => (
+            <div key={i} style={{
+              flex: 1, height: 6, borderRadius: 3,
+              background: i < stats.total ? PALETTE.accent : 'rgba(58,46,42,.10)',
+            }} />
+          ))}
+        </div>
+      </div>
+
+      {/* Creature vs Spell ratio */}
+      <div>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 10, color: PALETTE.textMid, fontWeight: 700, marginBottom: 4,
+        }}>
+          <span>Creatures · {stats.creatures}</span>
+          <span>Spells · {stats.spells}</span>
+        </div>
+        <div style={{
+          height: 6, borderRadius: 3, overflow: 'hidden',
+          background: 'rgba(58,46,42,.10)',
+          display: 'flex',
+        }}>
+          <div style={{
+            width: stats.total ? `${(stats.creatures / stats.total) * 100}%` : 0,
+            background: '#5a8a7e',
+          }} />
+          <div style={{
+            width: stats.total ? `${(stats.spells / stats.total) * 100}%` : 0,
+            background: '#9c6fc8',
+          }} />
+        </div>
+      </div>
+
+      {/* Mana curve */}
+      <div>
+        <div style={{
+          display: 'flex', justifyContent: 'space-between',
+          fontSize: 10, color: PALETTE.textMid, fontWeight: 700, marginBottom: 4,
+        }}>
+          <span>Mana Curve</span>
+          <span>avg {stats.avgCost.toFixed(1)}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 36 }}>
+          {stats.byCost.map((n, i) => {
+            const max = Math.max(1, ...stats.byCost);
+            const h = (n / max) * 32;
+            return (
+              <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                <div style={{
+                  width: '100%',
+                  height: Math.max(2, h),
+                  background: n > 0 ? PALETTE.accent : 'rgba(58,46,42,.10)',
+                  borderRadius: 2,
+                  transition: 'height .2s',
+                }} />
+                <div style={{ fontSize: 8, color: PALETTE.textMid, fontWeight: 700 }}>
+                  {i === 7 ? '7+' : i}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Theme spread */}
+      <div>
+        <div style={{ fontSize: 10, color: PALETTE.textMid, marginBottom: 4, fontWeight: 700 }}>
+          Themes
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {(Object.keys(stats.byTheme) as ElementId[]).map(t => {
+            const n = stats.byTheme[t];
+            if (n === 0) return null;
+            const el = ELEMENTS[t];
+            return (
+              <span key={t} style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                background: `${el.color}1A`,
+                color: el.deep,
+                padding: '2px 7px', borderRadius: 8,
+                fontSize: 10, fontWeight: 700,
+              }}>
+                <span style={{
+                  width: 7, height: 7, borderRadius: '50%', background: el.color,
+                }} />
+                {el.name} · {n}
+              </span>
+            );
+          })}
+          {stats.total === 0 && (
+            <span style={{ fontSize: 10, color: PALETTE.textLight, fontStyle: 'italic' }}>
+              Add cards to see your theme spread.
+            </span>
           )}
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div style={{ padding: '0 20px 8px', fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, fontWeight: 600 }}>
-        Library · only summoned cards are playable
+// =================================================================
+// SEARCH + FILTERS
+// =================================================================
+function SearchAndFilters({
+  search, onSearch, filter, onFilter, countFor,
+}: {
+  search: string; onSearch: (v: string) => void;
+  filter: Filter; onFilter: (f: Filter) => void;
+  countFor: (f: Filter) => number;
+}) {
+  return (
+    <div style={{
+      padding: '0 12px 8px',
+      display: 'flex', flexDirection: 'column', gap: 8,
+      flex: '0 0 auto',
+    }}>
+      {/* Search input */}
+      <div style={{
+        position: 'relative',
+        margin: '0 4px',
+      }}>
+        <Search
+          size={14} strokeWidth={2.4} color={PALETTE.textMid}
+          style={{
+            position: 'absolute', left: 12, top: '50%',
+            transform: 'translateY(-50%)', pointerEvents: 'none',
+          }}
+          aria-hidden
+        />
+        <input
+          value={search}
+          onChange={(e) => onSearch(e.target.value)}
+          placeholder="Search cards…"
+          aria-label="Search cards by name"
+          style={{
+            width: '100%',
+            padding: '10px 36px 10px 34px',
+            minHeight: 40,
+            borderRadius: 10,
+            border: `1.5px solid ${PALETTE.border}`,
+            background: '#fff',
+            color: PALETTE.text,
+            fontFamily: 'inherit', fontSize: 13,
+            outline: 'none',
+            boxShadow: '0 2px 6px rgba(58,46,42,.04)',
+          }}
+        />
+        {search && (
+          <button
+            onClick={() => onSearch('')}
+            aria-label="Clear search"
+            style={{
+              position: 'absolute', right: 8, top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'transparent', border: 'none',
+              cursor: 'pointer', padding: 4,
+              color: PALETTE.textMid,
+              display: 'grid', placeItems: 'center',
+            }}
+          >
+            <X size={14} strokeWidth={2.4} />
+          </button>
+        )}
       </div>
 
-      {/* Filter chips — icon-only with count, wraps to multiple rows on
-          narrow phones so every filter stays visible without scrolling. */}
-      <div style={{
-        padding: '0 12px 10px',
-        display: 'flex', flexWrap: 'wrap', gap: 5,
-      }}>
+      {/* Filter chips — wraps to multiple rows on narrow phones. */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '0 4px' }}>
         {FILTERS.map(f => {
           const count = countFor(f.id);
           const active = filter === f.id;
@@ -357,56 +774,78 @@ export function DeckBuilder({
           return (
             <button
               key={f.id}
-              onClick={() => setFilter(f.id)}
+              onClick={() => onFilter(f.id)}
               disabled={count === 0 && !isAll}
               aria-label={f.label}
               title={f.label}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 4,
-                padding: isAll ? '5px 10px' : '5px 8px',
+                padding: isAll ? '6px 11px' : '6px 9px',
+                minHeight: 28,
                 borderRadius: 12,
                 fontSize: 11, fontWeight: 700,
                 background: active ? tint : '#fff',
                 color: active ? '#fff' : (count === 0 && !isAll ? PALETTE.textMid : PALETTE.text),
                 opacity: count === 0 && !isAll ? 0.45 : 1,
-                border: active ? `1.5px solid ${tint}` : '1.5px solid rgba(58,46,42,.10)',
+                border: active ? `1.5px solid ${tint}` : `1.5px solid ${PALETTE.border}`,
                 cursor: count === 0 && !isAll ? 'default' : 'pointer',
                 fontFamily: 'inherit',
-                boxShadow: active ? `0 2px 8px ${tint}55` : '0 2px 6px rgba(58,46,42,.06)',
+                boxShadow: active ? `0 2px 8px ${tint}55` : '0 2px 6px rgba(58,46,42,.05)',
                 whiteSpace: 'nowrap',
                 flex: '0 0 auto',
+                transition: 'transform .1s',
               }}
             >
               {isAll
                 ? <span style={{ fontSize: 11, letterSpacing: '0.06em' }}>ALL</span>
                 : <span style={{ display: 'flex', alignItems: 'center' }}>{f.icon}</span>}
               <span style={{
-                fontSize: 10, fontWeight: 700,
+                fontSize: 10, fontWeight: 800,
                 background: active ? 'rgba(255,255,255,.25)' : 'rgba(58,46,42,.08)',
                 color: active ? '#fff' : PALETTE.textMid,
-                padding: '1px 5px', borderRadius: 7,
+                padding: '1px 6px', borderRadius: 7,
               }}>{count}</span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+}
 
-      {/* Library grid — auto-fill so columns adapt to the viewport instead
-          of forcing a fixed 4-col layout that ran off the right edge on
-          narrow phones. Compact uses ~90px-min cards; big uses ~150px. */}
-      <div style={{
-        flex: 1, overflow: 'auto',
-        padding: '0 16px 30px',
-        display: 'grid',
-        gridTemplateColumns: layout === 'compact'
-          ? 'repeat(auto-fill, minmax(90px, 1fr))'
-          : 'repeat(auto-fill, minmax(150px, 1fr))',
-        gap: layout === 'compact' ? 8 : 14,
-        justifyItems: 'center',
-        alignContent: 'start',
-      }}>
-        <AnimatePresence initial={false} mode="popLayout">
-        {filtered.map(card => {
+// =================================================================
+// LIBRARY GRID
+// =================================================================
+function LibraryGrid({
+  cards, layout, deckUids, onInspect, isMobile, collectionEmpty,
+}: {
+  cards: CollectionCard[];
+  layout: 'big' | 'compact';
+  deckUids: string[];
+  onInspect: (c: CollectionCard) => void;
+  isMobile: boolean;
+  collectionEmpty: boolean;
+}) {
+  // Tightened minmax for compact on mobile — 72px gives ~4 cols on a
+  // 360px-wide phone (vs 3 cols with the old 90px) so the player can
+  // scan more cards per screen.
+  const compactMin = isMobile ? 72 : 90;
+  const bigMin = isMobile ? 130 : 150;
+
+  return (
+    <div style={{
+      flex: 1, minHeight: 0, overflow: 'auto',
+      padding: '0 16px 30px',
+      display: 'grid',
+      gridTemplateColumns: layout === 'compact'
+        ? `repeat(auto-fill, minmax(${compactMin}px, 1fr))`
+        : `repeat(auto-fill, minmax(${bigMin}px, 1fr))`,
+      gap: layout === 'compact' ? 6 : 12,
+      justifyItems: 'center',
+      alignContent: 'start',
+    }}>
+      <AnimatePresence initial={false} mode="popLayout">
+        {cards.map(card => {
           const inDeck = deckUids.includes(card.uid);
           const playable = !!card.photo;
           return (
@@ -416,12 +855,13 @@ export function DeckBuilder({
               animate={{ opacity: playable ? 1 : 0.6, scale: inDeck ? 0.95 : 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: 'spring', stiffness: 480, damping: 32 }}
-              onClick={() => playable && setInspectActive(card)}
+              onClick={() => playable && onInspect(card)}
               style={{
                 cursor: playable ? 'pointer' : 'not-allowed',
                 position: 'relative',
-              }}>
-              <Card card={card} scale={layout === 'compact' ? 0.4 : 0.65} hovered={inDeck} />
+              }}
+            >
+              <Card card={card} scale={layout === 'compact' ? 0.34 : 0.6} hovered={inDeck} />
               {inDeck && (
                 <div style={{
                   position: 'absolute', top: -4, right: -4,
@@ -451,90 +891,167 @@ export function DeckBuilder({
             </motion.div>
           );
         })}
-        </AnimatePresence>
-        {filtered.length === 0 && (
-          <div style={{ gridColumn: '1 / -1', textAlign: 'center', opacity: 0.5, padding: 40, fontSize: 13 }}>
-            {collection.length === 0 ? 'Open a pack to start building.' : 'Nothing matches this filter.'}
-          </div>
-        )}
-      </div>
-
-      {/* Card preview modal — opened from either the deck strip or the
-          library grid. The action button below is contextual: cards
-          already in the deck show "Remove from deck" (red); cards not
-          in the deck show "Add to deck" (orange) so the player can add
-          + read in one motion. Tapping the backdrop or Close dismisses. */}
-      {inspectActive && (() => {
-        const inDeck = deckUids.includes(inspectActive.uid);
-        return (
-          <div
-            onClick={() => setInspectActive(null)}
-            style={{
-              position: 'absolute', inset: 0,
-              background: 'rgba(8,4,12,.7)',
-              display: 'grid', placeItems: 'center',
-              zIndex: 220,
-              animation: 'fadeIn .2s',
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                display: 'flex', flexDirection: 'column', alignItems: 'center',
-                gap: 14,
-                animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
-              }}
-            >
-              <Card card={inspectActive} hovered scale={1.0} />
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button
-                  onClick={() => setInspectActive(null)}
-                  style={{
-                    background: '#fff', color: PALETTE.text,
-                    border: `1.5px solid ${PALETTE.border}`,
-                    borderRadius: 18, padding: '10px 18px',
-                    fontSize: 13, fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    boxShadow: '0 4px 10px rgba(58,46,42,.15)',
-                  }}
-                >Close</button>
-                <button
-                  onClick={() => {
-                    toggle(inspectActive.uid);
-                    setInspectActive(null);
-                  }}
-                  style={{
-                    background: inDeck
-                      ? 'linear-gradient(180deg, #ee5a52, #c8362e)'
-                      : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: 18, padding: '10px 22px',
-                    fontSize: 13, fontWeight: 800,
-                    letterSpacing: '0.04em',
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    boxShadow: inDeck
-                      ? '0 4px 14px rgba(200,54,46,.4)'
-                      : '0 4px 14px rgba(238,90,82,.4)',
-                  }}
-                >{inDeck ? 'Remove from deck' : 'Add to deck'}</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      </AnimatePresence>
+      {cards.length === 0 && (
+        <div style={{
+          gridColumn: '1 / -1', textAlign: 'center',
+          opacity: 0.5, padding: 40, fontSize: 13,
+        }}>
+          {collectionEmpty ? 'Open a pack to start building.' : 'Nothing matches this filter.'}
+        </div>
+      )}
     </div>
   );
 }
 
-/**
- * Rename input + Save button used inside the manage-deck modal. Local
- * state so typing doesn't fire a save on every keystroke; commits on
- * Save click or Enter.
- */
-function DeckRenameField({ initial, onCommit }: { initial: string; onCommit: (name: string) => void }) {
+// =================================================================
+// MODALS
+// =================================================================
+function ManageDeckModal({
+  deck, canDelete, onRename, onDelete, onClose,
+}: {
+  deck: DeckSlot;
+  canDelete: boolean;
+  onRename: (name: string) => void;
+  onDelete: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(0,0,0,.55)', zIndex: 200,
+        display: 'grid', placeItems: 'center',
+        padding: 16,
+        animation: 'fadeIn .2s',
+      }}
+    >
+      <div
+        onClick={(ev) => ev.stopPropagation()}
+        style={{
+          background: '#fff', borderRadius: 18,
+          padding: '20px 22px',
+          width: '100%', maxWidth: 360,
+          maxHeight: '90vh', overflowY: 'auto',
+          boxShadow: '0 18px 40px rgba(0,0,0,.4)',
+          animation: 'cardSummon .3s cubic-bezier(.2,.8,.3,1)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: PALETTE.text }}>Manage deck</div>
+          <button onClick={onClose} aria-label="Close" style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'transparent', border: '1.5px solid rgba(58,46,42,.15)',
+            display: 'grid', placeItems: 'center',
+            cursor: 'pointer', color: PALETTE.text,
+          }}>
+            <X size={14} strokeWidth={2.4} />
+          </button>
+        </div>
+        <DeckRenameField key={deck.id} initial={deck.name} onCommit={onRename} />
+        <button
+          onClick={() => { if (canDelete) onDelete(); }}
+          disabled={!canDelete}
+          style={{
+            width: '100%', marginTop: 12,
+            padding: '12px 14px',
+            background: canDelete ? '#fff' : '#f5ede2',
+            color: canDelete ? '#c8362e' : PALETTE.textLight,
+            border: `1.5px solid ${canDelete ? 'rgba(200,54,46,.4)' : 'rgba(58,46,42,.1)'}`,
+            borderRadius: 12,
+            fontFamily: 'inherit', fontWeight: 700, fontSize: 13,
+            cursor: canDelete ? 'pointer' : 'not-allowed',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}
+        >
+          <Trash2 size={14} strokeWidth={2.4} /> Delete deck
+        </button>
+        {!canDelete && (
+          <div style={{ fontSize: 10, color: PALETTE.textLight, marginTop: 6, textAlign: 'center' }}>
+            Can't delete your last deck.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CardInspectModal({
+  card, inDeck, onClose, onToggle,
+}: {
+  card: CollectionCard;
+  inDeck: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+}) {
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(8,4,12,.7)',
+        display: 'grid', placeItems: 'center',
+        zIndex: 220,
+        padding: 16,
+        animation: 'fadeIn .2s',
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center',
+          gap: 14, maxHeight: '100%',
+          animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
+        }}
+      >
+        <Card card={card} hovered scale={0.9} />
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: '#fff', color: PALETTE.text,
+              border: `1.5px solid ${PALETTE.border}`,
+              borderRadius: 18, padding: '11px 20px',
+              minHeight: 44,
+              fontSize: 13, fontWeight: 700,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: '0 4px 10px rgba(58,46,42,.15)',
+            }}
+          >Close</button>
+          <button
+            onClick={onToggle}
+            style={{
+              background: inDeck
+                ? 'linear-gradient(180deg, #ee5a52, #c8362e)'
+                : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
+              color: '#fff',
+              border: 'none',
+              borderRadius: 18, padding: '11px 24px',
+              minHeight: 44,
+              fontSize: 13, fontWeight: 800,
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              boxShadow: inDeck
+                ? '0 4px 14px rgba(200,54,46,.4)'
+                : '0 4px 14px rgba(238,90,82,.4)',
+            }}
+          >{inDeck ? 'Remove from deck' : 'Add to deck'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =================================================================
+// RENAME FIELD
+// =================================================================
+function DeckRenameField({
+  initial, onCommit,
+}: { initial: string; onCommit: (name: string) => void }) {
   const [value, setValue] = useState(initial);
   const trimmed = value.trim();
   const dirty = trimmed.length > 0 && trimmed !== initial;
@@ -557,6 +1074,7 @@ function DeckRenameField({ initial, onCommit }: { initial: string; onCommit: (na
           style={{
             flex: 1,
             padding: '10px 12px',
+            minHeight: 40,
             border: '1.5px solid rgba(58,46,42,.18)',
             borderRadius: 10,
             fontFamily: 'inherit', fontSize: 14, fontWeight: 600,
@@ -570,6 +1088,7 @@ function DeckRenameField({ initial, onCommit }: { initial: string; onCommit: (na
           disabled={!dirty}
           style={{
             padding: '10px 16px',
+            minHeight: 40,
             background: dirty ? 'linear-gradient(180deg, #ffa07a 0%, #ee5a52 100%)' : '#f5ede2',
             color: dirty ? '#fff' : PALETTE.textLight,
             border: 'none', borderRadius: 10,
@@ -584,4 +1103,3 @@ function DeckRenameField({ initial, onCommit }: { initial: string; onCommit: (na
     </div>
   );
 }
-
