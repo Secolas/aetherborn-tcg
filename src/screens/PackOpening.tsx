@@ -414,24 +414,42 @@ function RevealCard({
       }}>
         {/* Tilt wrapper enables 3D parallax + a pointer-tracking sheen
             on the freshly-revealed card. Shine is gated to rare+ so
-            commons stay clean. The wrapper itself clips to borderRadius
-            so the sheen never escapes the card silhouette. */}
+            commons stay clean. The wrapper used to set overflow:hidden
+            on itself to contain the sheen sweep, but that also clipped
+            the DORMANT corner ribbon (which intentionally hangs off the
+            right edge) and the stat orbs (which hang below the card).
+            Now the sheen has its own clipped container so it stays
+            inside the card silhouette without cropping the chrome. */}
         <TiltCard
           maxTilt={12}
           hoverScale={1.04}
           shine={showSheen}
-          style={{ overflow: 'hidden', borderRadius: 18 }}
         >
           <Card card={card} hovered />
           {showSheen && (
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
-              animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
-              pointerEvents: 'none',
-              mixBlendMode: 'screen',
-              borderRadius: 18,
-            }} />
+            <div
+              aria-hidden
+              style={{
+                // Absolute box sized to the Card (220x320 at hover scale).
+                // overflow:hidden lives here so the sheen sweep stays
+                // within the card silhouette while the parent wrapper
+                // (which carries the tilt transform) doesn't clip the
+                // DORMANT ribbon or stat orbs that hang off the card.
+                position: 'absolute',
+                left: 0, top: 0,
+                width: 220, height: 320,
+                overflow: 'hidden',
+                borderRadius: 18,
+                pointerEvents: 'none',
+              }}
+            >
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
+                animation: 'cardHoloSheen 1.1s ease-out 0.45s both',
+                mixBlendMode: 'screen',
+              }} />
+            </div>
           )}
         </TiltCard>
       </div>
