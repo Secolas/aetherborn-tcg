@@ -374,17 +374,27 @@ function ActiveDeckStrip({
       boxShadow: '0 4px 10px rgba(58,46,42,.06)',
       flex: '0 0 auto',
     }}>
-      <div style={{ fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase', color: PALETTE.textMid, marginBottom: 8, fontWeight: 700 }}>
-        Active Deck
+      <div style={{
+        fontSize: 10, letterSpacing: '0.15em', textTransform: 'uppercase',
+        color: PALETTE.textMid, marginBottom: 8, fontWeight: 700,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+      }}>
+        <span>Active Deck</span>
+        <span style={{ color: PALETTE.text, fontWeight: 800 }}>{cards.length} / {DECK_SIZE}</span>
       </div>
+      {/* Wrap grid so every card in the active deck is visible at once
+          on a small phone. Was a single horizontal-scroll row before,
+          which hid cards past the 5th slot behind the right edge. */}
       <div
         className="no-scrollbar"
         style={{
-          display: 'flex', gap: 6,
-          overflowX: 'auto', overflowY: 'hidden',
-          paddingBottom: 2,
-          WebkitOverflowScrolling: 'touch',
-          minHeight: 100,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(58px, 1fr))',
+          gap: 4,
+          maxHeight: 200,
+          overflowY: 'auto',
+          alignContent: 'start',
+          justifyItems: 'center',
         }}
       >
         <AnimatePresence initial={false}>
@@ -397,16 +407,17 @@ function ActiveDeckStrip({
               exit={{ opacity: 0, scale: 0.6 }}
               transition={{ type: 'spring', stiffness: 500, damping: 32 }}
               onClick={() => onTap(c)}
-              style={{ cursor: 'pointer', position: 'relative', flex: '0 0 auto' }}
+              style={{ cursor: 'pointer', position: 'relative' }}
             >
-              <Card card={c} scale={0.3} />
+              <Card card={c} scale={0.26} />
             </motion.div>
           ))}
         </AnimatePresence>
         {cards.length === 0 && (
           <div style={{
+            gridColumn: '1 / -1',
             fontSize: 12, color: PALETTE.textMid, fontStyle: 'italic',
-            display: 'flex', alignItems: 'center', padding: '0 8px',
+            padding: '8px 4px',
           }}>
             Tap a summoned card below to add it.
           </div>
@@ -826,21 +837,28 @@ function LibraryGrid({
   isMobile: boolean;
   collectionEmpty: boolean;
 }) {
-  // Tightened minmax for compact on mobile — 72px gives ~4 cols on a
-  // 360px-wide phone (vs 3 cols with the old 90px) so the player can
-  // scan more cards per screen.
-  const compactMin = isMobile ? 72 : 90;
-  const bigMin = isMobile ? 130 : 150;
+  // Card sizing per breakpoint. Compact on a 360px phone gives ~5 cards
+  // per row (vs 2-3 before) so the player can see the whole library at
+  // a glance and scroll less. Big mode stays roomy enough to read every
+  // card's stats and ability text.
+  const compactMin = isMobile ? 58 : 90;
+  const bigMin     = isMobile ? 110 : 150;
+  const compactScale = isMobile ? 0.26 : 0.34;
+  const bigScale     = isMobile ? 0.46 : 0.6;
+  const gridGap = layout === 'compact' ? (isMobile ? 4 : 6) : (isMobile ? 8 : 12);
+  const scale = layout === 'compact' ? compactScale : bigScale;
+  const inDeckBadge = layout === 'compact' && isMobile ? 18 : (layout === 'compact' ? 22 : 30);
+  const inDeckIcon  = layout === 'compact' && isMobile ? 10 : (layout === 'compact' ? 13 : 18);
 
   return (
     <div style={{
       flex: 1, minHeight: 0, overflow: 'auto',
-      padding: '0 16px 30px',
+      padding: isMobile ? '0 12px 24px' : '0 16px 30px',
       display: 'grid',
       gridTemplateColumns: layout === 'compact'
         ? `repeat(auto-fill, minmax(${compactMin}px, 1fr))`
         : `repeat(auto-fill, minmax(${bigMin}px, 1fr))`,
-      gap: layout === 'compact' ? 6 : 12,
+      gap: gridGap,
       justifyItems: 'center',
       alignContent: 'start',
     }}>
@@ -861,18 +879,18 @@ function LibraryGrid({
                 position: 'relative',
               }}
             >
-              <Card card={card} scale={layout === 'compact' ? 0.34 : 0.6} hovered={inDeck} />
+              <Card card={card} scale={scale} hovered={inDeck} />
               {inDeck && (
                 <div style={{
                   position: 'absolute', top: -4, right: -4,
-                  width: layout === 'compact' ? 22 : 30,
-                  height: layout === 'compact' ? 22 : 30,
+                  width: inDeckBadge,
+                  height: inDeckBadge,
                   borderRadius: '50%',
                   background: PALETTE.accent, color: '#fff',
                   display: 'grid', placeItems: 'center',
-                  boxShadow: '0 0 0 3px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
+                  boxShadow: '0 0 0 2px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
                 }}>
-                  <Check size={layout === 'compact' ? 13 : 18} strokeWidth={3.5} />
+                  <Check size={inDeckIcon} strokeWidth={3.5} />
                 </div>
               )}
               {!playable && (
@@ -885,7 +903,7 @@ function LibraryGrid({
                   color: '#fff',
                 }}>
                   <Lock size={layout === 'compact' ? 10 : 14} strokeWidth={2.5} />
-                  {layout === 'compact' ? '' : ' Dormant'}
+                  {layout === 'compact' && isMobile ? '' : layout === 'compact' ? '' : ' Dormant'}
                 </div>
               )}
             </motion.div>
