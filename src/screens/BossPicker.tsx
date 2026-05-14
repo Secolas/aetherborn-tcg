@@ -899,12 +899,7 @@ function BossPage({
     <div style={{
       width: '100%', height: '100%',
       display: 'flex', flexDirection: 'column', alignItems: 'stretch',
-      // Center the content vertically inside the carousel viewport.
-      // Without this, any leftover space falls into one big empty
-      // band below the marquee on tall phones; with it, the slack is
-      // shared evenly above and below so the page reads as balanced.
-      justifyContent: 'center',
-      gap: 10,
+      gap: 8,
       padding: '4px 0',
       minHeight: 0,
     }}>
@@ -975,10 +970,10 @@ function BossPage({
         {boss.playstyle}
       </div>
 
-      {/* Marquee preview — intrinsic height so it doesn't stretch and
-          leave an empty band on tall phones. The parent's
-          justify-content: center balances the leftover space. */}
-      <div style={{ flex: '0 0 auto', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
+      {/* Marquee preview — absorbs all leftover vertical space inside
+          the carousel viewport. The cards are scaled to fill that
+          band so no empty gaps appear above or below them. */}
+      <div style={{ flex: '1 1 0', minHeight: 0, display: 'flex', alignItems: 'stretch', overflow: 'hidden' }}>
         <BossDeckPreview boss={boss} paused={!visible} reducedMotion={reducedMotion} />
       </div>
     </div>
@@ -1307,19 +1302,48 @@ function BossDeckPreview({
     return c;
   }).filter((c): c is CollectionCard => !!c);
 
+  // Card components render at a fixed 220×320 multiplied by `scale`.
+  // To fill whatever leftover height the carousel hands us, we measure
+  // our container and derive scale = (availableHeight - padding) / 320.
+  // Clamp to a comfortable range so very-tall desktop viewports don't
+  // produce comically large cards and very-short phones don't shrink
+  // the cards to illegibility.
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [scale, setScale] = useState(0.32);
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const update = () => {
+      const h = el.clientHeight;
+      if (h <= 0) return;
+      const s = Math.min(0.55, Math.max(0.28, (h - 12) / 320));
+      setScale(s);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
   if (cards.length === 0) return null;
 
   const duration = 22;
   const doubled = [...cards, ...cards];
 
   return (
-    <div style={{
-      width: '100%',
-      position: 'relative',
-      overflow: 'hidden',
-      maskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
-      WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
-    }}>
+    <div
+      ref={containerRef}
+      style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        overflow: 'hidden',
+        display: 'flex',
+        alignItems: 'center',
+        maskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(90deg, transparent 0, #000 8%, #000 92%, transparent 100%)',
+      }}
+    >
       <div style={{
         display: 'flex',
         gap: 8,
@@ -1331,7 +1355,7 @@ function BossDeckPreview({
       }}>
         {doubled.map((c, i) => (
           <div key={`${c.uid}-${i}`} style={{ flex: '0 0 auto' }}>
-            <Card card={c} scale={0.32} owned={false} />
+            <Card card={c} scale={scale} owned={false} />
           </div>
         ))}
       </div>
