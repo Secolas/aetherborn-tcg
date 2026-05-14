@@ -179,9 +179,16 @@ export function DeckBuilder({
         padding: isDesktop ? '0 24px 16px' : 0,
       }}>
         {/* ----- MAIN COLUMN ----- */}
+        {/* On mobile the entire column is one scroll surface so the
+            active deck + library all share a single, natural page
+            scroll. (Previously the library had its own internal scroll
+            which got squeezed into one visible row when the deck was
+            full.) On desktop we keep the inner library scroll because
+            the sidebar + main split needs each to scroll independently. */}
         <div style={{
           flex: 1, minWidth: 0, minHeight: 0,
           display: 'flex', flexDirection: 'column',
+          overflowY: isDesktop ? 'hidden' : 'auto',
         }}>
           <DeckSwitcher
             decks={decks}
@@ -852,7 +859,12 @@ function LibraryGrid({
 
   return (
     <div style={{
-      flex: 1, minHeight: 0, overflow: 'auto',
+      // Mobile: extend naturally and let the parent column scroll the
+      // whole page. Desktop: keep an internal scroll so the sidebar
+      // stays fixed while the library scrolls independently.
+      flex: isMobile ? '0 0 auto' : 1,
+      minHeight: 0,
+      overflow: isMobile ? 'visible' : 'auto',
       padding: isMobile ? '0 12px 24px' : '0 16px 30px',
       display: 'grid',
       gridTemplateColumns: layout === 'compact'
