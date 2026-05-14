@@ -64,8 +64,8 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a grandparent' },
 
   { id: 'fam-09', name: 'Birthday Cake', el: 'food', cost: 4, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Restore 6 HP.',
-    abilityKind: 'spell_heal', abilityValue: 6,
+    ability: 'Restore 5 HP.',
+    abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'common', suggested: 'a birthday cake or dessert' },
 
   { id: 'fam-10', name: 'Family Photo', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
@@ -387,10 +387,10 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_nourish', abilityValue: 2,
     rarity: 'common', suggested: 'a bowl of soup or stew' },
 
-  { id: 'fd-03', name: 'Snack', el: 'food', cost: 2, atk: 2, hp: 2, type: 'Creature',
-    ability: '',
+  { id: 'fd-03', name: 'Snack', el: 'food', cost: 1, atk: 2, hp: 1, type: 'Creature',
+    ability: 'Rush.',
     flavor: 'Just a little something.',
-    abilityKind: 'none',
+    abilityKind: 'rush',
     rarity: 'common', suggested: 'a chip bag, granola bar, or finger food' },
 
   { id: 'fd-04', name: 'Breakfast Plate', el: 'food', cost: 2, atk: 1, hp: 3, type: 'Creature',

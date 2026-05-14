@@ -144,7 +144,10 @@ export const BOSSES: BossDef[] = [
                          // Normal deck previously lacked.
       'wrk-08',          // Senior Engineer
       'wrk-09',          // Meeting — freeze
-      'wrk-10',          // Promotion
+      'wrk-15',          // Payroll — board buff finisher (replaces
+                         // Promotion's single-target +4/+4; Payroll is
+                         // board-wide so it always does something with
+                         // Manager's small bodies)
       'wrk-11',          // Lunch Break — 7 face heal stabilizer
       'wrk-14',          // Stand-up Meeting (cheap draw)
     ],
