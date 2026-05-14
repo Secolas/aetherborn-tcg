@@ -16,7 +16,7 @@ export const TEMPLATES: CardTemplate[] = [
   // FAMILY
   // ============================================================
 
-  { id: 'fam-01', name: 'Family Pet', el: 'family', cost: 1, atk: 2, hp: 1, type: 'Creature',
+  { id: 'fam-01', name: 'Family Pet', el: 'animals', cost: 1, atk: 2, hp: 1, type: 'Creature',
     ability: 'Rush.',
     flavor: 'First to the rescue.',
     abilityKind: 'rush',
@@ -28,7 +28,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a cousin, niece, or nephew' },
 
-  { id: 'fam-03', name: "Abuela's Soup", el: 'family', cost: 3, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-03', name: "Abuela's Soup", el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 5 HP.',
     abilityKind: 'spell_heal', abilityValue: 5,
     rarity: 'common', suggested: 'a homemade soup or stew' },
@@ -63,7 +63,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'rare', suggested: 'a grandparent' },
 
-  { id: 'fam-09', name: 'Birthday Cake', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-09', name: 'Birthday Cake', el: 'food', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 6 HP.',
     abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'common', suggested: 'a birthday cake or dessert' },
@@ -80,7 +80,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'epic', suggested: 'your dad' },
 
-  { id: 'fam-12', name: 'Sunday Dinner', el: 'family', cost: 6, atk: 0, hp: 0, type: 'Spell',
+  { id: 'fam-12', name: 'Sunday Dinner', el: 'food', cost: 6, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 8 HP.',
     flavor: 'Everyone is at the table.',
     abilityKind: 'spell_heal', abilityValue: 8,
@@ -126,7 +126,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a coworker or office buddy' },
 
-  { id: 'wrk-04', name: 'Coffee', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
+  { id: 'wrk-04', name: 'Coffee', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Work-type creature +2/+2.',
     flavor: 'Now they can think.',
     abilityKind: 'spell_buff', abilityValue: 2,
@@ -537,7 +537,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'epic', suggested: 'a yearbook portrait, a senior photo, a cap and gown closeup' },
 
   { id: 'edu-12', name: 'Graduation Day', el: 'education', cost: 6, atk: 4, hp: 5, type: 'Creature',
-    ability: 'On play: give each of your creatures +1/+1.',
+    ability: 'On play: give each of your Education-type creatures +1/+1.',
     flavor: 'You made it. Now what?',
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'legendary', suggested: 'graduating students throwing caps, a diploma, a celebration' },
@@ -547,6 +547,172 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Suit up. Lap one.',
     abilityKind: 'rush',
     rarity: 'rare', suggested: 'a gym class, kids running, basketball hoop, sports equipment' },
+
+  // ============================================================
+  // VANILLA FILLER — common-rarity creatures with no abilities.
+  // Add depth to early-game across themes that were thin on plain
+  // bodies (Travel / Food / Education only had 2 each). These are
+  // the "stat sticks" of each theme — predictable trades, no surprises.
+  // ============================================================
+
+  { id: 'fam-16', name: 'Niece', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'Too smart for her own good.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a niece, nephew, or any young kid in the family' },
+
+  { id: 'wrk-16', name: 'Custodian', el: 'work', cost: 5, atk: 4, hp: 5, type: 'Creature',
+    ability: '',
+    flavor: 'Keeps the lights on. Literally.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a janitor, cleaning crew, or empty office at night' },
+
+  { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'No itinerary, no problem.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'someone with a backpack, hostel bunk, train platform' },
+
+  { id: 'trv-15', name: 'Hitchhiker', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'Thumb out. Trust the road.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a person at a roadside, a thumb up, an open highway' },
+
+  { id: 'fd-15', name: 'Apple', el: 'food', cost: 1, atk: 1, hp: 1, type: 'Creature',
+    ability: '',
+    flavor: 'A day, kept away.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'an apple, any single piece of fruit' },
+
+  { id: 'fd-16', name: 'Sandwich', el: 'food', cost: 3, atk: 3, hp: 3, type: 'Creature',
+    ability: '',
+    flavor: 'Cut diagonally. Always.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a packed sandwich, a deli wrap, your lunch' },
+
+  { id: 'edu-14', name: 'Notebook', el: 'education', cost: 1, atk: 1, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'Every blank page is a fresh start.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a notebook, a binder, a fresh page of paper' },
+
+  { id: 'edu-15', name: 'Classmate', el: 'education', cost: 2, atk: 2, hp: 2, type: 'Creature',
+    ability: '',
+    flavor: 'You saw them every day. You never asked their name.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a school friend, a kid at the desk next to you' },
+
+  // ============================================================
+  // COUPLE ARC — relationship-life cards distributed across the
+  // existing six themes by what the photo subject is (people →
+  // family, dates and trips → travel, meals → food, chores →
+  // work). The "Couple" memory pack curates these into a single
+  // narrative deck. Bonds in src/data/bonds.ts stitch them
+  // together: Boyfriend + Wedding, Cleaning + Laundry, etc.
+  // ============================================================
+
+  { id: 'cou-01', name: 'Crush', el: 'family', cost: 1, atk: 1, hp: 1, type: 'Creature',
+    ability: 'Rush.',
+    flavor: 'Heart racing. Stomach gone.',
+    abilityKind: 'rush',
+    rarity: 'common', suggested: 'someone you had a crush on, an old photo of an early flame' },
+
+  { id: 'cou-02', name: 'Boyfriend / Girlfriend', el: 'family', cost: 2, atk: 2, hp: 3, type: 'Creature',
+    ability: '',
+    flavor: 'Your person. Your favourite.',
+    abilityKind: 'none',
+    rarity: 'rare', suggested: 'your partner, or someone you love' },
+
+  { id: 'cou-03', name: 'The Ex', el: 'family', cost: 3, atk: 3, hp: 2, type: 'Creature',
+    ability: 'On play: deal 2 damage to the enemy face.',
+    flavor: 'A door you closed. A scar you kept.',
+    abilityKind: 'aoe_on_play', abilityValue: 2,
+    rarity: 'rare', suggested: 'a dramatic photo, a memory, a closed door' },
+
+  { id: 'cou-04', name: 'Couple Photo', el: 'family', cost: 4, atk: 3, hp: 3, type: 'Creature',
+    ability: '',
+    flavor: 'Both smiling. Same year. Different reasons.',
+    abilityKind: 'none',
+    rarity: 'common', suggested: 'a photo of you and your partner together' },
+
+  { id: 'cou-05', name: 'Movie Night', el: 'family', cost: 2, atk: 1, hp: 4, type: 'Creature',
+    ability: 'Taunt.',
+    flavor: 'Couch fort. One blanket, two people.',
+    abilityKind: 'taunt',
+    rarity: 'common', suggested: 'couch + tv, popcorn, the living-room set-up' },
+
+  { id: 'cou-06', name: 'Proposal', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +3/+3 and Taunt.',
+    flavor: 'On one knee. Heart in your throat.',
+    abilityKind: 'spell_buff', abilityValue: 3,
+    rarity: 'epic', suggested: 'the ring, the moment, the question' },
+
+  { id: 'cou-07', name: 'Wedding Day', el: 'family', cost: 7, atk: 5, hp: 8, type: 'Creature',
+    ability: 'On play: restore 5 HP.',
+    flavor: 'Two families. One day.',
+    abilityKind: 'spell_heal', abilityValue: 5,
+    rarity: 'legendary', suggested: 'a wedding photo, vows, rings, the ceremony' },
+
+  { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 4, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 4 HP, then draw a card.',
+    flavor: 'You remembered. You both did.',
+    abilityKind: 'spell_heal', abilityValue: 4,
+    rarity: 'rare', suggested: 'the dated photo, a card you wrote, a small gift' },
+
+  { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw a card.',
+    flavor: 'Three hours. Felt like ten minutes.',
+    abilityKind: 'draw_on_play', abilityValue: 1,
+    rarity: 'common', suggested: 'the restaurant, the cafe, the venue of an early date' },
+
+  { id: 'cou-10', name: 'Beach Day', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
+    ability: 'On play: heal each of your Travel-type creatures by 2.',
+    flavor: 'Sand everywhere. Sunburn worth it.',
+    abilityKind: 'spell_share_meal', abilityValue: 2,
+    rarity: 'rare', suggested: 'a beach trip together, the ocean, sunset on sand' },
+
+  { id: 'cou-11', name: 'Honeymoon', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Heal each of your Travel-type creatures by 3, then draw a card.',
+    flavor: 'No phones. No emails. Just you two.',
+    abilityKind: 'spell_share_meal', abilityValue: 3,
+    rarity: 'epic', suggested: 'the honeymoon trip, the resort, the boarding passes' },
+
+  { id: 'cou-12', name: 'Date Night Dinner', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +2/+1.',
+    flavor: 'Candles. Wine. The good plates.',
+    abilityKind: 'spell_buff', abilityValue: 2,
+    rarity: 'common', suggested: 'a candle-lit meal, a restaurant table, plated food' },
+
+  { id: 'cou-13', name: 'Cooking Together', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a friendly creature +0/+3 HP.',
+    flavor: 'Someone chops. Someone stirs. Both taste.',
+    abilityKind: 'spell_nourish', abilityValue: 3,
+    rarity: 'rare', suggested: 'a shared kitchen, two pairs of hands, an in-progress meal' },
+
+  { id: 'cou-14', name: 'Anniversary Cake', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
+    ability: 'On play: restore 3 HP.',
+    flavor: 'One slice. Two forks.',
+    abilityKind: 'spell_heal', abilityValue: 3,
+    rarity: 'common', suggested: 'an anniversary cake, candles, a small celebration' },
+
+  { id: 'cou-15', name: 'Cleaning Day', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 2 HP, then draw a card.',
+    flavor: 'A clean apartment is a love language.',
+    abilityKind: 'spell_heal', abilityValue: 2,
+    rarity: 'common', suggested: 'a tidied living room, vacuumed carpet, fresh laundry' },
+
+  { id: 'cou-16', name: 'Laundry Day', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 2 HP to a friendly creature.',
+    flavor: 'You folded. They put them away. Eventually.',
+    abilityKind: 'spell_heal_friend', abilityValue: 2,
+    rarity: 'common', suggested: 'a laundry pile, folded clothes, the dryer' },
+
+  { id: 'cou-17', name: 'House Hunting', el: 'work', cost: 4, atk: 3, hp: 4, type: 'Creature',
+    ability: 'On play: gain +1 mana next turn.',
+    flavor: 'Every door, you wonder what your life would be.',
+    abilityKind: 'mana_prep', abilityValue: 1,
+    rarity: 'rare', suggested: 'a house tour, moving boxes, an empty apartment, "For Sale" sign' },
 ];
 
 export function getTemplateById(id: string): CardTemplate | undefined {

@@ -177,6 +177,75 @@ export const BONDS: BondDef[] = [
     flavor: 'Slow burn. Big payoff.',
     effect: { kind: 'damage_at_end_turn', amount: 1 },
   },
+
+  // ============================================================
+  // COUPLE ARC — bonds threading the relationship-life cards.
+  // Each bond couples two creatures from the couple set (regardless
+  // of which theme each card lives in). The "Couple" memory pack
+  // makes these bonds approachable; in regular play the cards still
+  // surface naturally from their parent theme packs.
+  // ============================================================
+
+  {
+    id: 'soulmates',
+    name: 'Soulmates',
+    themeId: 'family',
+    cardA: 'cou-02', // Boyfriend / Girlfriend
+    cardB: 'cou-07', // Wedding Day
+    description: 'Heal owner 1 at the start of your turn.',
+    flavor: 'Long after the day, the choice still stands.',
+    effect: { kind: 'heal_face_per_turn', amount: 1 },
+  },
+  {
+    id: 'made-it-official',
+    name: 'Made It Official',
+    themeId: 'family',
+    cardA: 'cou-01', // Crush
+    cardB: 'cou-02', // Boyfriend / Girlfriend
+    description: 'Crush gains +1 ATK and Rush.',
+    flavor: 'You knew on the first date. They knew before that.',
+    effect: { kind: 'pack_atk_rush', amount: 1 },
+  },
+  {
+    id: 'house-together',
+    name: 'House Together',
+    themeId: 'work',
+    cardA: 'cou-15', // Cleaning Day
+    cardB: 'cou-16', // Laundry Day
+    description: 'Draw a card at end of your turn when your hand is empty.',
+    flavor: 'Two people, one mess. Always.',
+    effect: { kind: 'draw_at_end_if_low_hand' },
+  },
+  {
+    id: 'date-routine',
+    name: 'Date Routine',
+    themeId: 'family',
+    cardA: 'cou-05', // Movie Night
+    cardB: 'cou-12', // Date Night Dinner
+    description: 'Your spells cost 1 less (once per turn).',
+    flavor: "Same week. Same order. Different stories.",
+    effect: { kind: 'spell_cost_reduction', amount: 1 },
+  },
+  {
+    id: 'married-life',
+    name: 'Married Life',
+    themeId: 'food',
+    cardA: 'cou-07', // Wedding Day
+    cardB: 'cou-13', // Cooking Together
+    description: 'Heal each of your creatures by 1 at the start of your turn.',
+    flavor: "Sunday roast. Tuesday tacos. Whatever's in the fridge.",
+    effect: { kind: 'heal_creatures_per_turn', amount: 1 },
+  },
+  {
+    id: 'getaway',
+    name: 'Getaway',
+    themeId: 'travel',
+    cardA: 'cou-10', // Beach Day
+    cardB: 'cou-11', // Honeymoon
+    description: 'Draw a card the first time you attack each turn.',
+    flavor: 'A week away, and the whole year settles.',
+    effect: { kind: 'draw_on_attack' },
+  },
 ];
 
 export function getBond(id: string): BondDef | undefined {
