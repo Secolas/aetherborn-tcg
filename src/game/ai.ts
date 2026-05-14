@@ -306,11 +306,21 @@ function chooseSpellTarget(card: BattleCard, state: MatchState, c: AiCaps): Spel
     return { kind: 'creature', owner: 'player', battleId: big.battleId };
   }
 
-  if (card.abilityKind === 'spell_buff') {
-    let pool = me.field.filter(x => !x.tapped);
-    // Patient casts: don't buff a creature that'll be wasted (low ATK,
-    // no target to attack into, etc.). Pick the highest ATK creature
-    // since the buff stacks multiplicatively with combat.
+  if (card.abilityKind === 'spell_buff' || card.abilityKind === 'spell_buff_taunt') {
+    // Same-theme only — the engine refuses cross-theme targets now.
+    // Filter the pool first so the AI doesn't pick a wasted target
+    // and stall its own turn.
+    const pool = me.field.filter(x => !x.tapped && x.el === card.el);
+    if (pool.length === 0) return undefined;
+    const tgt = pool.sort((a, b) => b.currentAtk - a.currentAtk)[0];
+    return { kind: 'creature', owner: 'opponent', battleId: tgt.battleId };
+  }
+
+  if (card.abilityKind === 'spell_buff_any') {
+    // Cross-theme buff — any friendly creature is fair game. AI
+    // still picks the highest-ATK target since buff stacks
+    // multiplicatively with attacks.
+    const pool = me.field.filter(x => !x.tapped);
     if (pool.length === 0) return undefined;
     const tgt = pool.sort((a, b) => b.currentAtk - a.currentAtk)[0];
     return { kind: 'creature', owner: 'opponent', battleId: tgt.battleId };

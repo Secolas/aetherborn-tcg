@@ -127,8 +127,8 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a coworker or office buddy' },
 
   { id: 'wrk-04', name: 'Coffee', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a Work-type creature +2/+2.',
-    flavor: 'Now they can think.',
+    ability: 'Give a Food-type creature +2/+2.',
+    flavor: 'Wakes the kitchen up too.',
     abilityKind: 'spell_buff', abilityValue: 2,
     rarity: 'common', suggested: 'a coffee, mug, or barista shot' },
 
@@ -556,33 +556,33 @@ export const TEMPLATES: CardTemplate[] = [
   // ============================================================
 
   { id: 'fam-16', name: 'Niece', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
-    ability: '',
+    ability: 'At the start of your turn, restore 1 HP.',
     flavor: 'Too smart for her own good.',
-    abilityKind: 'none',
+    abilityKind: 'heal_each_turn', abilityValue: 1,
     rarity: 'common', suggested: 'a niece, nephew, or any young kid in the family' },
 
   { id: 'wrk-16', name: 'Custodian', el: 'work', cost: 5, atk: 4, hp: 5, type: 'Creature',
-    ability: '',
+    ability: 'Taunt.',
     flavor: 'Keeps the lights on. Literally.',
-    abilityKind: 'none',
+    abilityKind: 'taunt',
     rarity: 'common', suggested: 'a janitor, cleaning crew, or empty office at night' },
 
   { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
-    ability: '',
+    ability: 'On play: draw a card.',
     flavor: 'No itinerary, no problem.',
-    abilityKind: 'none',
+    abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'someone with a backpack, hostel bunk, train platform' },
 
   { id: 'trv-15', name: 'Hitchhiker', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
-    ability: '',
+    ability: 'Rush.',
     flavor: 'Thumb out. Trust the road.',
-    abilityKind: 'none',
+    abilityKind: 'rush',
     rarity: 'common', suggested: 'a person at a roadside, a thumb up, an open highway' },
 
   { id: 'fd-15', name: 'Apple', el: 'food', cost: 1, atk: 1, hp: 1, type: 'Creature',
-    ability: '',
+    ability: 'At the start of your turn, restore 1 HP.',
     flavor: 'A day, kept away.',
-    abilityKind: 'none',
+    abilityKind: 'heal_each_turn', abilityValue: 1,
     rarity: 'common', suggested: 'an apple, any single piece of fruit' },
 
   { id: 'fd-16', name: 'Sandwich', el: 'food', cost: 3, atk: 3, hp: 3, type: 'Creature',
@@ -592,9 +592,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a packed sandwich, a deli wrap, your lunch' },
 
   { id: 'edu-14', name: 'Notebook', el: 'education', cost: 1, atk: 1, hp: 2, type: 'Creature',
-    ability: '',
+    ability: 'On play: draw a card.',
     flavor: 'Every blank page is a fresh start.',
-    abilityKind: 'none',
+    abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'a notebook, a binder, a fresh page of paper' },
 
   { id: 'edu-15', name: 'Classmate', el: 'education', cost: 2, atk: 2, hp: 2, type: 'Creature',
@@ -643,9 +643,9 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'couch + tv, popcorn, the living-room set-up' },
 
   { id: 'cou-06', name: 'Proposal', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a friendly creature +3/+3 and Taunt.',
+    ability: 'Give a Family-type creature +3/+3 and Taunt.',
     flavor: 'On one knee. Heart in your throat.',
-    abilityKind: 'spell_buff', abilityValue: 3,
+    abilityKind: 'spell_buff_taunt', abilityValue: 3,
     rarity: 'epic', suggested: 'the ring, the moment, the question' },
 
   { id: 'cou-07', name: 'Wedding Day', el: 'family', cost: 7, atk: 5, hp: 8, type: 'Creature',
@@ -679,9 +679,15 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'epic', suggested: 'the honeymoon trip, the resort, the boarding passes' },
 
   { id: 'cou-12', name: 'Date Night Dinner', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Give a friendly creature +2/+1.',
+    ability: 'Give a friendly creature +1/+1.',
     flavor: 'Candles. Wine. The good plates.',
-    abilityKind: 'spell_buff', abilityValue: 2,
+    // Cross-theme flex buff — sits in the couple arc which spans
+    // family + travel + food + work. The theme-locked Recipe Card
+    // does +1/+1 to Food only; Date Night Dinner is the universal
+    // counterpart at the same cost, same stat bump, but works on
+    // any creature so a couple deck can buff its Family or Travel
+    // pieces too.
+    abilityKind: 'spell_buff_any', abilityValue: 1,
     rarity: 'common', suggested: 'a candle-lit meal, a restaurant table, plated food' },
 
   { id: 'cou-13', name: 'Cooking Together', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',

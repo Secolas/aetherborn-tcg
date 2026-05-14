@@ -622,7 +622,18 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     const c = side(state, target.owner).field.find(x => x.battleId === target.battleId);
     return !!c && c.abilityKind !== 'untargetable';
   }
-  if (card.abilityKind === 'spell_buff') {
+  if (card.abilityKind === 'spell_buff' || card.abilityKind === 'spell_buff_taunt') {
+    // Theme-locked: card text says "Give a X-type creature ..." and
+    // the engine now enforces it (was previously honor-system, which
+    // let players quietly buff any creature regardless of theme).
+    if (target.kind !== 'creature') return false;
+    if (target.owner !== owner) return false;
+    const c = side(state, owner).field.find(x => x.battleId === target.battleId);
+    if (!c) return false;
+    return c.el === card.el;
+  }
+  if (card.abilityKind === 'spell_buff_any') {
+    // Cross-theme flex buff — any friendly creature, no theme check.
     if (target.kind !== 'creature') return false;
     if (target.owner !== owner) return false;
     return !!side(state, owner).field.find(x => x.battleId === target.battleId);
@@ -823,13 +834,35 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       // when the owner's turn ends; this is the safety net.
       c.frozenUntilTurn = state.turnNumber + 2;
     }
-  } else if (card.abilityKind === 'spell_buff' && target?.kind === 'creature') {
+  } else if ((card.abilityKind === 'spell_buff' || card.abilityKind === 'spell_buff_any') && target?.kind === 'creature') {
+    // Validity (target exists, same theme for spell_buff, etc.) was
+    // already checked in isValidSpellTarget at the playCard gate; by
+    // the time we get here the target is legal. Apply the buff.
     const t = side(state, target.owner);
     const c = t.field.find(x => x.battleId === target.battleId);
     if (c) {
       c.currentAtk += v;
       c.currentHp += v;
       c.hp += v;
+    }
+  } else if (card.abilityKind === 'spell_buff_taunt' && target?.kind === 'creature') {
+    // Proposal-style: +V/+V AND grant Taunt to a same-theme friendly
+    // creature (theme-lock enforced upstream in isValidSpellTarget).
+    // Taunt sticks permanently — overwrites the creature's current
+    // abilityKind. originalAbilityKind / originalAbility get stashed
+    // so a later silence can still revert it.
+    const t = side(state, target.owner);
+    const c = t.field.find(x => x.battleId === target.battleId);
+    if (c) {
+      c.currentAtk += v;
+      c.currentHp += v;
+      c.hp += v;
+      if (c.abilityKind !== 'taunt') {
+        c.originalAbilityKind = c.abilityKind;
+        c.originalAbility = c.ability;
+        c.abilityKind = 'taunt';
+        c.ability = 'Taunt.';
+      }
     }
   } else if (card.abilityKind === 'silence' && target?.kind === 'creature') {
     // Strip the target's ability for ONE turn — until the silenced

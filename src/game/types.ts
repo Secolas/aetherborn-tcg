@@ -21,7 +21,9 @@ export type AbilityKind =
   | 'spell_synergy'  // when owner casts a spell, deal X to opponent
   | 'spell_damage'   // (Spell) deal X damage to any target
   | 'spell_heal'     // (Spell) heal owner X
-  | 'spell_buff'     // (Spell) +X/+X to a friendly creature
+  | 'spell_buff'     // (Spell) +X/+X to a friendly same-theme creature
+  | 'spell_buff_taunt' // (Spell) +X/+X AND grant Taunt to a friendly same-theme creature
+  | 'spell_buff_any' // (Spell) +X/+X to any friendly creature (cross-theme flex)
   | 'spell_freeze'   // (Spell) tap an enemy creature
   | 'silence'        // (Spell) strip all abilities from an enemy creature
   // ---- Food theme additions ----
