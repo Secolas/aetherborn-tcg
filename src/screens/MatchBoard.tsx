@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight, Layers, Hand } from 'lucide-react';
+import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight, Layers, Hand, UserRound } from 'lucide-react';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -3885,9 +3885,13 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
 }) {
   const ring = highlight === 'heal' ? '#06d6a0' : null;
   const hit = damage != null && damage > 0;
+  // Default-state portrait: a friendly silhouette icon instead of the
+  // letter "Y" — reads as "tap to add your photo" instead of an
+  // arbitrary character. Once the player uploads an avatar, the
+  // avatarPhoto prop covers the icon entirely.
   return (
     <Portrait
-      avatar={avatar ? '' : 'Y'}
+      avatar={avatar ? '' : <UserRound size={22} strokeWidth={2.2} fill="rgba(255,255,255,.55)" />}
       avatarPhoto={avatar}
       avatarBg="linear-gradient(160deg, #6e1f1a, #d96658)"
       avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
@@ -3910,7 +3914,11 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
  * names were creating).
  */
 function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, damage, onClick, elRef }: {
-  avatar: string;
+  /** Centered fallback content shown when no avatarPhoto is set —
+   *  usually a letter (for bosses) or a Lucide icon (for the player's
+   *  default state). Accepts any ReactNode so callers can pass an
+   *  icon component without stringifying it. */
+  avatar: React.ReactNode;
   /** Optional uploaded photo (data URL). Renders inside the avatar circle
       instead of the letter when present. */
   avatarPhoto?: string;
