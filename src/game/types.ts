@@ -269,6 +269,10 @@ export interface SaveData {
   /** Victory emote ids the player has unlocked. One is equipped. */
   unlockedEmotes?: import('../data/victoryEmotes').EmoteId[];
   equippedEmote?: import('../data/victoryEmotes').EmoteId;
+  /** Card-back template ids the player has unlocked. One is equipped
+   *  and shown on the player's draws + deck pile during a match. */
+  unlockedCardBacks?: import('../data/cardBacks').CardBackId[];
+  equippedCardBack?: import('../data/cardBacks').CardBackId;
   /** Memory pack ids the player has opened at least once. Used to gate
    *  the "first-open bonus filter" — subsequent opens of the same memory
    *  pack don't re-grant the cosmetic. */

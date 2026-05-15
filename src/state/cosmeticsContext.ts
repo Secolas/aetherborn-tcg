@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 import { type FrameId } from '../data/frames';
 import { type BoardSkinId } from '../data/boardSkins';
 import { type EmoteId } from '../data/victoryEmotes';
+import { type CardBackId, DEFAULT_CARD_BACK } from '../data/cardBacks';
 
 /**
  * Context primitive + read hook for globally-equipped cosmetics. Lives in
@@ -22,6 +23,8 @@ export interface CosmeticsCtx {
   frame: FrameId;
   boardSkin: BoardSkinId;
   emote: EmoteId;
+  /** Equipped face-down card-back template. Read by CardBack. */
+  cardBack: CardBackId;
   inMatch: boolean;
 }
 
@@ -29,6 +32,7 @@ export const DEFAULT_COSMETICS: CosmeticsCtx = {
   frame: 'classic',
   boardSkin: 'daylight',
   emote: 'gg',
+  cardBack: DEFAULT_CARD_BACK,
   inMatch: false,
 };
 

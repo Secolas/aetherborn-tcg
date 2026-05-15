@@ -96,7 +96,6 @@ export function BossPicker({
 
   // Resolve which boss is in focus.
   const boss = BOSSES.find(b => b.id === bossId) ?? BOSSES[0];
-  const bossIdx = BOSSES.findIndex(b => b.id === boss.id);
   const bossUnlocked = isBossUnlocked(boss, defeatedIds);
   const currentTestTheme = testTheme[boss.id] ?? null;
   const usingTest = currentTestTheme !== null;
@@ -104,7 +103,6 @@ export function BossPicker({
   // Difficulty unlock + reward derive from the existing engine.
   const profile = difficultyProfile(diffId);
   const reward = Math.round(boss.rewardCoins * profile.rewardMult);
-  const lvl = Math.max(1, Math.round(boss.rewardCoins / 10));
   const isDiffUnlocked = (d: Difficulty) => {
     if (d === 'normal') return true;
     const prev = beatenAt[boss.id];
@@ -123,8 +121,16 @@ export function BossPicker({
   const wr   = (won + lost) ? Math.round((won / (won + lost)) * 100) : 0;
 
   // Signature cards: top three highest-cost unique templates from the
-  // boss's deck. Cheap-to-recompute as the focused boss changes.
-  const signature = useMemo(() => pickSignature(boss), [boss]);
+  // deck variant that matches the *selected* difficulty. Mythic gets
+  // boss.mythicDeck if present (where legendaries live); Hard can also
+  // override via boss.hardDeck. Falls back to the Normal-tier deck.
+  const signature = useMemo(() => {
+    const deckForDiff =
+      diffId === 'mythic' && boss.mythicDeck ? boss.mythicDeck
+      : diffId === 'hard' && boss.hardDeck ? boss.hardDeck
+      : boss.deck;
+    return pickSignature(boss, deckForDiff);
+  }, [boss, diffId]);
 
   // Keep difficulty in sync with what's actually unlocked when the
   // player swaps bosses — never leave them stranded on a locked tier.
@@ -180,18 +186,16 @@ export function BossPicker({
               <span className="meta"><em>{beatenCount}</em>/{totalBosses} beaten</span>
             </div>
             <div className="roster-list" role="tablist" aria-label="Bosses">
-              {BOSSES.map((b, i) => {
+              {BOSSES.map((b) => {
                 const unlocked = isBossUnlocked(b, defeatedIds);
                 const beaten = defeatedIds.includes(b.id);
                 const active = b.id === bossId;
-                const tier = beatenAt[b.id];
-                const diffPips = tierToPips(tier);
                 return (
                   <button
                     key={b.id}
                     role="tab"
                     aria-selected={active}
-                    aria-label={`${b.name} — Folio ${pad2(i + 1)}, ${b.subtitle}`}
+                    aria-label={`${b.name} — ${b.subtitle}`}
                     className="roster-entry"
                     data-active={active}
                     data-locked={!unlocked}
@@ -200,7 +204,6 @@ export function BossPicker({
                     title={!unlocked ? `Locked` : undefined}
                     style={{ '--deck-color': HOUSE_COLOR[b.themeId] } as React.CSSProperties}
                   >
-                    <span className="fol">FOL. {pad2(i + 1)}</span>
                     <span
                       className="photo"
                       style={{
@@ -213,9 +216,8 @@ export function BossPicker({
                     />
                     <span className="info">
                       <span className="name">{b.name}</span>
-                      <span className="row">FOL. {pad2(i + 1)} · {ELEMENTS[b.themeId].name.toUpperCase()}</span>
+                      <span className="row">{ELEMENTS[b.themeId].name}</span>
                     </span>
-                    <DiffPips n={diffPips} />
                     {beaten && <span className="badge beaten" aria-label="Defeated">✓</span>}
                     {!unlocked && (
                       <span className="badge locked" aria-label="Locked">
@@ -244,15 +246,17 @@ export function BossPicker({
                     }}
                     aria-hidden
                   />
-                  <div className="plate-photo-lvl" aria-label={`Level ${lvl}`}>{lvl}</div>
                 </div>
                 <div className="plate-meta">
-                  <div className="house">FOL. {pad2(bossIdx + 1)} · {ELEMENTS[boss.themeId].name}</div>
+                  <div className="house">{ELEMENTS[boss.themeId].name} deck</div>
                   <div className="name">{boss.name}</div>
                   <div className="epithet">{boss.subtitle.toLowerCase()}</div>
                 </div>
               </div>
-              <div className="plate-quote">“{boss.intro}”</div>
+              {/* Boss playstyle — replaces the short quote so the player
+                  gets concrete tactical info ("Sunday dinner regulars…")
+                  instead of a one-liner. */}
+              <div className="plate-quote">{boss.playstyle}</div>
             </div>
 
             {/* Record */}
@@ -273,10 +277,11 @@ export function BossPicker({
               </div>
             </div>
 
-            {/* Signature cards */}
+            {/* Signature cards — switches deck per selected difficulty
+                so Mythic surfaces the boss's mythic-only legendaries. */}
             <div className="block">
               <div className="sec-head">
-                <span className="label">Boss plays · iii known</span>
+                <span className="label">Cards used · {profile.label}</span>
                 <span className="meta"><em>{wr}%</em> win rate</span>
               </div>
               <div className="sig-row">
@@ -286,7 +291,6 @@ export function BossPicker({
                   </div>
                 ))}
               </div>
-              <div className="playstyle">{boss.playstyle}</div>
             </div>
           </div>
 
@@ -294,8 +298,8 @@ export function BossPicker({
           <div className="col-controls">
             <div className="block">
               <div className="sec-head">
-                <span className="label">Tier · difficulty</span>
-                <span className="meta">{profile.label} · <em>×{profile.rewardMult.toFixed(1)}</em></span>
+                <span className="label">Difficulty</span>
+                <span className="meta"><em>{profile.label}</em></span>
               </div>
               <div className="diff">
                 {DIFFICULTIES.map(d => {
@@ -317,7 +321,6 @@ export function BossPicker({
                 })}
               </div>
               <div className="diff-meta">
-                <span>Boss · LVL {lvl}</span>
                 <span><em>+{reward}</em> coins on win</span>
               </div>
             </div>
@@ -370,7 +373,7 @@ export function BossPicker({
                     ? `${profile.label} difficulty is locked — beat ${boss.name} on a lower tier first`
                     : needsDeck
                       ? `Need at least ${MIN_PLAYABLE_DECK} playable cards in your deck`
-                      : `Engage ${boss.name} on ${profile.label}`
+                      : `Battle ${boss.name} on ${profile.label}`
               }
             >
               <span className="roman">
@@ -378,7 +381,7 @@ export function BossPicker({
               </span>
               <span className="label">
                 <span className="sub">
-                  {!bossUnlocked ? 'Locked' : diffLocked ? 'Tier Locked' : needsDeck ? 'Need Deck' : `Engage · ${profile.label}`}
+                  {!bossUnlocked ? 'Locked' : diffLocked ? 'Tier Locked' : needsDeck ? 'Need Deck' : `Battle · ${profile.label}`}
                 </span>
                 <span>vs {boss.name}</span>
               </span>
@@ -427,15 +430,6 @@ export function BossPicker({
 
 // ─── Subcomponents ──────────────────────────────────────────────────
 
-function DiffPips({ n }: { n: number }) {
-  return (
-    <span className="diff-pips" aria-hidden>
-      {[1, 2, 3, 4, 5].map(i => (
-        <span key={i} className={`diff-pip${i <= n ? ' on' : ''}`} />
-      ))}
-    </span>
-  );
-}
 
 /**
  * Hand-drawn tally marks for the bestiary record. Groups of 5 (four
@@ -560,17 +554,6 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function tierToPips(tier?: Difficulty): number {
-  // 0 = not yet beaten, 1 = beat normal, 3 = beat hard, 5 = beat mythic.
-  // Fills the 5-pip difficulty meter on the desktop roster row.
-  switch (tier) {
-    case 'normal': return 1;
-    case 'hard':   return 3;
-    case 'mythic': return 5;
-    default:       return 0;
-  }
-}
-
 function isBossUnlocked(boss: BossDef, defeatedIds: string[]): boolean {
   // All bosses are unlocked at all times in the existing engine. Keep
   // the helper here so it's trivial to gate future bosses behind story
@@ -582,12 +565,14 @@ function isBossUnlocked(boss: BossDef, defeatedIds: string[]): boolean {
 }
 
 /** Pick three signature cards (highest-cost unique templates) from a
- *  boss's deck so the bestiary plate can preview what the player will
- *  actually face. */
-function pickSignature(boss: BossDef): CollectionCard[] {
+ *  boss's deck so the picker can preview what the player will actually
+ *  face. Caller passes the deck variant matching the selected tier so
+ *  Mythic surfaces Mythic-only legendaries, Hard surfaces its overrides
+ *  if defined, and Normal surfaces the baseline deck. */
+function pickSignature(boss: BossDef, deck: string[]): CollectionCard[] {
   const seen = new Set<string>();
   const uniques = [] as { id: string }[];
-  for (const tid of boss.deck) {
+  for (const tid of deck) {
     if (seen.has(tid)) continue;
     seen.add(tid);
     uniques.push({ id: tid });
@@ -1016,7 +1001,7 @@ function BestiaryStyles() {
       }
       .duel .diff button[data-active="true"] .lbl { opacity: 0.9; }
       .duel .diff-meta {
-        display: flex; justify-content: space-between; padding-top: 8px;
+        display: flex; justify-content: flex-end; padding-top: 8px;
         font-family: inherit; font-size: 11px; color: #a89580;
         font-weight: 600; letter-spacing: 0.02em;
       }

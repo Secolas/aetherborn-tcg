@@ -21,6 +21,7 @@ import { STARTER_FILTERS, type FilterId } from './data/filters';
 import { STARTER_FRAMES, type FrameId } from './data/frames';
 import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
 import { STARTER_EMOTES, type EmoteId } from './data/victoryEmotes';
+import { STARTER_CARD_BACKS, DEFAULT_CARD_BACK, type CardBackId } from './data/cardBacks';
 import { CosmeticsProvider } from './state/cosmetics';
 import { Cosmetics } from './screens/Cosmetics';
 import { getMemoryPack } from './data/memoryPacks';
@@ -56,9 +57,11 @@ function makeInitialSave(): SaveData {
     unlockedFrames: [...STARTER_FRAMES],
     unlockedBoardSkins: [...STARTER_BOARD_SKINS],
     unlockedEmotes: [...STARTER_EMOTES],
+    unlockedCardBacks: [...STARTER_CARD_BACKS],
     equippedFrame: 'classic',
     equippedBoardSkin: 'daylight',
     equippedEmote: 'gg',
+    equippedCardBack: DEFAULT_CARD_BACK,
     openedMemoryPacks: [],
   };
 }
@@ -110,17 +113,20 @@ export default function App() {
       const needsFrames = !s.unlockedFrames || s.unlockedFrames.length === 0;
       const needsBoards = !s.unlockedBoardSkins || s.unlockedBoardSkins.length === 0;
       const needsEmotes = !s.unlockedEmotes || s.unlockedEmotes.length === 0;
-      const needsEquipped = !s.equippedFrame || !s.equippedBoardSkin || !s.equippedEmote;
-      if (!needsFilters && !needsMemory && !needsFrames && !needsBoards && !needsEmotes && !needsEquipped) return s;
+      const needsCardBacks = !s.unlockedCardBacks || s.unlockedCardBacks.length === 0;
+      const needsEquipped = !s.equippedFrame || !s.equippedBoardSkin || !s.equippedEmote || !s.equippedCardBack;
+      if (!needsFilters && !needsMemory && !needsFrames && !needsBoards && !needsEmotes && !needsCardBacks && !needsEquipped) return s;
       return {
         ...s,
         unlockedFilters: needsFilters ? [...STARTER_FILTERS] : s.unlockedFilters,
         unlockedFrames: needsFrames ? [...STARTER_FRAMES] : s.unlockedFrames,
         unlockedBoardSkins: needsBoards ? [...STARTER_BOARD_SKINS] : s.unlockedBoardSkins,
         unlockedEmotes: needsEmotes ? [...STARTER_EMOTES] : s.unlockedEmotes,
+        unlockedCardBacks: needsCardBacks ? [...STARTER_CARD_BACKS] : s.unlockedCardBacks,
         equippedFrame: s.equippedFrame ?? 'classic',
         equippedBoardSkin: s.equippedBoardSkin ?? 'daylight',
         equippedEmote: s.equippedEmote ?? 'gg',
+        equippedCardBack: s.equippedCardBack ?? DEFAULT_CARD_BACK,
         openedMemoryPacks: needsMemory ? [] : s.openedMemoryPacks,
       };
     });
@@ -420,7 +426,7 @@ export default function App() {
 
   /** Buy a card frame, board skin, or victory emote. Shared closure
    *  shape so the four buy callbacks below stay one-liners. */
-  const buyCosmetic = <K extends 'unlockedFrames' | 'unlockedBoardSkins' | 'unlockedEmotes'>(
+  const buyCosmetic = <K extends 'unlockedFrames' | 'unlockedBoardSkins' | 'unlockedEmotes' | 'unlockedCardBacks'>(
     key: K,
     starter: string[],
     id: string,
@@ -437,6 +443,7 @@ export default function App() {
   const onBuyFrame = (id: FrameId, cost: number) => buyCosmetic('unlockedFrames', [...STARTER_FRAMES], id, cost);
   const onBuyBoardSkin = (id: BoardSkinId, cost: number) => buyCosmetic('unlockedBoardSkins', [...STARTER_BOARD_SKINS], id, cost);
   const onBuyEmote = (id: EmoteId, cost: number) => buyCosmetic('unlockedEmotes', [...STARTER_EMOTES], id, cost);
+  const onBuyCardBack = (id: CardBackId, cost: number) => buyCosmetic('unlockedCardBacks', [...STARTER_CARD_BACKS], id, cost);
 
   /** Equip handlers — only commit if the cosmetic is actually unlocked,
    *  so accidental URL state or buggy callers can't equip a locked one. */
@@ -446,6 +453,8 @@ export default function App() {
     (s.unlockedBoardSkins ?? STARTER_BOARD_SKINS).includes(id) ? { ...s, equippedBoardSkin: id } : s);
   const onEquipEmote = (id: EmoteId) => setSave(s =>
     (s.unlockedEmotes ?? STARTER_EMOTES).includes(id) ? { ...s, equippedEmote: id } : s);
+  const onEquipCardBack = (id: CardBackId) => setSave(s =>
+    (s.unlockedCardBacks ?? STARTER_CARD_BACKS).includes(id) ? { ...s, equippedCardBack: id } : s);
 
   /** Helper: rewrite a specific deck slot's uids. Mirrors the active
    *  deck's uids back into the legacy `deckUids` field so any code still
@@ -613,6 +622,7 @@ export default function App() {
       frame={save.equippedFrame}
       boardSkin={save.equippedBoardSkin}
       emote={save.equippedEmote}
+      cardBack={save.equippedCardBack}
     >
     <PhoneShell>
       {screen === 'home' && (
@@ -703,16 +713,20 @@ export default function App() {
           unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
           unlockedBoardSkins={save.unlockedBoardSkins ?? [...STARTER_BOARD_SKINS]}
           unlockedEmotes={save.unlockedEmotes ?? [...STARTER_EMOTES]}
+          unlockedCardBacks={save.unlockedCardBacks ?? [...STARTER_CARD_BACKS]}
           equippedFrame={save.equippedFrame ?? 'classic'}
           equippedBoardSkin={save.equippedBoardSkin ?? 'daylight'}
           equippedEmote={save.equippedEmote ?? 'gg'}
+          equippedCardBack={save.equippedCardBack ?? DEFAULT_CARD_BACK}
           onBuyFrame={onBuyFrame}
           onBuyFilter={onBuyFilter}
           onBuyBoardSkin={onBuyBoardSkin}
           onBuyEmote={onBuyEmote}
+          onBuyCardBack={onBuyCardBack}
           onEquipFrame={onEquipFrame}
           onEquipBoardSkin={onEquipBoardSkin}
           onEquipEmote={onEquipEmote}
+          onEquipCardBack={onEquipCardBack}
           onBack={() => setScreen('home')}
         />
       )}
