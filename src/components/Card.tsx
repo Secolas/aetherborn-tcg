@@ -70,11 +70,13 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
   const frame = frameEnabled ? getFrame(cosm.frame) : getFrame('classic');
   const frameOuterShadow = frame.outer?.boxShadow as string | undefined;
   const frameInnerShadow = frame.inner?.boxShadow as string | undefined;
-  // Hovered cards still get the warm yellow ring (selection affordance);
-  // when a frame is equipped we add the frame's outer glow as an extra
-  // layer on top of that. Otherwise the base shadows below take over.
+  // Hovered cards lift with a stronger drop shadow + soft white inner
+  // bevel — no contrasting "selected" color ring, which previously
+  // dropped a bright #f4d04a outline across every preview / reveal /
+  // inspect modal and competed with the card's own type-palette chrome.
+  // Equipped frames compose their outer glow on top.
   const baseShadow = hovered
-    ? '0 18px 40px rgba(0,0,0,.45), 0 0 0 3px #f4d04a, inset 0 0 0 2px rgba(255,255,255,.2)'
+    ? '0 22px 44px rgba(0,0,0,.42), inset 0 0 0 2px rgba(255,255,255,.22)'
     : '0 6px 16px rgba(0,0,0,.35), inset 0 0 0 2px rgba(255,255,255,.15)';
   const composedShadow = frameOuterShadow
     ? `${frameOuterShadow}, ${baseShadow}`

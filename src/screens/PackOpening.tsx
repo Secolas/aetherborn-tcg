@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Coins, Sparkles, Lock, Star, Shield, Package } from 'lucide-react';
+import { ArrowLeft, Coins, Sparkles, Lock, Star, Cake, Sun, Heart, PawPrint } from 'lucide-react';
 import { Card } from '../components/Card';
 import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
@@ -31,6 +31,13 @@ type PackPick =
   | { kind: 'theme'; theme: ElementId; vibe: PackVibe }
   | { kind: 'memory'; pack: MemoryPackDef; vibe: PackVibe; firstOpen: boolean };
 
+/** What's queued in the confirm bottom sheet — same discriminated
+ *  union as PackPick but without the resolved vibe (which we only
+ *  build at the moment the cinematic starts). */
+type ConfirmPick =
+  | { kind: 'theme'; theme: ElementId }
+  | { kind: 'memory'; def: MemoryPackDef; firstOpen: boolean };
+
 interface Props {
   coins: number;
   onPackOpened: (cards: CollectionCard[], coinsSpent: number) => void;
@@ -54,6 +61,9 @@ export function PackOpening({
   const [pick, setPick] = useState<PackPick | null>(null);
   const [pack, setPack] = useState<CollectionCard[]>([]);
   const [revealedIdx, setRevealedIdx] = useState(0);
+  /** Pack queued in the confirm bottom sheet. Lets the player review
+   *  cost / contents / bonus filter before committing the coins. */
+  const [confirming, setConfirming] = useState<ConfirmPick | null>(null);
   const { isMobile, isDesktop } = useViewport();
 
   const sfxVol = settings.sfxVolume;
@@ -178,56 +188,118 @@ export function PackOpening({
         width: '100%',
       }}>
         {stage === 'pick' && (
-          <div
-            className="no-scrollbar"
-            style={{
-              flex: 1, minHeight: 0, overflowY: 'auto',
-              width: '100%',
-              padding: isMobile ? '4px 16px 24px' : '0 24px 32px',
-            }}
-          >
-            <div style={{ maxWidth: stageMax, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 18 }}>
-              {/* Element packs section */}
-              <PackSection
-                title="Element Packs"
-                tagline="Pick a theme and photograph it. Every pack is one rare+ guaranteed."
-              >
-                <div style={packGridStyle(isDesktop)}>
+          <>
+            <PackShopStyles />
+            <div
+              className="no-scrollbar"
+              style={{
+                flex: 1, minHeight: 0, overflowY: 'auto',
+                width: '100%',
+                padding: isMobile ? '4px 16px 60px' : '0 24px 60px',
+              }}
+            >
+              <div className="ps-page" style={{ maxWidth: stageMax }}>
+                {/* Curator's note hero */}
+                <section className="ps-featured">
+                  <div className="ps-featured-eyebrow">
+                    <Sparkles size={12} strokeWidth={2.2} />
+                    <span>Curator's pick · this week</span>
+                  </div>
+                  <div className="ps-featured-body">
+                    <div className="ps-featured-copy">
+                      <div className="ps-featured-h">
+                        A pack is a prompt<span className="dot">.</span>
+                      </div>
+                      <p className="ps-featured-p">
+                        Pick a theme, photograph it this week, and we'll print the cards.
+                        Every pack guarantees one rare or better.
+                      </p>
+                    </div>
+                    {/* Mini stack of three memory backs — purely decorative */}
+                    <div className="ps-featured-stack" aria-hidden>
+                      {MEMORY_PACKS.slice(0, 3).map((p, i) => (
+                        <div
+                          key={p.id}
+                          className={`ps-stack-card s${i}`}
+                          style={{ background: `linear-gradient(155deg, ${p.gradient[0]} 0%, ${p.gradient[1]} 100%)` }}
+                        >
+                          {memoryIcon(p.id, 24)}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* Section 1 · Element packs */}
+                <header className="ps-sec">
+                  <div className="ps-sec-l">
+                    <div className="ps-sec-eyebrow">01 · Element packs</div>
+                    <div className="ps-sec-title">Photograph a theme</div>
+                  </div>
+                  <div className="ps-sec-r">
+                    Six themes. Pick one, shoot for a week.
+                  </div>
+                </header>
+                <div className="ps-grid">
                   {THEMES.map(theme => (
-                    <ThemePackOption
+                    <BoosterElement
                       key={theme}
                       theme={theme}
-                      disabled={!canBuyTheme}
-                      onClick={() => buyTheme(theme)}
+                      affordable={canBuyTheme}
+                      onClick={() => setConfirming({ kind: 'theme', theme })}
                     />
                   ))}
                 </div>
                 {!canBuyTheme && (
-                  <div style={{ marginTop: 8, fontSize: 11, color: PALETTE.textMid, opacity: 0.8 }}>
+                  <div className="ps-need-coins">
                     Need {PACK_COST} coins. Win matches to earn more.
                   </div>
                 )}
-              </PackSection>
 
-              {/* Memory packs section */}
-              <PackSection
-                title="Memory Packs"
-                tagline="Curated moments — first open also unlocks a free cosmetic filter."
-              >
-                <div style={packGridStyle(isDesktop)}>
+                {/* Section 2 · Memory packs */}
+                <header className="ps-sec">
+                  <div className="ps-sec-l">
+                    <div className="ps-sec-eyebrow">02 · Memory packs</div>
+                    <div className="ps-sec-title">Curated moments</div>
+                  </div>
+                  <div className="ps-sec-r">
+                    First open also unlocks a free cosmetic filter.
+                  </div>
+                </header>
+                <div className="ps-grid">
                   {MEMORY_PACKS.map(def => (
-                    <MemoryPackOption
+                    <BoosterMemory
                       key={def.id}
                       def={def}
                       coins={coins}
                       firstOpen={!openedMemoryPacks.includes(def.id)}
-                      onClick={() => buyMemory(def)}
+                      onClick={() => setConfirming({ kind: 'memory', def, firstOpen: !openedMemoryPacks.includes(def.id) })}
                     />
                   ))}
+                  {/* Locked "coming soon" tile — matches design's Season 2 placeholder. */}
+                  <BoosterLocked label="Season 2" sub="more memories soon" />
                 </div>
-              </PackSection>
+
+                <footer className="ps-foot">
+                  <span>Cards stay yours forever, even across decks.</span>
+                </footer>
+              </div>
             </div>
-          </div>
+
+            {confirming && (
+              <ConfirmSheet
+                confirming={confirming}
+                coins={coins}
+                onClose={() => setConfirming(null)}
+                onConfirm={() => {
+                  const c = confirming;
+                  setConfirming(null);
+                  if (c.kind === 'theme') buyTheme(c.theme);
+                  else buyMemory(c.def);
+                }}
+              />
+            )}
+          </>
         )}
 
         {pick && (stage === 'lift' || stage === 'tension' || stage === 'burst') && (
@@ -324,223 +396,629 @@ export function PackOpening({
 }
 
 // =================================================================
-// SECTION HEADING
-// =================================================================
-function PackSection({
-  title, tagline, children,
-}: { title: string; tagline: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <div style={{
-        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        gap: 12, flexWrap: 'wrap',
-        margin: '0 4px 10px',
-      }}>
-        <div style={{
-          fontSize: 11, fontWeight: 800, letterSpacing: '0.2em',
-          color: PALETTE.text, textTransform: 'uppercase',
-        }}>
-          {title}
-        </div>
-        <div style={{
-          fontSize: 11, color: PALETTE.textMid, fontStyle: 'italic',
-          flex: 1, minWidth: 200, textAlign: 'right',
-        }}>
-          {tagline}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-/**
- * Grid template used by both element + memory pack sections so they
- * align. Mobile: single column. Desktop: auto-fill 2–3 columns.
- */
-function packGridStyle(isDesktop: boolean): React.CSSProperties {
-  return {
-    display: 'grid',
-    gridTemplateColumns: isDesktop
-      ? 'repeat(auto-fill, minmax(320px, 1fr))'
-      : 'repeat(auto-fill, minmax(280px, 1fr))',
-    gap: 12,
-  };
-}
-
-// =================================================================
-// PACK OPTION CARDS
+// BOOSTER PACKS — element + memory + locked tile
 // =================================================================
 /**
- * One element-pack option. Surface is intentionally neutral (paper +
- * border) — the theme identity reads through a small color stripe on
- * the left and the colored glyph, not a full-surface gradient. Keeps
- * the page palette calm so the cinematic + reveal moments pop instead
- * of competing with a wall of saturated swatches.
+ * Per-memory-pack lucide icon. The MemoryPackDef shape doesn't carry
+ * an icon, so we map by id here — keeps the data file untouched while
+ * still giving each pack a thematic glyph on the booster.
  */
-function ThemePackOption({
-  theme, disabled, onClick,
-}: { theme: ElementId; disabled: boolean; onClick: () => void }) {
+function memoryIcon(id: string, size = 56) {
+  const props = { size, strokeWidth: 1.8, color: 'rgba(255,255,255,.96)' as const };
+  switch (id) {
+    case 'birthday':  return <Cake {...props} />;
+    case 'vacation':  return <Sun {...props} />;
+    case 'pet':       return <PawPrint {...props} />;
+    case 'milestone': return <Star {...props} fill="rgba(255,255,255,.96)" />;
+    case 'couple':    return <Heart {...props} fill="rgba(255,255,255,.96)" />;
+    default:          return <Sparkles {...props} />;
+  }
+}
+
+/** Element booster — full-surface gradient pack with tear-strip, sigil,
+ *  wordmark, and bottom band. The shell + foil + insets are all scoped
+ *  to `.bp` in PackShopStyles so the markup stays compact. */
+function BoosterElement({
+  theme, affordable, onClick,
+}: { theme: ElementId; affordable: boolean; onClick: () => void }) {
   const e = ELEMENTS[theme];
   return (
     <button
-      onClick={!disabled ? onClick : undefined}
-      disabled={disabled}
-      aria-label={`Open ${e.name} pack for ${PACK_COST} coins`}
-      style={packOptionShellStyle(disabled, e.color)}
-      onPointerDown={(ev) => { if (!disabled) (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
-      onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
-      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+      className="bp"
+      data-disabled={!affordable}
+      disabled={!affordable}
+      onClick={onClick}
+      aria-label={`Open ${e.name} element pack for ${PACK_COST} coins`}
+      style={{
+        background: `linear-gradient(165deg, ${e.color} 0%, ${e.deep} 100%)`,
+      }}
     >
-      <div style={{
-        width: 52, height: 52, borderRadius: 14,
-        background: `linear-gradient(135deg, ${e.deep} 0%, ${e.color} 100%)`,
-        boxShadow: `0 4px 10px ${e.color}66`,
-        display: 'grid', placeItems: 'center',
-        color: '#fff', flex: '0 0 auto',
-      }} aria-hidden>
-        <ElementGlyph el={theme} size={28} />
+      <div className="bp-tear" aria-hidden>
+        <div className="bp-tear-pattern" />
+        <div className="bp-tear-label">PULL</div>
       </div>
-      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-        <div style={{
-          fontSize: 16, fontWeight: 800,
-          letterSpacing: '0.02em', color: PALETTE.text,
-        }}>{e.name}</div>
-        <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2, lineHeight: 1.35 }}>
-          {e.blurb}
+      <div className="bp-foil" aria-hidden />
+      <div className="bp-sigil" aria-hidden>
+        <ElementGlyph el={theme} size={56} />
+      </div>
+      <div className="bp-wordmark">
+        <div className="bp-eyebrow">Element pack</div>
+        <div className="bp-name">{e.name}</div>
+      </div>
+      <div className="bp-band">
+        <div className="bp-band-l">
+          <span>{PACK_SIZE} cards</span>
+          <span className="bp-band-dot">·</span>
+          <span className="bp-band-rare">1 rare+</span>
         </div>
-        <PackMeta cost={PACK_COST} themeAccent={e.color} />
+        <span className="bp-coin">
+          <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+          {PACK_COST}
+        </span>
       </div>
     </button>
   );
 }
 
-/**
- * One memory-pack option. Same neutral shell as the element packs but
- * the icon tile uses the memory-pack gradient and we surface the
- * bonus-filter pill prominently when the player hasn't opened it yet.
- */
-function MemoryPackOption({
+/** Memory booster — same shape, but uses the memory pack's gradient and
+ *  surfaces the "first open unlocks {filter}" chip at the top-left. */
+function BoosterMemory({
   def, coins, firstOpen, onClick,
 }: { def: MemoryPackDef; coins: number; firstOpen: boolean; onClick: () => void }) {
   const canAfford = coins >= def.cost;
+  const [hue, hue2] = def.gradient;
   const filter = FILTERS[def.bonusFilter];
-  const [deep, color] = def.gradient;
   return (
     <button
-      onClick={canAfford ? onClick : undefined}
+      className="bp"
+      data-disabled={!canAfford}
       disabled={!canAfford}
+      onClick={onClick}
       aria-label={`Open ${def.name} memory pack for ${def.cost} coins`}
-      style={packOptionShellStyle(!canAfford, color)}
-      onPointerDown={(ev) => { if (canAfford) (ev.currentTarget as HTMLElement).style.transform = 'translateY(1px) scale(0.99)'; }}
-      onPointerUp={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
-      onPointerLeave={(ev) => { (ev.currentTarget as HTMLElement).style.transform = 'translateY(0) scale(1)'; }}
+      style={{
+        background: `linear-gradient(155deg, ${hue} 0%, ${hue2} 100%)`,
+      }}
     >
-      <div style={{
-        width: 52, height: 52, borderRadius: 14,
-        background: `linear-gradient(135deg, ${deep} 0%, ${color} 100%)`,
-        boxShadow: `0 4px 10px ${color}66`,
-        display: 'grid', placeItems: 'center',
-        color: '#fff', flex: '0 0 auto',
-        position: 'relative',
-      }} aria-hidden>
-        <Package size={22} strokeWidth={2.2} />
-        {firstOpen && (
-          <span style={{
-            position: 'absolute', top: -6, right: -6,
-            background: def.glow, color: deep,
-            fontSize: 8, fontWeight: 900,
-            letterSpacing: '0.15em',
-            padding: '2px 5px', borderRadius: 6,
-            boxShadow: '0 2px 4px rgba(0,0,0,.18)',
-          }}>BONUS</span>
-        )}
+      <div className="bp-tear" aria-hidden>
+        <div className="bp-tear-pattern" />
+        <div className="bp-tear-label">PULL</div>
       </div>
-      <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
-        <div style={{
-          fontSize: 16, fontWeight: 800,
-          color: PALETTE.text, letterSpacing: '0.02em',
-        }}>{def.name}</div>
-        <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2, lineHeight: 1.35 }}>
-          {def.blurb}
+      <div className="bp-foil" aria-hidden />
+      <div className="bp-sigil" aria-hidden>
+        {memoryIcon(def.id, 56)}
+      </div>
+      <div className="bp-wordmark">
+        <div className="bp-eyebrow">Memory pack</div>
+        <div className="bp-name">{def.name}</div>
+      </div>
+      {firstOpen && (
+        <div className="bp-bonus">
+          <Sparkles size={11} fill="#fff" color="#fff" strokeWidth={2.2} />
+          Unlocks <strong>{filter.name}</strong>
         </div>
-        <div style={{
-          marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 4,
-          background: firstOpen ? `${def.glow}33` : 'rgba(58,46,42,.08)',
-          color: firstOpen ? PALETTE.text : PALETTE.textMid,
-          padding: '2px 8px', borderRadius: 8,
-          fontSize: 10, fontWeight: 700,
-        }}>
-          {firstOpen
-            ? <><Sparkles size={10} /> Unlocks {filter.name}</>
-            : <><Lock size={10} /> {filter.name} already unlocked</>}
+      )}
+      <div className="bp-band">
+        <div className="bp-band-l">
+          <span>{PACK_SIZE} cards</span>
+          <span className="bp-band-dot">·</span>
+          <span className="bp-band-rare">1 rare+</span>
         </div>
-        <PackMeta cost={def.cost} themeAccent={color} />
+        <span className="bp-coin">
+          <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+          {def.cost}
+        </span>
       </div>
     </button>
   );
 }
 
-/**
- * Shared shell for both pack option buttons. Neutral paper surface with
- * a thin accent stripe on the left so the theme identity reads at a
- * glance without flooding the page with saturated gradients.
- */
-function packOptionShellStyle(disabled: boolean, accent: string): React.CSSProperties {
-  return {
-    width: '100%',
-    display: 'flex', alignItems: 'center', gap: 14,
-    padding: '14px 16px 14px 18px',
-    borderRadius: 16,
-    border: `1.5px solid ${PALETTE.border}`,
-    background: '#fff',
-    color: PALETTE.text,
-    cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.55 : 1,
-    textAlign: 'left',
-    transition: 'transform .12s, box-shadow .15s',
-    fontFamily: 'inherit',
-    boxShadow: `0 4px 12px rgba(58,46,42,.06), inset 4px 0 0 0 ${accent}`,
-    minHeight: 88,
-    outline: 'none',
-  };
-}
-
-/**
- * Bottom-of-card meta row — cost, pack size, guaranteed rarity. Three
- * concise chips so the player can compare packs without reading prose.
- */
-function PackMeta({ cost, themeAccent }: { cost: number; themeAccent: string }) {
+/** "Coming soon" placeholder tile that lives at the end of the memory
+ *  grid. Same footprint as a booster so the grid stays rhythmic. */
+function BoosterLocked({ label, sub }: { label: string; sub: string }) {
   return (
-    <div style={{
-      marginTop: 8,
-      display: 'flex', gap: 6, flexWrap: 'wrap',
-    }}>
-      <span style={metaChip} aria-label={`${cost} coins`}>
-        <Coins size={11} fill="#ffd166" color="#e8a93a" strokeWidth={2.2} />
-        <strong>{cost}</strong>
-      </span>
-      <span style={metaChip} aria-label={`${PACK_SIZE} cards`}>
-        <Shield size={11} strokeWidth={2.4} color={themeAccent} />
-        {PACK_SIZE} cards
-      </span>
-      <span style={{ ...metaChip, background: 'rgba(255, 209, 102, .14)', color: '#7a5414' }} aria-label="One rare or better guaranteed">
-        <Star size={11} strokeWidth={2.4} fill="#ffd166" color="#e8a93a" />
-        1 rare+
-      </span>
+    <div className="bp bp-locked" aria-label={`${label} coming soon`}>
+      <div className="bp-locked-icon">
+        <Lock size={20} strokeWidth={2.2} color={PALETTE.textLight} />
+      </div>
+      <div className="bp-locked-name">{label}</div>
+      <div className="bp-locked-sub">{sub}</div>
     </div>
   );
 }
 
-const metaChip: React.CSSProperties = {
-  display: 'inline-flex', alignItems: 'center', gap: 4,
-  fontSize: 11, fontWeight: 700,
-  padding: '3px 9px',
-  borderRadius: 9,
-  background: 'rgba(58,46,42,.06)',
-  color: PALETTE.text,
-  whiteSpace: 'nowrap',
-};
+// =================================================================
+// CONFIRM BOTTOM SHEET
+// =================================================================
+/**
+ * Slides up when the player taps a pack — shows the pack's identity
+ * card, three quick stats (count, rare guarantee, no-dupes), and a
+ * prominent "Open for X coins" CTA. Confirming triggers the existing
+ * cinematic; cancel/backdrop dismisses.
+ */
+function ConfirmSheet({
+  confirming, coins, onClose, onConfirm,
+}: {
+  confirming: ConfirmPick;
+  coins: number;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const isMemory = confirming.kind === 'memory';
+  const name = isMemory ? confirming.def.name : ELEMENTS[confirming.theme].name;
+  const blurb = isMemory ? confirming.def.blurb : ELEMENTS[confirming.theme].blurb;
+  const cost = isMemory ? confirming.def.cost : PACK_COST;
+  const canAfford = coins >= cost;
+  const gradient = isMemory
+    ? `linear-gradient(155deg, ${confirming.def.gradient[0]} 0%, ${confirming.def.gradient[1]} 100%)`
+    : `linear-gradient(165deg, ${ELEMENTS[confirming.theme].color} 0%, ${ELEMENTS[confirming.theme].deep} 100%)`;
+  const filter = isMemory ? FILTERS[confirming.def.bonusFilter] : null;
+  const firstOpen = isMemory && confirming.firstOpen;
+
+  return (
+    <>
+      <div className="ps-sheet-bk" onClick={onClose} />
+      <div className="ps-sheet" role="dialog" aria-label="Confirm pack open">
+        <div className="ps-sheet-grab" />
+        <div className="ps-sheet-pack" style={{ background: gradient }} aria-hidden>
+          {isMemory
+            ? memoryIcon(confirming.def.id, 44)
+            : <ElementGlyph el={confirming.theme} size={44} />}
+        </div>
+        <div className="ps-sheet-eyebrow">{isMemory ? 'Memory pack' : 'Element pack'}</div>
+        <div className="ps-sheet-name">{name}</div>
+        <div className="ps-sheet-desc">{blurb}</div>
+        <div className="ps-sheet-stats">
+          <div className="ps-stat">
+            <div className="ps-stat-n">{PACK_SIZE}</div>
+            <div className="ps-stat-l">cards</div>
+          </div>
+          <div className="ps-stat">
+            <div className="ps-stat-n">≥1</div>
+            <div className="ps-stat-l">rare+</div>
+          </div>
+          <div className="ps-stat">
+            <div className="ps-stat-n">0</div>
+            <div className="ps-stat-l">dupes</div>
+          </div>
+        </div>
+        {firstOpen && filter && (
+          <div className="ps-sheet-bonus">
+            <Sparkles size={12} fill={PALETTE.accent} color={PALETTE.accent} strokeWidth={2.2} />
+            First open unlocks <strong>{filter.name}</strong>
+          </div>
+        )}
+        <button
+          className="ps-sheet-cta"
+          onClick={onConfirm}
+          disabled={!canAfford}
+        >
+          <span>{canAfford ? 'Open for' : 'Need more'}</span>
+          <span className="ps-sheet-cta-cost">
+            <Coins size={13} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+            {cost}
+          </span>
+        </button>
+        <button className="ps-sheet-cancel" onClick={onClose}>Not yet</button>
+      </div>
+    </>
+  );
+}
+
+// =================================================================
+// SCOPED STYLESHEET FOR THE PICK STAGE
+// =================================================================
+/**
+ * Scoped under `.ps-page` (the pick-stage wrapper). Uses Fredoka +
+ * the app's PALETTE so the booster shop reads as the same product
+ * as the rest of the app, while still hitting the design's foil-pack
+ * silhouettes via gradients + insets + tear strip. The cinematic and
+ * reveal stages live below and don't import this stylesheet.
+ */
+function PackShopStyles() {
+  return (
+    <style>{`
+      .ps-page {
+        margin: 0 auto;
+        display: flex; flex-direction: column;
+        gap: 22px;
+        width: 100%;
+      }
+      @media (min-width: 720px) { .ps-page { gap: 28px; } }
+      @media (min-width: 1024px) { .ps-page { gap: 32px; } }
+
+      /* Curator's note hero */
+      .ps-featured {
+        position: relative;
+        background: #fff;
+        border: 1px solid ${PALETTE.border};
+        border-radius: 22px;
+        padding: 18px 20px;
+        box-shadow: 0 2px 6px rgba(58,46,42,.06);
+        overflow: hidden;
+      }
+      .ps-featured::before {
+        content: ""; position: absolute; inset: 0;
+        background: radial-gradient(ellipse 100% 80% at 100% 0%, ${PALETTE.accent}22, transparent 60%);
+        pointer-events: none;
+      }
+      .ps-featured-eyebrow {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 10px; font-weight: 800; letter-spacing: 0.22em;
+        text-transform: uppercase; color: ${PALETTE.accent};
+        margin-bottom: 12px;
+      }
+      .ps-featured-body {
+        display: grid; grid-template-columns: 1fr; gap: 18px;
+        align-items: center; position: relative;
+      }
+      @media (min-width: 560px) {
+        .ps-featured-body { grid-template-columns: 1fr auto; gap: 24px; }
+      }
+      .ps-featured-h {
+        font-family: inherit; font-weight: 800;
+        font-size: 24px; line-height: 1.05;
+        letter-spacing: -0.01em;
+        color: ${PALETTE.text};
+      }
+      @media (min-width: 720px) { .ps-featured-h { font-size: 30px; } }
+      .ps-featured-h .dot { color: ${PALETTE.accent}; }
+      .ps-featured-p {
+        margin: 6px 0 0;
+        font-size: 13px; line-height: 1.5;
+        color: ${PALETTE.textMid};
+        max-width: 52ch;
+        text-wrap: pretty;
+      }
+      .ps-featured-stack {
+        position: relative; width: 152px; height: 110px;
+        flex-shrink: 0;
+      }
+      .ps-stack-card {
+        position: absolute; top: 5px; left: 40px;
+        width: 72px; height: 100px; border-radius: 10px;
+        display: grid; place-items: center;
+        box-shadow:
+          0 4px 0 rgba(0,0,0,.10),
+          0 14px 24px -8px rgba(0,0,0,.25);
+      }
+      .ps-stack-card.s0 { transform: rotate(-8deg) translateX(-26px); }
+      .ps-stack-card.s1 { transform: rotate(0deg); z-index: 1; }
+      .ps-stack-card.s2 { transform: rotate(8deg) translateX(26px); }
+
+      /* Section header */
+      .ps-sec {
+        display: flex; justify-content: space-between; align-items: flex-end;
+        gap: 12px; padding-bottom: 10px;
+        border-bottom: 1px solid rgba(58,46,42,.22);
+        flex-wrap: wrap;
+      }
+      .ps-sec-eyebrow {
+        font-size: 10px; font-weight: 800; letter-spacing: 0.22em;
+        text-transform: uppercase; color: ${PALETTE.textLight};
+      }
+      .ps-sec-title {
+        font-family: inherit; font-weight: 800;
+        font-size: 22px; letter-spacing: -0.01em;
+        color: ${PALETTE.text}; margin-top: 2px;
+      }
+      @media (min-width: 720px) { .ps-sec-title { font-size: 26px; } }
+      .ps-sec-r {
+        font-size: 13px; font-style: italic; color: ${PALETTE.textMid};
+        max-width: 32ch; text-align: right; flex: 1; min-width: 220px;
+      }
+
+      /* Pack grid — responsive 2 → 3 → 4 columns */
+      .ps-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+      }
+      @media (min-width: 560px) {
+        .ps-grid { grid-template-columns: repeat(3, 1fr); gap: 16px; }
+      }
+      @media (min-width: 1024px) {
+        .ps-grid { grid-template-columns: repeat(4, 1fr); gap: 20px; }
+      }
+
+      .ps-need-coins {
+        margin-top: -6px;
+        font-size: 11px; color: ${PALETTE.textMid}; opacity: 0.8;
+      }
+
+      /* Booster pack */
+      .bp {
+        position: relative;
+        aspect-ratio: 0.72;
+        border-radius: 16px;
+        border: 0; padding: 0;
+        cursor: pointer; color: #fff;
+        font-family: inherit;
+        overflow: hidden;
+        box-shadow:
+          0 4px 0 rgba(28,24,20,.08),
+          0 14px 28px -10px rgba(28,24,20,.18),
+          inset 0 -3px 0 rgba(0,0,0,.22),
+          inset 0 1.5px 0 rgba(255,255,255,.18);
+        transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .2s;
+      }
+      .bp:hover { transform: translateY(-4px) rotate(-0.4deg); }
+      .bp:active { transform: translateY(-1px); }
+      .bp[data-disabled="true"] {
+        cursor: not-allowed; opacity: 0.55;
+        transform: none;
+      }
+      .bp[data-disabled="true"]:hover { transform: none; }
+
+      /* Foil sheen overlay */
+      .bp-foil {
+        position: absolute; inset: 22px 0 0 0;
+        background:
+          radial-gradient(ellipse 60% 40% at 10% 0%, rgba(255,255,255,.32), transparent 60%),
+          radial-gradient(ellipse 60% 60% at 90% 100%, rgba(0,0,0,.22), transparent 60%);
+        mix-blend-mode: overlay;
+        opacity: 0.85;
+        pointer-events: none;
+      }
+
+      /* Sigil disc */
+      .bp-sigil {
+        position: absolute; top: 24%; left: 50%;
+        width: 78px; height: 78px;
+        transform: translate(-50%, 0);
+        border-radius: 50%;
+        background: rgba(255,255,255,.10);
+        border: 1.5px solid rgba(255,255,255,.22);
+        box-shadow: inset 0 0 0 6px rgba(255,255,255,.05);
+        display: grid; place-items: center;
+      }
+
+      /* Wordmark */
+      .bp-wordmark {
+        position: absolute;
+        left: 12px; right: 12px; bottom: 56px;
+        text-align: left;
+      }
+      .bp-eyebrow {
+        font-family: inherit; font-weight: 800;
+        font-size: 9px; letter-spacing: 0.22em;
+        text-transform: uppercase; opacity: 0.75;
+      }
+      .bp-name {
+        font-family: inherit; font-weight: 800;
+        font-size: 20px; letter-spacing: -0.005em;
+        margin-top: 2px;
+        text-shadow: 0 1px 0 rgba(0,0,0,.18);
+        line-height: 1.05;
+      }
+      @media (min-width: 720px) { .bp-name { font-size: 22px; } }
+
+      /* Tear strip */
+      .bp-tear {
+        position: absolute; top: 0; left: 0; right: 0;
+        height: 22px;
+        background: rgba(0,0,0,.18);
+        border-bottom: 1.5px dashed rgba(255,255,255,.35);
+        display: grid; place-items: center;
+        overflow: hidden;
+      }
+      .bp-tear-pattern {
+        position: absolute; inset: 0;
+        background: repeating-linear-gradient(90deg,
+          transparent 0 6px,
+          rgba(255,255,255,.10) 6px 8px);
+      }
+      .bp-tear-label {
+        position: relative;
+        font-family: inherit; font-weight: 800;
+        font-size: 8px; letter-spacing: 0.35em;
+        color: rgba(255,255,255,.65);
+      }
+
+      /* Bottom band */
+      .bp-band {
+        position: absolute; left: 10px; right: 10px; bottom: 10px;
+        padding: 7px 10px;
+        background: rgba(0,0,0,.32);
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255,255,255,.14);
+        border-radius: 10px;
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 8px;
+        font-family: inherit; font-weight: 700;
+        font-size: 10px; letter-spacing: 0.04em;
+      }
+      .bp-band-l { display: inline-flex; align-items: center; gap: 5px; color: rgba(255,255,255,.92); }
+      .bp-band-dot { opacity: 0.6; }
+      .bp-band-rare { color: #ffd96b; }
+      .bp-coin {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 3px 8px;
+        background: rgba(0,0,0,.30);
+        border-radius: 999px;
+        font-weight: 800; font-size: 11px;
+      }
+
+      /* Bonus chip — first-open memory only */
+      .bp-bonus {
+        position: absolute; top: 30px; left: 10px;
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 8px;
+        background: rgba(0,0,0,.32);
+        border: 1px solid rgba(255,255,255,.20);
+        border-radius: 999px;
+        font-family: inherit; font-weight: 700;
+        font-size: 9px; letter-spacing: 0.04em;
+        color: rgba(255,255,255,.92);
+      }
+      .bp-bonus strong { color: #ffd96b; font-weight: 800; }
+
+      /* Locked tile */
+      .bp.bp-locked {
+        background: #fff7e6;
+        border: 1.5px dashed rgba(58,46,42,.22);
+        box-shadow: none;
+        cursor: default;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 6px;
+        color: ${PALETTE.text};
+      }
+      .bp.bp-locked:hover { transform: none; }
+      .bp-locked-icon {
+        width: 50px; height: 50px; border-radius: 50%;
+        background: #fff;
+        border: 1px solid ${PALETTE.border};
+        display: grid; place-items: center;
+      }
+      .bp-locked-name {
+        font-family: inherit; font-weight: 800; font-size: 16px;
+        color: ${PALETTE.text};
+      }
+      .bp-locked-sub {
+        font-family: inherit; font-weight: 700;
+        font-size: 9px; letter-spacing: 0.18em;
+        text-transform: uppercase; color: ${PALETTE.textLight};
+      }
+
+      /* Footer */
+      .ps-foot {
+        margin-top: 4px;
+        padding: 10px 4px;
+        font-style: italic; font-size: 13px;
+        color: ${PALETTE.textMid};
+        text-align: center;
+      }
+
+      /* ==== Confirm bottom sheet ==== */
+      .ps-sheet-bk {
+        position: absolute; inset: 0;
+        background: rgba(28,24,20,.45);
+        backdrop-filter: blur(3px);
+        z-index: 50;
+        animation: psFadeIn .2s ease-out;
+      }
+      .ps-sheet {
+        position: absolute; left: 0; right: 0; bottom: 0;
+        background: #fff;
+        border-radius: 24px 24px 0 0;
+        padding: 12px 22px 26px;
+        box-shadow: 0 -16px 40px rgba(0,0,0,.25);
+        z-index: 51;
+        display: flex; flex-direction: column; align-items: center;
+        gap: 8px;
+        animation: psSlideUp .25s cubic-bezier(.2,.7,.2,1);
+        max-height: 92%;
+        overflow-y: auto;
+      }
+      .ps-sheet-grab {
+        width: 36px; height: 4px; border-radius: 2px;
+        background: rgba(58,46,42,.22);
+        margin: 2px auto 8px;
+      }
+      .ps-sheet-pack {
+        width: 110px; aspect-ratio: 0.72;
+        border-radius: 14px;
+        display: grid; place-items: center;
+        margin-bottom: 6px;
+        box-shadow:
+          0 4px 0 rgba(0,0,0,.10),
+          0 14px 28px -10px rgba(0,0,0,.25),
+          inset 0 1.5px 0 rgba(255,255,255,.2);
+        color: #fff;
+      }
+      .ps-sheet-eyebrow {
+        font-size: 10px; font-weight: 800; letter-spacing: 0.22em;
+        text-transform: uppercase; color: ${PALETTE.accent};
+      }
+      .ps-sheet-name {
+        font-family: inherit; font-weight: 800;
+        font-size: 28px; letter-spacing: -0.015em;
+        color: ${PALETTE.text};
+      }
+      .ps-sheet-desc {
+        font-size: 13px; font-style: italic; color: ${PALETTE.textMid};
+        text-align: center; max-width: 36ch;
+        margin-bottom: 4px;
+      }
+      .ps-sheet-stats {
+        display: flex; gap: 18px;
+        padding: 12px 20px;
+        background: #fff7e6;
+        border: 1px solid ${PALETTE.border};
+        border-radius: 14px;
+        margin: 4px 0;
+      }
+      .ps-stat { text-align: center; min-width: 50px; }
+      .ps-stat-n {
+        font-family: inherit; font-weight: 800;
+        font-size: 22px; line-height: 1;
+        color: ${PALETTE.text};
+      }
+      .ps-stat-l {
+        font-size: 9px; font-weight: 800; letter-spacing: 0.18em;
+        text-transform: uppercase; color: ${PALETTE.textLight};
+        margin-top: 2px;
+      }
+      .ps-sheet-bonus {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 12px; color: ${PALETTE.text};
+        padding: 6px 10px;
+        background: ${PALETTE.accent}1A;
+        border-radius: 999px;
+      }
+      .ps-sheet-bonus strong { color: ${PALETTE.accent}; font-weight: 800; }
+      .ps-sheet-cta {
+        width: 100%; max-width: 320px;
+        margin-top: 8px;
+        padding: 14px 22px;
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 100%);
+        color: #fff;
+        border: 0; border-radius: 999px;
+        font-family: inherit; font-weight: 800;
+        font-size: 15px; letter-spacing: 0.02em;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
+        transition: transform .12s, box-shadow .12s, filter .12s;
+      }
+      .ps-sheet-cta:hover { transform: translateY(-1px); filter: brightness(1.04); }
+      .ps-sheet-cta:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(238,90,82,.32); }
+      .ps-sheet-cta[disabled] {
+        background: ${PALETTE.textLight}; cursor: not-allowed;
+        box-shadow: 0 4px 10px rgba(58,46,42,.18); filter: none;
+      }
+      .ps-sheet-cta-cost {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px;
+        background: rgba(0,0,0,.22);
+        border-radius: 999px;
+        font-family: inherit; font-weight: 800; font-size: 14px;
+      }
+      .ps-sheet-cancel {
+        background: transparent; border: 0;
+        font-family: inherit; font-weight: 700;
+        font-size: 13px; color: ${PALETTE.textLight};
+        cursor: pointer; padding: 6px;
+      }
+
+      @keyframes psFadeIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes psSlideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .bp, .bp:hover, .bp:active,
+        .ps-sheet, .ps-sheet-bk, .ps-sheet-cta,
+        .ps-sheet-cta:hover, .ps-sheet-cta:active {
+          animation: none !important;
+          transition: none !important;
+          transform: none !important;
+        }
+      }
+    `}</style>
+  );
+}
 
 // =================================================================
 // CINEMATIC + REVEAL (unchanged)
