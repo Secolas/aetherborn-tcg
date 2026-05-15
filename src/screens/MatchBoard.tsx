@@ -2510,7 +2510,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             filter: 'drop-shadow(0 8px 18px rgba(58,46,42,.5))',
           }}
         >
-          <CardBack scale={0.5} />
+          <CardBack scale={0.5} side="player" />
         </div>
       ) : (
         <div
@@ -2523,7 +2523,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             filter: 'drop-shadow(0 8px 18px rgba(58,46,42,.5))',
           }}
         >
-          <CardBack scale={0.5} />
+          <CardBack scale={0.5} side="opponent" />
         </div>
       ))}
 

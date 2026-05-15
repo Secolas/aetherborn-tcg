@@ -1,32 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Fraunces:ital,wght@0,500;0,600;0,700;0,800;1,500;1,700&family=JetBrains+Mono:wght@500;600;700&display=swap');
-
-/* Bestiary tokens — used by BossPicker and any future "old book" screens.
-   Mirror the design handoff palette without disturbing existing token
-   imports elsewhere. */
-:root {
-  --bestiary-bg-0: #fdf3e3;
-  --bestiary-bg-1: #fae6c8;
-  --bestiary-bg-2: #f5d4a3;
-  --bestiary-paper: #ffffff;
-  --bestiary-paper-warm: #fff7e8;
-  --bestiary-ink: #1c1814;
-  --bestiary-ink-soft: #6b5e51;
-  --bestiary-ink-mute: #9a8b78;
-  --bestiary-rule: rgba(28, 24, 20, 0.10);
-  --bestiary-rule-strong: rgba(28, 24, 20, 0.22);
-  --bestiary-accent: #c44e44;
-  --bestiary-c-family: #c44e44;
-  --bestiary-c-work: #384e63;
-  --bestiary-c-animals: #3f7448;
-  --bestiary-c-travel: #1e7787;
-  --bestiary-c-food: #a87320;
-  --bestiary-c-education: #33358f;
-  --bestiary-shadow-sm: 0 2px 0 rgba(28,24,20,0.06), 0 4px 12px -4px rgba(28,24,20,0.08);
-  --bestiary-shadow-md: 0 4px 0 rgba(28,24,20,0.08), 0 14px 28px -10px rgba(28,24,20,0.18);
-  --bestiary-font-display: "Fraunces", "DM Serif Display", Georgia, serif;
-  --bestiary-font-sans: "Nunito", "Fredoka", "Inter", system-ui, sans-serif;
-  --bestiary-font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
-}
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   color-scheme: light;

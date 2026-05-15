@@ -18,16 +18,17 @@ const DIFFICULTIES: { id: Difficulty; roman: string; label: string }[] = [
 const ORDER: Difficulty[] = ['normal', 'hard', 'mythic'];
 const MIN_PLAYABLE_DECK = 8;
 
-/** Per-theme bestiary "house color" — mirrors the design handoff so each
- *  boss's deck color reads consistently across the plate band, photo
- *  ring, deck swatch, and the small house chip. */
+/** Per-theme "house color" used by the plate band, photo ring, deck
+ *  swatch, and small house chip. Pulled straight from the app's
+ *  existing ELEMENTS palette so the picker stays in sync with every
+ *  other surface that touches element colors (cards, glyphs, packs). */
 const HOUSE_COLOR: Record<ElementId, string> = {
-  family:    'var(--bestiary-c-family)',
-  work:      'var(--bestiary-c-work)',
-  animals:   'var(--bestiary-c-animals)',
-  travel:    'var(--bestiary-c-travel)',
-  food:      'var(--bestiary-c-food)',
-  education: 'var(--bestiary-c-education)',
+  family:    ELEMENTS.family.color,
+  work:      ELEMENTS.work.color,
+  animals:   ELEMENTS.animals.color,
+  travel:    ELEMENTS.travel.color,
+  food:      ELEMENTS.food.color,
+  education: ELEMENTS.education.color,
 };
 
 // ─── Props ──────────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ interface Props {
 // ─── Main screen ────────────────────────────────────────────────────
 
 /**
- * Boss Duel — bestiary-themed pre-fight screen. Single component drives
+ * Boss Duel — pre-fight screen. Single component drives
  * both mobile (single column) and desktop (3-column grid) via container
  * queries. Wired to all existing game data: BOSSES, save.decks,
  * save.collection, save.bossesBeatenAt/WonAt/LostAt.
@@ -260,14 +261,14 @@ export function BossPicker({
                 <div className="lbl">Victories</div>
                 <div className="row">
                   <span className="num">{pad2(won)}</span>
-                  <Tally count={won} color="var(--bestiary-c-animals)" />
+                  <Tally count={won} color={ELEMENTS.animals.color} />
                 </div>
               </div>
               <div className="record-cell loss" role="group" aria-label={`${lost} defeats`}>
                 <div className="lbl">Defeats</div>
                 <div className="row">
                   <span className="num">{pad2(lost)}</span>
-                  <Tally count={lost} color="var(--bestiary-c-family)" />
+                  <Tally count={lost} color={ELEMENTS.family.color} />
                 </div>
               </div>
             </div>
@@ -275,7 +276,7 @@ export function BossPicker({
             {/* Signature cards */}
             <div className="block">
               <div className="sec-head">
-                <span className="label">He plays · iii known</span>
+                <span className="label">Boss plays · iii known</span>
                 <span className="meta"><em>{wr}%</em> win rate</span>
               </div>
               <div className="sig-row">
@@ -327,7 +328,7 @@ export function BossPicker({
                 <span className="meta">
                   {usingTest
                     ? <em>Test · no rewards</em>
-                    : <>{activePlayable} cards · <em style={{ color: activePlayable >= MIN_PLAYABLE_DECK ? 'var(--bestiary-c-animals)' : 'var(--bestiary-c-family)' }}>{activePlayable >= MIN_PLAYABLE_DECK ? 'ready' : `${activePlayable}/${MIN_PLAYABLE_DECK}`}</em></>
+                    : <>{activePlayable} cards · <em style={{ color: activePlayable >= MIN_PLAYABLE_DECK ? ELEMENTS.animals.color : ELEMENTS.family.color }}>{activePlayable >= MIN_PLAYABLE_DECK ? 'ready' : `${activePlayable}/${MIN_PLAYABLE_DECK}`}</em></>
                   }
                 </span>
               </div>
@@ -337,7 +338,7 @@ export function BossPicker({
                 style={{
                   '--deck-color': usingTest
                     ? HOUSE_COLOR[currentTestTheme]
-                    : (activeDeck ? HOUSE_COLOR[primaryDeckTheme(activeDeck, collection)] : 'var(--bestiary-c-family)'),
+                    : (activeDeck ? HOUSE_COLOR[primaryDeckTheme(activeDeck, collection)] : ELEMENTS.family.color),
                 } as React.CSSProperties}
                 aria-label="Change deck"
               >
@@ -442,7 +443,7 @@ function DiffPips({ n }: { n: number }) {
  */
 function Tally({ count, color }: { count: number; color: string }) {
   if (count === 0) {
-    return <span style={{ fontFamily: 'var(--bestiary-font-mono)', fontSize: 11, color: 'var(--bestiary-ink-mute)' }}>—</span>;
+    return <span style={{ fontFamily: 'inherit', fontSize: 11, color: '#a89580' }}>—</span>;
   }
   const groups = Math.floor(count / 5);
   const rem = count % 5;
@@ -518,7 +519,7 @@ function DeckSheet({
                 data-active={active}
                 onClick={() => onPickDeck(d.id)}
               >
-                <span className="dot" style={{ background: ready ? 'var(--bestiary-c-animals)' : 'var(--bestiary-accent)' }} />
+                <span className="dot" style={{ background: ready ? ELEMENTS.animals.color : '#ee5a52' }} />
                 <span className="name">{d.name}</span>
                 <span className={`count ${ready ? 'ok' : 'low'}`}>
                   {count} {count === 1 ? 'card' : 'cards'}
@@ -639,6 +640,10 @@ function primaryDeckTheme(deck: DeckSlot | null, collection: CollectionCard[]): 
  * desktop PhoneShell stage when rails collapse.
  */
 function BestiaryStyles() {
+  // Inline stylesheet scoped under .duel-container. Hex values pulled
+  // from the same palette the rest of the app uses (Fredoka headlines,
+  // warm cream backgrounds, coral accent, element colors via inline
+  // --deck-color). No app-foreign fonts; no parallel design tokens.
   return (
     <style>{`
       .duel-container {
@@ -646,15 +651,12 @@ function BestiaryStyles() {
         width: 100%; height: 100%;
         overflow-y: auto;
         background:
-          radial-gradient(ellipse 90% 60% at 50% -10%, var(--bestiary-bg-2), transparent 60%),
-          radial-gradient(ellipse 80% 60% at 0% 110%, color-mix(in oklab, var(--bestiary-bg-1) 90%, white), transparent 60%),
-          var(--bestiary-bg-0);
-        font-family: var(--bestiary-font-sans);
-        color: var(--bestiary-ink);
+          radial-gradient(ellipse 100% 60% at 50% 0%, #fff8e8 0%, transparent 70%),
+          linear-gradient(180deg, #ffe8d6 0%, #ffd4b3 60%, #ffbe9c 100%);
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
+        color: #3a2e2a;
       }
-      .duel {
-        padding: 56px 16px 28px;
-      }
+      .duel { padding: 56px 16px 28px; }
       @container (min-width: 1024px) {
         .duel { max-width: 1180px; margin: 0 auto; padding: 28px 32px 40px; }
       }
@@ -664,58 +666,53 @@ function BestiaryStyles() {
         display: grid; grid-template-columns: 1fr auto 1fr;
         align-items: center; gap: 12px; padding-bottom: 14px;
       }
-      .duel .left-tools, .duel .right-tools {
-        display: flex; align-items: center; gap: 8px;
-      }
+      .duel .left-tools, .duel .right-tools { display: flex; align-items: center; gap: 8px; }
       .duel .left-tools  { justify-self: start; }
       .duel .right-tools { justify-self: end; }
       .duel .icon-btn {
         width: 38px; height: 38px; border-radius: 50%;
-        background: var(--bestiary-paper);
-        border: 1px solid var(--bestiary-rule);
-        box-shadow: var(--bestiary-shadow-sm);
+        background: #fff; border: 1.5px solid rgba(58,46,42,.10);
+        box-shadow: 0 2px 6px rgba(58,46,42,.08);
         cursor: pointer; padding: 0;
         display: grid; place-items: center;
-        color: var(--bestiary-ink);
+        color: #3a2e2a;
         transition: transform .12s;
         flex-shrink: 0;
         font-family: inherit;
       }
       .duel .icon-btn:hover { transform: translateY(-1px); }
-      .duel .crest { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+      .duel .crest { display: flex; flex-direction: column; align-items: center; gap: 2px; }
       .duel .crest .vol {
-        font-family: var(--bestiary-font-mono); font-size: 9px;
-        letter-spacing: 1.5px;
-        color: var(--bestiary-ink-mute); text-transform: uppercase;
+        font-family: inherit; font-size: 9px; font-weight: 800;
+        letter-spacing: 0.22em;
+        color: #a89580; text-transform: uppercase;
       }
       .duel .crest .title {
-        font-family: var(--bestiary-font-display); font-style: italic;
-        font-size: 18px; font-weight: 600; line-height: 1;
-        color: var(--bestiary-ink);
+        font-family: inherit;
+        font-size: 20px; font-weight: 700; line-height: 1;
+        color: #3a2e2a;
       }
       .duel .coin-chip { display: none; }
       @container (min-width: 1024px) {
         .duel .topbar {
           padding-bottom: 22px;
-          border-bottom: 1px solid var(--bestiary-rule-strong);
+          border-bottom: 1px solid rgba(58,46,42,.22);
           margin-bottom: 24px;
         }
-        .duel .crest .vol { font-size: 10px; letter-spacing: 2px; }
-        .duel .crest .title { font-size: 28px; letter-spacing: -0.01em; }
+        .duel .crest .vol { font-size: 10px; letter-spacing: 0.26em; }
+        .duel .crest .title { font-size: 24px; }
         .duel .icon-btn { width: 42px; height: 42px; }
         .duel .coin-chip {
           display: inline-flex; align-items: center; gap: 8px;
           padding: 8px 14px;
-          background: var(--bestiary-paper-warm);
-          border: 1px solid var(--bestiary-rule);
+          background: #fff7e6;
+          border: 1px solid rgba(58,46,42,.10);
           border-radius: 999px;
-          box-shadow: var(--bestiary-shadow-sm);
-          font-family: var(--bestiary-font-mono); font-weight: 600; font-size: 13px;
-          color: var(--bestiary-ink); white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(58,46,42,.08);
+          font-family: inherit; font-weight: 600; font-size: 13px;
+          color: #3a2e2a; white-space: nowrap;
         }
-        .duel .coin-chip strong {
-          font-family: var(--bestiary-font-display); font-weight: 800; font-size: 14px;
-        }
+        .duel .coin-chip strong { font-weight: 800; font-size: 14px; }
       }
 
       /* Body */
@@ -739,19 +736,17 @@ function BestiaryStyles() {
         display: none;
         align-items: baseline; justify-content: space-between;
         padding: 4px 6px 10px;
-        border-bottom: 1px solid var(--bestiary-rule);
+        border-bottom: 1px solid rgba(58,46,42,.10);
         margin-bottom: 10px;
       }
       .duel .col-head .label {
-        font-family: var(--bestiary-font-mono); font-size: 10px; font-weight: 700;
-        letter-spacing: 1.6px; text-transform: uppercase;
-        color: var(--bestiary-ink-mute);
+        font-family: inherit; font-size: 10px; font-weight: 800;
+        letter-spacing: 0.22em; text-transform: uppercase; color: #a89580;
       }
       .duel .col-head .meta {
-        font-family: var(--bestiary-font-display); font-style: italic; font-size: 13px;
-        color: var(--bestiary-ink-soft);
+        font-family: inherit; font-size: 13px; color: #7a5a52; font-weight: 600;
       }
-      .duel .col-head .meta em { font-style: normal; font-weight: 700; color: var(--bestiary-ink); }
+      .duel .col-head .meta em { font-style: normal; font-weight: 800; color: #3a2e2a; }
       .duel .roster-list {
         display: flex; gap: 8px;
         margin: 0 -16px; padding: 4px 16px 6px;
@@ -760,10 +755,10 @@ function BestiaryStyles() {
       .duel .roster-list::-webkit-scrollbar { display: none; }
       @container (min-width: 1024px) {
         .duel .col-roster {
-          background: var(--bestiary-paper);
-          border: 1px solid var(--bestiary-rule);
+          background: #fff;
+          border: 1px solid rgba(58,46,42,.10);
           border-radius: 22px; padding: 16px 14px 14px;
-          box-shadow: var(--bestiary-shadow-sm);
+          box-shadow: 0 2px 6px rgba(58,46,42,.08);
         }
         .duel .col-roster .col-head { display: flex; }
         .duel .roster-list {
@@ -775,40 +770,40 @@ function BestiaryStyles() {
       /* Roster entry */
       .duel .roster-entry {
         flex-shrink: 0; width: 88px; padding: 10px 8px 8px;
-        background: var(--bestiary-paper);
-        border: 1px solid var(--bestiary-rule);
+        background: #fff;
+        border: 1px solid rgba(58,46,42,.10);
         border-radius: 16px; cursor: pointer; text-align: center;
-        box-shadow: var(--bestiary-shadow-sm);
+        box-shadow: 0 2px 6px rgba(58,46,42,.08);
         color: inherit; font-family: inherit;
         position: relative;
         display: flex; flex-direction: column; align-items: center; gap: 6px;
         transition: transform .15s, background .2s, border-color .2s;
       }
-      .duel .roster-entry:hover { transform: translateY(-2px); box-shadow: var(--bestiary-shadow-md); }
+      .duel .roster-entry:hover { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(58,46,42,.15); }
       .duel .roster-entry[data-active="true"] {
-        background: var(--bestiary-ink); color: var(--bestiary-paper);
-        border-color: var(--bestiary-ink); box-shadow: var(--bestiary-shadow-md);
+        background: #3a2e2a; color: #fff;
+        border-color: #3a2e2a; box-shadow: 0 6px 14px rgba(58,46,42,.18);
       }
       .duel .roster-entry[data-locked="true"] { opacity: 0.45; cursor: not-allowed; }
-      .duel .roster-entry[data-locked="true"]:hover { transform: none; box-shadow: var(--bestiary-shadow-sm); }
+      .duel .roster-entry[data-locked="true"]:hover { transform: none; box-shadow: 0 2px 6px rgba(58,46,42,.08); }
       .duel .roster-entry .fol {
-        font-family: var(--bestiary-font-mono); font-size: 9px; font-weight: 700;
-        letter-spacing: 1.2px; opacity: 0.7;
+        font-family: inherit; font-size: 9px; font-weight: 800;
+        letter-spacing: 0.18em; opacity: 0.7;
       }
       .duel .roster-entry .photo {
         width: 48px; height: 48px; border-radius: 50%;
         background-size: cover; background-position: center; flex-shrink: 0;
-        box-shadow: inset 0 0 0 2px var(--bestiary-paper), inset 0 0 0 3px var(--bestiary-rule-strong);
+        box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px rgba(58,46,42,.22);
       }
       .duel .roster-entry[data-active="true"] .photo {
-        box-shadow: inset 0 0 0 2px var(--bestiary-ink), inset 0 0 0 3px var(--bestiary-accent);
+        box-shadow: inset 0 0 0 2px #3a2e2a, inset 0 0 0 3px #ee5a52;
       }
       .duel .roster-entry .info {
         display: flex; flex-direction: column; align-items: center;
         min-width: 0; max-width: 100%;
       }
       .duel .roster-entry .info .name {
-        font-family: var(--bestiary-font-display); font-weight: 700; font-size: 11px;
+        font-family: inherit; font-weight: 700; font-size: 11px;
         letter-spacing: -0.01em; line-height: 1.1;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
       }
@@ -818,12 +813,12 @@ function BestiaryStyles() {
         position: absolute; top: -4px; right: -4px;
         width: 18px; height: 18px; border-radius: 50%;
         display: grid; place-items: center;
-        border: 2px solid var(--bestiary-bg-0);
-        font-family: var(--bestiary-font-sans); font-weight: 900; font-size: 11px;
-        flex-shrink: 0; color: white;
+        border: 2px solid #fef8f0;
+        font-family: inherit; font-weight: 900; font-size: 11px;
+        flex-shrink: 0; color: #fff;
       }
-      .duel .roster-entry .badge.beaten { background: var(--bestiary-c-animals); }
-      .duel .roster-entry .badge.locked { background: var(--bestiary-ink-mute); }
+      .duel .roster-entry .badge.beaten { background: ${'${'}ELEMENTS.animals.color${'}'}; }
+      .duel .roster-entry .badge.locked { background: #a89580; }
       @container (min-width: 1024px) {
         .duel .roster-entry {
           width: 100%; padding: 8px 10px;
@@ -832,44 +827,45 @@ function BestiaryStyles() {
           flex-direction: row; align-items: center; gap: 12px;
           text-align: left;
         }
-        .duel .roster-entry:hover { background: var(--bestiary-paper-warm); box-shadow: none; transform: none; }
+        .duel .roster-entry:hover { background: #fff7e6; box-shadow: none; transform: none; }
         .duel .roster-entry[data-active="true"] {
-          background: var(--bestiary-ink); border-color: var(--bestiary-ink);
-          box-shadow: var(--bestiary-shadow-sm);
+          background: #3a2e2a; border-color: #3a2e2a;
+          box-shadow: 0 2px 6px rgba(58,46,42,.10);
         }
         .duel .roster-entry > .fol { display: none; }
         .duel .roster-entry .photo { width: 38px; height: 38px; }
         .duel .roster-entry .info { align-items: flex-start; flex: 1; min-width: 0; gap: 2px; }
-        .duel .roster-entry .info .name { font-size: 14px; font-weight: 800; white-space: nowrap; }
+        .duel .roster-entry .info .name { font-size: 14px; font-weight: 700; white-space: nowrap; }
         .duel .roster-entry .info .row {
           display: block;
-          font-family: var(--bestiary-font-mono); font-size: 9px; font-weight: 700;
-          opacity: 0.6; letter-spacing: 0.8px;
+          font-family: inherit; font-size: 9px; font-weight: 800;
+          opacity: 0.6; letter-spacing: 0.14em;
         }
         .duel .roster-entry .diff-pips {
           display: inline-flex; gap: 3px; flex-shrink: 0;
         }
         .duel .roster-entry .diff-pip {
           width: 6px; height: 6px; border-radius: 50%;
-          background: rgba(28,24,20,0.15);
+          background: rgba(58,46,42,0.15);
         }
         .duel .roster-entry[data-active="true"] .diff-pip { background: rgba(255,255,255,0.25); }
-        .duel .roster-entry .diff-pip.on { background: var(--bestiary-accent); }
-        .duel .roster-entry[data-active="true"] .diff-pip.on { background: white; }
+        .duel .roster-entry .diff-pip.on { background: #ee5a52; }
+        .duel .roster-entry[data-active="true"] .diff-pip.on { background: #fff; }
         .duel .roster-entry .badge {
           position: static; border: 0; width: 18px; height: 18px; font-size: 11px;
         }
-        .duel .roster-entry[data-active="true"] .badge.beaten { background: white; color: var(--bestiary-c-animals); }
+        .duel .roster-entry[data-active="true"] .badge.beaten { background: #fff; color: ${'${'}ELEMENTS.animals.color${'}'}; }
       }
 
       /* Plate */
       .duel .plate {
         position: relative;
-        background: var(--bestiary-paper-warm);
-        border: 1.5px solid var(--bestiary-ink); border-radius: 22px;
-        overflow: hidden; box-shadow: var(--bestiary-shadow-md);
+        background: #fff7e6;
+        border: 1.5px solid #3a2e2a; border-radius: 22px;
+        overflow: hidden;
+        box-shadow: 0 8px 20px rgba(58,46,42,.15);
       }
-      .duel .plate-band { height: 6px; background: var(--deck-color, var(--bestiary-c-family)); }
+      .duel .plate-band { height: 6px; background: var(--deck-color, #ee5a52); }
       .duel .plate-body {
         display: grid; grid-template-columns: 96px 1fr; gap: 14px;
         padding: 16px 18px 14px; align-items: center;
@@ -879,72 +875,72 @@ function BestiaryStyles() {
         width: 96px; height: 96px; border-radius: 50%;
         background-size: cover; background-position: center;
         box-shadow:
-          inset 0 0 0 3px var(--bestiary-paper),
-          inset 0 0 0 5px var(--deck-color, var(--bestiary-c-family)),
-          var(--bestiary-shadow-sm);
+          inset 0 0 0 3px #fff,
+          inset 0 0 0 5px var(--deck-color, #ee5a52),
+          0 2px 6px rgba(58,46,42,.08);
       }
       .duel .plate-photo-lvl {
         position: absolute; bottom: -2px; right: -4px;
-        background: var(--bestiary-ink); color: white;
+        background: #3a2e2a; color: #fff;
         width: 30px; height: 30px; border-radius: 50%;
         display: grid; place-items: center;
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 13px;
-        box-shadow: 0 0 0 3px var(--bestiary-paper-warm);
+        font-family: inherit; font-weight: 800; font-size: 13px;
+        box-shadow: 0 0 0 3px #fff7e6;
       }
       .duel .plate-meta { min-width: 0; }
       .duel .plate-meta .house {
-        font-family: var(--bestiary-font-mono); font-size: 9px; font-weight: 700;
-        letter-spacing: 1.6px; text-transform: uppercase;
-        color: var(--deck-color, var(--bestiary-c-family));
+        font-family: inherit; font-size: 9px; font-weight: 800;
+        letter-spacing: 0.22em; text-transform: uppercase;
+        color: var(--deck-color, #ee5a52);
       }
       .duel .plate-meta .name {
-        font-family: var(--bestiary-font-display); font-weight: 800;
-        font-size: 30px; line-height: 0.95; letter-spacing: -0.02em;
-        margin-top: 4px; color: var(--bestiary-ink);
+        font-family: inherit; font-weight: 800;
+        font-size: 28px; line-height: 1; letter-spacing: -0.02em;
+        margin-top: 4px; color: #3a2e2a;
       }
       .duel .plate-meta .epithet {
-        font-family: var(--bestiary-font-display); font-style: italic; font-weight: 500;
-        font-size: 13px; color: var(--bestiary-ink-soft); margin-top: 4px;
+        font-family: inherit; font-style: italic; font-weight: 500;
+        font-size: 13px; color: #7a5a52; margin-top: 4px;
       }
       .duel .plate-quote {
         padding: 10px 18px 14px;
-        font-family: var(--bestiary-font-display); font-style: italic;
-        font-size: 14px; color: var(--bestiary-ink-soft); line-height: 1.4;
-        border-top: 1px dashed var(--bestiary-rule);
+        font-family: inherit; font-style: italic;
+        font-size: 14px; color: #7a5a52; line-height: 1.4;
+        border-top: 1px dashed rgba(58,46,42,.10);
       }
       @container (min-width: 1024px) {
         .duel .plate-body { grid-template-columns: 140px 1fr; gap: 22px; padding: 22px 26px 20px; }
         .duel .plate-photo-wrap { width: 140px; height: 140px; }
         .duel .plate-photo { width: 140px; height: 140px;
           box-shadow:
-            inset 0 0 0 4px var(--bestiary-paper),
-            inset 0 0 0 7px var(--deck-color, var(--bestiary-c-family)),
-            var(--bestiary-shadow-md);
+            inset 0 0 0 4px #fff,
+            inset 0 0 0 7px var(--deck-color, #ee5a52),
+            0 6px 14px rgba(58,46,42,.18);
         }
         .duel .plate-photo-lvl { width: 40px; height: 40px; font-size: 18px; }
-        .duel .plate-meta .name { font-size: 48px; }
-        .duel .plate-meta .epithet { font-size: 18px; }
+        .duel .plate-meta .name { font-size: 44px; }
+        .duel .plate-meta .epithet { font-size: 17px; }
         .duel .plate-quote { padding: 14px 26px 20px; font-size: 16px; }
       }
 
       /* Record */
       .duel .record {
         display: grid; grid-template-columns: 1fr 1fr;
-        border: 1.5px solid var(--bestiary-ink); border-radius: 18px;
-        overflow: hidden; background: var(--bestiary-paper-warm);
+        border: 1.5px solid #3a2e2a; border-radius: 18px;
+        overflow: hidden; background: #fff7e6;
       }
       .duel .record-cell { padding: 12px 16px; position: relative; }
-      .duel .record-cell + .record-cell { border-left: 1.5px solid var(--bestiary-ink); }
+      .duel .record-cell + .record-cell { border-left: 1.5px solid #3a2e2a; }
       .duel .record-cell .lbl {
-        font-family: var(--bestiary-font-mono); font-size: 9px; font-weight: 700;
-        letter-spacing: 1.4px; text-transform: uppercase; color: var(--bestiary-ink-mute);
+        font-family: inherit; font-size: 9px; font-weight: 800;
+        letter-spacing: 0.18em; text-transform: uppercase; color: #a89580;
       }
       .duel .record-cell .row { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
       .duel .record-cell .num {
-        font-family: var(--bestiary-font-mono); font-weight: 700;
-        font-size: 28px; line-height: 1; color: var(--bestiary-ink);
+        font-family: inherit; font-weight: 800;
+        font-size: 28px; line-height: 1; color: #3a2e2a;
       }
-      .duel .record-cell.loss .num { color: var(--bestiary-accent); }
+      .duel .record-cell.loss .num { color: #ee5a52; }
       .duel .record-cell .tally {
         display: inline-flex; gap: 6px; flex-wrap: wrap;
         align-items: flex-end; padding-bottom: 2px;
@@ -952,34 +948,32 @@ function BestiaryStyles() {
       @container (min-width: 1024px) {
         .duel .record-cell { padding: 18px 24px; }
         .duel .record-cell .num { font-size: 40px; }
-        .duel .record-cell .lbl { font-size: 10px; letter-spacing: 2px; }
+        .duel .record-cell .lbl { font-size: 10px; letter-spacing: 0.22em; }
       }
 
       /* Section heads */
       .duel .sec-head {
         display: flex; align-items: baseline; justify-content: space-between;
         gap: 12px; padding-bottom: 8px;
-        border-bottom: 1px solid var(--bestiary-rule-strong);
+        border-bottom: 1px solid rgba(58,46,42,.22);
         margin-bottom: 12px;
       }
       .duel .sec-head .label {
-        font-family: var(--bestiary-font-mono); font-size: 9px; font-weight: 700;
-        letter-spacing: 1.6px; color: var(--bestiary-ink-mute); text-transform: uppercase;
+        font-family: inherit; font-size: 10px; font-weight: 800;
+        letter-spacing: 0.22em; color: #a89580; text-transform: uppercase;
       }
       .duel .sec-head .meta {
-        font-family: var(--bestiary-font-display); font-style: italic; font-size: 13px;
-        color: var(--bestiary-ink-soft);
+        font-family: inherit; font-style: italic; font-size: 13px;
+        color: #7a5a52;
       }
-      .duel .sec-head .meta em { font-style: normal; font-weight: 700; color: var(--bestiary-ink); }
+      .duel .sec-head .meta em { font-style: normal; font-weight: 800; color: #3a2e2a; }
       @container (min-width: 1024px) {
-        .duel .sec-head .label { font-size: 10px; letter-spacing: 2px; }
-        .duel .sec-head .meta { font-size: 15px; }
+        .duel .sec-head .label { font-size: 11px; letter-spacing: 0.24em; }
+        .duel .sec-head .meta { font-size: 14px; }
       }
       .duel .block { display: flex; flex-direction: column; }
 
-      /* Signature row uses the existing Card component at small scale so
-         the player sees the actual chrome from the rest of the app — no
-         re-implementation of the card visual. */
+      /* Signature row uses the existing Card component at small scale. */
       .duel .sig-row {
         display: flex; gap: 10px; justify-content: space-between;
         padding: 0 2px;
@@ -991,65 +985,65 @@ function BestiaryStyles() {
       .duel .playstyle {
         margin-top: 12px;
         padding: 10px 12px;
-        background: var(--bestiary-paper-warm);
-        border: 1px solid var(--bestiary-rule);
+        background: rgba(255,255,255,.7);
+        border: 1px solid rgba(58,46,42,.10);
         border-radius: 12px;
-        font-family: var(--bestiary-font-display); font-style: italic;
-        font-size: 13px; color: var(--bestiary-ink-soft); line-height: 1.4;
+        font-family: inherit; font-style: italic;
+        font-size: 13px; color: #7a5a52; line-height: 1.4;
       }
 
       /* Difficulty */
       .duel .diff {
         display: grid; grid-template-columns: repeat(3, 1fr);
-        border: 1.5px solid var(--bestiary-ink); border-radius: 16px;
-        overflow: hidden; background: var(--bestiary-paper-warm);
+        border: 1.5px solid #3a2e2a; border-radius: 16px;
+        overflow: hidden; background: #fff7e6;
       }
       .duel .diff button {
         background: transparent; border: 0; padding: 14px 8px 12px;
-        color: var(--bestiary-ink); cursor: pointer; font-family: inherit;
+        color: #3a2e2a; cursor: pointer; font-family: inherit;
         display: flex; flex-direction: column; align-items: center; gap: 2px;
       }
-      .duel .diff button + button { border-left: 1.5px solid var(--bestiary-ink); }
-      .duel .diff button[data-active="true"] { background: var(--bestiary-ink); color: white; }
-      .duel .diff button[data-locked="true"] { color: var(--bestiary-ink-mute); cursor: not-allowed; }
+      .duel .diff button + button { border-left: 1.5px solid #3a2e2a; }
+      .duel .diff button[data-active="true"] { background: #3a2e2a; color: #fff; }
+      .duel .diff button[data-locked="true"] { color: #a89580; cursor: not-allowed; }
       .duel .diff .roman {
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 22px;
+        font-family: inherit; font-weight: 800; font-size: 22px;
         line-height: 1; letter-spacing: 0.04em;
       }
       .duel .diff .lbl {
-        font-family: var(--bestiary-font-sans); font-size: 10px; font-weight: 700;
-        letter-spacing: 0.16em; text-transform: uppercase; opacity: 0.7;
+        font-family: inherit; font-size: 10px; font-weight: 800;
+        letter-spacing: 0.18em; text-transform: uppercase; opacity: 0.7;
       }
       .duel .diff button[data-active="true"] .lbl { opacity: 0.9; }
       .duel .diff-meta {
         display: flex; justify-content: space-between; padding-top: 8px;
-        font-family: var(--bestiary-font-mono); font-size: 10px; color: var(--bestiary-ink-mute);
-        letter-spacing: 0.6px;
+        font-family: inherit; font-size: 11px; color: #a89580;
+        font-weight: 600; letter-spacing: 0.02em;
       }
-      .duel .diff-meta em { font-style: normal; color: var(--bestiary-accent); font-weight: 700; }
+      .duel .diff-meta em { font-style: normal; color: #ee5a52; font-weight: 800; }
       @container (min-width: 1024px) {
         .duel .diff button { padding: 18px 8px 16px; }
         .duel .diff .roman { font-size: 28px; }
         .duel .diff .lbl { font-size: 11px; }
-        .duel .diff-meta { font-size: 11px; }
+        .duel .diff-meta { font-size: 12px; }
       }
 
       /* Deck row */
       .duel .deck-row {
         width: 100%; padding: 12px 14px;
-        background: var(--bestiary-paper);
-        border: 1px solid var(--bestiary-rule);
+        background: #fff;
+        border: 1px solid rgba(58,46,42,.10);
         border-radius: 16px;
-        box-shadow: var(--bestiary-shadow-sm);
+        box-shadow: 0 2px 6px rgba(58,46,42,.08);
         display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center;
         cursor: pointer; color: inherit; font-family: inherit; text-align: left;
         transition: transform .12s, box-shadow .2s;
       }
-      .duel .deck-row:hover { transform: translateY(-1px); box-shadow: var(--bestiary-shadow-md); }
+      .duel .deck-row:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(58,46,42,.15); }
       .duel .deck-row .swatch {
         width: 36px; height: 48px; border-radius: 6px;
-        background: var(--deck-color, var(--bestiary-c-family));
-        box-shadow: inset 0 0 0 2px var(--bestiary-paper), inset 0 0 0 3px var(--bestiary-ink);
+        background: var(--deck-color, #ee5a52);
+        box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px #3a2e2a;
         position: relative;
       }
       .duel .deck-row .swatch::after {
@@ -1057,17 +1051,17 @@ function BestiaryStyles() {
         background: linear-gradient(180deg, rgba(255,255,255,0.25), transparent 60%);
       }
       .duel .deck-row .name {
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 17px;
-        line-height: 1; color: var(--bestiary-ink);
+        font-family: inherit; font-weight: 800; font-size: 17px;
+        line-height: 1; color: #3a2e2a;
       }
       .duel .deck-row .meta {
-        font-family: var(--bestiary-font-mono); font-size: 10px;
-        color: var(--bestiary-ink-mute);
-        margin-top: 4px; letter-spacing: 0.4px;
+        font-family: inherit; font-size: 11px;
+        color: #a89580; font-weight: 600;
+        margin-top: 4px; letter-spacing: 0.04em;
       }
       .duel .deck-row .swap {
-        background: var(--bestiary-ink); color: white; padding: 6px 12px; border-radius: 999px;
-        font-family: var(--bestiary-font-sans); font-weight: 800; font-size: 11px;
+        background: #3a2e2a; color: #fff; padding: 6px 12px; border-radius: 999px;
+        font-family: inherit; font-weight: 800; font-size: 11px;
         letter-spacing: 0.08em; text-transform: uppercase;
       }
       @container (min-width: 1024px) {
@@ -1076,49 +1070,49 @@ function BestiaryStyles() {
         .duel .deck-row .swatch { width: 42px; height: 56px; }
       }
 
-      /* Engage CTA */
+      /* Engage CTA — uses the app's coral BRAND for the slab. */
       .duel .engage {
         width: 100%; height: 64px; padding: 0 18px;
-        background: var(--bestiary-accent); color: white;
+        background: #ee5a52; color: #fff;
         border: 0; border-radius: 20px; cursor: pointer;
         box-shadow:
-          0 4px 0 color-mix(in oklab, var(--bestiary-accent) 65%, black),
-          var(--bestiary-shadow-md);
+          0 4px 0 #b03c34,
+          0 14px 28px -10px rgba(58,46,42,.28);
         display: grid; grid-template-columns: auto 1fr auto; align-items: center;
         gap: 12px;
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 20px;
+        font-family: inherit; font-weight: 800; font-size: 20px;
         letter-spacing: 0.04em;
         transition: transform .12s, box-shadow .12s;
       }
       .duel .engage:hover { transform: translateY(-2px); }
       .duel .engage:active:not([disabled]) {
         transform: translateY(2px);
-        box-shadow: 0 1px 0 color-mix(in oklab, var(--bestiary-accent) 65%, black);
+        box-shadow: 0 1px 0 #b03c34;
       }
       .duel .engage[disabled] {
-        background: var(--bestiary-ink-mute); cursor: not-allowed;
+        background: #a89580; cursor: not-allowed;
         box-shadow: 0 2px 0 rgba(0,0,0,0.15);
       }
       .duel .engage .roman {
         width: 36px; height: 36px; border-radius: 10px;
         background: rgba(0,0,0,0.22);
         display: grid; place-items: center;
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 16px;
+        font-family: inherit; font-weight: 800; font-size: 16px;
         line-height: 1;
       }
       .duel .engage .label { text-align: left; line-height: 1; }
       .duel .engage .label .sub {
-        display: block; font-family: var(--bestiary-font-sans); font-weight: 800;
+        display: block; font-family: inherit; font-weight: 800;
         font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
         opacity: 0.78; margin-bottom: 4px;
       }
       .duel .engage .reward {
         display: inline-flex; align-items: center; gap: 6px;
         background: rgba(0,0,0,0.22); padding: 6px 12px; border-radius: 999px;
-        font-family: var(--bestiary-font-sans); font-weight: 800; font-size: 13px;
+        font-family: inherit; font-weight: 800; font-size: 13px;
       }
       @container (min-width: 1024px) {
-        .duel .engage { height: 76px; padding: 0 22px; border-radius: 22px; font-size: 24px; }
+        .duel .engage { height: 76px; padding: 0 22px; border-radius: 22px; font-size: 22px; }
         .duel .engage .roman { width: 44px; height: 44px; font-size: 20px; border-radius: 12px; }
         .duel .engage .label .sub { font-size: 11px; letter-spacing: 0.2em; }
         .duel .engage .reward { padding: 8px 14px; font-size: 14px; }
@@ -1126,8 +1120,8 @@ function BestiaryStyles() {
 
       .duel .open-deck-builder {
         background: transparent; border: 0;
-        color: var(--bestiary-accent);
-        font-family: var(--bestiary-font-sans); font-weight: 800;
+        color: #ee5a52;
+        font-family: inherit; font-weight: 800;
         font-size: 12px; letter-spacing: 0.04em;
         padding: 8px; cursor: pointer; text-align: center;
         display: inline-flex; align-items: center; justify-content: center; gap: 6px;
@@ -1146,7 +1140,7 @@ function BestiaryStyles() {
         .duel-container .deck-sheet-backdrop { align-items: center; padding: 24px; }
       }
       .duel-container .deck-sheet {
-        background: var(--bestiary-paper);
+        background: #fff;
         border-radius: 24px 24px 0 0;
         padding: 18px 18px 24px;
         width: 100%; max-width: 480px;
@@ -1162,23 +1156,23 @@ function BestiaryStyles() {
         margin-bottom: 14px;
       }
       .duel-container .deck-sheet .title {
-        font-family: var(--bestiary-font-display); font-weight: 800; font-size: 18px;
+        font-family: inherit; font-weight: 800; font-size: 18px;
       }
       .duel-container .deck-sheet .icon-btn {
         width: 32px; height: 32px; border-radius: 50%;
-        background: transparent; border: 1px solid var(--bestiary-rule);
+        background: transparent; border: 1px solid rgba(58,46,42,.10);
         cursor: pointer; display: grid; place-items: center;
-        color: var(--bestiary-ink);
+        color: #3a2e2a;
       }
       .duel-container .deck-sheet .link-btn {
         background: transparent; border: 0;
-        font-family: var(--bestiary-font-sans); font-weight: 700;
-        font-size: 11px; color: var(--bestiary-accent);
+        font-family: inherit; font-weight: 700;
+        font-size: 11px; color: #ee5a52;
         cursor: pointer; padding: 2px 4px;
         text-transform: none; letter-spacing: 0.02em;
       }
       .duel-container .deck-sheet .empty-line {
-        padding: 12px; font-size: 12px; color: var(--bestiary-ink-mute);
+        padding: 12px; font-size: 12px; color: #a89580;
         font-style: italic;
       }
       .duel-container .deck-sheet-list {
@@ -1188,27 +1182,28 @@ function BestiaryStyles() {
         display: grid; grid-template-columns: 12px 1fr auto;
         gap: 10px; align-items: center;
         padding: 12px 14px; border-radius: 12px;
-        background: var(--bestiary-paper-warm);
-        border: 1px solid var(--bestiary-rule);
+        background: #fff7e6;
+        border: 1px solid rgba(58,46,42,.10);
         font-family: inherit; cursor: pointer; text-align: left;
-        color: var(--bestiary-ink);
+        color: #3a2e2a;
       }
       .duel-container .deck-sheet-row[data-active="true"] {
-        background: var(--bestiary-ink); color: white; border-color: var(--bestiary-ink);
+        background: #3a2e2a; color: #fff; border-color: #3a2e2a;
       }
       .duel-container .deck-sheet-row .dot {
         width: 10px; height: 10px; border-radius: 50%;
         box-shadow: 0 0 0 2px rgba(255,255,255,.5);
       }
       .duel-container .deck-sheet-row .name {
-        font-family: var(--bestiary-font-display); font-weight: 700; font-size: 15px;
+        font-family: inherit; font-weight: 700; font-size: 15px;
       }
       .duel-container .deck-sheet-row .count {
-        font-family: var(--bestiary-font-mono); font-weight: 700; font-size: 11px;
+        font-family: inherit; font-weight: 800; font-size: 11px;
         padding: 3px 8px; border-radius: 8px;
+        letter-spacing: 0.04em;
       }
-      .duel-container .deck-sheet-row .count.ok { background: rgba(63, 116, 72, .15); color: var(--bestiary-c-animals); }
-      .duel-container .deck-sheet-row .count.low { background: rgba(196, 78, 68, .15); color: var(--bestiary-accent); }
+      .duel-container .deck-sheet-row .count.ok { background: rgba(94, 168, 99, .15); color: #3f7448; }
+      .duel-container .deck-sheet-row .count.low { background: rgba(238, 90, 82, .15); color: #ee5a52; }
       .duel-container .deck-sheet-row[data-active="true"] .count.ok,
       .duel-container .deck-sheet-row[data-active="true"] .count.low {
         background: rgba(255,255,255,.15); color: #fff;
@@ -1221,10 +1216,10 @@ function BestiaryStyles() {
       .duel-container .test-chip {
         display: inline-flex; align-items: center; gap: 6px;
         padding: 8px 12px; border-radius: 12px;
-        background: var(--bestiary-paper-warm);
-        border: 1px solid var(--bestiary-rule);
-        font-family: var(--bestiary-font-display); font-weight: 700; font-size: 13px;
-        color: var(--bestiary-ink);
+        background: #fff7e6;
+        border: 1px solid rgba(58,46,42,.10);
+        font-family: inherit; font-weight: 700; font-size: 13px;
+        color: #3a2e2a;
         cursor: pointer;
       }
       .duel-container .test-chip[data-active="true"] {
@@ -1243,7 +1238,6 @@ function BestiaryStyles() {
         to { transform: translateY(0); opacity: 1; }
       }
 
-      /* Reduced-motion respect */
       @media (prefers-reduced-motion: reduce) {
         .duel-container, .duel-container * {
           animation: none !important;
