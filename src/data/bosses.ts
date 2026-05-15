@@ -56,6 +56,14 @@ export interface BossDef {
    * scene feel like a place, not just a backdrop.
    */
   backdrop?: string;
+  /**
+   * Optional override for this opponent's starting HP. Defaults to the
+   * engine's STARTING_HP (20) when undefined, so every existing boss
+   * keeps its current health. Used today by the Practice Dummy so the
+   * tutorial match can be won in 3-4 turns with non-rush 1-cost
+   * creatures.
+   */
+  startingHp?: number;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -520,6 +528,9 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'Easy does it. Show me what you can do.',
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     rewardCoins: 0,
+    // Low HP override so the tutorial can be won in 3-4 turns of
+    // proper summon-wait-attack rhythm with 1-cost non-rush creatures.
+    startingHp: 6,
     deck: [
       'ani-01','ani-01','ani-01','ani-01',
       'ani-14','ani-14','ani-14','ani-14',

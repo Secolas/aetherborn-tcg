@@ -42,8 +42,10 @@ interface Props {
   /** Called when a bond first activates this match. Used to mark it as
    *  "discovered" in the player's save. */
   onBondDiscovered?: (bondId: string) => void;
-  /** Called once per player creature successfully summoned. Quest tracker. */
-  onCreaturePlayed?: () => void;
+  /** Called once per player creature successfully summoned. Receives
+   *  the creature's template id so the tutorial can gate steps on the
+   *  right card being summoned. */
+  onCreaturePlayed?: (templateId: string) => void;
   /** Called once per new bond that activates on the player's side. Quest tracker.
    *  Distinct from `onBondDiscovered` (which only fires for first-ever bonds). */
   onBondTriggered?: () => void;
@@ -57,6 +59,10 @@ interface Props {
    *  rejected by the engine. Used by the Tutorial overlay to advance
    *  past the "drag to attack" hint. */
   onPlayerAttacked?: () => void;
+  /** Fires when the player successfully casts a spell. Receives the
+   *  spell's template id so Tutorial scripts can branch on which
+   *  spell was cast. Skipped if the engine rejected the cast. */
+  onPlayerSpellCast?: (templateId: string) => void;
   /** True when the player has already defeated this boss before, so the
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
@@ -97,7 +103,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -1457,6 +1463,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       flashMsg(r.reason ?? 'Cannot cast');
       return false;
     }
+    onPlayerSpellCast?.(card.id);
     const beforeHp = state.player.hp;
     const beforeHand = state.player.hand.length;
 
@@ -1603,7 +1610,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setState(r.state);
           sfx('summon');
           fireLegendarySummon(card, 'player');
-          onCreaturePlayed?.();
+          onCreaturePlayed?.(card.id);
         } else {
           flashMsg(r.reason ?? 'Cannot play');
         }
@@ -1651,7 +1658,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setSelectedHandIdx(null);
         sfx('summon');
         fireLegendarySummon(card, 'player');
-        onCreaturePlayed?.();
+        onCreaturePlayed?.(card.id);
       } else {
         flashMsg(r.reason ?? 'Cannot play');
       }
@@ -1902,7 +1909,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           portrait + mana on the left, deck + graveyard on the right. The
           give-up flag moved to the divider band so it sits next to End Turn. */}
       <div ref={oppHeaderRef} style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div data-tut="opp-face" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <OpponentPortrait
             boss={boss}
             themeColor={bossElement.color}
@@ -2037,6 +2044,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               }}>×</button>
             ) : (
               <button
+                data-tut={inBattle ? 'end-turn' : 'go-battle'}
                 onClick={(e) => { e.stopPropagation(); if (isPlayer && !combat) handleClick(); }}
                 // Lock End Turn / Go to Battle while a combat animation
                 // is playing. The player could otherwise queue an attack
@@ -2228,11 +2236,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           // browser hit-testing uses the rotated bounds, not the
           // axis-aligned rect (adjacent fanned cards would otherwise
           // overlap and a click on one would land on a neighbour).
-          const poseRot = isSelected ? 0 : rot;
-          const poseY = isSelected ? -12 : yArc;
+          //
+          // Cards being actively dragged also straighten to rotation 0
+          // — without this they kept the fan rotation under the
+          // finger, which read as "the card is broken" mid-drag.
+          const isThisDragging = drag?.battleId === card.battleId;
+          const poseRot = (isSelected || isThisDragging) ? 0 : rot;
+          const poseY = (isSelected || isThisDragging) ? -12 : yArc;
           return (
             <motion.div
               key={card.battleId}
+              data-tut-hand-card={card.id}
+              data-tut-battle-id={card.battleId}
               // `layout` was removed because it shares the same
               // transform pipeline as Framer's drag. If the user
               // touched a card while the hand was mid-reflow (turn
@@ -3631,6 +3646,8 @@ function FieldRow({
           <div
             key={`slot-${i}`}
             data-slot={i}
+            data-tut-field-card={c && side === 'player' ? c.id : undefined}
+            data-tut-side={side}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
               // Slot zones are a constant of the field. Border,
