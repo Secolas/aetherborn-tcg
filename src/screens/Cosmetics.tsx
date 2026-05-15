@@ -850,21 +850,22 @@ function CosmeticsStyles() {
       .cosm .cosm-buy {
         width: 100%; padding: 7px 10px;
         background: linear-gradient(180deg, #ffa07a, ${PALETTE.accent});
-        color: #fff; border: 0; border-radius: 10px;
+        color: #fff; border: 0; border-radius: 999px;
         font-family: inherit; font-weight: 800;
         font-size: 12px;
         cursor: pointer;
-        box-shadow: 0 3px 0 #b03c34;
+        box-shadow: 0 5px 12px rgba(238,90,82,.28);
         display: flex; align-items: center; justify-content: center; gap: 5px;
-        transition: transform .12s, box-shadow .12s;
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .cosm .cosm-buy:hover { transform: translateY(-1px); }
-      .cosm .cosm-buy:active { transform: translateY(2px); box-shadow: 0 1px 0 #b03c34; }
+      .cosm .cosm-buy:hover { transform: translateY(-1px); filter: brightness(1.04); }
+      .cosm .cosm-buy:active { transform: translateY(1px); box-shadow: 0 2px 8px rgba(238,90,82,.28); }
       .cosm .cosm-buy[disabled] {
         background: #f3ece4;
         color: ${PALETTE.textMid};
-        box-shadow: 0 2px 0 rgba(0,0,0,.06);
+        box-shadow: none;
         cursor: not-allowed;
+        filter: none;
       }
 
       /* Per-tile previews */

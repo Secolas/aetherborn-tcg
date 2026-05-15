@@ -1056,28 +1056,28 @@ function BestiaryStyles() {
         .duel .deck-row .name { font-size: 19px; }
       }
 
-      /* Engage CTA — uses the app's coral BRAND for the slab. */
+      /* Battle CTA — soft warm drop shadow, no chunky stacked base. */
       .duel .engage {
-        width: 100%; height: 64px; padding: 0 18px;
-        background: #ee5a52; color: #fff;
-        border: 0; border-radius: 20px; cursor: pointer;
-        box-shadow:
-          0 4px 0 #b03c34,
-          0 14px 28px -10px rgba(58,46,42,.28);
+        width: 100%; height: 60px; padding: 0 18px;
+        background: linear-gradient(180deg, #ffa07a 0%, #ee5a52 100%);
+        color: #fff;
+        border: 0; border-radius: 18px; cursor: pointer;
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
         display: grid; grid-template-columns: auto 1fr auto; align-items: center;
         gap: 12px;
         font-family: inherit; font-weight: 800; font-size: 20px;
         letter-spacing: 0.04em;
-        transition: transform .12s, box-shadow .12s;
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .duel .engage:hover { transform: translateY(-2px); }
+      .duel .engage:hover { transform: translateY(-1px); filter: brightness(1.04); }
       .duel .engage:active:not([disabled]) {
-        transform: translateY(2px);
-        box-shadow: 0 1px 0 #b03c34;
+        transform: translateY(1px);
+        box-shadow: 0 4px 12px rgba(238,90,82,.32);
       }
       .duel .engage[disabled] {
         background: #a89580; cursor: not-allowed;
-        box-shadow: 0 2px 0 rgba(0,0,0,0.15);
+        box-shadow: 0 4px 10px rgba(58,46,42,.18);
+        filter: none;
       }
       .duel .engage .roman {
         width: 36px; height: 36px; border-radius: 10px;

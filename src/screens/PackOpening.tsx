@@ -971,17 +971,22 @@ function PackShopStyles() {
         width: 100%; max-width: 320px;
         margin-top: 8px;
         padding: 14px 22px;
-        background: ${PALETTE.text}; color: #fff;
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 100%);
+        color: #fff;
         border: 0; border-radius: 999px;
         font-family: inherit; font-weight: 800;
         font-size: 15px; letter-spacing: 0.02em;
         cursor: pointer;
         display: flex; align-items: center; justify-content: center; gap: 10px;
-        box-shadow: 0 4px 0 rgba(0,0,0,.35);
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .ps-sheet-cta:hover { transform: translateY(-1px); }
-      .ps-sheet-cta:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
-      .ps-sheet-cta[disabled] { background: ${PALETTE.textLight}; cursor: not-allowed; box-shadow: 0 2px 0 rgba(0,0,0,.15); }
+      .ps-sheet-cta:hover { transform: translateY(-1px); filter: brightness(1.04); }
+      .ps-sheet-cta:active { transform: translateY(1px); box-shadow: 0 4px 12px rgba(238,90,82,.32); }
+      .ps-sheet-cta[disabled] {
+        background: ${PALETTE.textLight}; cursor: not-allowed;
+        box-shadow: 0 4px 10px rgba(58,46,42,.18); filter: none;
+      }
       .ps-sheet-cta-cost {
         display: inline-flex; align-items: center; gap: 4px;
         padding: 4px 10px;

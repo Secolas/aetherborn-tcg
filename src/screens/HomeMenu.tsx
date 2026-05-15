@@ -91,25 +91,8 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
     <div className="home-container">
       <HomeStyles />
 
-      {/* Soft confetti dots — kept from the old screen, just slightly
-          dimmer so the new chip language reads clean on top of them. */}
-      <svg className="home-confetti" aria-hidden>
-        {Array.from({ length: 22 }).map((_, i) => {
-          const colors = ['#ffd166', '#ff7e5f', '#06d6a0', '#ffa07a', '#ee5a52'];
-          return (
-            <circle key={i}
-              cx={`${(i * 47) % 100}%`}
-              cy={`${(i * 31) % 100}%`}
-              r={3 + (i % 3)}
-              fill={colors[i % colors.length]}
-              opacity={0.4}
-            />
-          );
-        })}
-      </svg>
-
       <div className="home">
-        {/* Top bar */}
+        {/* Topbar — clean chip language, no avatar+stats clutter. */}
         <div className="home-topbar">
           <div className="home-id">
             <input
@@ -141,10 +124,8 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
               )}
             </button>
             <div className="home-id-meta">
+              <div className="home-id-eyebrow">Welcome back</div>
               <div className="home-id-name">You</div>
-              <div className="home-id-stats">
-                {save.matchesWon} W · {save.matchesLost} L · {summonedCount} summoned
-              </div>
             </div>
           </div>
 
@@ -173,11 +154,23 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           </div>
         </div>
 
-        {/* Title block — quieter than the old huge gradient. */}
-        <div className="home-title">
-          <div className="home-title-eyebrow">Welcome back</div>
-          <div className="home-title-name">Lifedeck</div>
-          <div className="home-title-tag">your life. in cards.</div>
+        {/* Quick-stats strip — three pill stats in a row instead of a
+            bulky title block. Replaces the old "WELCOME TO / Lifedeck"
+            gradient wordmark + tagline, which looked very similar to
+            the pre-revamp screen. */}
+        <div className="home-stats">
+          <div className="home-stat">
+            <div className="home-stat-n">{save.matchesWon}</div>
+            <div className="home-stat-l">wins</div>
+          </div>
+          <div className="home-stat">
+            <div className="home-stat-n">{save.matchesLost}</div>
+            <div className="home-stat-l">losses</div>
+          </div>
+          <div className="home-stat">
+            <div className="home-stat-n">{summonedCount}</div>
+            <div className="home-stat-l">summoned</div>
+          </div>
         </div>
 
         {/* Card preview — preserves the hand fan + idle sway transition
@@ -216,8 +209,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           </div>
 
           {/* Memory caption — fades in for the cycle when a fan card
-              has a memory attached. Restarts on every slideIdx tick
-              via the key so the animation always reads fresh. */}
+              has a memory attached. Restarts on every slideIdx tick. */}
           {featuredMemory && (
             <div className="home-memory" key={`mem-${slideIdx}`} aria-live="polite">
               <div className="home-memory-eyebrow">{featuredMemory.name}</div>
@@ -233,10 +225,9 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
             onClick={() => canMatch && onNav('play')}
             disabled={!canMatch}
           >
-            <span className="home-cta-icon"><Swords size={20} strokeWidth={2.4} /></span>
+            <Swords size={20} strokeWidth={2.4} />
             <span className="home-cta-label">
-              <span className="sub">{canMatch ? 'Tap to battle' : 'Need more cards in your deck'}</span>
-              <span>{canMatch ? 'Play Match' : `Need ${4 - playableInDeck} more`}</span>
+              {canMatch ? 'Play Match' : `Need ${4 - playableInDeck} more in deck`}
             </span>
           </button>
 
@@ -285,14 +276,9 @@ function HomeStyles() {
         font-family: "Fredoka", "Inter", system-ui, sans-serif;
         color: ${PALETTE.text};
         background:
-          radial-gradient(ellipse 120% 80% at 50% 0%, #fff4e6 0%, transparent 70%),
-          linear-gradient(180deg, #ffe8d6 0%, #ffd1b3 50%, #ffb89a 100%);
-      }
-      .home-confetti {
-        position: absolute; inset: 0;
-        width: 100%; height: 100%;
-        opacity: 0.45;
-        pointer-events: none;
+          radial-gradient(ellipse 90% 60% at 50% -10%, #ffd1b3, transparent 60%),
+          radial-gradient(ellipse 80% 60% at 0% 110%, #fff0d6, transparent 60%),
+          #fef8f0;
       }
       .home {
         position: relative; z-index: 1;
@@ -330,11 +316,14 @@ function HomeStyles() {
         box-shadow: 0 2px 4px rgba(0,0,0,.25);
       }
       .home-id-meta { min-width: 0; }
-      .home-id-name { font-size: 14px; font-weight: 700; line-height: 1; }
-      .home-id-stats {
-        font-size: 10px; letter-spacing: 0.06em;
-        color: ${PALETTE.textMid}; margin-top: 3px;
-        white-space: nowrap;
+      .home-id-eyebrow {
+        font-size: 9px; font-weight: 800; letter-spacing: 0.22em;
+        text-transform: uppercase; color: ${PALETTE.textLight};
+        line-height: 1;
+      }
+      .home-id-name {
+        font-size: 18px; font-weight: 800; line-height: 1;
+        margin-top: 3px;
       }
 
       .home-tools { display: flex; align-items: center; gap: 6px; }
@@ -371,28 +360,30 @@ function HomeStyles() {
         text-align: center;
       }
 
-      /* Title */
-      .home-title {
-        text-align: center; margin-top: 18px;
+      /* Stats strip — replaces the old gradient "Lifedeck" wordmark. */
+      .home-stats {
+        margin-top: 12px;
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
       }
-      .home-title-eyebrow {
-        font-size: 10px; font-weight: 800; letter-spacing: 0.28em;
-        text-transform: uppercase; color: ${PALETTE.textMid};
+      .home-stat {
+        padding: 10px 12px;
+        background: #fff;
+        border: 1.5px solid ${PALETTE.border};
+        border-radius: 14px;
+        box-shadow: 0 2px 6px rgba(58,46,42,.06);
+        display: flex; flex-direction: column; align-items: center;
+        gap: 2px;
+        text-align: center;
       }
-      .home-title-name {
-        font-size: 52px; font-weight: 700;
-        line-height: 1; letter-spacing: -0.01em;
-        background: linear-gradient(180deg, #ff9f1c 0%, ${PALETTE.accent} 100%);
-        -webkit-background-clip: text; background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin-top: 4px;
+      .home-stat-n {
+        font-size: 22px; font-weight: 800; line-height: 1;
+        color: ${PALETTE.text};
       }
-      @container (min-width: 720px) {
-        .home-title-name { font-size: 64px; }
-      }
-      .home-title-tag {
-        font-size: 11px; color: ${PALETTE.textMid};
-        font-style: italic; margin-top: 6px;
+      .home-stat-l {
+        font-size: 9px; font-weight: 800; letter-spacing: 0.18em;
+        text-transform: uppercase; color: ${PALETTE.textLight};
       }
 
       /* Card-fan stage */
@@ -446,46 +437,35 @@ function HomeStyles() {
         display: flex; flex-direction: column; gap: 10px;
       }
 
+      /* Play Match — clean coral pill. Drops the chunky 4px solid
+         bottom shadow in favor of a soft warm drop shadow that lifts
+         the button without making it feel "extruded". */
       .home-cta {
         width: 100%;
-        padding: 14px 22px; min-height: 64px;
-        background: ${PALETTE.accent}; color: #fff;
-        border: 0; border-radius: 20px;
+        padding: 14px 22px; min-height: 56px;
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 100%);
+        color: #fff;
+        border: 0; border-radius: 999px;
         cursor: pointer;
         font-family: inherit; font-weight: 800;
-        display: grid; grid-template-columns: auto 1fr; gap: 14px;
-        align-items: center;
-        box-shadow:
-          0 4px 0 #b03c34,
-          0 14px 28px -10px rgba(58,46,42,.28);
-        transition: transform .12s, box-shadow .12s;
+        font-size: 16px; letter-spacing: 0.04em;
+        display: inline-flex; align-items: center; justify-content: center;
+        gap: 10px;
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .home-cta:hover { transform: translateY(-2px); }
+      .home-cta:hover { transform: translateY(-1px); filter: brightness(1.04); }
       .home-cta:active:not([disabled]) {
-        transform: translateY(2px);
-        box-shadow: 0 1px 0 #b03c34;
+        transform: translateY(1px);
+        box-shadow: 0 4px 12px rgba(238,90,82,.32);
       }
       .home-cta[disabled] {
         background: ${PALETTE.textLight};
         cursor: not-allowed;
-        box-shadow: 0 2px 0 rgba(0,0,0,.15);
+        box-shadow: 0 4px 10px rgba(58,46,42,.18);
+        filter: none;
       }
-      .home-cta-icon {
-        width: 38px; height: 38px; border-radius: 12px;
-        background: rgba(0,0,0,.22);
-        display: grid; place-items: center;
-      }
-      .home-cta-label { text-align: left; line-height: 1; }
-      .home-cta-label .sub {
-        display: block;
-        font-size: 10px; font-weight: 800;
-        letter-spacing: 0.18em; text-transform: uppercase;
-        opacity: 0.78;
-        margin-bottom: 4px;
-      }
-      .home-cta-label > span:not(.sub) {
-        font-size: 22px; font-weight: 800; letter-spacing: 0.02em;
-      }
+      .home-cta-label { font-family: inherit; }
 
       .home-quickfill {
         width: 100%;

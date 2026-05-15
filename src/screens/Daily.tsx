@@ -285,13 +285,14 @@ function DailyStyles() {
         font-size: 13px; letter-spacing: 0.02em;
         cursor: pointer;
         display: inline-flex; align-items: center; gap: 6px;
-        box-shadow: 0 4px 0 rgba(0,0,0,.18);
+        box-shadow: 0 6px 16px rgba(0,0,0,.18);
         animation: questClaimPulse 2s ease-in-out infinite;
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .daily .daily-streak-btn:hover { transform: translateY(-1px); }
+      .daily .daily-streak-btn:hover { transform: translateY(-1px); filter: brightness(1.04); }
       .daily .daily-streak-btn:active {
-        transform: translateY(2px);
-        box-shadow: 0 1px 0 rgba(0,0,0,.18);
+        transform: translateY(1px);
+        box-shadow: 0 3px 10px rgba(0,0,0,.18);
       }
       .daily .daily-streak-claimed {
         display: inline-flex; align-items: center; gap: 6px;
@@ -442,17 +443,18 @@ function DailyStyles() {
         padding: 8px 14px;
         background: linear-gradient(180deg, #ffa07a, ${PALETTE.accent});
         color: #fff; border: 0;
-        border-radius: 14px;
+        border-radius: 999px;
         font-family: inherit; font-weight: 800;
         font-size: 12px; letter-spacing: 0.02em;
         cursor: pointer;
-        box-shadow: 0 3px 0 #b03c34;
+        box-shadow: 0 6px 14px rgba(238,90,82,.30);
         animation: questClaimPulse 1.6s ease-in-out infinite;
+        transition: transform .12s, box-shadow .12s, filter .12s;
       }
-      .daily .quest-claim:hover { transform: translateY(-1px); }
+      .daily .quest-claim:hover { transform: translateY(-1px); filter: brightness(1.04); }
       .daily .quest-claim:active {
-        transform: translateY(2px);
-        box-shadow: 0 1px 0 #b03c34;
+        transform: translateY(1px);
+        box-shadow: 0 3px 8px rgba(238,90,82,.30);
       }
 
       @media (prefers-reduced-motion: reduce) {
