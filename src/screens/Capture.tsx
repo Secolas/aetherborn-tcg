@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, FolderOpen, Lock, Coins, Check } from 'lucide-react';
+import { ArrowLeft, FolderOpen, Lock, Coins, Check, BookHeart } from 'lucide-react';
 import { Card } from '../components/Card';
 import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
@@ -29,7 +29,9 @@ const PHOTO_SIZE = 720;
 export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia'], onBuyFilter, onComplete, onBack }: Props) {
   const [stage, setStage] = useState<Stage>('starting');
   const [photo, setPhoto] = useState<string | null>(null);
-  const [nickname, setNickname] = useState('');
+  // Free-form story the player attaches to this card. Optional —
+  // empty memory is fine, the card just doesn't get the ⓘ marker.
+  const [memory, setMemory] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [needsTap, setNeedsTap] = useState(false);
@@ -190,10 +192,13 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
 
   const finalize = () => {
     if (!photo) return;
+    const trimmed = memory.trim();
     onComplete({
       ...template,
       photo,
-      nickname: nickname.trim() || template.name,
+      // Always clear the legacy nickname so any stale value is gone.
+      nickname: undefined,
+      memory: trimmed.length > 0 ? trimmed : undefined,
       filterId: filterId === 'none' ? undefined : filterId,
     });
   };
@@ -310,8 +315,11 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
               style={{ borderRadius: 19 }}
             >
               <Card
-                card={{ ...template, photo, nickname: nickname || template.name, filterId: filterId === 'none' ? undefined : filterId }}
-                displayName={nickname || template.name}
+                card={{
+                  ...template, photo,
+                  memory: memory.trim() ? memory.trim() : undefined,
+                  filterId: filterId === 'none' ? undefined : filterId,
+                }}
                 hovered
                 scale={1.05}
               />
@@ -370,22 +378,49 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
               onPick={setFilterId}
               onBuy={onBuyFilter}
             />
-            <input
-              value={nickname}
-              onChange={ev => setNickname(ev.target.value)}
-              placeholder={`Name your ${template.suggested.replace(/^(a |an )/, '')}…`}
-              style={{
-                width: '100%',
-                background: 'rgba(255,255,255,.08)',
-                border: '1px solid rgba(255,255,255,.2)',
-                color: '#fff',
-                padding: '12px 16px',
-                borderRadius: 24,
-                fontSize: 14, textAlign: 'center',
-                marginBottom: 12,
-                outline: 'none',
-              }}
-            />
+            <div style={{
+              marginBottom: 12,
+              padding: '12px 14px',
+              background: 'rgba(255,255,255,.08)',
+              border: '1px solid rgba(255,255,255,.2)',
+              borderRadius: 16,
+            }}>
+              <div style={{
+                fontSize: 9.5, letterSpacing: '0.22em', textTransform: 'uppercase',
+                color: 'rgba(255,255,255,.65)', fontWeight: 700,
+                marginBottom: 6,
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}>
+                <BookHeart size={12} strokeWidth={2.4} />
+                <span>Memory · optional</span>
+              </div>
+              <textarea
+                value={memory}
+                onChange={ev => setMemory(ev.target.value.slice(0, 280))}
+                placeholder={memoryPlaceholder(template.name)}
+                rows={3}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#fff',
+                  padding: 0,
+                  fontSize: 13, lineHeight: 1.4,
+                  fontFamily: 'inherit',
+                  resize: 'none',
+                  outline: 'none',
+                }}
+              />
+              <div style={{
+                marginTop: 4,
+                display: 'flex', justifyContent: 'space-between',
+                fontSize: 9.5, color: 'rgba(255,255,255,.45)',
+                fontStyle: 'italic',
+              }}>
+                <span>Write whatever you want to remember about this card.</span>
+                <span>{memory.length}/280</span>
+              </div>
+            </div>
             <button onClick={finalize} style={{ ...btnPrimary, width: '100%' }}>
               Add to Collection
             </button>
@@ -546,6 +581,25 @@ function FilterPicker({
       </div>
     </div>
   );
+}
+
+/**
+ * Friendly per-template prompt that nudges the player toward a useful
+ * memory ("This is Hachi, shiba inu, very independent." for Family Pet,
+ * "Where did we go?" for a travel card, etc.). Falls back to a generic
+ * line if we don't have a tailored suggestion.
+ */
+function memoryPlaceholder(name: string): string {
+  const lower = name.toLowerCase();
+  if (lower.includes('pet'))        return 'e.g. This is Hachi, our shiba inu — stubborn, smart, very independent.';
+  if (lower.includes('mom'))        return 'e.g. The way she always knows when you skipped dinner.';
+  if (lower.includes('dad'))        return 'e.g. Quiet hands, loud laugh, taught me to ride a bike.';
+  if (lower.includes('sibling'))    return 'e.g. Three years older, stole my hoodies, would still fight anyone for me.';
+  if (lower.includes('birthday'))   return 'e.g. The year we forgot the candles and used a lighter.';
+  if (lower.includes('cake'))       return 'e.g. Tía always brings tres leches and pretends she didn\'t.';
+  if (lower.includes('coffee'))     return 'e.g. The 6am cafecito that gets me through Mondays.';
+  if (lower.includes('soup'))       return 'e.g. Abuela\'s — only her recipe tastes like home.';
+  return 'e.g. Where you were, who was there, what made it matter.';
 }
 
 function CardShapedViewfinder({ template, children }: { template: CollectionCard; children: React.ReactNode }) {

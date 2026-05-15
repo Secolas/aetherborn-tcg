@@ -1,4 +1,4 @@
-import { Sparkles } from 'lucide-react';
+import { Sparkles, Info } from 'lucide-react';
 import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
 import { DAMAGE } from '../design/tokens';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
@@ -11,7 +11,9 @@ interface Props {
   card: CardTemplate | CollectionCard | BattleCard;
   scale?: number;
   hovered?: boolean;
-  /** Override displayed name (e.g. nickname); defaults to card.name */
+  /** Override displayed name. Used by Capture's live preview only.
+   *  Card titles otherwise always show the underlying template name —
+   *  the legacy nickname field is no longer read. */
   displayName?: string;
   /** Override displayed atk/hp for battle */
   displayAtk?: number;
@@ -25,19 +27,28 @@ interface Props {
    *  opponent reveals and the inspect modal for opponent cards so the
    *  player's equipped frame doesn't "skin" the boss's cards. */
   owned?: boolean;
+  /** When provided AND the card has a `memory` string set, the title row
+   *  gets a small ⓘ button. Tapping it stops propagation and calls this
+   *  callback so the parent can show the memory text in a modal. */
+  onMemoryClick?: () => void;
 }
 
 function isCollectionCard(c: CardTemplate | CollectionCard): c is CollectionCard {
   return 'photo' in c;
 }
 
-export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false, owned = true }: Props) {
+export function Card({ card, scale = 1, hovered = false, displayName, displayAtk, displayHp, unaffordable = false, owned = true, onMemoryClick }: Props) {
   const photo = isCollectionCard(card) ? card.photo : null;
   const dormant = !photo;
   const isSpell = card.type === 'Spell';
-  const name = displayName ?? (isCollectionCard(card) && card.nickname ? card.nickname : card.name);
+  // Card titles always show the underlying template name now — the
+  // legacy nickname field is migrated away and never read here. The
+  // displayName prop stays for the Capture live preview only.
+  const name = displayName ?? card.name;
   const atk = displayAtk ?? card.atk;
   const hp = displayHp ?? card.hp;
+  const memory = isCollectionCard(card) ? card.memory : undefined;
+  const hasMemory = !!memory && memory.trim().length > 0;
 
   // Card chrome is colored by TYPE only — every creature is green, every
   // spell is violet, regardless of theme. Theme is signaled by the element
@@ -115,7 +126,46 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
           flex: 1, fontSize: 14 * scale, fontWeight: 700, lineHeight: 1.1,
           textShadow: `0 1px 0 ${tp.deep}`,
           minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        }}>{name}</div>
+          display: 'flex', alignItems: 'center', gap: 4 * scale,
+        }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>{name}</span>
+          {hasMemory && (
+            onMemoryClick
+              ? <button
+                  type="button"
+                  aria-label="View memory"
+                  onClick={(ev) => { ev.stopPropagation(); onMemoryClick(); }}
+                  onPointerDown={(ev) => ev.stopPropagation()}
+                  style={{
+                    flex: '0 0 auto',
+                    width: 16 * scale, height: 16 * scale,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,.95)',
+                    color: tp.deep,
+                    border: 'none', padding: 0,
+                    display: 'grid', placeItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: `0 0 0 ${1 * scale}px rgba(0,0,0,.15)`,
+                  }}
+                >
+                  <Info size={11 * scale} strokeWidth={2.8} />
+                </button>
+              : <span
+                  aria-label="Has memory"
+                  style={{
+                    flex: '0 0 auto',
+                    width: 16 * scale, height: 16 * scale,
+                    borderRadius: '50%',
+                    background: 'rgba(255,255,255,.85)',
+                    color: tp.deep,
+                    display: 'grid', placeItems: 'center',
+                    boxShadow: `0 0 0 ${1 * scale}px rgba(0,0,0,.15)`,
+                  }}
+                >
+                  <Info size={11 * scale} strokeWidth={2.8} />
+                </span>
+          )}
+        </div>
         <ElementGlyph el={card.el} size={22 * scale} />
       </div>
 

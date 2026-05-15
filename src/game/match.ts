@@ -1104,7 +1104,9 @@ export function attack(prev: MatchState, owner: Owner, attackerId: string, targe
 }
 
 export function displayName(c: BattleCard): string {
-  return c.nickname || c.name;
+  // Card titles always show the underlying template name now — the
+  // legacy nickname is migrated away and never read.
+  return c.name;
 }
 
 /** Helpers for the AI / UI to ask if any of my creatures can act. */
