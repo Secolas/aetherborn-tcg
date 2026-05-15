@@ -71,6 +71,10 @@ interface TutorialStep {
    *  if the played card's template id matches. Lets us gate "summon
    *  Coffee Mug" vs "summon Breakfast Plate" without sharing steps. */
   requireCardId?: string;
+  /** When set, advanceOn 'attack' only counts when the player swings
+   *  at this kind of target. Lets us split "attack a creature" and
+   *  "attack the opponent's face" into distinct teaching beats. */
+  requireAttackTarget?: 'face' | 'creature';
   /** When set, the script auto-advances this many ms after entry —
    *  used for the "watch what just happened" beats (bond trigger,
    *  heal flash) that don't tie to a player action. */
@@ -110,11 +114,20 @@ const STEPS: TutorialStep[] = [
     autoMs: 3200,
   },
   {
-    title: 'ATTACK',
+    title: 'ATTACK A CREATURE',
     icon: 'swords',
-    text: "Drag your Coffee Mug from the field onto the opponent's portrait to attack.",
-    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    text: "Creatures can attack each other. Drag your Coffee Mug onto an opponent creature to fight it.",
+    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut-field-card][data-tut-side="opponent"]'],
     advanceOn: 'attack',
+    requireAttackTarget: 'creature',
+  },
+  {
+    title: 'ATTACK THE OPPONENT',
+    icon: 'swords',
+    text: "Or attack their portrait directly. That's how you drop their HP and win.",
+    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    advanceOn: 'attack',
+    requireAttackTarget: 'face',
   },
   {
     title: 'SPELL',
@@ -167,11 +180,19 @@ export function Tutorial({
     }).filter((c): c is CollectionCard => !!c);
   }, []);
 
-  const advance = (kind: TutorialStep['advanceOn'], cardId?: string) => {
+  const advance = (
+    kind: TutorialStep['advanceOn'],
+    payload?: { cardId?: string; attackTarget?: 'face' | 'creature' },
+  ) => {
     if (step.advanceOn !== kind) return;
     if ((kind === 'spell-cast' || kind === 'card-played')
         && step.requireCardId
-        && cardId !== step.requireCardId) {
+        && payload?.cardId !== step.requireCardId) {
+      return;
+    }
+    if (kind === 'attack'
+        && step.requireAttackTarget
+        && payload?.attackTarget !== step.requireAttackTarget) {
       return;
     }
     setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
@@ -261,10 +282,10 @@ export function Tutorial({
         playerAvatar={playerAvatar}
         settings={settings}
         alreadyBeaten={false}
-        onCreaturePlayed={(id) => advance('card-played', id)}
+        onCreaturePlayed={(id) => advance('card-played', { cardId: id })}
         onPlayerTurnEnd={() => advance('turn-end')}
-        onPlayerAttacked={() => advance('attack')}
-        onPlayerSpellCast={(id) => advance('spell-cast', id)}
+        onPlayerAttacked={(target) => advance('attack', { attackTarget: target })}
+        onPlayerSpellCast={(id) => advance('spell-cast', { cardId: id })}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();

@@ -270,18 +270,19 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
           </button>
 
           <div className="home-nav">
-            {/* The entire secondary nav row is gated behind tutorial
-                completion. Every tile greys out + shows a transparent
-                lock overlay until the player clears the scripted
-                match; clicks are no-ops in that state. Routes back
-                onto the primary CTA, which is the ONLY way forward
-                pre-tutorial. */}
-            <NavButton locked={!save.tutorialCompleted} label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
-            <NavButton locked={!save.tutorialCompleted} label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
-            <NavButton locked={!save.tutorialCompleted} label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
-            <NavButton locked={!save.tutorialCompleted} label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
-            <NavButton locked={!save.tutorialCompleted} label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
-            <NavButton locked={!save.tutorialCompleted} label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
+            {/* The entire secondary nav row is gated behind picking
+                a starter theme. Every tile greys out + shows a
+                transparent lock overlay until save.starterThemeId is
+                set; clicks are no-ops in that state. Routes the
+                player back onto the primary CTA, which walks through
+                Tutorial -> Pick Starter -> ... until everything
+                opens up. */}
+            <NavButton locked={!save.starterThemeId} label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
+            <NavButton locked={!save.starterThemeId} label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
+            <NavButton locked={!save.starterThemeId} label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
+            <NavButton locked={!save.starterThemeId} label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
+            <NavButton locked={!save.starterThemeId} label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
+            <NavButton locked={!save.starterThemeId} label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
           </div>
         </div>
       </div>

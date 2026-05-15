@@ -54,11 +54,12 @@ interface Props {
    *  sequence. Does NOT fire when the engine auto-ends turns for any
    *  other reason. */
   onPlayerTurnEnd?: () => void;
-  /** Fires when the player successfully resolves an attack (creature
-   *  vs creature, OR creature vs face). Skipped when the attack is
-   *  rejected by the engine. Used by the Tutorial overlay to advance
-   *  past the "drag to attack" hint. */
-  onPlayerAttacked?: () => void;
+  /** Fires when the player successfully resolves an attack. Receives
+   *  whether the target was the opponent's face or another creature
+   *  so the Tutorial overlay can gate the "attack creature" and
+   *  "attack face" steps independently. Skipped when the attack is
+   *  rejected by the engine. */
+  onPlayerAttacked?: (target: 'face' | 'creature') => void;
   /** Fires when the player successfully casts a spell. Receives the
    *  spell's template id so Tutorial scripts can branch on which
    *  spell was cast. Skipped if the engine rejected the cast. */
@@ -1685,7 +1686,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       flashMsg(result.reason ?? 'Cannot attack');
       return;
     }
-    onPlayerAttacked?.();
+    onPlayerAttacked?.(target === 'face' ? 'face' : 'creature');
     let defender: BattleCard | null = null;
     if (target !== 'face') {
       defender = state.opponent.field.find(c => c.battleId === target.battleId) ?? null;

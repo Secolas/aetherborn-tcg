@@ -64,6 +64,13 @@ export interface BossDef {
    * creatures.
    */
   startingHp?: number;
+  /**
+   * Optional first-player override. When set, that side always opens
+   * the match instead of the engine's normal 50/50 coin flip. Used
+   * by the tutorial so the scripted hint sequence ("summon -> end
+   * turn -> attack") always lines up with the player's first turn.
+   */
+  firstPlayer?: 'player' | 'opponent';
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -531,6 +538,9 @@ export const MINI_BOSSES: BossDef[] = [
     // Low HP override so the tutorial can be won in 3-4 turns of
     // proper summon-wait-attack rhythm with 1-cost non-rush creatures.
     startingHp: 6,
+    // Player always opens the tutorial match so the scripted hint
+    // sequence lines up with their first turn.
+    firstPlayer: 'player',
     deck: [
       'ani-01','ani-01','ani-01','ani-01',
       'ani-14','ani-14','ani-14','ani-14',
