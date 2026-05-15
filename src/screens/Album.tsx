@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Camera, Sparkles, LayoutGrid, Rows3, Link2, Lock } from 'lucide-react';
-import { Card } from '../components/Card';
+import { ArrowLeft, Camera, Sparkles, LayoutGrid, Rows3, Link2, Lock, BookHeart, X } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { BONDS, type BondDef } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
@@ -127,28 +126,143 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
       </div>
 
       {inspect && (
-        <div
-          onClick={() => setInspect(null)}
+        <AlbumLightbox card={inspect} onClose={() => setInspect(null)} />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Album-style lightbox — the user explicitly didn't want to "open the
+ * card" to see the card here; the album is meant to feel like a photo
+ * scrapbook, not a card inspector. So we render just the photo at large
+ * size, the card's name + element chip, and the player-written memory
+ * (when present). No stats, no ability text, no card chrome.
+ */
+function AlbumLightbox({ card, onClose }: { card: CollectionCard; onClose: () => void }) {
+  const e = ELEMENTS[card.el];
+  const hasMemory = !!card.memory && card.memory.trim().length > 0;
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(8, 4, 12, 0.78)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 200,
+        padding: 24,
+        animation: 'fadeIn .2s',
+        overflowY: 'auto',
+      }}
+    >
+      <div
+        onClick={(ev) => ev.stopPropagation()}
+        style={{
+          width: '100%', maxWidth: 460,
+          background: '#fff',
+          borderRadius: 22,
+          padding: 16,
+          boxShadow: '0 18px 40px rgba(0,0,0,.35)',
+          animation: 'cardSummon 0.35s cubic-bezier(.2,.8,.3,1)',
+          display: 'flex', flexDirection: 'column', gap: 12,
+        }}
+      >
+        {/* Close pinned top-right */}
+        <button
+          onClick={onClose}
+          aria-label="Close"
           style={{
-            position: 'absolute', inset: 0,
-            background: 'rgba(8, 4, 12, 0.72)',
+            alignSelf: 'flex-end',
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'transparent', border: `1.5px solid ${PALETTE.border}`,
             display: 'grid', placeItems: 'center',
-            zIndex: 200,
-            animation: 'fadeIn .2s',
+            cursor: 'pointer', color: PALETTE.text,
+            marginTop: -4, marginRight: -4,
           }}
         >
-          <div style={{ animation: 'cardSummon 0.4s cubic-bezier(.2,.8,.3,1)' }}>
-            <Card card={inspect} hovered scale={1.1} />
-          </div>
-          <div style={{
-            position: 'absolute', bottom: 50, left: 0, right: 0,
-            textAlign: 'center', fontSize: 11, color: '#fff', opacity: 0.85,
-            fontStyle: 'italic',
-          }}>
-            tap anywhere to close
-          </div>
+          <X size={14} strokeWidth={2.4} />
+        </button>
+
+        {/* The photo, big. Aspect ratio 1:1 matches the polaroid frame. */}
+        <div style={{
+          width: '100%', aspectRatio: '1 / 1',
+          borderRadius: 14, overflow: 'hidden',
+          background: e.deep,
+          position: 'relative',
+          boxShadow: 'inset 0 0 0 1px rgba(58,46,42,.08)',
+        }}>
+          {card.photo && (
+            <img
+              src={card.photo}
+              alt={card.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+          )}
         </div>
-      )}
+
+        {/* Header — name + theme chip */}
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 10,
+        }}>
+          <div style={{
+            fontSize: 22, fontWeight: 800, color: PALETTE.text,
+            letterSpacing: '-0.01em',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            minWidth: 0,
+          }}>
+            {card.name}
+          </div>
+          <span style={{
+            background: e.color, color: '#fff',
+            padding: '4px 9px', borderRadius: 999,
+            fontSize: 10, fontWeight: 800, letterSpacing: '0.14em',
+            textTransform: 'uppercase',
+            flex: '0 0 auto',
+          }}>
+            {e.name}
+          </span>
+        </div>
+
+        {/* Memory — the whole point of the album. */}
+        {hasMemory ? (
+          <div style={{
+            background: '#fff7e6',
+            border: `1px solid ${PALETTE.border}`,
+            borderLeft: `3px solid ${PALETTE.accent}`,
+            borderRadius: 12,
+            padding: '12px 14px',
+          }}>
+            <div style={{
+              fontSize: 9, fontWeight: 800, letterSpacing: '0.22em',
+              textTransform: 'uppercase', color: PALETTE.accent,
+              marginBottom: 6,
+              display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <BookHeart size={11} strokeWidth={2.4} />
+              Memory
+            </div>
+            <div style={{
+              fontSize: 13, color: PALETTE.text,
+              lineHeight: 1.45, whiteSpace: 'pre-wrap',
+              fontFamily: '"Inter", system-ui, sans-serif',
+            }}>
+              {card.memory}
+            </div>
+          </div>
+        ) : (
+          <div style={{
+            padding: '10px 14px',
+            background: 'rgba(58,46,42,.04)',
+            border: `1px dashed ${PALETTE.border}`,
+            borderRadius: 12,
+            fontSize: 12, color: PALETTE.textMid,
+            fontStyle: 'italic', textAlign: 'center',
+          }}>
+            No memory written for this photo yet. Add one from the Collection screen.
+          </div>
+        )}
+      </div>
     </div>
   );
 }
