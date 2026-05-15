@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Coins, Package, Images, Layers, Swords, ScrollText, Sparkles,
-  Settings as SettingsIcon, Flame, Palette, UserRound, Camera,
+  Coins, Package, Images, Layers, Swords, ScrollText,
+  Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
+  Sparkles, BookOpen, Lock,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PALETTE } from '../components/styles';
@@ -13,8 +14,7 @@ interface Props {
   /** Total claimable items in Daily (completed quests + unclaimed streak).
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics') => void;
-  onQuickFill: () => void;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open') => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
 
@@ -28,7 +28,7 @@ interface Props {
  * the player has written a memory for, the memory fades in under the
  * fan and rides out with that cycle's heartbeat.
  */
-export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetAvatar }: Props) {
+export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,10 +46,40 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
     const c = save.collection.find(x => x.uid === uid);
     return c && c.photo;
   }).length;
-  const canMatch = playableInDeck >= 4;
+  const deckReady = playableInDeck >= 4;
+  // Play Match is gated behind the Campaign — the player must beat at
+  // least one campaign stop before the picker becomes available. Legacy
+  // saves with already-defeated bosses keep their access (so existing
+  // players aren't suddenly walled out).
+  const hasCampaignProgress = Object.values(save.campaignProgress ?? {}).some(v => v >= 0);
+  const hasLegacyWins = save.bossesDefeated.length > 0;
+  const playUnlocked = hasCampaignProgress || hasLegacyWins;
+
+  // Progressive primary CTA. Walks the player through the onboarding
+  // chain step by step (each completed step rolls the CTA forward),
+  // then settles into Play Match once everything is set up. Boot
+  // always lands on Home — every step is one tap away on the CTA.
+  type CtaState =
+    | { kind: 'tutorial'; label: string; icon: React.ReactNode; nav: 'tutorial' }
+    | { kind: 'starter-pick'; label: string; icon: React.ReactNode; nav: 'starter-pick' }
+    | { kind: 'starter-open'; label: string; icon: React.ReactNode; nav: 'starter-open' }
+    | { kind: 'campaign'; label: string; icon: React.ReactNode; nav: 'campaign' }
+    | { kind: 'need-deck'; label: string; icon: React.ReactNode; nav: null }
+    | { kind: 'play'; label: string; icon: React.ReactNode; nav: 'play' };
+  const cta: CtaState = !save.tutorialCompleted
+    ? { kind: 'tutorial',     label: 'Begin Tutorial',       icon: <Sparkles size={20} strokeWidth={2.4} />, nav: 'tutorial' }
+    : !save.starterThemeId
+    ? { kind: 'starter-pick', label: 'Pick Your Starter',    icon: <Package  size={20} strokeWidth={2.4} />, nav: 'starter-pick' }
+    : (save.starterThemeId !== 'legacy' && !save.starterOpened)
+    ? { kind: 'starter-open', label: 'Open Your Starter',    icon: <BookOpen size={20} strokeWidth={2.4} />, nav: 'starter-open' }
+    : !playUnlocked
+    ? { kind: 'campaign',     label: 'Play Campaign',        icon: <Flag     size={20} strokeWidth={2.4} />, nav: 'campaign' }
+    : !deckReady
+    ? { kind: 'need-deck',    label: `Need ${4 - playableInDeck} more in deck`, icon: <Swords size={20} strokeWidth={2.4} />, nav: null }
+    : { kind: 'play',         label: 'Play Match',           icon: <Swords   size={20} strokeWidth={2.4} />, nav: 'play' };
   const summonedCount = save.collection.filter(c => c.photo).length;
   const dormantCount = save.collection.filter(c => !c.photo).length;
-  const showQuickFill = !canMatch && dormantCount > 0;
+  void dormantCount;
 
   // Slideshow source — preserved from the previous version. Every
   // summoned card the player owns, with two safe fallbacks below 2 so
@@ -223,32 +253,35 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           )}
         </div>
 
-        {/* CTA + nav */}
+        {/* CTA + nav. The primary CTA walks the player through the
+            onboarding chain (Begin Tutorial -> Pick Starter -> Open
+            Pack -> Play Campaign -> Play Match) — see `cta` above. */}
         <div className="home-actions">
           <button
             className="home-cta"
-            onClick={() => canMatch && onNav('play')}
-            disabled={!canMatch}
+            onClick={() => { if (cta.nav) onNav(cta.nav); }}
+            disabled={cta.nav === null}
+            data-cta={cta.kind}
           >
-            <Swords size={20} strokeWidth={2.4} />
+            {cta.icon}
             <span className="home-cta-label">
-              {canMatch ? 'Play Match' : `Need ${4 - playableInDeck} more in deck`}
+              {cta.label}
             </span>
           </button>
 
-          {showQuickFill && (
-            <button className="home-quickfill" onClick={onQuickFill}>
-              <Sparkles size={14} color={PALETTE.accent} strokeWidth={2.4} />
-              <span>Quick Play with placeholder photos</span>
-            </button>
-          )}
-
           <div className="home-nav">
-            <NavButton label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
-            <NavButton label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
-            <NavButton label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
-            <NavButton label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
-            <NavButton label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
+            {/* The entire secondary nav row is gated behind tutorial
+                completion. Every tile greys out + shows a transparent
+                lock overlay until the player clears the scripted
+                match; clicks are no-ops in that state. Routes back
+                onto the primary CTA, which is the ONLY way forward
+                pre-tutorial. */}
+            <NavButton locked={!save.tutorialCompleted} label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
+            <NavButton locked={!save.tutorialCompleted} label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
+            <NavButton locked={!save.tutorialCompleted} label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
+            <NavButton locked={!save.tutorialCompleted} label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
+            <NavButton locked={!save.tutorialCompleted} label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
+            <NavButton locked={!save.tutorialCompleted} label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
           </div>
         </div>
       </div>
@@ -256,11 +289,22 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
   );
 }
 
-function NavButton({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
+function NavButton({ label, icon, onClick, locked = false }: { label: string; icon: React.ReactNode; onClick: () => void; locked?: boolean }) {
   return (
-    <button className="home-nav-btn" onClick={onClick}>
+    <button
+      className="home-nav-btn"
+      data-locked={locked}
+      disabled={locked}
+      onClick={onClick}
+      aria-label={locked ? `${label} (locked — finish tutorial first)` : label}
+    >
       <span className="ico">{icon}</span>
       <span className="lbl">{label}</span>
+      {locked && (
+        <span className="lock-overlay" aria-hidden="true">
+          <Lock size={14} strokeWidth={2.4} />
+        </span>
+      )}
     </button>
   );
 }
@@ -500,22 +544,11 @@ function HomeStyles() {
       }
       .home-cta-label { font-family: inherit; }
 
-      .home-quickfill {
-        width: 100%;
-        padding: 10px 16px; min-height: 40px;
-        background: rgba(255,255,255,.85);
-        color: ${PALETTE.text};
-        border: 1.5px dashed ${PALETTE.accent};
-        border-radius: 14px;
-        font-family: inherit; font-weight: 700; font-size: 13px;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-      }
-
       .home-nav {
         display: flex; gap: 6px;
       }
       .home-nav-btn {
+        position: relative;
         flex: 1;
         display: flex; flex-direction: column; align-items: center;
         gap: 4px; padding: 9px 0; min-height: 56px;
@@ -527,7 +560,7 @@ function HomeStyles() {
         color: ${PALETTE.text};
         transition: transform .12s, box-shadow .15s;
       }
-      .home-nav-btn:hover {
+      .home-nav-btn:hover:not([data-locked="true"]) {
         transform: translateY(-1px);
         box-shadow: 0 6px 14px rgba(58,46,42,.12);
       }
@@ -537,6 +570,33 @@ function HomeStyles() {
       }
       .home-nav-btn .lbl {
         font-size: 11px; font-weight: 700;
+      }
+      /* Locked state — greyed tile with a transparent lock overlay
+         laid over the icon + label. Click is disabled at the
+         attribute level; visually the tile reads as a clear "not
+         yet — finish tutorial first" affordance. */
+      .home-nav-btn[data-locked="true"] {
+        background: ${PALETTE.bg};
+        border-color: ${PALETTE.border};
+        box-shadow: none;
+        cursor: not-allowed;
+        opacity: 0.55;
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn[data-locked="true"] .ico {
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn[data-locked="true"] .lbl {
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn .lock-overlay {
+        position: absolute;
+        inset: 0;
+        display: grid; place-items: center;
+        background: rgba(28,24,20,0.08);
+        color: ${PALETTE.text};
+        border-radius: inherit;
+        pointer-events: none;
       }
 
       @media (prefers-reduced-motion: reduce) {

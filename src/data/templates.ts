@@ -282,6 +282,30 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a mosquito, fly, or any flying insect' },
 
+  // Family Pet micro-set — three cheap support spells that pair with
+  // fam-01 Family Pet and the rest of the animals theme. Belly Rub
+  // is a creature heal (reuses fd-13 Sip's targeting + heal_friend
+  // engine path; works on any friendly creature, not just animals).
+  // Good Boy is a 1c Nourish bump (raises max HP). Walkies is a
+  // 2c draw 2 — Suitcase-cheap, but for the animals pool.
+  { id: 'ani-15', name: 'Belly Rub', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Restore 4 HP to a friendly creature.',
+    flavor: 'Right behind the ear.',
+    abilityKind: 'spell_heal_friend', abilityValue: 4,
+    rarity: 'common', suggested: 'a hand on a pet, a happy dog, a cat being scratched' },
+
+  { id: 'ani-16', name: 'Good Boy', el: 'animals', cost: 1, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Give a creature +0/+2 HP.',
+    flavor: 'He knew before you said it.',
+    abilityKind: 'spell_nourish', abilityValue: 2,
+    rarity: 'common', suggested: 'a beaming dog, an attentive pet, a treat moment' },
+
+  { id: 'ani-17', name: 'Walkies', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Draw 2 cards.',
+    flavor: 'Leash. Door. Run.',
+    abilityKind: 'draw_on_play', abilityValue: 2,
+    rarity: 'rare', suggested: 'a leash by the door, a dog on a walk, paws on a sidewalk' },
+
 
   // ============================================================
   // TRAVEL — tempo / evasion. They move fast and slip past defenses.

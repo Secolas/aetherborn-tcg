@@ -16,7 +16,11 @@ import {
   type DailyState, type Quest, type QuestEvent,
 } from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
-import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { STARTER_THEMES, getStarterTheme } from './data/starterDecks';
+import { StarterPick } from './screens/StarterPick';
+import { StarterPackOpen } from './screens/StarterPackOpen';
+import { Tutorial } from './screens/Tutorial';
 import { STARTER_FILTERS, type FilterId } from './data/filters';
 import { STARTER_FRAMES, type FrameId } from './data/frames';
 import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
@@ -28,6 +32,9 @@ import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
+import { getBoss } from './data/bosses';
+import { getCampaign } from './data/campaign';
+import { Campaign } from './screens/Campaign';
 import type { CollectionCard, SaveData, Difficulty, DeckSlot, ElementId } from './game/types';
 
 const MAX_DECKS = 5;
@@ -42,11 +49,14 @@ import { unlockAudio, setMusicVolume, playSfx } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
 
+/** Brand-new save — empty collection. The player has not yet picked
+ *  a starter theme, so SaveData.starterThemeId is undefined and the
+ *  onboarding flow (StarterPick -> StarterPackOpen) routes them
+ *  through the picker before they see Home. */
 function makeInitialSave(): SaveData {
-  const starter = starterPack();
   return {
     version: 1,
-    collection: starter,
+    collection: [],
     deckUids: [],
     coins: STARTER_REWARD,
     packsOpened: 0,
@@ -66,11 +76,15 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
   const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+  // Boot always lands on Home. Onboarding (tutorial -> starter pick
+  // -> starter pack open) is surfaced as Home's primary CTA so the
+  // player can choose when to start each step instead of being
+  // dropped straight into the next screen on every app open.
   const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
@@ -80,6 +94,11 @@ export default function App() {
    *  you test boss balance without first capturing 12+ photos. Cleared
    *  on match exit. */
   const [activeTestTheme, setActiveTestTheme] = useState<ElementId | null>(null);
+  /** When set, the upcoming match is a campaign stop. After the match
+   *  resolves, we return to the Campaign screen (instead of Home) and
+   *  on a win we advance the campaign progress for this arc. Cleared
+   *  on match exit. */
+  const [activeCampaign, setActiveCampaign] = useState<{ arcId: string; stopIndex: number } | null>(null);
   /** Toast queue for quest progress + completion. Drains FIFO with a
    *  fixed lifetime per toast; multiple completions stack visibly. */
   const [questToasts, setQuestToasts] = useState<{ id: number; quest: Quest; reason: 'done' | 'streak'; coins?: number }[]>([]);
@@ -99,6 +118,30 @@ export default function App() {
         return s;
       }
       return { ...s, daily: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Legacy-onboarding migration. Saves that predate the starter-pick
+   *  flow (created when makeInitialSave() auto-granted a mixed family
+   *  starter pack) get marked as already-onboarded so they skip the
+   *  picker on next boot. The trigger is "save shows any sign of life"
+   *  — has collection cards, has played matches, or has campaign
+   *  progress. A genuinely-empty new save passes through to
+   *  StarterPick instead. Idempotent: stops mutating once
+   *  starterThemeId is set. */
+  useEffect(() => {
+    setSave(s => {
+      if (s.starterThemeId) return s;
+      const hasLife =
+        (s.collection?.length ?? 0) > 0 ||
+        s.matchesWon > 0 ||
+        s.matchesLost > 0 ||
+        (s.bossesDefeated?.length ?? 0) > 0;
+      if (!hasLife) return s; // truly new — leave for the picker
+      // Mark every legacy onboarding bit so existing players skip
+      // both the starter open and the new tutorial. They've earned it.
+      return { ...s, starterThemeId: 'legacy', starterOpened: true, tutorialCompleted: true };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -285,6 +328,71 @@ export default function App() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Player picked a starter theme on first boot. Resolve the theme's
+   *  12-card template list, instantiate fresh CollectionCard rows
+   *  (photo: null — the open flow fills them in), add them to the
+   *  (currently-empty) collection, ALSO create a new deck slot
+   *  containing those 12 uids and make it active so the player has a
+   *  ready-to-play deck the moment they finish the open flow, and
+   *  route to the StarterPackOpen reveal flow. */
+  const onStarterPick = (themeId: typeof STARTER_THEMES[number]['id']) => {
+    const theme = getStarterTheme(themeId);
+    if (!theme) return;
+    setSave(s => {
+      const newUid = (i: number) => `c_${Date.now().toString(36)}_${i}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+      const cards: CollectionCard[] = [];
+      theme.deck.forEach((id, i) => {
+        const tpl = getTemplateById(id);
+        if (!tpl) return;
+        cards.push({ ...tpl, uid: newUid(i), photo: null });
+      });
+      const starterDeckId = newDeckId();
+      const starterDeck: DeckSlot = {
+        id: starterDeckId,
+        name: `${theme.name} Starter`,
+        uids: cards.map(c => c.uid),
+      };
+      return {
+        ...s,
+        starterThemeId: themeId,
+        starterOpened: false,
+        collection: [...s.collection, ...cards],
+        decks: [...(s.decks ?? []), starterDeck],
+        activeDeckId: starterDeckId,
+        // Mirror into the legacy single-deck field so the existing
+        // playableInDeck check on Home (which reads deckUids) flips
+        // to "deck ready" the moment the open flow finishes.
+        deckUids: starterDeck.uids,
+      };
+    });
+    setScreen('starter-open');
+  };
+
+  /** Player finished the starter pack open. Auto-fill any starter
+   *  cards that still have no photo with the canonical aiPhoto
+   *  placeholder for that template (marked isPlaceholder so the
+   *  Collection screen can highlight them for later replacement).
+   *  Ensures the starter deck is fully playable the moment the open
+   *  flow ends regardless of whether the player took photos or
+   *  skipped them — no more "Need N more in deck" stalls on Home. */
+  const onStarterOpenComplete = () => {
+    setSave(s => {
+      const collection = s.collection.map(c =>
+        c.photo ? c : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
+      );
+      return { ...s, starterOpened: true, collection };
+    });
+    setScreen('home');
+  };
+
+  /** Tutorial match won. Mark complete and route back to Home — the
+   *  primary CTA there will have rolled forward to "Pick Your Starter",
+   *  one tap away. Consistent with the Home-first boot philosophy. */
+  const onTutorialComplete = () => {
+    setSave(s => ({ ...s, tutorialCompleted: true }));
+    setScreen('home');
+  };
 
   const goCapture = (card: CollectionCard) => {
     setCapturing(card);
@@ -518,6 +626,25 @@ export default function App() {
     setActiveBoss(boss);
     setActiveDifficulty(difficulty);
     setActiveTestTheme(testThemeId);
+    setActiveCampaign(null);
+    setScreen('match');
+  };
+
+  /** Launch a match from a campaign stop. Always Normal difficulty —
+   *  the campaign curve comes from arc ordering, not per-boss tiers.
+   *  Stores the arc + stop so onMatchExit can advance progress and
+   *  return to the Campaign screen instead of Home. */
+  const onPickCampaignStop = (arcId: string, stopIndex: number) => {
+    const arc = getCampaign(arcId);
+    if (!arc) return;
+    const stop = arc.stops[stopIndex];
+    if (!stop) return;
+    const boss = getBoss(stop.bossId);
+    if (!boss) return;
+    setActiveBoss(boss);
+    setActiveDifficulty('normal');
+    setActiveTestTheme(null);
+    setActiveCampaign({ arcId, stopIndex });
     setScreen('match');
   };
 
@@ -525,7 +652,9 @@ export default function App() {
     const boss = activeBoss;
     const difficulty = activeDifficulty;
     const wasTest = activeTestTheme !== null;
+    const wasCampaign = activeCampaign;
     setActiveTestTheme(null);
+    setActiveCampaign(null);
     // Test-deck matches don't grant coins or count as beating the boss —
     // they're for balance testing, not progression. Otherwise spamming
     // test fights would inflate coins and falsely unlock the "beaten"
@@ -534,6 +663,21 @@ export default function App() {
       setActiveBoss(null);
       setScreen('home');
       return;
+    }
+    // Campaign matches advance arc progress on a win. We do this BEFORE
+    // the regular reward block so the same setSave can persist both
+    // updates atomically. The regular reward path still runs below so
+    // coins, bossesDefeated, bossesBeatenAt, etc. all stay consistent
+    // with the picker (a campaign win counts the same as a picker win).
+    if (wasCampaign && outcome === 'win') {
+      setSave(s => {
+        const progress = { ...(s.campaignProgress ?? {}) };
+        const current = progress[wasCampaign.arcId] ?? -1;
+        if (wasCampaign.stopIndex > current) {
+          progress[wasCampaign.arcId] = wasCampaign.stopIndex;
+        }
+        return { ...s, campaignProgress: progress };
+      });
     }
     // Every non-test match — win, loss, or draw — counts as a played match
     // for quest tracking. Quits don't (the player bailed without a
@@ -585,7 +729,10 @@ export default function App() {
       });
     }
     setActiveBoss(null);
-    setScreen('home');
+    // Return to the Campaign screen if the match was launched from a
+    // campaign stop (so the player sees their newly-unlocked next stop
+    // immediately). Otherwise back to Home as before.
+    setScreen(wasCampaign ? 'campaign' : 'home');
   };
 
   // Resolve the active deck for the match. Prefer the multi-deck shape
@@ -625,11 +772,27 @@ export default function App() {
       cardBack={save.equippedCardBack}
     >
     <PhoneShell>
+      {screen === 'starter-pick' && (
+        <StarterPick
+          themes={STARTER_THEMES}
+          onPick={(themeId) => onStarterPick(themeId)}
+        />
+      )}
+      {screen === 'starter-open' && save.starterThemeId && save.starterThemeId !== 'legacy' && (
+        <StarterPackOpen
+          theme={getStarterTheme(save.starterThemeId)!}
+          cards={save.collection.slice(-12)}
+          onSetPhoto={(uid, dataUrl) => setSave(s => ({
+            ...s,
+            collection: s.collection.map(c => c.uid === uid ? { ...c, photo: dataUrl, isPlaceholder: false } : c),
+          }))}
+          onDone={onStarterOpenComplete}
+        />
+      )}
       {screen === 'home' && (
         <HomeMenu
           save={save}
           dailyReadyCount={dailyReadyCount}
-          onQuickFill={onQuickFill}
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
@@ -688,6 +851,8 @@ export default function App() {
           onPackOpened={onPackOpened}
           onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
+          tutorialCompleted={!!save.tutorialCompleted}
+          onStartTutorial={() => setScreen('tutorial')}
         />
       )}
       {screen === 'album' && (
@@ -736,6 +901,7 @@ export default function App() {
           beatenAt={save.bossesBeatenAt ?? {}}
           wonAt={save.bossesWonAt ?? {}}
           lostAt={save.bossesLostAt ?? {}}
+          campaignProgress={save.campaignProgress ?? {}}
           coins={save.coins}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
@@ -744,6 +910,29 @@ export default function App() {
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
           onOpenDeckBuilder={() => setScreen('deck')}
+        />
+      )}
+      {screen === 'campaign' && (
+        <Campaign
+          progress={save.campaignProgress ?? {}}
+          collection={save.collection}
+          decks={save.decks ?? []}
+          activeDeckId={save.activeDeckId}
+          tutorialCompleted={!!save.tutorialCompleted}
+          onSetActiveDeck={onSetActiveDeck}
+          onPickStop={onPickCampaignStop}
+          onOpenDeckBuilder={() => setScreen('deck')}
+          onBack={() => setScreen('home')}
+          onStartTutorial={() => setScreen('tutorial')}
+        />
+      )}
+      {screen === 'tutorial' && (
+        <Tutorial
+          starterThemeId={save.starterThemeId}
+          playerAvatar={save.playerAvatar}
+          settings={settings}
+          onComplete={onTutorialComplete}
+          onAbandon={() => setScreen('home')}
         />
       )}
       {/* Quest toast layer — sits above every screen so completion feedback

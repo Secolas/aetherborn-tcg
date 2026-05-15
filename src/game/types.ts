@@ -277,4 +277,28 @@ export interface SaveData {
    *  the "first-open bonus filter" — subsequent opens of the same memory
    *  pack don't re-grant the cosmetic. */
   openedMemoryPacks?: string[];
+  /** Campaign mode progress. Per-arc, the index of the highest stop
+   *  the player has beaten (-1 = not started, 0 = first stop beaten,
+   *  3 = arc complete). Once an arc is complete the corresponding
+   *  final boss unlocks in the Boss Picker for all difficulty tiers.
+   *  See src/data/campaign.ts for arc + stop definitions. */
+  campaignProgress?: Record<string, number>;
+  /** Starter theme the player picked on first boot. Drives the 12-card
+   *  starter deck they were granted (see src/data/starterDecks.ts).
+   *  Presence of this field is the "post-onboarding" signal — saves
+   *  without it route to the StarterPick screen on boot.
+   *  Legacy saves (created before starter pick existed) are migrated
+   *  to `starterThemeId: 'legacy'` so they skip the picker. */
+  starterThemeId?: ElementId | 'legacy';
+  /** True once the player has stepped through the starter pack open
+   *  flow (photographed every card or chose to skip). Independent of
+   *  starterThemeId so we can re-route to StarterPackOpen if the
+   *  player closes the app mid-reveal. */
+  starterOpened?: boolean;
+  /** True once the player has finished the interactive tutorial
+   *  match (the scripted Practice Dummy fight). Legacy saves are
+   *  migrated to true so they never see the tutorial; brand-new
+   *  saves boot through StarterPick -> StarterPackOpen -> Tutorial
+   *  before they ever reach Home. */
+  tutorialCompleted?: boolean;
 }
