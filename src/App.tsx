@@ -16,7 +16,10 @@ import {
   type DailyState, type Quest, type QuestEvent,
 } from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
-import { starterPack, MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
+import { STARTER_THEMES, getStarterTheme } from './data/starterDecks';
+import { StarterPick } from './screens/StarterPick';
+import { StarterPackOpen } from './screens/StarterPackOpen';
 import { STARTER_FILTERS, type FilterId } from './data/filters';
 import { STARTER_FRAMES, type FrameId } from './data/frames';
 import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
@@ -45,11 +48,14 @@ import { unlockAudio, setMusicVolume, playSfx } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
 
+/** Brand-new save — empty collection. The player has not yet picked
+ *  a starter theme, so SaveData.starterThemeId is undefined and the
+ *  onboarding flow (StarterPick -> StarterPackOpen) routes them
+ *  through the picker before they see Home. */
 function makeInitialSave(): SaveData {
-  const starter = starterPack();
   return {
     version: 1,
-    collection: starter,
+    collection: [],
     deckUids: [],
     coins: STARTER_REWARD,
     packsOpened: 0,
@@ -69,12 +75,20 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
   const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
-  const [screen, setScreen] = useState<Screen>('home');
+  // First-boot screen choice — if the save has no starter theme yet,
+  // route straight to the picker. If a theme is set but the pack
+  // hasn't been opened, resume the open-and-photograph flow. The
+  // ordinary 'home' default only kicks in once both are satisfied.
+  const initialScreen: Screen =
+    !save.starterThemeId ? 'starter-pick'
+    : !save.starterOpened ? 'starter-open'
+    : 'home';
+  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
   const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('normal');
@@ -107,6 +121,28 @@ export default function App() {
         return s;
       }
       return { ...s, daily: next };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Legacy-onboarding migration. Saves that predate the starter-pick
+   *  flow (created when makeInitialSave() auto-granted a mixed family
+   *  starter pack) get marked as already-onboarded so they skip the
+   *  picker on next boot. The trigger is "save shows any sign of life"
+   *  — has collection cards, has played matches, or has campaign
+   *  progress. A genuinely-empty new save passes through to
+   *  StarterPick instead. Idempotent: stops mutating once
+   *  starterThemeId is set. */
+  useEffect(() => {
+    setSave(s => {
+      if (s.starterThemeId) return s;
+      const hasLife =
+        (s.collection?.length ?? 0) > 0 ||
+        s.matchesWon > 0 ||
+        s.matchesLost > 0 ||
+        (s.bossesDefeated?.length ?? 0) > 0;
+      if (!hasLife) return s; // truly new — leave for the picker
+      return { ...s, starterThemeId: 'legacy', starterOpened: true };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -293,6 +329,40 @@ export default function App() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** Player picked a starter theme on first boot. Resolve the theme's
+   *  12-card template list, instantiate fresh CollectionCard rows with
+   *  no photos, add them to the (currently-empty) collection, and route
+   *  to the StarterPackOpen reveal flow. */
+  const onStarterPick = (themeId: typeof STARTER_THEMES[number]['id']) => {
+    const theme = getStarterTheme(themeId);
+    if (!theme) return;
+    setSave(s => {
+      const newUid = (i: number) => `c_${Date.now().toString(36)}_${i}_${Math.floor(Math.random() * 1e6).toString(36)}`;
+      const cards: CollectionCard[] = [];
+      theme.deck.forEach((id, i) => {
+        const tpl = getTemplateById(id);
+        if (!tpl) return;
+        cards.push({ ...tpl, uid: newUid(i), photo: null });
+      });
+      return {
+        ...s,
+        starterThemeId: themeId,
+        starterOpened: false,
+        collection: [...s.collection, ...cards],
+      };
+    });
+    setScreen('starter-open');
+  };
+
+  /** Player finished the starter pack open (photographed every card or
+   *  chose Skip). Mark the save and route to Campaign — the player's
+   *  first battle is the Family Pet mini boss, which doubles as the
+   *  in-context tutorial. */
+  const onStarterOpenComplete = () => {
+    setSave(s => ({ ...s, starterOpened: true }));
+    setScreen('campaign');
+  };
 
   const goCapture = (card: CollectionCard) => {
     setCapturing(card);
@@ -672,6 +742,23 @@ export default function App() {
       cardBack={save.equippedCardBack}
     >
     <PhoneShell>
+      {screen === 'starter-pick' && (
+        <StarterPick
+          themes={STARTER_THEMES}
+          onPick={(themeId) => onStarterPick(themeId)}
+        />
+      )}
+      {screen === 'starter-open' && save.starterThemeId && save.starterThemeId !== 'legacy' && (
+        <StarterPackOpen
+          theme={getStarterTheme(save.starterThemeId)!}
+          cards={save.collection.slice(-12)}
+          onSetPhoto={(uid, dataUrl) => setSave(s => ({
+            ...s,
+            collection: s.collection.map(c => c.uid === uid ? { ...c, photo: dataUrl, isPlaceholder: false } : c),
+          }))}
+          onDone={onStarterOpenComplete}
+        />
+      )}
       {screen === 'home' && (
         <HomeMenu
           save={save}
