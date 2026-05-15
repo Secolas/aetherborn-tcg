@@ -330,9 +330,12 @@ export default function App() {
   }, []);
 
   /** Player picked a starter theme on first boot. Resolve the theme's
-   *  12-card template list, instantiate fresh CollectionCard rows with
-   *  no photos, add them to the (currently-empty) collection, and route
-   *  to the StarterPackOpen reveal flow. */
+   *  12-card template list, instantiate fresh CollectionCard rows
+   *  (photo: null — the open flow fills them in), add them to the
+   *  (currently-empty) collection, ALSO create a new deck slot
+   *  containing those 12 uids and make it active so the player has a
+   *  ready-to-play deck the moment they finish the open flow, and
+   *  route to the StarterPackOpen reveal flow. */
   const onStarterPick = (themeId: typeof STARTER_THEMES[number]['id']) => {
     const theme = getStarterTheme(themeId);
     if (!theme) return;
@@ -344,21 +347,42 @@ export default function App() {
         if (!tpl) return;
         cards.push({ ...tpl, uid: newUid(i), photo: null });
       });
+      const starterDeckId = newDeckId();
+      const starterDeck: DeckSlot = {
+        id: starterDeckId,
+        name: `${theme.name} Starter`,
+        uids: cards.map(c => c.uid),
+      };
       return {
         ...s,
         starterThemeId: themeId,
         starterOpened: false,
         collection: [...s.collection, ...cards],
+        decks: [...(s.decks ?? []), starterDeck],
+        activeDeckId: starterDeckId,
+        // Mirror into the legacy single-deck field so the existing
+        // playableInDeck check on Home (which reads deckUids) flips
+        // to "deck ready" the moment the open flow finishes.
+        deckUids: starterDeck.uids,
       };
     });
     setScreen('starter-open');
   };
 
-  /** Player finished the starter pack open. Mark the save and bounce
-   *  back to Home. The Home CTA will roll forward to "Play Campaign"
-   *  (one tap to the lane, where Mom is waiting). */
+  /** Player finished the starter pack open. Auto-fill any starter
+   *  cards that still have no photo with the canonical aiPhoto
+   *  placeholder for that template (marked isPlaceholder so the
+   *  Collection screen can highlight them for later replacement).
+   *  Ensures the starter deck is fully playable the moment the open
+   *  flow ends regardless of whether the player took photos or
+   *  skipped them — no more "Need N more in deck" stalls on Home. */
   const onStarterOpenComplete = () => {
-    setSave(s => ({ ...s, starterOpened: true }));
+    setSave(s => {
+      const collection = s.collection.map(c =>
+        c.photo ? c : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
+      );
+      return { ...s, starterOpened: true, collection };
+    });
     setScreen('home');
   };
 
@@ -892,10 +916,12 @@ export default function App() {
           collection={save.collection}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
+          tutorialCompleted={!!save.tutorialCompleted}
           onSetActiveDeck={onSetActiveDeck}
           onPickStop={onPickCampaignStop}
           onOpenDeckBuilder={() => setScreen('deck')}
           onBack={() => setScreen('home')}
+          onStartTutorial={() => setScreen('tutorial')}
         />
       )}
       {screen === 'tutorial' && (

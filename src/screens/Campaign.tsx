@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { ArrowLeft, Lock, Star, ChevronRight, Crown, Check, X, Coins } from 'lucide-react';
+import { ArrowLeft, Lock, Star, ChevronRight, Crown, Check, X, Coins, Sparkles } from 'lucide-react';
 import { CAMPAIGNS, isArcUnlocked, isStopUnlocked, isArcComplete, type CampaignDef, type CampaignStop } from '../data/campaign';
 import { getBoss } from '../data/bosses';
 import { ELEMENTS } from '../data/elements';
@@ -13,10 +13,17 @@ interface Props {
   collection: CollectionCard[];
   decks: DeckSlot[];
   activeDeckId: string | undefined;
+  /** Tutorial gate — Campaign is locked until the player wins the
+   *  tutorial match. When false, the lane is hidden behind a clear
+   *  "Finish the Tutorial first" overlay with a CTA to start it. */
+  tutorialCompleted: boolean;
   onSetActiveDeck: (deckId: string) => void;
   onPickStop: (arcId: string, stopIndex: number) => void;
   onOpenDeckBuilder: () => void;
   onBack: () => void;
+  /** Routes the player into Tutorial.tsx. Wired from App so the gate
+   *  overlay's CTA can launch the tutorial from inside Campaign. */
+  onStartTutorial: () => void;
 }
 
 /**
@@ -77,9 +84,42 @@ const MOBILE_STOPS: { arcId: string; x: number; y: number }[] = [
 ];
 
 export function Campaign({
-  progress, collection, decks, activeDeckId,
-  onSetActiveDeck, onPickStop, onOpenDeckBuilder, onBack,
+  progress, collection, decks, activeDeckId, tutorialCompleted,
+  onSetActiveDeck, onPickStop, onOpenDeckBuilder, onBack, onStartTutorial,
 }: Props) {
+  // Tutorial gate — hide the lane entirely and prompt the player to
+  // finish the tutorial first. Cleaner than greying the lane behind
+  // an overlay (the lane is the screen's whole identity; showing it
+  // disabled reads as a bug). Player can back out to Home or jump
+  // straight into Tutorial.tsx via the CTA.
+  if (!tutorialCompleted) {
+    return (
+      <div className="cm-root">
+        <CampaignStyles />
+        <button className="cm-back" onClick={onBack} aria-label="Back to Home">
+          <ArrowLeft size={18} strokeWidth={2.4} />
+        </button>
+        <div className="cm-gate">
+          <div className="cm-gate-icon" aria-hidden>
+            <Lock size={28} strokeWidth={2.4} />
+          </div>
+          <div className="cm-gate-eyebrow">
+            <Sparkles size={12} strokeWidth={2.4} />
+            <span>MEMORY LANE LOCKED</span>
+          </div>
+          <div className="cm-gate-title">Finish the Tutorial first</div>
+          <div className="cm-gate-body">
+            The campaign opens up once you've cleared the Practice Dummy.
+            It's a quick scripted match — won't take long.
+          </div>
+          <button className="cm-gate-cta" onClick={onStartTutorial}>
+            <Sparkles size={16} strokeWidth={2.4} />
+            <span>Begin Tutorial</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
   // Default-select the first un-completed arc — what the walker pip
   // also lands on. Players see "where they are" the moment they open
   // the screen.
@@ -668,6 +708,64 @@ function CampaignStyles() {
         cursor: pointer;
         box-shadow: 0 2px 6px rgba(28,24,20,.10);
       }
+
+      /* Tutorial gate — full-screen "campaign is locked" view shown
+         when the player tries to reach Memory Lane before clearing
+         the tutorial. Centered card with a single Begin Tutorial CTA. */
+      .cm-gate {
+        flex: 1; min-height: 0;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        text-align: center;
+        padding: 24px;
+        gap: 12px;
+        font-family: var(--font-sans);
+        color: var(--ink);
+      }
+      .cm-gate-icon {
+        width: 64px; height: 64px;
+        border-radius: 50%;
+        background: var(--paper);
+        border: 1.5px solid var(--rule);
+        display: grid; place-items: center;
+        color: ${PALETTE.accent};
+        box-shadow: 0 6px 14px rgba(28,24,20,.10);
+        margin-bottom: 6px;
+      }
+      .cm-gate-eyebrow {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 10px; font-weight: 800;
+        letter-spacing: 0.18em;
+        color: ${PALETTE.accent};
+      }
+      .cm-gate-title {
+        font-family: var(--font-display);
+        font-size: 24px; font-weight: 800;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+      }
+      .cm-gate-body {
+        font-size: 13px;
+        color: var(--ink-soft);
+        line-height: 1.5;
+        max-width: 320px;
+        margin-bottom: 6px;
+      }
+      .cm-gate-cta {
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        padding: 14px 22px;
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%);
+        color: #fff;
+        border: 0;
+        border-radius: 999px;
+        font-family: inherit;
+        font-size: 15px; font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
+        transition: transform .12s;
+      }
+      .cm-gate-cta:hover { transform: translateY(-1px); }
 
       .cm-stage {
         flex: 1; min-height: 0;
