@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Coins, Package, Images, Layers, Swords, ScrollText,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
-  Sparkles, BookOpen,
+  Sparkles, BookOpen, Lock,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PALETTE } from '../components/styles';
@@ -270,12 +270,18 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
           </button>
 
           <div className="home-nav">
-            <NavButton label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
-            <NavButton label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
-            <NavButton label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
-            <NavButton label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
-            <NavButton label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
-            <NavButton label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
+            {/* The entire secondary nav row is gated behind tutorial
+                completion. Every tile greys out + shows a transparent
+                lock overlay until the player clears the scripted
+                match; clicks are no-ops in that state. Routes back
+                onto the primary CTA, which is the ONLY way forward
+                pre-tutorial. */}
+            <NavButton locked={!save.tutorialCompleted} label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
+            <NavButton locked={!save.tutorialCompleted} label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
+            <NavButton locked={!save.tutorialCompleted} label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
+            <NavButton locked={!save.tutorialCompleted} label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
+            <NavButton locked={!save.tutorialCompleted} label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
+            <NavButton locked={!save.tutorialCompleted} label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
           </div>
         </div>
       </div>
@@ -283,11 +289,22 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
   );
 }
 
-function NavButton({ label, icon, onClick }: { label: string; icon: React.ReactNode; onClick: () => void }) {
+function NavButton({ label, icon, onClick, locked = false }: { label: string; icon: React.ReactNode; onClick: () => void; locked?: boolean }) {
   return (
-    <button className="home-nav-btn" onClick={onClick}>
+    <button
+      className="home-nav-btn"
+      data-locked={locked}
+      disabled={locked}
+      onClick={onClick}
+      aria-label={locked ? `${label} (locked — finish tutorial first)` : label}
+    >
       <span className="ico">{icon}</span>
       <span className="lbl">{label}</span>
+      {locked && (
+        <span className="lock-overlay" aria-hidden="true">
+          <Lock size={14} strokeWidth={2.4} />
+        </span>
+      )}
     </button>
   );
 }
@@ -531,6 +548,7 @@ function HomeStyles() {
         display: flex; gap: 6px;
       }
       .home-nav-btn {
+        position: relative;
         flex: 1;
         display: flex; flex-direction: column; align-items: center;
         gap: 4px; padding: 9px 0; min-height: 56px;
@@ -542,7 +560,7 @@ function HomeStyles() {
         color: ${PALETTE.text};
         transition: transform .12s, box-shadow .15s;
       }
-      .home-nav-btn:hover {
+      .home-nav-btn:hover:not([data-locked="true"]) {
         transform: translateY(-1px);
         box-shadow: 0 6px 14px rgba(58,46,42,.12);
       }
@@ -552,6 +570,33 @@ function HomeStyles() {
       }
       .home-nav-btn .lbl {
         font-size: 11px; font-weight: 700;
+      }
+      /* Locked state — greyed tile with a transparent lock overlay
+         laid over the icon + label. Click is disabled at the
+         attribute level; visually the tile reads as a clear "not
+         yet — finish tutorial first" affordance. */
+      .home-nav-btn[data-locked="true"] {
+        background: ${PALETTE.bg};
+        border-color: ${PALETTE.border};
+        box-shadow: none;
+        cursor: not-allowed;
+        opacity: 0.55;
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn[data-locked="true"] .ico {
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn[data-locked="true"] .lbl {
+        color: ${PALETTE.textMid};
+      }
+      .home-nav-btn .lock-overlay {
+        position: absolute;
+        inset: 0;
+        display: grid; place-items: center;
+        background: rgba(28,24,20,0.08);
+        color: ${PALETTE.text};
+        border-radius: inherit;
+        pointer-events: none;
       }
 
       @media (prefers-reduced-motion: reduce) {
