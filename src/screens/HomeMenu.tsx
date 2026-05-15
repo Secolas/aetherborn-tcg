@@ -154,10 +154,15 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           </div>
         </div>
 
-        {/* Quick-stats strip — three pill stats in a row instead of a
-            bulky title block. Replaces the old "WELCOME TO / Lifedeck"
-            gradient wordmark + tagline, which looked very similar to
-            the pre-revamp screen. */}
+        {/* Game wordmark — refined version of the old Lifedeck title.
+            Smaller and tighter than the pre-revamp huge gradient so it
+            reads as a banner rather than dominating the screen. */}
+        <div className="home-brand">
+          <div className="home-brand-tag">your life · in cards</div>
+          <div className="home-brand-name">Lifedeck</div>
+        </div>
+
+        {/* Quick-stats strip — three pill stats in a row. */}
         <div className="home-stats">
           <div className="home-stat">
             <div className="home-stat-n">{save.matchesWon}</div>
@@ -360,7 +365,35 @@ function HomeStyles() {
         text-align: center;
       }
 
-      /* Stats strip — replaces the old gradient "Lifedeck" wordmark. */
+      /* Game wordmark — Lifedeck title block. Smaller, tighter, and
+         centered above the stats strip. Picks up the coral→amber
+         gradient text-fill from the original screen but at a size
+         that doesn't dominate. */
+      .home-brand {
+        margin-top: 14px;
+        text-align: center;
+      }
+      .home-brand-tag {
+        font-size: 9px; font-weight: 800;
+        letter-spacing: 0.32em; text-transform: uppercase;
+        color: ${PALETTE.textLight};
+        line-height: 1;
+      }
+      .home-brand-name {
+        font-family: inherit;
+        font-weight: 700;
+        font-size: 36px; line-height: 1;
+        letter-spacing: -0.015em;
+        margin-top: 6px;
+        background: linear-gradient(180deg, #ff9f1c 0%, ${PALETTE.accent} 100%);
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+      @container (min-width: 720px) {
+        .home-brand-name { font-size: 44px; }
+      }
+
+      /* Stats strip — three pill stats in a row. */
       .home-stats {
         margin-top: 12px;
         display: grid;
