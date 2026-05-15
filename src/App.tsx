@@ -851,6 +851,8 @@ export default function App() {
           onPackOpened={onPackOpened}
           onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
+          tutorialCompleted={!!save.tutorialCompleted}
+          onStartTutorial={() => setScreen('tutorial')}
         />
       )}
       {screen === 'album' && (

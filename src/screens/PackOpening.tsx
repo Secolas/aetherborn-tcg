@@ -45,6 +45,13 @@ interface Props {
   openedMemoryPacks?: string[];
   onBack: () => void;
   settings?: Settings;
+  /** Tutorial gate. Same pattern as Campaign — the pack shop is
+   *  hidden behind a "Finish the Tutorial first" overlay until the
+   *  player clears the scripted match, so brand-new players can't
+   *  burn coins on a shop they don't yet know how to use. */
+  tutorialCompleted?: boolean;
+  /** Routes the player into Tutorial.tsx when they tap the gate CTA. */
+  onStartTutorial?: () => void;
 }
 
 const STAGE_DURATIONS: Record<Exclude<Stage, 'pick' | 'revealing' | 'done'>, number> = {
@@ -56,7 +63,103 @@ const STAGE_DURATIONS: Record<Exclude<Stage, 'pick' | 'revealing' | 'done'>, num
 export function PackOpening({
   coins, onPackOpened, onMemoryPackOpened, openedMemoryPacks = [],
   onBack, settings = DEFAULT_SETTINGS,
+  tutorialCompleted = true, onStartTutorial,
 }: Props) {
+  // Tutorial gate — render a clean locked view instead of the shop
+  // when the player hasn't cleared the tutorial yet. Matches the
+  // Campaign screen's gate one-for-one so the player learns the
+  // pattern: locked screens explain what to do, in their own words.
+  if (!tutorialCompleted) {
+    return (
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: PALETTE.bg,
+        color: PALETTE.text,
+        fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+        display: 'flex', flexDirection: 'column',
+        padding: 24,
+      }}>
+        <button
+          onClick={onBack}
+          aria-label="Back to Home"
+          style={{
+            ...iconBtn,
+            alignSelf: 'flex-start',
+            marginBottom: 'auto',
+          }}
+        >
+          <ArrowLeft size={18} strokeWidth={2.4} />
+        </button>
+        <div style={{
+          flex: 1,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          textAlign: 'center', gap: 12,
+        }}>
+          <div style={{
+            width: 64, height: 64, borderRadius: '50%',
+            background: PALETTE.paper,
+            border: `1.5px solid ${PALETTE.border}`,
+            display: 'grid', placeItems: 'center',
+            color: PALETTE.accent,
+            boxShadow: '0 6px 14px rgba(28,24,20,.10)',
+            marginBottom: 6,
+          }}>
+            <Lock size={28} strokeWidth={2.4} />
+          </div>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 10, fontWeight: 800,
+            letterSpacing: '0.18em',
+            color: PALETTE.accent,
+          }}>
+            <Sparkles size={12} strokeWidth={2.4} />
+            <span>PACK SHOP LOCKED</span>
+          </div>
+          <div style={{
+            fontSize: 24, fontWeight: 800,
+            letterSpacing: '-0.01em',
+            lineHeight: 1.1,
+          }}>
+            Finish the Tutorial first
+          </div>
+          <div style={{
+            fontSize: 13,
+            color: PALETTE.textMid,
+            lineHeight: 1.5,
+            maxWidth: 320,
+            marginBottom: 6,
+          }}>
+            Booster packs unlock after you've cleared the Practice Dummy.
+            It's a quick scripted match — won't take long.
+          </div>
+          {onStartTutorial && (
+            <button
+              onClick={onStartTutorial}
+              style={{
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+                padding: '14px 22px',
+                background: `linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%)`,
+                color: '#fff',
+                border: 0,
+                borderRadius: 999,
+                fontFamily: 'inherit',
+                fontSize: 15, fontWeight: 800,
+                letterSpacing: '0.02em',
+                cursor: 'pointer',
+                boxShadow: '0 8px 20px rgba(238,90,82,.32)',
+              }}
+            >
+              <Sparkles size={16} strokeWidth={2.4} />
+              <span>Begin Tutorial</span>
+            </button>
+          )}
+        </div>
+        <div style={{ marginTop: 'auto' }} />
+      </div>
+    );
+  }
+
   const [stage, setStage] = useState<Stage>('pick');
   const [pick, setPick] = useState<PackPick | null>(null);
   const [pack, setPack] = useState<CollectionCard[]>([]);
