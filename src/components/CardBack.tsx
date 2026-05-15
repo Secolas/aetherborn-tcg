@@ -1,51 +1,40 @@
 /**
- * Face-down card — used for the opponent's hand row at the top of the
- * match screen so the player can see how many cards the AI is holding.
+ * Face-down card. Renders one of the equippable back templates from
+ * `src/data/cardBacks.ts`. Default is the navy/diamond design used by
+ * both the player's draws and the boss's deck.
  *
- * Fixed creature/spell-agnostic look: deep navy with a subtle pattern.
+ *   - `side`     hints which player owns this draw. Reserved so future
+ *                "boss-only" backs (e.g. a black-and-red boss back the
+ *                player can't equip) can render distinctly.
+ *   - `variant`  explicit override of the back template. The player's
+ *                equipped back comes through CosmeticsContext when no
+ *                variant is passed.
  */
+import { CARD_BACKS, type CardBackId, DEFAULT_CARD_BACK } from '../data/cardBacks';
+import { useCosmetics } from '../state/cosmeticsContext';
+
+export type { CardBackId } from '../data/cardBacks';
+
 interface Props {
   scale?: number;
   /** Slight rotation for the fanned hand effect. */
   rotate?: number;
+  /** Which side is drawing. Player draws fall back to the equipped
+   *  cosmetic; opponent draws always render the default until a future
+   *  boss-back system swaps them. */
+  side?: 'player' | 'opponent';
+  /** Explicit template override — wins over context + side defaults. */
+  variant?: CardBackId;
 }
 
-export function CardBack({ scale = 0.34, rotate = 0 }: Props) {
-  const w = 220 * scale;
-  const h = 320 * scale;
-  return (
-    <div style={{
-      width: w, height: h,
-      borderRadius: 12 * scale,
-      background: 'linear-gradient(160deg, #2a3a5e 0%, #14223e 60%, #0a1428 100%)',
-      boxShadow: `0 ${4 * scale}px ${8 * scale}px rgba(0,0,0,.35), inset 0 0 0 ${2 * scale}px rgba(255,255,255,.10)`,
-      transform: `rotate(${rotate}deg)`,
-      position: 'relative',
-      overflow: 'hidden',
-      flex: '0 0 auto',
-    }}>
-      {/* Subtle radial sheen */}
-      <div style={{
-        position: 'absolute', inset: 0,
-        background: 'radial-gradient(circle at 50% 35%, rgba(180,200,255,.18) 0%, transparent 55%)',
-      }} />
-      {/* Center diamond emblem */}
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%',
-        width: w * 0.42, height: w * 0.42,
-        transform: 'translate(-50%, -50%) rotate(45deg)',
-        border: `${1.5 * scale}px solid rgba(220,230,255,.45)`,
-        background: 'rgba(120,140,200,.15)',
-        borderRadius: 4 * scale,
-      }} />
-      <div style={{
-        position: 'absolute', top: '50%', left: '50%',
-        width: w * 0.18, height: w * 0.18,
-        transform: 'translate(-50%, -50%) rotate(45deg)',
-        background: 'linear-gradient(160deg, #f4d04a, #c8901a)',
-        borderRadius: 3 * scale,
-        boxShadow: `0 0 ${6 * scale}px rgba(244,208,74,.5)`,
-      }} />
-    </div>
-  );
+export function CardBack({ scale = 0.34, rotate = 0, side = 'opponent', variant }: Props) {
+  const cosm = useCosmetics();
+  // Player draws pick up the equipped cosmetic back. Opponent draws
+  // stay on the default — keeps the boss's "their deck looks like
+  // theirs, not yours" feel intact and is easy to extend later.
+  const resolved: CardBackId =
+    variant
+    ?? (side === 'player' ? (cosm.cardBack ?? DEFAULT_CARD_BACK) : DEFAULT_CARD_BACK);
+  const def = CARD_BACKS[resolved] ?? CARD_BACKS[DEFAULT_CARD_BACK];
+  return def.render({ scale, rotate });
 }

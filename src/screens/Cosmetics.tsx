@@ -5,6 +5,7 @@ import { FRAMES, FRAME_ORDER, type FrameId } from '../data/frames';
 import { BOARD_SKINS, BOARD_SKIN_ORDER, type BoardSkinId } from '../data/boardSkins';
 import { EMOTES, EMOTE_ORDER, type EmoteId } from '../data/victoryEmotes';
 import { FILTERS, FILTER_ORDER, type FilterId } from '../data/filters';
+import { CARD_BACKS, CARD_BACK_ORDER, type CardBackId } from '../data/cardBacks';
 import { SmartImage } from '../components/SmartImage';
 import { aiPhoto } from '../data/samplePhotos';
 
@@ -25,7 +26,7 @@ import { aiPhoto } from '../data/samplePhotos';
  * at photo-capture time.
  */
 
-type Tab = 'frames' | 'filters' | 'boards' | 'emotes';
+type Tab = 'frames' | 'filters' | 'boards' | 'emotes' | 'backs';
 
 interface Props {
   coins: number;
@@ -33,16 +34,20 @@ interface Props {
   unlockedFilters: FilterId[];
   unlockedBoardSkins: BoardSkinId[];
   unlockedEmotes: EmoteId[];
+  unlockedCardBacks: CardBackId[];
   equippedFrame: FrameId;
   equippedBoardSkin: BoardSkinId;
   equippedEmote: EmoteId;
+  equippedCardBack: CardBackId;
   onBuyFrame: (id: FrameId, cost: number) => void;
   onBuyFilter: (id: FilterId, cost: number) => void;
   onBuyBoardSkin: (id: BoardSkinId, cost: number) => void;
   onBuyEmote: (id: EmoteId, cost: number) => void;
+  onBuyCardBack: (id: CardBackId, cost: number) => void;
   onEquipFrame: (id: FrameId) => void;
   onEquipBoardSkin: (id: BoardSkinId) => void;
   onEquipEmote: (id: EmoteId) => void;
+  onEquipCardBack: (id: CardBackId) => void;
   onBack: () => void;
 }
 
@@ -72,8 +77,9 @@ export function Cosmetics(props: Props) {
         </div>
       </div>
 
-      <div style={{ padding: '0 16px', display: 'flex', gap: 6 }}>
+      <div style={{ padding: '0 16px', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         <TabPill label="Frames" active={tab === 'frames'} onClick={() => setTab('frames')} />
+        <TabPill label="Backs" active={tab === 'backs'} onClick={() => setTab('backs')} />
         <TabPill label="Filters" active={tab === 'filters'} onClick={() => setTab('filters')} />
         <TabPill label="Boards" active={tab === 'boards'} onClick={() => setTab('boards')} />
         <TabPill label="Emotes" active={tab === 'emotes'} onClick={() => setTab('emotes')} />
@@ -170,6 +176,22 @@ export function Cosmetics(props: Props) {
                 coins={props.coins}
                 onBuy={() => props.onBuyEmote(id, EMOTES[id].cost)}
                 onEquip={() => props.onEquipEmote(id)}
+              />
+            ))}
+          </Grid>
+        )}
+
+        {tab === 'backs' && (
+          <Grid>
+            {CARD_BACK_ORDER.map(id => (
+              <CardBackPreview
+                key={id}
+                id={id}
+                unlocked={props.unlockedCardBacks.includes(id)}
+                equipped={props.equippedCardBack === id}
+                coins={props.coins}
+                onBuy={() => props.onBuyCardBack(id, CARD_BACKS[id].cost)}
+                onEquip={() => props.onEquipCardBack(id)}
               />
             ))}
           </Grid>
@@ -412,6 +434,37 @@ function BoardPreview({
         position: 'absolute', inset: 0,
         background: def.background,
       }} />
+    </Tile>
+  );
+}
+
+/**
+ * Card-back preview tile. Renders the back's own `render` function at
+ * a small scale so the preview is the actual artwork the player will
+ * see on draws. Tap to equip; locked entries show the buy CTA.
+ */
+function CardBackPreview({
+  id, unlocked, equipped, coins, onBuy, onEquip,
+}: { id: CardBackId; unlocked: boolean; equipped: boolean; coins: number; onBuy: () => void; onEquip: () => void }) {
+  const def = CARD_BACKS[id];
+  return (
+    <Tile
+      name={def.name}
+      description={def.description}
+      equipped={equipped}
+      unlocked={unlocked}
+      cost={def.cost}
+      canAfford={coins >= def.cost}
+      onBuy={onBuy}
+      onEquip={onEquip}
+    >
+      <div style={{
+        width: '100%', height: '100%',
+        display: 'grid', placeItems: 'center',
+        background: '#0a0a14',
+      }}>
+        {def.render({ scale: 0.3, rotate: 0 })}
+      </div>
     </Tile>
   );
 }

@@ -3,6 +3,7 @@ import { CosmeticsContext } from './cosmeticsContext';
 import { type FrameId } from '../data/frames';
 import { type BoardSkinId } from '../data/boardSkins';
 import { type EmoteId } from '../data/victoryEmotes';
+import { type CardBackId, DEFAULT_CARD_BACK } from '../data/cardBacks';
 
 /**
  * Wraps the app and publishes the player's currently-equipped cosmetics to
@@ -13,6 +14,7 @@ interface ProviderProps {
   frame?: FrameId;
   boardSkin?: BoardSkinId;
   emote?: EmoteId;
+  cardBack?: CardBackId;
   /** When true, the equipped frame is applied to player Card renders.
    *  Defaults to false at the app root so frames don't bleed into
    *  Collection, DeckBuilder, Capture, or the Cosmetics locker. The
@@ -22,12 +24,13 @@ interface ProviderProps {
   children: ReactNode;
 }
 
-export function CosmeticsProvider({ frame, boardSkin, emote, inMatch = false, children }: ProviderProps) {
+export function CosmeticsProvider({ frame, boardSkin, emote, cardBack, inMatch = false, children }: ProviderProps) {
   return (
     <CosmeticsContext.Provider value={{
       frame: frame ?? 'classic',
       boardSkin: boardSkin ?? 'daylight',
       emote: emote ?? 'gg',
+      cardBack: cardBack ?? DEFAULT_CARD_BACK,
       inMatch,
     }}>
       {children}
