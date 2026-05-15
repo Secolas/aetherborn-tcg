@@ -505,6 +505,31 @@ export const BOSSES: BossDef[] = [
 export const MINI_BOSSES: BossDef[] = [
 
   // ============================================================
+  // TUTORIAL — pre-campaign sparring partner. Plays a deck of
+  //   1-cost 1/1 creatures so the player can't realistically lose.
+  //   Launched from Memory Lane's first stop via Tutorial.tsx,
+  //   which synthesises the player's deck on top of this boss def.
+  // ============================================================
+  {
+    id: 'tutorial-dummy',
+    name: 'Practice Dummy',
+    subtitle: 'A friendly sparring partner',
+    themeId: 'family',
+    avatar: '?',
+    avatarPhoto: U('photo-1607513746994-51f730a44832'),
+    intro: 'Easy does it. Show me what you can do.',
+    playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
+    rewardCoins: 0,
+    deck: [
+      'ani-01','ani-01','ani-01','ani-01',
+      'ani-14','ani-14','ani-14','ani-14',
+      'ani-01','ani-14','ani-01','ani-14',
+    ],
+    backdrop: U('photo-1503676260728-1c00da094a0b'),
+  },
+
+
+  // ============================================================
   // ARC A — "Sunday's Coming" (final boss: Mom)
   // ============================================================
   {

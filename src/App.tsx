@@ -20,6 +20,7 @@ import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD 
 import { STARTER_THEMES, getStarterTheme } from './data/starterDecks';
 import { StarterPick } from './screens/StarterPick';
 import { StarterPackOpen } from './screens/StarterPackOpen';
+import { Tutorial } from './screens/Tutorial';
 import { STARTER_FILTERS, type FilterId } from './data/filters';
 import { STARTER_FRAMES, type FrameId } from './data/frames';
 import { STARTER_BOARD_SKINS, type BoardSkinId } from './data/boardSkins';
@@ -75,17 +76,18 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
   const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
-  // First-boot screen choice — if the save has no starter theme yet,
-  // route straight to the picker. If a theme is set but the pack
-  // hasn't been opened, resume the open-and-photograph flow. The
-  // ordinary 'home' default only kicks in once both are satisfied.
+  // First-boot screen choice. Strict onboarding chain:
+  //   Tutorial -> StarterPick -> StarterPackOpen -> Home.
+  // Each screen sets its flag on completion; the next boot picks up
+  // wherever the player left off if they bailed mid-flow.
   const initialScreen: Screen =
-    !save.starterThemeId ? 'starter-pick'
+    !save.tutorialCompleted ? 'tutorial'
+    : !save.starterThemeId ? 'starter-pick'
     : !save.starterOpened ? 'starter-open'
     : 'home';
   const [screen, setScreen] = useState<Screen>(initialScreen);
@@ -142,7 +144,9 @@ export default function App() {
         s.matchesLost > 0 ||
         (s.bossesDefeated?.length ?? 0) > 0;
       if (!hasLife) return s; // truly new — leave for the picker
-      return { ...s, starterThemeId: 'legacy', starterOpened: true };
+      // Mark every legacy onboarding bit so existing players skip
+      // both the starter open and the new tutorial. They've earned it.
+      return { ...s, starterThemeId: 'legacy', starterOpened: true, tutorialCompleted: true };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -356,12 +360,20 @@ export default function App() {
   };
 
   /** Player finished the starter pack open (photographed every card or
-   *  chose Skip). Mark the save and route to Campaign — the player's
-   *  first battle is the Family Pet mini boss, which doubles as the
-   *  in-context tutorial. */
+   *  chose Skip). Mark the save and route to Campaign — the lane's
+   *  first stop is the tutorial, so the player's next action is to
+   *  tap "Start Here" and play the scripted match. */
   const onStarterOpenComplete = () => {
     setSave(s => ({ ...s, starterOpened: true }));
     setScreen('campaign');
+  };
+
+  /** Tutorial match won. Mark complete and route to the starter pick
+   *  — the deck the player chooses there is the one they'll bring to
+   *  the Campaign's first arc (Mom). */
+  const onTutorialComplete = () => {
+    setSave(s => ({ ...s, tutorialCompleted: true }));
+    setScreen('starter-pick');
   };
 
   const goCapture = (card: CollectionCard) => {
@@ -890,6 +902,15 @@ export default function App() {
           onPickStop={onPickCampaignStop}
           onOpenDeckBuilder={() => setScreen('deck')}
           onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'tutorial' && (
+        <Tutorial
+          starterThemeId={save.starterThemeId}
+          playerAvatar={save.playerAvatar}
+          settings={settings}
+          onComplete={onTutorialComplete}
+          onAbandon={onTutorialComplete}
         />
       )}
       {/* Quest toast layer — sits above every screen so completion feedback

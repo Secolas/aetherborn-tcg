@@ -51,6 +51,9 @@ const ARC_REGIONS: Record<string, string> = {
 };
 
 // Desktop / wide layout — horizontal zigzag across a 980x660 stage.
+// Seven arcs total; the tutorial is a separate pre-campaign onboarding
+// step (see src/screens/Tutorial.tsx + the App's first-boot routing),
+// not a stop on the lane.
 const DESKTOP_STOPS: { arcId: string; x: number; y: number }[] = [
   { arcId: 'arc-family',    x: 0.08, y: 0.65 },
   { arcId: 'arc-animals',   x: 0.24, y: 0.32 },
@@ -61,8 +64,8 @@ const DESKTOP_STOPS: { arcId: string; x: number; y: number }[] = [
   { arcId: 'arc-couple',    x: 0.95, y: 0.72 },
 ];
 
-// Mobile / portrait — vertical zigzag down a 390x920 stage. Final arc
-// sits at center-bottom for emphasis (same as the design's "Future You").
+// Mobile / portrait — vertical zigzag down a 390x920 stage. The
+// final arc sits at center-bottom for emphasis.
 const MOBILE_STOPS: { arcId: string; x: number; y: number }[] = [
   { arcId: 'arc-family',    x: 0.22, y: 0.16 },
   { arcId: 'arc-animals',   x: 0.74, y: 0.27 },

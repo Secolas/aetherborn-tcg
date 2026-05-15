@@ -178,16 +178,56 @@ function StarterPickStyles() {
           inset 0 1.5px 0 rgba(255,255,255,.18);
         transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .2s;
       }
-      .sp-bp:hover { transform: translateY(-4px) rotate(-0.4deg); }
-      .sp-bp:active { transform: translateY(-1px); }
-      .sp-bp[data-active="true"] {
-        transform: translateY(-4px) rotate(-0.6deg);
+      /* Hover animation mimics a pack about to be torn open — the
+         whole pack lifts and rocks, the tear strip slides up + tips
+         back, and a foil sheen sweeps across. Active (already picked)
+         tile holds the lifted state without the rock. */
+      .sp-bp:hover {
+        transform: translateY(-8px) rotate(-1.2deg);
+        animation: spPackWobble 1.2s ease-in-out infinite;
         box-shadow:
-          0 6px 0 rgba(28,24,20,.10),
-          0 18px 36px -10px rgba(28,24,20,.30),
+          0 8px 0 rgba(28,24,20,.10),
+          0 22px 40px -10px rgba(28,24,20,.32),
           inset 0 -3px 0 rgba(0,0,0,.22),
-          inset 0 0 0 3px rgba(255,255,255,.45),
           inset 0 1.5px 0 rgba(255,255,255,.18);
+      }
+      .sp-bp:hover .bp-tear {
+        transform: translateY(-3px) rotate(-1.2deg);
+        transform-origin: left center;
+      }
+      .sp-bp:hover .bp-foil {
+        animation: spFoilSweep 1.4s ease-out infinite;
+      }
+      .sp-bp:hover .bp-sigil {
+        transform: translate(-50%, -2px) scale(1.06);
+      }
+      .sp-bp:active { transform: translateY(-2px) rotate(0deg); animation: none; }
+      .sp-bp[data-active="true"] {
+        transform: translateY(-6px) rotate(-0.8deg);
+        box-shadow:
+          0 8px 0 rgba(28,24,20,.10),
+          0 22px 40px -10px rgba(28,24,20,.32),
+          inset 0 -3px 0 rgba(0,0,0,.22),
+          inset 0 0 0 3px rgba(255,255,255,.55),
+          inset 0 1.5px 0 rgba(255,255,255,.18);
+      }
+      .sp-bp[data-active="true"] .bp-tear {
+        transform: translateY(-3px) rotate(-1.2deg);
+        transform-origin: left center;
+      }
+      .sp-bp .bp-tear,
+      .sp-bp .bp-sigil {
+        transition: transform .18s cubic-bezier(.2,.85,.3,1);
+      }
+
+      @keyframes spPackWobble {
+        0%, 100% { transform: translateY(-8px) rotate(-1.2deg); }
+        50%      { transform: translateY(-10px) rotate(1.0deg); }
+      }
+      @keyframes spFoilSweep {
+        0%   { opacity: 0.6; transform: translateX(-20%); }
+        50%  { opacity: 1;   transform: translateX(15%); }
+        100% { opacity: 0.6; transform: translateX(-20%); }
       }
 
       /* Foil sheen overlay (mirrors .bp-foil). */

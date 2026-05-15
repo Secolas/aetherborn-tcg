@@ -234,8 +234,15 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
         <div className="home-actions">
           <button
             className="home-cta"
-            onClick={() => canMatch && onNav('play')}
-            disabled={!canMatch}
+            onClick={() => {
+              // While the picker is gated, the CTA doubles as a
+              // shortcut into Campaign so the player knows exactly
+              // where to go to unlock free play.
+              if (!playUnlocked) onNav('campaign');
+              else if (canMatch) onNav('play');
+            }}
+            disabled={playUnlocked && !canMatch}
+            data-locked={!playUnlocked}
           >
             <Swords size={20} strokeWidth={2.4} />
             <span className="home-cta-label">

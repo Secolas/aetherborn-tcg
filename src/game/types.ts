@@ -295,4 +295,10 @@ export interface SaveData {
    *  starterThemeId so we can re-route to StarterPackOpen if the
    *  player closes the app mid-reveal. */
   starterOpened?: boolean;
+  /** True once the player has finished the interactive tutorial
+   *  match (the scripted Practice Dummy fight). Legacy saves are
+   *  migrated to true so they never see the tutorial; brand-new
+   *  saves boot through StarterPick -> StarterPackOpen -> Tutorial
+   *  before they ever reach Home. */
+  tutorialCompleted?: boolean;
 }
