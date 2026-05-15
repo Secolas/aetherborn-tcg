@@ -8,7 +8,7 @@ import { Card } from '../components/Card';
 import { CardBack } from '../components/CardBack';
 import type { CollectionCard, DeckSlot, Difficulty, ElementId } from '../game/types';
 import { difficultyProfile } from '../game/match';
-import { arcForFinaleBossId, isPickableBossUnlocked } from '../data/campaign';
+import { isPickableBossUnlocked } from '../data/campaign';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -108,9 +108,6 @@ export function BossPicker({
   // Resolve which boss is in focus.
   const boss = BOSSES.find(b => b.id === bossId) ?? BOSSES[0];
   const bossUnlocked = isBossUnlocked(boss, defeatedIds, campaignProgress);
-  // Which campaign arc finales this boss (if any) — used to tell the
-  // player exactly what to play through to unlock it.
-  const lockArc = arcForFinaleBossId(boss.id);
   const currentTestTheme = testTheme[boss.id] ?? null;
   const usingTest = currentTestTheme !== null;
 
@@ -204,8 +201,6 @@ export function BossPicker({
                 const unlocked = isBossUnlocked(b, defeatedIds, campaignProgress);
                 const beaten = defeatedIds.includes(b.id);
                 const active = b.id === bossId;
-                const arc = arcForFinaleBossId(b.id);
-                const lockHint = arc ? `Locked — finish "${arc.title}" in Campaign` : 'Locked';
                 return (
                   <button
                     key={b.id}
@@ -217,7 +212,7 @@ export function BossPicker({
                     data-locked={!unlocked}
                     disabled={!unlocked}
                     onClick={() => unlocked && setBossId(b.id)}
-                    title={!unlocked ? lockHint : undefined}
+                    title={!unlocked ? 'Beat campaign first' : undefined}
                     style={{ '--deck-color': HOUSE_COLOR[b.themeId] } as React.CSSProperties}
                   >
                     <span
@@ -390,9 +385,7 @@ export function BossPicker({
               onClick={engage}
               aria-label={
                 !bossUnlocked
-                  ? (lockArc
-                      ? `${boss.name} is locked — finish "${lockArc.title}" in the Campaign`
-                      : `${boss.name} is locked`)
+                  ? `${boss.name} is locked — beat campaign first`
                   : diffLocked
                     ? `${profile.label} difficulty is locked — beat ${boss.name} on a lower tier first`
                     : needsDeck
@@ -406,7 +399,7 @@ export function BossPicker({
               <span className="label">
                 <span className="sub">
                   {!bossUnlocked
-                    ? (lockArc ? `Beat "${lockArc.title}"` : 'Locked')
+                    ? 'Beat campaign first'
                     : diffLocked ? 'Tier Locked' : needsDeck ? 'Need Deck' : `Battle · ${profile.label}`}
                 </span>
                 <span>vs {boss.name}</span>

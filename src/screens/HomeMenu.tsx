@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Coins, Package, Images, Layers, Swords, ScrollText, Sparkles,
+  Coins, Package, Images, Layers, Swords, ScrollText,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
 } from 'lucide-react';
 import { Card } from '../components/Card';
@@ -14,7 +14,6 @@ interface Props {
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
   onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign') => void;
-  onQuickFill: () => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
 
@@ -28,7 +27,7 @@ interface Props {
  * the player has written a memory for, the memory fades in under the
  * fan and rides out with that cycle's heartbeat.
  */
-export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetAvatar }: Props) {
+export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,10 +45,18 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
     const c = save.collection.find(x => x.uid === uid);
     return c && c.photo;
   }).length;
-  const canMatch = playableInDeck >= 4;
+  const deckReady = playableInDeck >= 4;
+  // Play Match is gated behind the Campaign — the player must beat at
+  // least one campaign stop before the picker becomes available. Legacy
+  // saves with already-defeated bosses keep their access (so existing
+  // players aren't suddenly walled out).
+  const hasCampaignProgress = Object.values(save.campaignProgress ?? {}).some(v => v >= 0);
+  const hasLegacyWins = save.bossesDefeated.length > 0;
+  const playUnlocked = hasCampaignProgress || hasLegacyWins;
+  const canMatch = deckReady && playUnlocked;
   const summonedCount = save.collection.filter(c => c.photo).length;
   const dormantCount = save.collection.filter(c => !c.photo).length;
-  const showQuickFill = !canMatch && dormantCount > 0;
+  void dormantCount;
 
   // Slideshow source — preserved from the previous version. Every
   // summoned card the player owns, with two safe fallbacks below 2 so
@@ -232,16 +239,13 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onQuickFill, onSetA
           >
             <Swords size={20} strokeWidth={2.4} />
             <span className="home-cta-label">
-              {canMatch ? 'Play Match' : `Need ${4 - playableInDeck} more in deck`}
+              {!playUnlocked
+                ? 'Beat campaign first'
+                : !deckReady
+                  ? `Need ${4 - playableInDeck} more in deck`
+                  : 'Play Match'}
             </span>
           </button>
-
-          {showQuickFill && (
-            <button className="home-quickfill" onClick={onQuickFill}>
-              <Sparkles size={14} color={PALETTE.accent} strokeWidth={2.4} />
-              <span>Quick Play with placeholder photos</span>
-            </button>
-          )}
 
           <div className="home-nav">
             <NavButton label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
@@ -500,18 +504,6 @@ function HomeStyles() {
         filter: none;
       }
       .home-cta-label { font-family: inherit; }
-
-      .home-quickfill {
-        width: 100%;
-        padding: 10px 16px; min-height: 40px;
-        background: rgba(255,255,255,.85);
-        color: ${PALETTE.text};
-        border: 1.5px dashed ${PALETTE.accent};
-        border-radius: 14px;
-        font-family: inherit; font-weight: 700; font-size: 13px;
-        cursor: pointer;
-        display: flex; align-items: center; justify-content: center; gap: 8px;
-      }
 
       .home-nav {
         display: flex; gap: 6px;

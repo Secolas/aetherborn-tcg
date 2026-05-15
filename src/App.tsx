@@ -676,7 +676,6 @@ export default function App() {
         <HomeMenu
           save={save}
           dailyReadyCount={dailyReadyCount}
-          onQuickFill={onQuickFill}
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
