@@ -81,16 +81,11 @@ type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'b
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
   const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
-  // First-boot screen choice. Strict onboarding chain:
-  //   Tutorial -> StarterPick -> StarterPackOpen -> Home.
-  // Each screen sets its flag on completion; the next boot picks up
-  // wherever the player left off if they bailed mid-flow.
-  const initialScreen: Screen =
-    !save.tutorialCompleted ? 'tutorial'
-    : !save.starterThemeId ? 'starter-pick'
-    : !save.starterOpened ? 'starter-open'
-    : 'home';
-  const [screen, setScreen] = useState<Screen>(initialScreen);
+  // Boot always lands on Home. Onboarding (tutorial -> starter pick
+  // -> starter pack open) is surfaced as Home's primary CTA so the
+  // player can choose when to start each step instead of being
+  // dropped straight into the next screen on every app open.
+  const [screen, setScreen] = useState<Screen>('home');
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
   const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('normal');
@@ -359,21 +354,20 @@ export default function App() {
     setScreen('starter-open');
   };
 
-  /** Player finished the starter pack open (photographed every card or
-   *  chose Skip). Mark the save and route to Campaign — the lane's
-   *  first stop is the tutorial, so the player's next action is to
-   *  tap "Start Here" and play the scripted match. */
+  /** Player finished the starter pack open. Mark the save and bounce
+   *  back to Home. The Home CTA will roll forward to "Play Campaign"
+   *  (one tap to the lane, where Mom is waiting). */
   const onStarterOpenComplete = () => {
     setSave(s => ({ ...s, starterOpened: true }));
-    setScreen('campaign');
+    setScreen('home');
   };
 
-  /** Tutorial match won. Mark complete and route to the starter pick
-   *  — the deck the player chooses there is the one they'll bring to
-   *  the Campaign's first arc (Mom). */
+  /** Tutorial match won. Mark complete and route back to Home — the
+   *  primary CTA there will have rolled forward to "Pick Your Starter",
+   *  one tap away. Consistent with the Home-first boot philosophy. */
   const onTutorialComplete = () => {
     setSave(s => ({ ...s, tutorialCompleted: true }));
-    setScreen('starter-pick');
+    setScreen('home');
   };
 
   const goCapture = (card: CollectionCard) => {
@@ -910,7 +904,7 @@ export default function App() {
           playerAvatar={save.playerAvatar}
           settings={settings}
           onComplete={onTutorialComplete}
-          onAbandon={onTutorialComplete}
+          onAbandon={() => setScreen('home')}
         />
       )}
       {/* Quest toast layer — sits above every screen so completion feedback

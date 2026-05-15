@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Coins, Package, Images, Layers, Swords, ScrollText,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
+  Sparkles, BookOpen,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PALETTE } from '../components/styles';
@@ -13,7 +14,7 @@ interface Props {
   /** Total claimable items in Daily (completed quests + unclaimed streak).
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign') => void;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open') => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
 }
 
@@ -53,7 +54,29 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
   const hasCampaignProgress = Object.values(save.campaignProgress ?? {}).some(v => v >= 0);
   const hasLegacyWins = save.bossesDefeated.length > 0;
   const playUnlocked = hasCampaignProgress || hasLegacyWins;
-  const canMatch = deckReady && playUnlocked;
+
+  // Progressive primary CTA. Walks the player through the onboarding
+  // chain step by step (each completed step rolls the CTA forward),
+  // then settles into Play Match once everything is set up. Boot
+  // always lands on Home — every step is one tap away on the CTA.
+  type CtaState =
+    | { kind: 'tutorial'; label: string; icon: React.ReactNode; nav: 'tutorial' }
+    | { kind: 'starter-pick'; label: string; icon: React.ReactNode; nav: 'starter-pick' }
+    | { kind: 'starter-open'; label: string; icon: React.ReactNode; nav: 'starter-open' }
+    | { kind: 'campaign'; label: string; icon: React.ReactNode; nav: 'campaign' }
+    | { kind: 'need-deck'; label: string; icon: React.ReactNode; nav: null }
+    | { kind: 'play'; label: string; icon: React.ReactNode; nav: 'play' };
+  const cta: CtaState = !save.tutorialCompleted
+    ? { kind: 'tutorial',     label: 'Begin Tutorial',       icon: <Sparkles size={20} strokeWidth={2.4} />, nav: 'tutorial' }
+    : !save.starterThemeId
+    ? { kind: 'starter-pick', label: 'Pick Your Starter',    icon: <Package  size={20} strokeWidth={2.4} />, nav: 'starter-pick' }
+    : (save.starterThemeId !== 'legacy' && !save.starterOpened)
+    ? { kind: 'starter-open', label: 'Open Your Starter',    icon: <BookOpen size={20} strokeWidth={2.4} />, nav: 'starter-open' }
+    : !playUnlocked
+    ? { kind: 'campaign',     label: 'Play Campaign',        icon: <Flag     size={20} strokeWidth={2.4} />, nav: 'campaign' }
+    : !deckReady
+    ? { kind: 'need-deck',    label: `Need ${4 - playableInDeck} more in deck`, icon: <Swords size={20} strokeWidth={2.4} />, nav: null }
+    : { kind: 'play',         label: 'Play Match',           icon: <Swords   size={20} strokeWidth={2.4} />, nav: 'play' };
   const summonedCount = save.collection.filter(c => c.photo).length;
   const dormantCount = save.collection.filter(c => !c.photo).length;
   void dormantCount;
@@ -230,27 +253,19 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
           )}
         </div>
 
-        {/* CTA + nav */}
+        {/* CTA + nav. The primary CTA walks the player through the
+            onboarding chain (Begin Tutorial -> Pick Starter -> Open
+            Pack -> Play Campaign -> Play Match) — see `cta` above. */}
         <div className="home-actions">
           <button
             className="home-cta"
-            onClick={() => {
-              // While the picker is gated, the CTA doubles as a
-              // shortcut into Campaign so the player knows exactly
-              // where to go to unlock free play.
-              if (!playUnlocked) onNav('campaign');
-              else if (canMatch) onNav('play');
-            }}
-            disabled={playUnlocked && !canMatch}
-            data-locked={!playUnlocked}
+            onClick={() => { if (cta.nav) onNav(cta.nav); }}
+            disabled={cta.nav === null}
+            data-cta={cta.kind}
           >
-            <Swords size={20} strokeWidth={2.4} />
+            {cta.icon}
             <span className="home-cta-label">
-              {!playUnlocked
-                ? 'Beat campaign first'
-                : !deckReady
-                  ? `Need ${4 - playableInDeck} more in deck`
-                  : 'Play Match'}
+              {cta.label}
             </span>
           </button>
 

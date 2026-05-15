@@ -55,11 +55,12 @@ export function Tutorial({
 }: Props) {
   const [introOpen, setIntroOpen] = useState(true);
   const [hintStep, setHintStep] = useState<0 | 1 | 2>(0);
-  // Bumped on every non-win exit so MatchBoard remounts with a fresh
-  // engine state. The tutorial is strict — the player has to win it
-  // to leave, so quitting / losing puts them right back at the start.
+  // Bumped on every non-win match exit so MatchBoard remounts with
+  // a fresh engine state. Inside the match, the tutorial is strict —
+  // losing / quitting auto-restarts. Outside the match (i.e. the
+  // intro modal), the X button cleanly backs out to Home via
+  // onAbandon, so the player can come back via the Home CTA later.
   const [attempt, setAttempt] = useState(0);
-  void onAbandon;
 
   const boss = getBoss(TUTORIAL_BOSS_ID);
 
@@ -102,8 +103,8 @@ export function Tutorial({
           <div className="tu-intro" onClick={(e) => e.stopPropagation()}>
             <button
               className="tu-intro-close"
-              onClick={() => setIntroOpen(false)}
-              aria-label="Close rules"
+              onClick={onAbandon}
+              aria-label="Back to Home"
             >
               <X size={16} strokeWidth={2.4} />
             </button>
