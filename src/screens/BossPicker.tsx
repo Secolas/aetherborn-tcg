@@ -8,6 +8,7 @@ import { Card } from '../components/Card';
 import { CardBack } from '../components/CardBack';
 import type { CollectionCard, DeckSlot, Difficulty, ElementId } from '../game/types';
 import { difficultyProfile } from '../game/match';
+import { arcForFinaleBossId, isPickableBossUnlocked } from '../data/campaign';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
@@ -42,6 +43,10 @@ interface Props {
   wonAt: Record<string, number>;
   /** Per-boss lifetime losses. */
   lostAt: Record<string, number>;
+  /** Campaign progress — gates bosses behind their arc finale. A boss
+   *  whose campaign arc is incomplete shows a Lock badge on the roster
+   *  and the Engage button blocks with "Locked — beat the campaign". */
+  campaignProgress: Record<string, number>;
   /** Current coin balance — surfaced as a chip in the desktop topbar. */
   coins: number;
   decks: DeckSlot[];
@@ -62,12 +67,17 @@ interface Props {
  * save.collection, save.bossesBeatenAt/WonAt/LostAt.
  */
 export function BossPicker({
-  defeatedIds, beatenAt, wonAt, lostAt, coins,
+  defeatedIds, beatenAt, wonAt, lostAt, campaignProgress, coins,
   decks, activeDeckId, collection,
   onSetActiveDeck, onPick, onBack, onOpenDeckBuilder,
 }: Props) {
+  // Prefer the first UNLOCKED, undefeated boss as the default focus.
+  // Falls back to the first unlocked boss, then the first boss in the
+  // list (locked picker still renders correctly).
   const initialBossId =
-    BOSSES.find(b => !defeatedIds.includes(b.id))?.id ?? BOSSES[0].id;
+    BOSSES.find(b => isPickableBossUnlocked(b.id, campaignProgress) && !defeatedIds.includes(b.id))?.id
+    ?? BOSSES.find(b => isPickableBossUnlocked(b.id, campaignProgress))?.id
+    ?? BOSSES[0].id;
 
   const [bossId, setBossId] = useState<string>(initialBossId);
   const [diffId, setDiffId] = useState<Difficulty>('normal');
@@ -97,7 +107,10 @@ export function BossPicker({
 
   // Resolve which boss is in focus.
   const boss = BOSSES.find(b => b.id === bossId) ?? BOSSES[0];
-  const bossUnlocked = isBossUnlocked(boss, defeatedIds);
+  const bossUnlocked = isBossUnlocked(boss, defeatedIds, campaignProgress);
+  // Which campaign arc finales this boss (if any) — used to tell the
+  // player exactly what to play through to unlock it.
+  const lockArc = arcForFinaleBossId(boss.id);
   const currentTestTheme = testTheme[boss.id] ?? null;
   const usingTest = currentTestTheme !== null;
 
@@ -188,9 +201,11 @@ export function BossPicker({
             </div>
             <div className="roster-list" role="tablist" aria-label="Bosses">
               {BOSSES.map((b) => {
-                const unlocked = isBossUnlocked(b, defeatedIds);
+                const unlocked = isBossUnlocked(b, defeatedIds, campaignProgress);
                 const beaten = defeatedIds.includes(b.id);
                 const active = b.id === bossId;
+                const arc = arcForFinaleBossId(b.id);
+                const lockHint = arc ? `Locked — finish "${arc.title}" in Campaign` : 'Locked';
                 return (
                   <button
                     key={b.id}
@@ -202,7 +217,7 @@ export function BossPicker({
                     data-locked={!unlocked}
                     disabled={!unlocked}
                     onClick={() => unlocked && setBossId(b.id)}
-                    title={!unlocked ? `Locked` : undefined}
+                    title={!unlocked ? lockHint : undefined}
                     style={{ '--deck-color': HOUSE_COLOR[b.themeId] } as React.CSSProperties}
                   >
                     <span
@@ -375,7 +390,9 @@ export function BossPicker({
               onClick={engage}
               aria-label={
                 !bossUnlocked
-                  ? `${boss.name} is locked`
+                  ? (lockArc
+                      ? `${boss.name} is locked — finish "${lockArc.title}" in the Campaign`
+                      : `${boss.name} is locked`)
                   : diffLocked
                     ? `${profile.label} difficulty is locked — beat ${boss.name} on a lower tier first`
                     : needsDeck
@@ -388,7 +405,9 @@ export function BossPicker({
               </span>
               <span className="label">
                 <span className="sub">
-                  {!bossUnlocked ? 'Locked' : diffLocked ? 'Tier Locked' : needsDeck ? 'Need Deck' : `Battle · ${profile.label}`}
+                  {!bossUnlocked
+                    ? (lockArc ? `Beat "${lockArc.title}"` : 'Locked')
+                    : diffLocked ? 'Tier Locked' : needsDeck ? 'Need Deck' : `Battle · ${profile.label}`}
                 </span>
                 <span>vs {boss.name}</span>
               </span>
@@ -561,14 +580,17 @@ function pad2(n: number): string {
   return String(n).padStart(2, '0');
 }
 
-function isBossUnlocked(boss: BossDef, defeatedIds: string[]): boolean {
-  // All bosses are unlocked at all times in the existing engine. Keep
-  // the helper here so it's trivial to gate future bosses behind story
-  // progression by swapping in real prerequisite checks.
-  // `defeatedIds` kept in the signature so the call site reads cleanly
-  // once that gating lands.
-  void defeatedIds; void boss;
-  return true;
+function isBossUnlocked(
+  boss: BossDef,
+  defeatedIds: string[],
+  campaignProgress: Record<string, number>,
+): boolean {
+  // A boss is unlocked once its campaign arc has been completed. Bosses
+  // that the player has already beaten in the picker stay unlocked
+  // regardless of campaign state (covers legacy saves that beat Mom
+  // before the campaign system existed).
+  if (defeatedIds.includes(boss.id)) return true;
+  return isPickableBossUnlocked(boss.id, campaignProgress);
 }
 
 /** Pick three signature cards (highest-cost unique templates) from a

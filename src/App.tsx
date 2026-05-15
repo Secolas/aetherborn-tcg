@@ -28,6 +28,9 @@ import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
+import { getBoss } from './data/bosses';
+import { getCampaign } from './data/campaign';
+import { Campaign } from './screens/Campaign';
 import type { CollectionCard, SaveData, Difficulty, DeckSlot, ElementId } from './game/types';
 
 const MAX_DECKS = 5;
@@ -66,7 +69,7 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign';
 
 export default function App() {
   const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
@@ -80,6 +83,11 @@ export default function App() {
    *  you test boss balance without first capturing 12+ photos. Cleared
    *  on match exit. */
   const [activeTestTheme, setActiveTestTheme] = useState<ElementId | null>(null);
+  /** When set, the upcoming match is a campaign stop. After the match
+   *  resolves, we return to the Campaign screen (instead of Home) and
+   *  on a win we advance the campaign progress for this arc. Cleared
+   *  on match exit. */
+  const [activeCampaign, setActiveCampaign] = useState<{ arcId: string; stopIndex: number } | null>(null);
   /** Toast queue for quest progress + completion. Drains FIFO with a
    *  fixed lifetime per toast; multiple completions stack visibly. */
   const [questToasts, setQuestToasts] = useState<{ id: number; quest: Quest; reason: 'done' | 'streak'; coins?: number }[]>([]);
@@ -518,6 +526,25 @@ export default function App() {
     setActiveBoss(boss);
     setActiveDifficulty(difficulty);
     setActiveTestTheme(testThemeId);
+    setActiveCampaign(null);
+    setScreen('match');
+  };
+
+  /** Launch a match from a campaign stop. Always Normal difficulty —
+   *  the campaign curve comes from arc ordering, not per-boss tiers.
+   *  Stores the arc + stop so onMatchExit can advance progress and
+   *  return to the Campaign screen instead of Home. */
+  const onPickCampaignStop = (arcId: string, stopIndex: number) => {
+    const arc = getCampaign(arcId);
+    if (!arc) return;
+    const stop = arc.stops[stopIndex];
+    if (!stop) return;
+    const boss = getBoss(stop.bossId);
+    if (!boss) return;
+    setActiveBoss(boss);
+    setActiveDifficulty('normal');
+    setActiveTestTheme(null);
+    setActiveCampaign({ arcId, stopIndex });
     setScreen('match');
   };
 
@@ -525,7 +552,9 @@ export default function App() {
     const boss = activeBoss;
     const difficulty = activeDifficulty;
     const wasTest = activeTestTheme !== null;
+    const wasCampaign = activeCampaign;
     setActiveTestTheme(null);
+    setActiveCampaign(null);
     // Test-deck matches don't grant coins or count as beating the boss —
     // they're for balance testing, not progression. Otherwise spamming
     // test fights would inflate coins and falsely unlock the "beaten"
@@ -534,6 +563,21 @@ export default function App() {
       setActiveBoss(null);
       setScreen('home');
       return;
+    }
+    // Campaign matches advance arc progress on a win. We do this BEFORE
+    // the regular reward block so the same setSave can persist both
+    // updates atomically. The regular reward path still runs below so
+    // coins, bossesDefeated, bossesBeatenAt, etc. all stay consistent
+    // with the picker (a campaign win counts the same as a picker win).
+    if (wasCampaign && outcome === 'win') {
+      setSave(s => {
+        const progress = { ...(s.campaignProgress ?? {}) };
+        const current = progress[wasCampaign.arcId] ?? -1;
+        if (wasCampaign.stopIndex > current) {
+          progress[wasCampaign.arcId] = wasCampaign.stopIndex;
+        }
+        return { ...s, campaignProgress: progress };
+      });
     }
     // Every non-test match — win, loss, or draw — counts as a played match
     // for quest tracking. Quits don't (the player bailed without a
@@ -585,7 +629,10 @@ export default function App() {
       });
     }
     setActiveBoss(null);
-    setScreen('home');
+    // Return to the Campaign screen if the match was launched from a
+    // campaign stop (so the player sees their newly-unlocked next stop
+    // immediately). Otherwise back to Home as before.
+    setScreen(wasCampaign ? 'campaign' : 'home');
   };
 
   // Resolve the active deck for the match. Prefer the multi-deck shape
@@ -736,6 +783,7 @@ export default function App() {
           beatenAt={save.bossesBeatenAt ?? {}}
           wonAt={save.bossesWonAt ?? {}}
           lostAt={save.bossesLostAt ?? {}}
+          campaignProgress={save.campaignProgress ?? {}}
           coins={save.coins}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
@@ -744,6 +792,18 @@ export default function App() {
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
           onOpenDeckBuilder={() => setScreen('deck')}
+        />
+      )}
+      {screen === 'campaign' && (
+        <Campaign
+          progress={save.campaignProgress ?? {}}
+          collection={save.collection}
+          decks={save.decks ?? []}
+          activeDeckId={save.activeDeckId}
+          onSetActiveDeck={onSetActiveDeck}
+          onPickStop={onPickCampaignStop}
+          onOpenDeckBuilder={() => setScreen('deck')}
+          onBack={() => setScreen('home')}
         />
       )}
       {/* Quest toast layer — sits above every screen so completion feedback
