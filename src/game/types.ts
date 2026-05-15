@@ -277,4 +277,10 @@ export interface SaveData {
    *  the "first-open bonus filter" — subsequent opens of the same memory
    *  pack don't re-grant the cosmetic. */
   openedMemoryPacks?: string[];
+  /** Campaign mode progress. Per-arc, the index of the highest stop
+   *  the player has beaten (-1 = not started, 0 = first stop beaten,
+   *  3 = arc complete). Once an arc is complete the corresponding
+   *  final boss unlocks in the Boss Picker for all difficulty tiers.
+   *  See src/data/campaign.ts for arc + stop definitions. */
+  campaignProgress?: Record<string, number>;
 }
