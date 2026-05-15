@@ -279,32 +279,6 @@ function MemoryLane({ layout, progress, selectedArcId, onSelectArc }: MemoryLane
         <path d={pathD} stroke="#c44e44" strokeWidth={pathAccentW} fill="none" strokeDasharray={pathAccentDash} strokeLinecap="round" />
       </svg>
 
-      {/* Region labels — handwritten, slightly rotated. */}
-      {stops.map((s, i) => {
-        const rotation = i % 2 === 0 ? -3 : 2;
-        const left = isMobile
-          ? (s.x > 0.5 ? `${s.x * 100}%` : `${s.x * 100}%`)
-          : `${s.x * 100}%`;
-        const offsetLeft = isMobile ? (s.x > 0.5 ? -90 : 50) : 50;
-        const top = isMobile
-          ? `calc(${s.y * 100}% - 4px)`
-          : `calc(${s.y * 100}% + 100px + ${i % 2 === 0 ? 8 : -28}px)`;
-        return (
-          <div
-            key={`r-${s.arcId}`}
-            className="cm-region"
-            style={{
-              left,
-              top,
-              marginLeft: offsetLeft,
-              transform: `rotate(${rotation}deg)`,
-            }}
-          >
-            {ARC_REGIONS[s.arcId] ?? ''}
-          </div>
-        );
-      })}
-
       {/* Stops — 7 circular arc markers. */}
       {stops.map((s) => {
         const arc = CAMPAIGNS.find(c => c.id === s.arcId);
@@ -697,14 +671,20 @@ function CampaignStyles() {
         overflow-y: auto;
         overflow-x: hidden;
         position: relative;
-        padding: 0;
+        /* Leave clearance at the bottom so the floating selected-arc
+           panel never covers the last-row stops (Pass or Fail / Til
+           Dishes Do Us Part) when the user scrolls to the bottom. */
+        padding-bottom: 160px;
       }
 
       /* Container-query swap between mobile (vertical) and desktop
          (horizontal) layouts. Both are present in the DOM; the wrong
-         one is display:none for the current breakpoint. */
+         one is display:none for the current breakpoint. Desktop
+         threshold is intentionally high (1024px) — PhoneShell-sized
+         viewports always render the vertical mobile layout, even on
+         a wide desktop browser. */
       .cm-lane[data-layout="desktop"] { display: none; }
-      @container (min-width: 720px) {
+      @container (min-width: 1024px) {
         .cm-lane[data-layout="desktop"] { display: block; }
         .cm-lane[data-layout="mobile"]  { display: none; }
       }
@@ -728,29 +708,6 @@ function CampaignStyles() {
         position: absolute; inset: 0;
         width: 100%; height: 100%;
         pointer-events: none;
-      }
-
-      /* Region labels — handwritten tags. */
-      .cm-region {
-        position: absolute;
-        pointer-events: none;
-        font-family: var(--font-marker);
-        color: var(--ink-soft);
-        font-size: 14px;
-        white-space: nowrap;
-        z-index: 1;
-      }
-      .cm-region::after {
-        content: "";
-        display: block;
-        width: 36px; height: 2px;
-        margin-top: 2px;
-        background: var(--ink-soft);
-        opacity: 0.5;
-      }
-      @container (min-width: 720px) {
-        .cm-region { font-size: 18px; }
-        .cm-region::after { width: 40px; }
       }
 
       /* Stop button — circular marker + label + sub. */
