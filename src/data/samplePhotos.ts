@@ -116,6 +116,11 @@ const THEMED: Record<string, string> = {
   'fd-17':  U('photo-1547592180-85f173990554'),     // Stew Pot → bubbling soup pot
   'wrk-17': U('photo-1531403009284-440f080d1e12'),  // Colleagues → team around a desk
   'wrk-18': U('photo-1517245386807-bb43f82c33c4'),  // All-Hands Meeting → packed conference room (placeholder, reuses wrk-09's conference-room photo)
+
+  // Family Pet micro-set (Animals theme support spells).
+  'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted
+  'ani-16': U('photo-1561037404-61cd46aa615b'),     // Good Boy → happy dog face
+  'ani-17': U('photo-1530281700549-e82e7bf110d6'),  // Walkies → dog on a leash mid-walk
 };
 
 /**

@@ -490,6 +490,328 @@ export const BOSSES: BossDef[] = [
   },
 ];
 
+// ============================================================
+// MINI BOSSES — campaign-only opponents.
+//
+// Each is a stop on a 4-step arc that ends with one of the
+// "main" bosses above. Mini bosses use a single 12-card Normal
+// deck (no hard/mythic override) — the campaign difficulty curve
+// comes from the boss ordering, not from per-boss tiers.
+//
+// All `id`s are prefixed `mini-` so they can't collide with the
+// player-facing pickable bosses, and so we can filter them out
+// of the Boss Picker until the campaign unlocks them.
+// ============================================================
+export const MINI_BOSSES: BossDef[] = [
+
+  // ============================================================
+  // ARC A — "Sunday's Coming" (final boss: Mom)
+  // ============================================================
+  {
+    id: 'mini-family-pet',
+    name: 'The Family Pet',
+    subtitle: "Tail won't stop",
+    themeId: 'animals',
+    avatar: 'F',
+    avatarPhoto: U('photo-1543466835-00a7907e9de1'),
+    intro: 'Wait — you brought a stranger home?',
+    playstyle: "A household pet with new tricks. Belly Rub heals creatures, Good Boy buffs them, Walkies draws cards.",
+    rewardCoins: 50,
+    deck: ['fam-01','ani-15','ani-16','ani-17','ani-08','ani-05','ani-05','ani-04','ani-04','ani-01','ani-07','ani-07'],
+    backdrop: U('photo-1450778869180-41d0601e046e'),
+  },
+  {
+    id: 'mini-family-cousins',
+    name: 'The Cousins',
+    subtitle: 'They brought reinforcements',
+    themeId: 'family',
+    avatar: 'C',
+    avatarPhoto: U('photo-1503454537195-1dcabb73ffb9'),
+    intro: "Bet you can't beat all of us.",
+    playstyle: "Wide board of family bodies. The Kids bond gives them card draw when they swarm.",
+    rewardCoins: 75,
+    deck: ['fam-02','fam-02','fam-02','fam-07','fam-07','fam-16','fam-01','fam-15','fam-09','fam-06','fam-14','fam-14'],
+    backdrop: U('photo-1511895426328-dc8714191300'),
+  },
+  {
+    id: 'mini-family-dad-tio',
+    name: 'Dad & Tío',
+    subtitle: 'Pulled out the grill',
+    themeId: 'family',
+    avatar: 'D',
+    avatarPhoto: U('photo-1507003211169-0a1dd7228f2d'),
+    intro: "Set the table. We'll talk after.",
+    playstyle: "Mid-game family pressure. Tío draws, Dad anchors, Family Photo turns a creature into a finisher.",
+    rewardCoins: 100,
+    deck: ['fam-11','fam-11','fam-04','fam-04','fam-08','fam-03','fam-10','fam-09','fam-06','fam-15','fam-02','fam-14'],
+    backdrop: U('photo-1414235077428-338989a2e8c0'),
+  },
+
+  // ============================================================
+  // ARC C — "Into the Wild" (final boss: Pack Alpha)
+  // ============================================================
+  {
+    id: 'mini-animals-stray',
+    name: 'The Stray',
+    subtitle: 'Eyes in the dark',
+    themeId: 'animals',
+    avatar: 'S',
+    avatarPhoto: U('photo-1494256997604-768d1f608cac'),
+    intro: "Don't move. Don't blink.",
+    playstyle: "Feral pack of tiny prey and predators. No tools, no treats — just teeth.",
+    rewardCoins: 50,
+    deck: ['ani-01','ani-01','ani-01','ani-03','ani-03','ani-14','ani-14','ani-04','ani-04','ani-06','ani-02','ani-02'],
+    backdrop: U('photo-1517423568366-8b83523034fd'),
+  },
+  {
+    id: 'mini-animals-hound',
+    name: 'The Hound',
+    subtitle: 'Already at the gate',
+    themeId: 'animals',
+    avatar: 'H',
+    avatarPhoto: U('photo-1587300003388-59208cc962cb'),
+    intro: 'Run. He likes that.',
+    playstyle: "A loyal hound with bite. House Pets bond protects with Taunt; Bear Trap and Muzzle lock you down.",
+    rewardCoins: 75,
+    deck: ['ani-05','ani-05','ani-04','ani-04','ani-09','ani-13','ani-07','ani-07','ani-10','ani-06','ani-02','fam-01'],
+    backdrop: U('photo-1601758228041-f3b2795255f1'),
+  },
+  {
+    id: 'mini-animals-bear',
+    name: 'The Bear',
+    subtitle: 'In your yard now',
+    themeId: 'animals',
+    avatar: 'B',
+    avatarPhoto: U('photo-1530595467537-0b5996c41f2d'),
+    intro: "You shouldn't have left food out.",
+    playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Bear Trap freezes.",
+    rewardCoins: 100,
+    deck: ['ani-10','ani-10','ani-11','ani-09','ani-09','ani-06','ani-13','ani-02','ani-02','ani-04','ani-05','ani-14'],
+    backdrop: U('photo-1446824505046-e43605ffb17f'),
+  },
+
+  // ============================================================
+  // ARC B — "Climb the Ladder" (final boss: The Manager)
+  // ============================================================
+  {
+    id: 'mini-work-intern',
+    name: 'The Intern',
+    subtitle: 'First day',
+    themeId: 'work',
+    avatar: 'I',
+    avatarPhoto: U('photo-1531123897727-8f129e1688ce'),
+    intro: 'Hi! Sorry. Can I — sorry.',
+    playstyle: "Four interns and a stack of spam emails. No removal, no big plays — pure tempo.",
+    rewardCoins: 50,
+    deck: ['wrk-01','wrk-01','wrk-01','wrk-01','wrk-02','wrk-02','wrk-02','wrk-14','wrk-04','wrk-05','wrk-11','wrk-15'],
+    backdrop: U('photo-1497366216548-37526070297c'),
+  },
+  {
+    id: 'mini-work-hr',
+    name: 'HR',
+    subtitle: 'Got a moment?',
+    themeId: 'work',
+    avatar: 'H',
+    avatarPhoto: U('photo-1580489944761-15a19d654956'),
+    intro: 'Close the door. This is informal.',
+    playstyle: "Control with HR as the untargetable anchor. Sales Pitch removes threats, Meeting freezes them.",
+    rewardCoins: 75,
+    deck: ['wrk-07','wrk-07','wrk-01','wrk-06','wrk-02','wrk-02','wrk-15','wrk-09','wrk-11','wrk-05','wrk-05','wrk-14'],
+    backdrop: U('photo-1542744173-8e7e53415bb0'),
+  },
+  {
+    id: 'mini-work-senior',
+    name: 'Senior Engineer',
+    subtitle: 'Has it shipped?',
+    themeId: 'work',
+    avatar: 'S',
+    avatarPhoto: U('photo-1519085360753-af0119f7cbe7'),
+    intro: "I'll need to see the spec.",
+    playstyle: "Value tempo. Reporting Line bond cuts spell costs, Colleagues and Payroll buff the staff.",
+    rewardCoins: 100,
+    deck: ['wrk-08','wrk-08','wrk-01','wrk-10','wrk-15','wrk-06','wrk-17','wrk-04','wrk-14','wrk-11','wrk-05','wrk-02'],
+    backdrop: U('photo-1497366811353-6870744d04b2'),
+  },
+
+  // ============================================================
+  // ARC E — "Family Feast" (final boss: The Cook)
+  // ============================================================
+  {
+    id: 'mini-food-snack-vendor',
+    name: 'The Snack Vendor',
+    subtitle: 'Cash only',
+    themeId: 'food',
+    avatar: 'S',
+    avatarPhoto: U('photo-1565299624946-b28f40a0ae38'),
+    intro: 'You hungry or not?',
+    playstyle: "Quick snacks for fast cash. Lots of cheap rush bodies and small heals.",
+    rewardCoins: 50,
+    deck: ['fd-03','fd-03','fd-03','fd-15','fd-15','fd-01','fd-01','fd-13','fd-13','fd-02','fd-09','fd-07'],
+    backdrop: U('photo-1504674900247-0877df9cc836'),
+  },
+  {
+    id: 'mini-food-barista',
+    name: 'The Barista',
+    subtitle: 'Name on the cup?',
+    themeId: 'food',
+    avatar: 'B',
+    avatarPhoto: U('photo-1521017432531-fbd92d768814'),
+    intro: 'Same as yesterday?',
+    playstyle: "Breakfast Combo enthusiast. Coffee Mug + Breakfast Plate heals creatures every turn.",
+    rewardCoins: 75,
+    deck: ['fd-01','fd-01','fd-04','fd-04','fd-13','fd-13','fd-09','fd-03','fd-02','fd-05','fd-06','fd-08'],
+    backdrop: U('photo-1453614512568-c4024d13c247'),
+  },
+  {
+    id: 'mini-food-sous-chef',
+    name: 'The Sous Chef',
+    subtitle: 'Behind! Hot!',
+    themeId: 'food',
+    avatar: 'S',
+    avatarPhoto: U('photo-1577219491135-ce391730fb2c'),
+    intro: 'On your six.',
+    playstyle: "Removal and ramp. Stew Pot kills threats, Slow Cooker ramps mana, Grandma's Pie heals every turn.",
+    rewardCoins: 100,
+    deck: ['fd-17','fd-17','fd-14','fd-06','fd-06','fd-11','fd-04','fd-05','fd-05','fd-10','fd-08','fd-01'],
+    backdrop: U('photo-1556909114-f6e7ad7d3136'),
+  },
+
+  // ============================================================
+  // ARC F — "Pass or Fail" (final boss: The Principal)
+  // ============================================================
+  {
+    id: 'mini-edu-new-kid',
+    name: 'The New Kid',
+    subtitle: 'Empty desk',
+    themeId: 'education',
+    avatar: 'N',
+    avatarPhoto: U('photo-1503454537195-1dcabb73ffb9'),
+    intro: 'Anyone sitting here?',
+    playstyle: "First day of school. Cheap bodies, basic tools, no scaling threats yet.",
+    rewardCoins: 50,
+    deck: ['edu-01','edu-01','edu-01','edu-02','edu-02','edu-14','edu-14','edu-15','edu-08','edu-04','edu-09','edu-05'],
+    backdrop: U('photo-1503676260728-1c00da094a0b'),
+  },
+  {
+    id: 'mini-edu-tutor',
+    name: 'The Tutor',
+    subtitle: 'Show your work',
+    themeId: 'education',
+    avatar: 'T',
+    avatarPhoto: U('photo-1544717297-fa95b6ee9643'),
+    intro: 'From the top.',
+    playstyle: "Study Group bond preview. Math Teacher and Physics Class level up every turn.",
+    rewardCoins: 75,
+    deck: ['edu-03','edu-03','edu-06','edu-02','edu-02','edu-07','edu-09','edu-09','edu-05','edu-10','edu-01','edu-13'],
+    backdrop: U('photo-1577896851231-70ef18881754'),
+  },
+  {
+    id: 'mini-edu-vice-principal',
+    name: 'The Vice Principal',
+    subtitle: 'My office. Now.',
+    themeId: 'education',
+    avatar: 'V',
+    avatarPhoto: U('photo-1560250097-0b93528c311a'),
+    intro: 'This is your last warning.',
+    playstyle: "Discipline. Freezes you with Bathroom Break, kills with Final Exam, won't let class out.",
+    rewardCoins: 100,
+    deck: ['edu-08','edu-08','edu-04','edu-04','edu-07','edu-10','edu-10','edu-09','edu-03','edu-06','edu-13','edu-05'],
+    backdrop: U('photo-1509062522246-3755977927d7'),
+  },
+
+  // ============================================================
+  // ARC D — "Departure" (final boss: The Drifter)
+  // ============================================================
+  {
+    id: 'mini-travel-tourist',
+    name: 'The Tourist',
+    subtitle: 'Two bags too many',
+    themeId: 'travel',
+    avatar: 'T',
+    avatarPhoto: U('photo-1502920917128-1aa500764cbd'),
+    intro: 'Wait — is this the right gate?',
+    playstyle: "Boarding passes and ticket stubs. Cycles fast, never really sets up.",
+    rewardCoins: 50,
+    deck: ['trv-01','trv-01','trv-01','trv-02','trv-02','trv-13','trv-13','trv-03','trv-04','trv-07','trv-08','trv-10'],
+    backdrop: U('photo-1436491865332-7a61a109cc05'),
+  },
+  {
+    id: 'mini-travel-conductor',
+    name: 'The Conductor',
+    subtitle: 'Tickets, please',
+    themeId: 'travel',
+    avatar: 'C',
+    avatarPhoto: U('photo-1474487548417-781cb71495f3'),
+    intro: 'All aboard. Final call.',
+    playstyle: "Value engine. Trains and Suitcases turn every turn into card draw.",
+    rewardCoins: 75,
+    deck: ['trv-06','trv-06','trv-04','trv-03','trv-03','trv-13','trv-13','trv-01','trv-07','trv-10','trv-09','trv-02'],
+    backdrop: U('photo-1474487548417-781cb71495f3'),
+  },
+  {
+    id: 'mini-travel-pilot',
+    name: 'The Pilot',
+    subtitle: 'Cleared for takeoff',
+    themeId: 'travel',
+    avatar: 'P',
+    avatarPhoto: U('photo-1474302770737-173ee21bab63'),
+    intro: 'Buckle up.',
+    playstyle: "Speed and altitude. First Class Window bond draws on attack; Roadmap pings face.",
+    rewardCoins: 100,
+    deck: ['trv-05','trv-05','trv-11','trv-07','trv-07','trv-01','trv-01','trv-06','trv-04','trv-13','trv-03','trv-09'],
+    backdrop: U('photo-1569154941061-e231b4725ef1'),
+  },
+
+  // ============================================================
+  // ARC G — "Til Dishes Do Us Part" (final boss: Your Partner)
+  // ============================================================
+  {
+    id: 'mini-couple-crush',
+    name: 'The Crush',
+    subtitle: 'You blushed first',
+    themeId: 'family',
+    avatar: '♡',
+    avatarPhoto: U('photo-1518621736915-f3b1c41bfd00'),
+    intro: 'Wait — are you free Saturday?',
+    playstyle: "Butterflies and quick rush. Crush and Holding Hands chip away while you decide what to say.",
+    rewardCoins: 50,
+    deck: ['cou-01','cou-01','cou-01','cou-18','cou-18','cou-09','cou-09','cou-05','cou-10','cou-08','cou-02','fam-14'],
+    backdrop: U('photo-1518621736915-f3b1c41bfd00'),
+  },
+  {
+    id: 'mini-couple-first-date',
+    name: 'The First Date',
+    subtitle: 'Picked the wrong restaurant',
+    themeId: 'family',
+    avatar: 'D',
+    avatarPhoto: U('photo-1529333166437-7750a6dd5a70'),
+    intro: 'You like… everything?',
+    playstyle: "Made It Official preview. Boyfriend/Girlfriend lands turn 2 and gives Crush Rush.",
+    rewardCoins: 75,
+    deck: ['cou-02','cou-02','cou-01','cou-09','cou-09','cou-12','cou-05','cou-10','cou-18','cou-08','cou-14','cou-17'],
+    backdrop: U('photo-1414235077428-338989a2e8c0'),
+  },
+  {
+    id: 'mini-couple-engagement',
+    name: 'The Engagement',
+    subtitle: 'Yes',
+    themeId: 'family',
+    avatar: '◇',
+    avatarPhoto: U('photo-1519741497674-611481863552'),
+    intro: "There's something I want to ask you.",
+    playstyle: "Proposal lands and the buffs start stacking. Cooking Together hints at Married Life.",
+    rewardCoins: 100,
+    deck: ['cou-06','cou-06','cou-02','cou-02','cou-12','cou-13','cou-15','cou-16','cou-10','cou-11','cou-14','cou-17'],
+    backdrop: U('photo-1519741497674-611481863552'),
+  },
+];
+
+/** All bosses, main + mini. Used by the campaign to resolve any
+ *  bossId (whether it's a campaign mini or a player-pickable final).
+ *  The Boss Picker still filters to BOSSES only (the picker lock
+ *  overlay reads campaign progress separately). */
+const ALL_BOSSES: BossDef[] = [...BOSSES, ...MINI_BOSSES];
+
 export function getBoss(id: string): BossDef | undefined {
-  return BOSSES.find(b => b.id === id);
+  return ALL_BOSSES.find(b => b.id === id);
 }
