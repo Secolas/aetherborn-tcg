@@ -234,7 +234,7 @@ function MemoryLane({ layout, progress, selectedArcId, onSelectArc }: MemoryLane
   const pathAccentDash = isMobile ? '10 8' : '12 10';
 
   return (
-    <div className="cm-lane" data-layout={layout} style={{ aspectRatio: `${W} / ${H}` }}>
+    <div className="cm-lane" data-layout={layout}>
       {/* Cream/wheat radial backdrop with soft colored blooms. */}
       <div className="cm-lane-bg" />
 
@@ -671,30 +671,52 @@ function CampaignStyles() {
         overflow-y: auto;
         overflow-x: hidden;
         position: relative;
+        display: flex;
+        flex-direction: column;
         /* Leave clearance at the bottom so the floating selected-arc
            panel never covers the last-row stops (Pass or Fail / Til
-           Dishes Do Us Part) when the user scrolls to the bottom. */
-        padding-bottom: 160px;
+           Dishes Do Us Part) when the user scrolls to the bottom.
+           Tuned to panel-height (~96-104px) + ~24px breathing room. */
+        padding-bottom: 130px;
       }
 
-      /* Container-query swap between mobile (vertical) and desktop
-         (horizontal) layouts. Both are present in the DOM; the wrong
-         one is display:none for the current breakpoint. Desktop
-         threshold is intentionally high (1024px) — PhoneShell-sized
-         viewports always render the vertical mobile layout, even on
-         a wide desktop browser. */
+      /* Container-query swap between mobile (vertical zigzag) and
+         desktop (horizontal zigzag) layouts. Both are present in the
+         DOM; the wrong one is display:none for the current breakpoint.
+         Trigger is "is there more than roughly a phone's width of
+         horizontal room?" — 640px keeps phone shells on the vertical
+         layout and gives desktop / tablet the horizontal layout. */
       .cm-lane[data-layout="desktop"] { display: none; }
-      @container (min-width: 1024px) {
+      @container (min-width: 640px) {
         .cm-lane[data-layout="desktop"] { display: block; }
         .cm-lane[data-layout="mobile"]  { display: none; }
       }
 
-      /* Stage backdrop */
+      /* Both layouts now FILL their container instead of being locked
+         to an aspect ratio. The SVG path stretches via
+         preserveAspectRatio="none" and the stops use percentage
+         positioning, so the lane reads correctly at any aspect ratio
+         the stage gives it. */
       .cm-lane {
         position: relative;
-        width: 100%;
-        max-width: 980px;
         margin: 0 auto;
+        flex: 1;
+      }
+      .cm-lane[data-layout="mobile"] {
+        /* Vertical zigzag — let the lane grow tall so the path has
+           room to bow between alternating-side stops, but allow the
+           stage to scroll if the viewport is shorter than that. */
+        width: 100%;
+        min-height: 720px;
+        max-width: 520px;
+      }
+      .cm-lane[data-layout="desktop"] {
+        /* Horizontal zigzag — fill the entire stage area. The
+           padding-bottom on .cm-stage already reserves room for the
+           floating selected-arc panel underneath. */
+        width: 100%;
+        min-height: 480px;
+        max-width: 1200px;
       }
       .cm-lane-bg {
         position: absolute; inset: 0;
