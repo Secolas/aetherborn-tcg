@@ -1,113 +1,107 @@
 import { useMemo, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
 import { getBoss } from '../data/bosses';
-import { templatesByTheme } from '../data/templates';
+import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
 import { PALETTE } from '../components/styles';
-import type { CollectionCard, ElementId, SaveData } from '../game/types';
+import type { CollectionCard, SaveData } from '../game/types';
 import type { Settings } from '../state/settings';
 
 interface Props {
-  /** The starter theme the player picked — used to synthesise a
-   *  thematically-matching tutorial deck so the visuals don't feel
-   *  random. Falls back to family if undefined (legacy saves
-   *  shouldn't normally hit this screen). */
   starterThemeId: SaveData['starterThemeId'];
   playerAvatar?: string;
   settings: Settings;
   /** Match won — the tutorial is officially complete. */
   onComplete: () => void;
-  /** Player tried to bail. Routed back to App in case the App wants
-   *  to ignore it (strict onboarding) or honour it (legacy / debug).
-   *  Today the App routes here on first boot regardless, so abandon
-   *  is best-effort — Tutorial itself auto-restarts on non-win exits. */
+  /** Player tapped the X on the intro screen — back to Home. */
   onAbandon: () => void;
 }
 
 const TUTORIAL_BOSS_ID = 'tutorial-dummy';
-/** Total cards in the synthesised tutorial deck. Matches the engine's
- *  preferred deck size (12) so the assembleMatch deck-trim logic
- *  doesn't truncate the opponent. */
-const TUTORIAL_DECK_SIZE = 12;
+
+/**
+ * Scripted tutorial deck — twelve 1-cost cards so the player can
+ * always play SOMETHING on turn 1 (the previous synthesised deck
+ * sometimes filled the opening hand with 3-cost cards, leaving the
+ * player stuck staring at an unplayable hand).
+ *
+ *   9 x fam-01 Family Pet  (1c 2/1 creature)  — main threat
+ *   3 x ani-16 Good Boy    (1c spell, +0/+2 to a friendly creature)
+ *
+ * The 9:3 split means the typical 4-card opening hand will be
+ * roughly 3 Family Pets + 1 Good Boy — comfortable for the
+ * "summon -> wait -> attack" script, with a spell on hand to
+ * demonstrate the spell-on-creature mechanic if the player
+ * stumbles into it.
+ */
+const TUTORIAL_DECK_IDS: string[] = [
+  'fam-01','fam-01','fam-01','fam-01','fam-01',
+  'fam-01','fam-01','fam-01','fam-01',
+  'ani-16','ani-16','ani-16',
+];
 
 /**
  * Tutorial — scripted first-match flow.
  *
- * Wraps MatchBoard with three additions:
- *   1. An intro modal that explains the three player actions
- *      (drag-to-play, drag-to-attack, end turn) before the match
- *      begins. Player must dismiss to start.
- *   2. A small floating hint card during the match that starts at
- *      "Drag a card to the field" and shifts to "Drag your creature
- *      onto the opponent to attack" after the first creature is
- *      played (via MatchBoard's existing onCreaturePlayed callback).
- *   3. A synthesised 12-card player deck (placeholder photos, same
- *      isPlaceholder pattern as the existing test-theme flow) so the
- *      player can play the tutorial even if they skipped every photo
- *      during the starter pack open.
+ * Two phases:
+ *   1. Intro screen. A clean full-screen card explaining the three
+ *      player actions (summon / wait / attack) with a single
+ *      "Begin Tutorial" CTA. No MatchBoard mounted yet, so the
+ *      opening-deal animation only fires when the player commits.
+ *   2. Match. MatchBoard mounts with a hand-curated 1-cost deck
+ *      against the Practice Dummy. A floating hint card steps
+ *      through four scripted prompts as the player advances:
+ *        a. "Drag a card to the field"   (advances on onCreaturePlayed)
+ *        b. "End your turn"              (advances on onPlayerTurnEnd)
+ *        c. "Drag your creature to the opponent" (advances on onPlayerAttacked)
+ *        d. "Reduce HP to 0 to win"      (persists until the match ends)
  *
- * The opponent (Practice Dummy) plays a deck of pure 1/1 1-cost
- * creatures, so even mediocre play wins comfortably.
+ * Strict — non-win match exits reset the match (MatchBoard
+ * remounts via key change) and re-show the intro screen.
  */
 export function Tutorial({
-  starterThemeId, playerAvatar, settings, onComplete, onAbandon,
+  playerAvatar, settings, onComplete, onAbandon,
 }: Props) {
-  const [introOpen, setIntroOpen] = useState(true);
-  const [hintStep, setHintStep] = useState<0 | 1 | 2>(0);
-  // Bumped on every non-win match exit so MatchBoard remounts with
-  // a fresh engine state. Inside the match, the tutorial is strict —
-  // losing / quitting auto-restarts. Outside the match (i.e. the
-  // intro modal), the X button cleanly backs out to Home via
-  // onAbandon, so the player can come back via the Home CTA later.
+  const [phase, setPhase] = useState<'intro' | 'match'>('intro');
+  const [hintStep, setHintStep] = useState<0 | 1 | 2 | 3>(0);
   const [attempt, setAttempt] = useState(0);
 
   const boss = getBoss(TUTORIAL_BOSS_ID);
 
-  // Synthesise the player's tutorial deck from their starter theme —
-  // pick the strongest cheap creatures so the curve is forgiving and
-  // the player has playable threats from turn 1.
-  const themeForDeck: ElementId =
-    !starterThemeId || starterThemeId === 'legacy' ? 'family' : starterThemeId;
+  // Materialise the scripted deck. Placeholder photos via aiPhoto so
+  // every card is playable in the engine regardless of whether the
+  // player has photographed anything yet (the tutorial runs before
+  // the starter pack flow).
   const deck: CollectionCard[] = useMemo(() => {
-    const pool = templatesByTheme(themeForDeck)
-      .filter(t => t.type === 'Creature' && t.cost <= 3)
-      .sort((a, b) => (b.atk * 2 + b.hp) - (a.atk * 2 + a.hp));
-    // Cycle through the top creatures up to TUTORIAL_DECK_SIZE so the
-    // deck is full even if the theme has fewer than 12 qualifying
-    // creatures (Family has ~5 cheap creatures; the cycle covers the
-    // rest with duplicates).
-    const result: CollectionCard[] = [];
-    for (let i = 0; i < TUTORIAL_DECK_SIZE; i++) {
-      const tpl = pool[i % Math.max(1, pool.length)];
-      if (!tpl) break;
-      result.push({
+    return TUTORIAL_DECK_IDS.map((id, i) => {
+      const tpl = getTemplateById(id);
+      if (!tpl) return null;
+      return {
         ...tpl,
-        uid: `tut_${themeForDeck}_${i}_${tpl.id}`,
+        uid: `tut_${i}_${id}`,
         photo: aiPhoto(tpl.id),
         isPlaceholder: true,
-      });
-    }
-    return result;
-  }, [themeForDeck]);
+      } as CollectionCard;
+    }).filter((c): c is CollectionCard => !!c);
+  }, []);
 
   if (!boss) return null;
 
-  return (
-    <div className="tu-root">
-      <TutorialStyles />
-
-      {/* Intro modal — blocks the board until the player taps Begin. */}
-      {introOpen && (
-        <div className="tu-intro-backdrop" onClick={() => setIntroOpen(false)}>
-          <div className="tu-intro" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="tu-intro-close"
-              onClick={onAbandon}
-              aria-label="Back to Home"
-            >
-              <X size={16} strokeWidth={2.4} />
-            </button>
+  // ─── Intro phase ────────────────────────────────────────────────
+  if (phase === 'intro') {
+    return (
+      <div className="tu-root">
+        <TutorialStyles />
+        <div className="tu-intro-page">
+          <button
+            className="tu-intro-close"
+            onClick={onAbandon}
+            aria-label="Back to Home"
+          >
+            <X size={16} strokeWidth={2.4} />
+          </button>
+          <div className="tu-intro-pad">
             <div className="tu-intro-eyebrow">
               <Sparkles size={12} strokeWidth={2.4} color={PALETTE.accent} />
               <span>FIRST STEPS</span>
@@ -117,35 +111,47 @@ export function Tutorial({
               <div className="tu-rule">
                 <div className="tu-rule-icon"><Hand size={18} strokeWidth={2.4} /></div>
                 <div>
-                  <div className="tu-rule-h">Drag a card to the field</div>
-                  <div className="tu-rule-p">Each card costs mana. You start with 1 and gain 1 every turn.</div>
-                </div>
-              </div>
-              <div className="tu-rule">
-                <div className="tu-rule-icon"><Swords size={18} strokeWidth={2.4} /></div>
-                <div>
-                  <div className="tu-rule-h">Drag a creature onto the opponent</div>
-                  <div className="tu-rule-p">That's an attack. The opponent loses HP. Reduce it to 0 to win.</div>
+                  <div className="tu-rule-h">Summon</div>
+                  <div className="tu-rule-p">Drag a card from your hand to the field. Each costs mana.</div>
                 </div>
               </div>
               <div className="tu-rule">
                 <div className="tu-rule-icon"><Clock size={18} strokeWidth={2.4} /></div>
                 <div>
-                  <div className="tu-rule-h">End your turn when you're done</div>
-                  <div className="tu-rule-p">The opponent plays. Then you draw a card and gain mana.</div>
+                  <div className="tu-rule-h">Wait</div>
+                  <div className="tu-rule-p">Fresh creatures can't attack the turn you summon them. End your turn.</div>
+                </div>
+              </div>
+              <div className="tu-rule">
+                <div className="tu-rule-icon"><Swords size={18} strokeWidth={2.4} /></div>
+                <div>
+                  <div className="tu-rule-h">Attack</div>
+                  <div className="tu-rule-p">Drag a creature onto the opponent. Reduce their HP to 0 to win.</div>
                 </div>
               </div>
             </div>
-            <button className="tu-intro-cta" onClick={() => setIntroOpen(false)}>
-              Begin
+            <button
+              className="tu-intro-cta"
+              onClick={() => {
+                setHintStep(0);
+                setPhase('match');
+              }}
+            >
+              <Trophy size={18} strokeWidth={2.4} />
+              <span>Begin Tutorial</span>
             </button>
           </div>
         </div>
-      )}
+      </div>
+    );
+  }
 
-      {/* Floating hint card — only when the intro is dismissed. The hint
-          text advances on onCreaturePlayed (player's first summon). */}
-      {!introOpen && hintStep < 2 && (
+  // ─── Match phase ────────────────────────────────────────────────
+  return (
+    <div className="tu-root">
+      <TutorialStyles />
+
+      {hintStep < 3 && (
         <div className="tu-hint" aria-live="polite">
           {hintStep === 0 && (
             <>
@@ -155,17 +161,22 @@ export function Tutorial({
           )}
           {hintStep === 1 && (
             <>
+              <Clock size={14} strokeWidth={2.4} />
+              <span>Tap End Turn — your creature can't attack the turn you summon it.</span>
+            </>
+          )}
+          {hintStep === 2 && (
+            <>
               <Swords size={14} strokeWidth={2.4} />
               <span>Now drag your creature onto the opponent to attack.</span>
             </>
           )}
-          <button
-            className="tu-hint-dismiss"
-            onClick={() => setHintStep((s) => (s === 0 ? 1 : 2))}
-            aria-label="Dismiss hint"
-          >
-            <X size={12} strokeWidth={2.4} />
-          </button>
+        </div>
+      )}
+      {hintStep === 3 && (
+        <div className="tu-hint" aria-live="polite">
+          <Trophy size={14} strokeWidth={2.4} />
+          <span>Keep attacking. Reduce the opponent's HP to 0 to win.</span>
         </div>
       )}
 
@@ -178,21 +189,27 @@ export function Tutorial({
         settings={settings}
         alreadyBeaten={false}
         onCreaturePlayed={() => {
-          // First summon -> advance to the attack hint. Subsequent
-          // summons don't push past step 2 (the hint disappears).
+          // First summon -> advance from "drag a card" to "end turn".
           setHintStep((s) => (s === 0 ? 1 : s));
+        }}
+        onPlayerTurnEnd={() => {
+          // First end-turn after summoning -> advance to "now attack".
+          setHintStep((s) => (s === 1 ? 2 : s));
+        }}
+        onPlayerAttacked={() => {
+          // First attack -> advance to "keep going" final hint.
+          setHintStep((s) => (s === 2 ? 3 : s));
         }}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();
             return;
           }
-          // Strict tutorial — losing / quitting resets the match
-          // (MatchBoard remounts via the `key` change) and re-shows
-          // the intro modal. The player has to win to escape.
+          // Strict — reset to intro on any non-win exit. Player
+          // re-reads the rules and starts a fresh match.
           setAttempt((a) => a + 1);
           setHintStep(0);
-          setIntroOpen(true);
+          setPhase('intro');
         }}
       />
     </div>
@@ -206,73 +223,77 @@ function TutorialStyles() {
         position: absolute; inset: 0;
       }
 
-      /* Intro modal — sits over the entire board so the player can't
-         accidentally start dragging cards before they've read the rules. */
-      .tu-intro-backdrop {
+      /* Intro phase — full-screen rules page. MatchBoard does NOT
+         mount until the player taps Begin, so the opening-deal
+         animation kicks in only on commit (instead of running
+         behind a modal). */
+      .tu-intro-page {
         position: absolute; inset: 0;
-        background: rgba(28,24,20,.6);
-        z-index: 500;
+        background:
+          radial-gradient(ellipse 280px 200px at 22% 18%, rgba(238,90,82,0.10), transparent 70%),
+          radial-gradient(ellipse 260px 180px at 78% 82%, rgba(90,168,99,0.10), transparent 70%),
+          ${PALETTE.bg};
+        color: ${PALETTE.text};
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
         display: flex; align-items: center; justify-content: center;
-        padding: 20px;
-        animation: tuFade .2s ease-out;
+        padding: max(24px, env(safe-area-inset-top, 24px)) 18px 24px 18px;
       }
-      @keyframes tuFade { from { opacity: 0; } to { opacity: 1; } }
-      .tu-intro {
-        position: relative;
-        width: 100%; max-width: 360px;
+      .tu-intro-pad {
+        width: 100%; max-width: 380px;
         background: ${PALETTE.paper};
         border: 1.5px solid ${PALETTE.border};
-        border-radius: 18px;
-        padding: 22px 20px;
-        box-shadow: 0 30px 60px rgba(28,24,20,.4);
-        font-family: "Fredoka", "Inter", system-ui, sans-serif;
-        color: ${PALETTE.text};
-        animation: tuSlideUp .25s cubic-bezier(.2,.85,.3,1);
+        border-radius: 22px;
+        padding: 26px 22px 24px;
+        box-shadow: 0 20px 40px rgba(28,24,20,.20);
+        animation: tuPop .25s cubic-bezier(.2,.85,.3,1);
       }
-      @keyframes tuSlideUp {
-        from { transform: translateY(20px); opacity: 0; }
-        to   { transform: translateY(0); opacity: 1; }
+      @keyframes tuPop {
+        from { transform: scale(.95); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
       }
       .tu-intro-close {
-        position: absolute; top: 10px; right: 10px;
-        width: 28px; height: 28px;
+        position: absolute; top: 14px; right: 14px;
+        width: 36px; height: 36px;
         display: grid; place-items: center;
-        background: ${PALETTE.bg};
+        background: ${PALETTE.paper};
         border: 1.5px solid ${PALETTE.border};
-        border-radius: 8px;
+        border-radius: 10px;
         cursor: pointer;
         color: ${PALETTE.textMid};
+        box-shadow: 0 2px 6px rgba(28,24,20,.10);
+        z-index: 10;
       }
       .tu-intro-eyebrow {
         display: inline-flex; align-items: center; gap: 6px;
-        font-size: 10px; font-weight: 800;
+        font-size: 11px; font-weight: 800;
         letter-spacing: 0.18em;
         color: ${PALETTE.accent};
         margin-bottom: 4px;
       }
       .tu-intro-title {
-        font-size: 22px; font-weight: 700;
+        font-size: 24px; font-weight: 800;
         letter-spacing: -0.01em;
-        margin-bottom: 14px;
+        line-height: 1.05;
+        margin-bottom: 16px;
       }
       .tu-intro-rules {
-        display: flex; flex-direction: column; gap: 14px;
-        margin-bottom: 18px;
+        display: flex; flex-direction: column; gap: 12px;
+        margin-bottom: 22px;
       }
       .tu-rule {
         display: flex; align-items: flex-start; gap: 12px;
       }
       .tu-rule-icon {
         flex-shrink: 0;
-        width: 36px; height: 36px;
-        border-radius: 10px;
+        width: 38px; height: 38px;
+        border-radius: 12px;
         background: ${PALETTE.bg};
         border: 1.5px solid ${PALETTE.border};
         display: grid; place-items: center;
         color: ${PALETTE.accent};
       }
       .tu-rule-h {
-        font-size: 14px; font-weight: 700;
+        font-size: 14px; font-weight: 800;
         letter-spacing: -0.01em;
       }
       .tu-rule-p {
@@ -282,6 +303,7 @@ function TutorialStyles() {
       }
       .tu-intro-cta {
         width: 100%;
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
         background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%);
         color: #fff;
         border: 0;
@@ -292,10 +314,11 @@ function TutorialStyles() {
         letter-spacing: 0.04em;
         cursor: pointer;
         box-shadow: 0 8px 20px rgba(238,90,82,.32);
+        transition: transform .12s;
       }
+      .tu-intro-cta:hover { transform: translateY(-1px); }
 
-      /* Floating hint card during the match. Pinned near the top so it
-         doesn't cover the hand or field. Auto-dismisses on tap. */
+      /* Match-phase hint card — same as before. */
       .tu-hint {
         position: absolute;
         top: max(76px, env(safe-area-inset-top, 76px));
@@ -303,7 +326,7 @@ function TutorialStyles() {
         transform: translateX(-50%);
         z-index: 400;
         display: inline-flex; align-items: center; gap: 8px;
-        padding: 8px 14px 8px 14px;
+        padding: 8px 14px;
         background: ${PALETTE.text};
         color: #fff;
         border-radius: 999px;
@@ -312,16 +335,8 @@ function TutorialStyles() {
         box-shadow: 0 10px 24px rgba(28,24,20,.30);
         animation: tuHintIn .35s cubic-bezier(.2,.85,.3,1);
         max-width: calc(100% - 32px);
-      }
-      .tu-hint-dismiss {
-        margin-left: 4px;
-        width: 20px; height: 20px;
-        display: grid; place-items: center;
-        background: rgba(255,255,255,.18);
-        color: #fff;
-        border: 0;
-        border-radius: 50%;
-        cursor: pointer;
+        text-align: left;
+        line-height: 1.3;
       }
       @keyframes tuHintIn {
         from { transform: translate(-50%, -8px); opacity: 0; }

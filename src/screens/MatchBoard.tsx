@@ -47,6 +47,16 @@ interface Props {
   /** Called once per new bond that activates on the player's side. Quest tracker.
    *  Distinct from `onBondDiscovered` (which only fires for first-ever bonds). */
   onBondTriggered?: () => void;
+  /** Fires when the player ends their own turn (the End Turn button).
+   *  Used by the Tutorial overlay to advance its scripted hint
+   *  sequence. Does NOT fire when the engine auto-ends turns for any
+   *  other reason. */
+  onPlayerTurnEnd?: () => void;
+  /** Fires when the player successfully resolves an attack (creature
+   *  vs creature, OR creature vs face). Skipped when the attack is
+   *  rejected by the engine. Used by the Tutorial overlay to advance
+   *  past the "drag to attack" hint. */
+  onPlayerAttacked?: () => void;
   /** True when the player has already defeated this boss before, so the
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
@@ -87,7 +97,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -1668,6 +1678,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       flashMsg(result.reason ?? 'Cannot attack');
       return;
     }
+    onPlayerAttacked?.();
     let defender: BattleCard | null = null;
     if (target !== 'face') {
       defender = state.opponent.field.find(c => c.battleId === target.battleId) ?? null;
@@ -1756,6 +1767,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1800);
     holdAnim(1900);
     setState(s => endTurn(s));
+    onPlayerTurnEnd?.();
   };
 
   // ============== Game over ==============
