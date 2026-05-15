@@ -543,12 +543,14 @@ export default function App() {
         // Track highest difficulty cleared per boss so the picker can
         // surface a "beaten on Hard" badge later.
         const beaten = { ...(s.bossesBeatenAt ?? {}) };
+        const won    = { ...(s.bossesWonAt ?? {}) };
         if (boss) {
           const order: Difficulty[] = ['normal', 'hard', 'mythic'];
           const prev = beaten[boss.id];
           if (!prev || order.indexOf(difficulty) > order.indexOf(prev)) {
             beaten[boss.id] = difficulty;
           }
+          won[boss.id] = (won[boss.id] ?? 0) + 1;
         }
         return {
           ...s,
@@ -556,12 +558,22 @@ export default function App() {
           matchesWon: s.matchesWon + 1,
           bossesDefeated: firstTime ? [...s.bossesDefeated, boss.id] : s.bossesDefeated,
           bossesBeatenAt: beaten,
+          bossesWonAt: won,
         };
       });
     } else if (outcome === 'draw') {
       setSave(s => ({ ...s, coins: s.coins + MATCH_DRAW_REWARD }));
     } else if (outcome === 'loss') {
-      setSave(s => ({ ...s, coins: s.coins + MATCH_LOSS_REWARD, matchesLost: s.matchesLost + 1 }));
+      setSave(s => {
+        const lost = { ...(s.bossesLostAt ?? {}) };
+        if (boss) lost[boss.id] = (lost[boss.id] ?? 0) + 1;
+        return {
+          ...s,
+          coins: s.coins + MATCH_LOSS_REWARD,
+          matchesLost: s.matchesLost + 1,
+          bossesLostAt: lost,
+        };
+      });
     }
     setActiveBoss(null);
     setScreen('home');
@@ -708,6 +720,9 @@ export default function App() {
         <BossPicker
           defeatedIds={save.bossesDefeated}
           beatenAt={save.bossesBeatenAt ?? {}}
+          wonAt={save.bossesWonAt ?? {}}
+          lostAt={save.bossesLostAt ?? {}}
+          coins={save.coins}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
           collection={save.collection}

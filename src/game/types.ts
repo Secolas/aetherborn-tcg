@@ -245,6 +245,11 @@ export interface SaveData {
       on the boss picker as a small medal. Bosses not yet beaten on Normal
       have no entry. */
   bossesBeatenAt?: Record<string, Difficulty>;
+  /** Per-boss lifetime non-test win count. Drives the bestiary "Victories"
+      tally on the picker. Test-mode matches never increment this. */
+  bossesWonAt?: Record<string, number>;
+  /** Per-boss lifetime non-test loss count. Drives the "Defeats" tally. */
+  bossesLostAt?: Record<string, number>;
   /** Daily quests + login streak. Lazily initialized on first boot of the
    *  schema (App.tsx migration). Rolled over to a fresh day on the first
    *  session of any new calendar day. */
