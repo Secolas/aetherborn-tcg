@@ -5,6 +5,7 @@ import { ELEMENTS } from '../data/elements';
 import { TEMPLATES } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
 import { Card } from '../components/Card';
+import { CardBack } from '../components/CardBack';
 import type { CollectionCard, DeckSlot, Difficulty, ElementId } from '../game/types';
 import { difficultyProfile } from '../game/match';
 
@@ -345,7 +346,13 @@ export function BossPicker({
                 } as React.CSSProperties}
                 aria-label="Change deck"
               >
-                <div className="swatch" />
+                {/* Equipped card-back preview — shows the actual back
+                    template (Navy Diamond by default) the player will
+                    use in this match. Updates when the player swaps
+                    backs in the Cosmetics locker. */}
+                <div className="back-preview" aria-hidden>
+                  <CardBack scale={0.17} side="player" />
+                </div>
                 <div>
                   <div className="name">
                     {usingTest
@@ -1020,20 +1027,15 @@ function BestiaryStyles() {
         border: 1px solid rgba(58,46,42,.10);
         border-radius: 16px;
         box-shadow: 0 2px 6px rgba(58,46,42,.08);
-        display: grid; grid-template-columns: 36px 1fr auto; gap: 12px; align-items: center;
+        display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center;
         cursor: pointer; color: inherit; font-family: inherit; text-align: left;
         transition: transform .12s, box-shadow .2s;
       }
       .duel .deck-row:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgba(58,46,42,.15); }
-      .duel .deck-row .swatch {
-        width: 36px; height: 48px; border-radius: 6px;
-        background: var(--deck-color, #ee5a52);
-        box-shadow: inset 0 0 0 2px #fff, inset 0 0 0 3px #3a2e2a;
-        position: relative;
-      }
-      .duel .deck-row .swatch::after {
-        content: ""; position: absolute; inset: 6px; border-radius: 3px;
-        background: linear-gradient(180deg, rgba(255,255,255,0.25), transparent 60%);
+      .duel .deck-row .back-preview {
+        display: grid; place-items: center;
+        /* Sized to the card-back's intrinsic 220×320 × 0.17 = ~37×54. */
+        width: 38px; height: 56px;
       }
       .duel .deck-row .name {
         font-family: inherit; font-weight: 800; font-size: 17px;
@@ -1052,7 +1054,6 @@ function BestiaryStyles() {
       @container (min-width: 1024px) {
         .duel .deck-row { padding: 14px 16px; }
         .duel .deck-row .name { font-size: 19px; }
-        .duel .deck-row .swatch { width: 42px; height: 56px; }
       }
 
       /* Engage CTA — uses the app's coral BRAND for the slab. */
