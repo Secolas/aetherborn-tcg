@@ -67,7 +67,10 @@ interface TutorialStep {
   text: string;
   spotlight: string[];
   advanceOn: 'card-played' | 'turn-end' | 'attack' | 'spell-cast' | 'auto' | null;
-  requireSpellId?: string;
+  /** When set, advanceOn 'card-played' / 'spell-cast' only counts
+   *  if the played card's template id matches. Lets us gate "summon
+   *  Coffee Mug" vs "summon Breakfast Plate" without sharing steps. */
+  requireCardId?: string;
   /** When set, the script auto-advances this many ms after entry —
    *  used for the "watch what just happened" beats (bond trigger,
    *  heal flash) that don't tie to a player action. */
@@ -78,51 +81,61 @@ const STEPS: TutorialStep[] = [
   {
     title: 'SUMMON',
     icon: 'hand',
-    text: "Drag the highlighted Coffee Mug from your hand onto the field.",
+    text: "Drag the highlighted Coffee Mug onto the field. It costs 1 mana.",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
+    requireCardId: 'fd-01',
   },
   {
     title: 'END TURN',
     icon: 'clock',
-    text: "Your creature can't attack the turn you summon it. Tap the End Turn button.",
+    text: "Creatures can't attack the turn you summon them. Tap End Turn — your opponent will play, then it's your turn again.",
     spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]'],
     advanceOn: 'turn-end',
   },
   {
-    title: 'BOND',
+    title: 'BOND PIECE',
     icon: 'bond',
-    text: "Drag a Breakfast Plate onto the field. Two specific cards together form a Bond — watch what happens.",
+    text: "Drag a Breakfast Plate onto the field. (Its own ability draws you a card — that's the card text, not the bond.)",
     spotlight: ['[data-tut-hand-card="fd-04"]'],
     advanceOn: 'card-played',
+    requireCardId: 'fd-04',
+  },
+  {
+    title: 'BOND ACTIVE',
+    icon: 'bond',
+    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo — your creatures will heal +2 HP at the start of every turn from now on.",
+    spotlight: [],
+    advanceOn: 'auto',
+    autoMs: 3200,
   },
   {
     title: 'ATTACK',
     icon: 'swords',
-    text: "Drag your Coffee Mug onto the opponent's portrait to attack.",
-    spotlight: ['[data-tut-hand-card="fd-01"]', '[data-tut="opp-face"]'],
+    text: "Drag your Coffee Mug from the field onto the opponent's portrait to attack.",
+    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: 'attack',
   },
   {
     title: 'SPELL',
     icon: 'wand',
-    text: "Cast Good Boy on one of your creatures — it'll give +2 HP.",
+    text: "Spells aren't creatures — drag Good Boy onto one of your creatures to buff it (+2 HP).",
     spotlight: ['[data-tut-hand-card="ani-16"]'],
     advanceOn: 'spell-cast',
-    requireSpellId: 'ani-16',
+    requireCardId: 'ani-16',
   },
   {
     title: 'HEAL',
     icon: 'heart',
-    text: "Cast Hug to restore HP on a creature that took damage.",
+    text: "Hug restores HP. Drag it onto a creature that took damage.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
-    requireSpellId: 'fam-14',
+    requireCardId: 'fam-14',
   },
   {
     title: 'FINISH',
     icon: 'trophy',
-    text: "Keep ending turns and attacking. Drop the opponent's HP to 0 to win.",
+    text: "You know all the basics now. Keep ending turns and attacking until the opponent's HP hits 0.",
     spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]', '[data-tut="opp-face"]'],
     advanceOn: null,
   },
@@ -154,9 +167,13 @@ export function Tutorial({
     }).filter((c): c is CollectionCard => !!c);
   }, []);
 
-  const advance = (kind: TutorialStep['advanceOn'], spellId?: string) => {
+  const advance = (kind: TutorialStep['advanceOn'], cardId?: string) => {
     if (step.advanceOn !== kind) return;
-    if (kind === 'spell-cast' && step.requireSpellId && spellId !== step.requireSpellId) return;
+    if ((kind === 'spell-cast' || kind === 'card-played')
+        && step.requireCardId
+        && cardId !== step.requireCardId) {
+      return;
+    }
     setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
   };
 
@@ -244,7 +261,7 @@ export function Tutorial({
         playerAvatar={playerAvatar}
         settings={settings}
         alreadyBeaten={false}
-        onCreaturePlayed={() => advance('card-played')}
+        onCreaturePlayed={(id) => advance('card-played', id)}
         onPlayerTurnEnd={() => advance('turn-end')}
         onPlayerAttacked={() => advance('attack')}
         onPlayerSpellCast={(id) => advance('spell-cast', id)}
@@ -466,7 +483,7 @@ function TutorialStyles() {
       }
       .tu-dim {
         position: absolute; inset: 0;
-        background: rgba(28,24,20,0.22);
+        background: rgba(28,24,20,0.42);
         pointer-events: none;
       }
 

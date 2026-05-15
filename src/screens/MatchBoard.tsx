@@ -42,8 +42,10 @@ interface Props {
   /** Called when a bond first activates this match. Used to mark it as
    *  "discovered" in the player's save. */
   onBondDiscovered?: (bondId: string) => void;
-  /** Called once per player creature successfully summoned. Quest tracker. */
-  onCreaturePlayed?: () => void;
+  /** Called once per player creature successfully summoned. Receives
+   *  the creature's template id so the tutorial can gate steps on the
+   *  right card being summoned. */
+  onCreaturePlayed?: (templateId: string) => void;
   /** Called once per new bond that activates on the player's side. Quest tracker.
    *  Distinct from `onBondDiscovered` (which only fires for first-ever bonds). */
   onBondTriggered?: () => void;
@@ -1608,7 +1610,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           setState(r.state);
           sfx('summon');
           fireLegendarySummon(card, 'player');
-          onCreaturePlayed?.();
+          onCreaturePlayed?.(card.id);
         } else {
           flashMsg(r.reason ?? 'Cannot play');
         }
@@ -1656,7 +1658,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         setSelectedHandIdx(null);
         sfx('summon');
         fireLegendarySummon(card, 'player');
-        onCreaturePlayed?.();
+        onCreaturePlayed?.(card.id);
       } else {
         flashMsg(r.reason ?? 'Cannot play');
       }
@@ -3644,6 +3646,8 @@ function FieldRow({
           <div
             key={`slot-${i}`}
             data-slot={i}
+            data-tut-field-card={c && side === 'player' ? c.id : undefined}
+            data-tut-side={side}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
               // Slot zones are a constant of the field. Border,
