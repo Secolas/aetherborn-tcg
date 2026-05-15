@@ -245,6 +245,7 @@ export function createMatch(
     buildOpponentDeck(boss, difficulty, rng),
     difficulty,
     rng,
+    boss?.startingHp,
   );
 }
 
@@ -266,6 +267,10 @@ function assembleMatch(
   opponentCards: CollectionCard[],
   difficulty: Difficulty,
   rng: Rng,
+  /** Optional override for the opponent's starting HP. Used by the
+   *  tutorial boss so the match wraps up in 3-4 turns. Undefined for
+   *  every other boss; they all keep the engine-wide STARTING_HP. */
+  opponentStartingHp?: number,
 ): MatchState {
   const playerDeck = shuffle(playerCards, rng).map(toBattleCard);
   let oppDeck = shuffle(opponentCards, rng).map(toBattleCard);
@@ -280,8 +285,14 @@ function assembleMatch(
   // difficulty curve lives entirely in the AI's decision-making (see
   // src/game/ai.ts → caps()), not in stat advantages. Same HP, same hand
   // size, same mana ramp. The boss just plays better.
+  //
+  // Exception: when assembleMatch receives an opponentStartingHp
+  // override (today, only the tutorial Practice Dummy), the opponent
+  // boots at that HP instead. Player HP is untouched — the tutorial
+  // is meant to be winnable, not a coin-flip.
   const player = emptyPlayer();
   const opponent = emptyPlayer();
+  if (opponentStartingHp !== undefined) opponent.hp = opponentStartingHp;
 
   // Initial draw — STARTING_HAND for both sides.
   for (let i = 0; i < STARTING_HAND && playerDeck.length; i++) {

@@ -21,24 +21,22 @@ interface Props {
 const TUTORIAL_BOSS_ID = 'tutorial-dummy';
 
 /**
- * Scripted tutorial deck — twelve 1-cost cards so the player can
- * always play SOMETHING on turn 1 (the previous synthesised deck
- * sometimes filled the opening hand with 3-cost cards, leaving the
- * player stuck staring at an unplayable hand).
+ * Scripted tutorial deck — twelve 1/2-cost cards with NO Rush so the
+ * "summon -> wait -> attack next turn" flow actually plays out. Mixing
+ * a 1-cost and a 2-cost creature gives the player something to do on
+ * both opening turns; both cards lack the rush keyword, so the wait
+ * step is a real beat instead of a hint that lies about the rules.
  *
- *   9 x fam-01 Family Pet  (1c 2/1 creature)  — main threat
- *   3 x ani-16 Good Boy    (1c spell, +0/+2 to a friendly creature)
+ *   6 x ani-01 Mouse   (1c 1/1, no ability)
+ *   6 x fam-02 Cousin  (2c 2/2, no ability)
  *
- * The 9:3 split means the typical 4-card opening hand will be
- * roughly 3 Family Pets + 1 Good Boy — comfortable for the
- * "summon -> wait -> attack" script, with a spell on hand to
- * demonstrate the spell-on-creature mechanic if the player
- * stumbles into it.
+ * The Practice Dummy boss starts at 6 HP (see startingHp on the
+ * tutorial-dummy entry in src/data/bosses.ts), so a few attacks with
+ * these creatures wraps the match up in 3-4 turns.
  */
 const TUTORIAL_DECK_IDS: string[] = [
-  'fam-01','fam-01','fam-01','fam-01','fam-01',
-  'fam-01','fam-01','fam-01','fam-01',
-  'ani-16','ani-16','ani-16',
+  'ani-01','ani-01','ani-01','ani-01','ani-01','ani-01',
+  'fam-02','fam-02','fam-02','fam-02','fam-02','fam-02',
 ];
 
 /**
