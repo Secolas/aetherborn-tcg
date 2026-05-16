@@ -102,11 +102,23 @@ interface TutorialStep {
   anatomy?: { cardId: string; kind: 'creature' | 'spell' };
 }
 
+// End-turn step factory. After every teaching step the player must
+// pass the turn before the next teaching step is offered — keeps
+// the script paced one beat at a time and matches the engine's
+// turn-by-turn rhythm.
+const endTurnStep = (text: string): TutorialStep => ({
+  title: 'END TURN',
+  icon: 'clock',
+  text,
+  spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]'],
+  advanceOn: 'turn-end',
+});
+
 const STEPS: TutorialStep[] = [
   {
     title: 'CARD · CREATURE',
     icon: 'book',
-    text: "Creatures stay on the field and attack. Read every part: mana cost (top-left), attack and HP (bottom corners), type chip, and the ability line. Tap Got it when you're ready.",
+    text: "Creatures stay on the field and attack. Read every part: mana cost (top-left), attack and HP (bottom corners), type chip, ability line, and rarity. Tap Got it when ready.",
     spotlight: [],
     advanceOn: 'tap',
     anatomy: { cardId: 'fd-01', kind: 'creature' },
@@ -114,7 +126,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'CARD · SPELL',
     icon: 'book',
-    text: "Spells aren't creatures — they fire once and disappear. They have a mana cost and an ability, but no attack or HP. Drag them onto a valid target.",
+    text: "Spells aren't creatures — they fire once on a target and disappear. They have a mana cost and an ability, but no attack or HP.",
     spotlight: [],
     advanceOn: 'tap',
     anatomy: { cardId: 'ani-16', kind: 'spell' },
@@ -122,18 +134,13 @@ const STEPS: TutorialStep[] = [
   {
     title: 'MAIN PHASE · SUMMON',
     icon: 'hand',
-    text: "Your turn opens in the Main Phase. Drag the Coffee Mug onto the field to summon it — it costs 1 mana (top of screen).",
+    text: "Your turn opens in the Main Phase. Drag the Coffee Mug onto the field — it costs 1 mana (top of screen).",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
   },
-  {
-    title: 'END TURN',
-    icon: 'clock',
-    text: "Creatures sleep the turn they're summoned — they can't attack yet. Tap End Turn to pass through Battle Phase and hand the turn to your opponent.",
-    spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]'],
-    advanceOn: 'turn-end',
-  },
+  endTurnStep("Creatures sleep the turn they're summoned. Tap End Turn — Battle Phase and your opponent's turn will pass automatically."),
+
   {
     title: 'BOND PIECE',
     icon: 'bond',
@@ -145,11 +152,13 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BOND ACTIVE',
     icon: 'bond',
-    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo. From now on, your creatures heal +2 HP every turn — extra effects when specific cards share the field.",
+    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo. From now on, your creatures heal +2 HP at the start of every turn — extra effects when specific cards share the field.",
     spotlight: [],
     advanceOn: 'auto',
     autoMs: 3600,
   },
+  endTurnStep("Tap End Turn so your creatures wake up next turn."),
+
   {
     title: 'BATTLE · CREATURE FIGHT',
     icon: 'swords',
@@ -158,38 +167,48 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'attack',
     requireAttackTarget: 'creature',
   },
+  endTurnStep("Nice trade. End your turn."),
+
   {
     title: 'BATTLE · ATTACK FACE',
     icon: 'swords',
-    text: "Creatures can also attack the opponent directly. Drag onto their portrait. That's how you drain their HP — drop it to 0 to win.",
+    text: "Creatures can also attack the opponent directly. Drag one of your creatures onto their portrait. That drains their HP — drop it to 0 to win.",
     spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
+  endTurnStep("End turn."),
+
   {
     title: 'SPELL · BUFF',
     icon: 'wand',
-    text: "Spells aren't creatures — they fire once and gone. Drag Good Boy onto one of your creatures: +0 attack / +2 HP, permanently.",
+    text: "Good Boy is a Buff spell — drag it onto one of your creatures for +0 attack / +2 HP, permanently.",
     spotlight: ['[data-tut-hand-card="ani-16"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'ani-16',
   },
+  endTurnStep("End turn."),
+
   {
     title: 'SPELL · DAMAGE',
     icon: 'wand',
-    text: "Snake Bite deals 3 damage to any target. Use it to remove an opponent creature, or finish their HP. Drag it on whoever you want hit.",
+    text: "Snake Bite is a Damage spell — drop 3 damage on any target. Use it to remove an opponent creature, or to finish their HP.",
     spotlight: ['[data-tut-hand-card="ani-02"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'ani-02',
   },
+  endTurnStep("End turn."),
+
   {
     title: 'SPELL · HEAL',
     icon: 'heart',
-    text: "Hug restores +3 HP on a friendly creature. Drag it onto a creature that took damage to top it back up.",
+    text: "Hug is a Heal spell — drop +3 HP on a friendly creature that took damage.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'fam-14',
   },
+  endTurnStep("End turn — one more lap to seal it."),
+
   {
     title: 'FINISH',
     icon: 'trophy',
@@ -324,13 +343,15 @@ export function Tutorial({
   }
 
   // ─── Match phase ──────────────────────────────────────────────
+  // MatchBoard is intentionally NOT mounted while an anatomy step is
+  // showing — the player asked for the dealing animation to wait
+  // until they've read through the card-anatomy lessons. The board
+  // mounts the first time the script reaches a non-anatomy step.
+  const inAnatomy = !!step.anatomy;
   return (
     <div className="tu-root">
       <TutorialStyles />
-      {/* Anatomy step takes over the whole overlay — full-screen card
-          diagram with labels and a Got it CTA. Spotlight overlay
-          handles every other step. */}
-      {step.anatomy
+      {inAnatomy
         ? (
           <TutorialAnatomy
             step={step}
@@ -342,7 +363,8 @@ export function Tutorial({
         )
       }
 
-      <MatchBoard
+      {!inAnatomy && (
+        <MatchBoard
         key={attempt}
         deck={deck}
         boss={boss}
@@ -364,6 +386,7 @@ export function Tutorial({
           setPhase('intro');
         }}
       />
+      )}
     </div>
   );
 }
@@ -393,7 +416,7 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
   const isCreature = step.anatomy?.kind === 'creature';
   return (
     <div className="tu-overlay">
-      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.78)' }} />
+      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.82)' }} />
       <div className="tu-anatomy">
         <div className="tu-anatomy-eyebrow">
           <BookOpen size={12} strokeWidth={2.4} />
@@ -401,69 +424,87 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
         </div>
         <div className="tu-anatomy-blurb">{step.text}</div>
 
+        {/* Card + labels live inside a fixed-size wrapper so the
+            label positions can be percentages of the CARD's bounding
+            box, not the stage. That keeps every callout actually
+            pointing at the region it names. */}
         <div className="tu-anatomy-stage">
-          {/* Top-left: mana cost */}
-          <div className="tu-anatomy-label" data-pos="tl">
-            <span className="tu-anatomy-arrow">↘</span>
-            <div>
-              <strong>Mana cost</strong>
-              <em>What you pay to play it</em>
+          <div className="tu-anatomy-cardbox">
+            <div className="tu-anatomy-card">
+              <Card card={card} scale={1.0} />
             </div>
-          </div>
-          {/* Top-right: card name */}
-          <div className="tu-anatomy-label" data-pos="tr">
-            <span className="tu-anatomy-arrow">↙</span>
-            <div>
-              <strong>Card name</strong>
-              <em>Photo above is its art</em>
-            </div>
-          </div>
 
-          <div className="tu-anatomy-card">
-            <Card card={card} scale={1.35} />
-          </div>
-
-          {/* Middle-left: type chip + ability */}
-          <div className="tu-anatomy-label" data-pos="ml">
-            <span className="tu-anatomy-arrow">→</span>
-            <div>
-              <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
-              <em>
-                {isCreature
-                  ? 'Stays on the field and attacks'
-                  : 'Fires once, then it is gone'}
-              </em>
-            </div>
-          </div>
-          {/* Middle-right: ability */}
-          <div className="tu-anatomy-label" data-pos="mr">
-            <span className="tu-anatomy-arrow">←</span>
-            <div>
-              <strong>Ability</strong>
-              <em>Read it — it always means what it says</em>
-            </div>
-          </div>
-
-          {isCreature && (
-            <>
-              {/* Bottom-left: attack */}
-              <div className="tu-anatomy-label" data-pos="bl">
-                <span className="tu-anatomy-arrow">↗</span>
-                <div>
-                  <strong>Attack</strong>
-                  <em>Damage when it swings</em>
-                </div>
+            {/* Mana cost — header row, top-left of card. */}
+            <div className="tu-anatomy-label" data-pos="cost">
+              <span className="tu-anatomy-arrow">↗</span>
+              <div>
+                <strong>Mana cost</strong>
+                <em>What you pay to play it</em>
               </div>
-              {/* Bottom-right: HP */}
-              <div className="tu-anatomy-label" data-pos="br">
-                <span className="tu-anatomy-arrow">↖</span>
-                <div>
-                  <strong>HP</strong>
-                  <em>It dies at 0</em>
-                </div>
+            </div>
+
+            {/* Card name — header row, top-right of card. */}
+            <div className="tu-anatomy-label" data-pos="name">
+              <span className="tu-anatomy-arrow">↖</span>
+              <div>
+                <strong>Card name</strong>
+                <em>And its art below</em>
               </div>
-            </>
-          )}
+            </div>
+
+            {/* Type chip — directly below the photo, left side. */}
+            <div className="tu-anatomy-label" data-pos="type">
+              <span className="tu-anatomy-arrow">↗</span>
+              <div>
+                <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
+                <em>
+                  {isCreature
+                    ? 'Stays on the field, attacks each turn'
+                    : 'Fires once on a target, then is gone'}
+                </em>
+              </div>
+            </div>
+
+            {/* Rarity chip — directly below the photo, right side. */}
+            <div className="tu-anatomy-label" data-pos="rarity">
+              <span className="tu-anatomy-arrow">↖</span>
+              <div>
+                <strong>Rarity</strong>
+                <em>Common · Rare · Epic · Legendary — bumps in packs</em>
+              </div>
+            </div>
+
+            {/* Ability — sits below the chips on the card, points UP
+                at the ability text region. */}
+            <div className="tu-anatomy-label" data-pos="ability">
+              <span className="tu-anatomy-arrow">↑</span>
+              <div>
+                <strong>Ability</strong>
+                <em>Read it — the card always means what it says</em>
+              </div>
+            </div>
+
+            {isCreature && (
+              <>
+                {/* Attack orb — bottom-left of card. */}
+                <div className="tu-anatomy-label" data-pos="atk">
+                  <span className="tu-anatomy-arrow">↗</span>
+                  <div>
+                    <strong>Attack</strong>
+                    <em>Damage when it swings</em>
+                  </div>
+                </div>
+                {/* HP orb — bottom-right of card. */}
+                <div className="tu-anatomy-label" data-pos="hp">
+                  <span className="tu-anatomy-arrow">↖</span>
+                  <div>
+                    <strong>HP</strong>
+                    <em>The creature dies at 0</em>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         <button className="tu-anatomy-cta" onClick={onAdvance}>
@@ -697,10 +738,16 @@ function TutorialStyles() {
 
       /* Overlay layer — pointer-events: none on the wrapper so the
          board below stays interactive. The ring + hint divs are also
-         pointer-events: none. */
+         pointer-events: none.
+         z-index is intentionally low (50) so MatchBoard modals — the
+         opponent summon reveal, inspect preview, legendary summon —
+         all sit ABOVE the spotlight ring. The ring is for board
+         navigation, not for covering deliberate UI flashes; if
+         the engine is showing the player something, that thing
+         should win. */
       .tu-overlay {
         position: absolute; inset: 0;
-        z-index: 380;
+        z-index: 50;
         pointer-events: none;
       }
       .tu-dim {
@@ -811,29 +858,42 @@ function TutorialStyles() {
         margin: 6px auto 0;
         color: rgba(255,255,255,.88);
       }
+      /* Stage is a flex centre — the cardbox below carries the
+         label positioning so percentages line up with the actual
+         card regions, not the variable stage height. */
       .tu-anatomy-stage {
         position: relative;
         flex: 1;
         width: 100%;
-        max-width: 380px;
         display: grid;
         place-items: center;
-        margin: 14px 0;
+        margin: 8px 0;
+        min-height: 0;
+      }
+      /* Card-sized wrapper. Labels are positioned absolutely within
+         this box, so a label at top: 5% sits at the top of the CARD
+         (not the stage). Negative left/right offsets push each label
+         outside the card edge. */
+      .tu-anatomy-cardbox {
+        position: relative;
+        width: 200px;
+        aspect-ratio: 0.72;
       }
       .tu-anatomy-card {
-        position: relative;
+        position: absolute; inset: 0;
         z-index: 2;
+        display: grid; place-items: center;
         animation: tuPop .3s cubic-bezier(.2,.85,.3,1);
       }
       .tu-anatomy-label {
         position: absolute;
         display: flex; align-items: center; gap: 6px;
-        background: rgba(255,255,255,.95);
+        background: rgba(255,255,255,.96);
         color: ${PALETTE.text};
         border-radius: 10px;
-        padding: 6px 10px;
+        padding: 6px 9px;
         font-size: 11px;
-        box-shadow: 0 6px 14px rgba(28,24,20,.35);
+        box-shadow: 0 6px 14px rgba(28,24,20,.45);
         max-width: 130px;
         line-height: 1.2;
         z-index: 3;
@@ -857,12 +917,31 @@ function TutorialStyles() {
         line-height: 1;
         flex-shrink: 0;
       }
-      .tu-anatomy-label[data-pos="tl"] { top:  4%; left:  2%; }
-      .tu-anatomy-label[data-pos="tr"] { top:  4%; right: 2%; }
-      .tu-anatomy-label[data-pos="ml"] { top: 46%; left:  2%; transform: translateY(-50%); }
-      .tu-anatomy-label[data-pos="mr"] { top: 46%; right: 2%; transform: translateY(-50%); }
-      .tu-anatomy-label[data-pos="bl"] { bottom: 12%; left:  2%; }
-      .tu-anatomy-label[data-pos="br"] { bottom: 12%; right: 2%; }
+      /* Label positions — % is now relative to the cardbox (which is
+         sized to the card itself), so percentages line up with the
+         real card sections. Negative offsets push the labels outside
+         the card's edges. */
+      .tu-anatomy-label[data-pos="cost"]    { top:  -4%; left:   -110px; }
+      .tu-anatomy-label[data-pos="name"]    { top:  -4%; right:  -110px; }
+      .tu-anatomy-label[data-pos="type"]    { top:  52%; left:   -120px; }
+      .tu-anatomy-label[data-pos="rarity"]  { top:  52%; right:  -120px; }
+      .tu-anatomy-label[data-pos="ability"] { top:  74%; left:  50%; transform: translateX(-50%) translateY(115%); }
+      .tu-anatomy-label[data-pos="atk"]     { bottom: -4%; left:  -110px; }
+      .tu-anatomy-label[data-pos="hp"]      { bottom: -4%; right: -110px; }
+      /* Narrow phones — tighten label offsets so the diagram still
+         fits in the viewport. The card itself shrinks too. */
+      @media (max-width: 420px) {
+        .tu-anatomy-cardbox { width: 168px; }
+        .tu-anatomy-label { max-width: 96px; font-size: 10px; padding: 5px 7px; }
+        .tu-anatomy-label strong { font-size: 10px; }
+        .tu-anatomy-label em { font-size: 9px; }
+        .tu-anatomy-label[data-pos="cost"]    { left:  -88px; }
+        .tu-anatomy-label[data-pos="name"]    { right: -88px; }
+        .tu-anatomy-label[data-pos="type"]    { left:  -96px; }
+        .tu-anatomy-label[data-pos="rarity"]  { right: -96px; }
+        .tu-anatomy-label[data-pos="atk"]     { left:  -88px; }
+        .tu-anatomy-label[data-pos="hp"]      { right: -88px; }
+      }
       .tu-anatomy-cta {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 12px 22px;
