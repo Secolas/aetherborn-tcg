@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Camera, Check, ChevronRight, Sparkles, SkipForward } from 'lucide-react';
+import { Camera, Check, ChevronRight, Sparkles, SkipForward, Upload } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { PALETTE } from '../components/styles';
 import { Card } from '../components/Card';
@@ -37,7 +37,11 @@ interface Props {
  */
 export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
   const [idx, setIdx] = useState(0);
-  const fileRef = useRef<HTMLInputElement>(null);
+  // Two inputs — one with capture="environment" so the camera
+  // launches directly, one without so the OS picker opens the
+  // gallery. The player picks the source explicitly via two CTAs.
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const uploadRef = useRef<HTMLInputElement>(null);
   const current = cards[idx];
   const total = cards.length;
   const themeColor = ELEMENTS[theme.id].color;
@@ -102,20 +106,36 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
       </div>
 
       <div className="po-actions">
+        {/* Hidden file inputs — one with capture for the camera,
+            one without for the gallery picker. The visible CTAs
+            forward to whichever the player chose. */}
         <input
-          ref={fileRef}
+          ref={cameraRef}
           type="file"
           accept="image/*"
           capture="environment"
           onChange={handleFile}
           style={{ display: 'none' }}
         />
+        <input
+          ref={uploadRef}
+          type="file"
+          accept="image/*"
+          onChange={handleFile}
+          style={{ display: 'none' }}
+        />
         {!photoSet ? (
           <>
-            <button className="po-cta" onClick={() => fileRef.current?.click()}>
-              <Camera size={18} strokeWidth={2.4} />
-              <span>Take Photo</span>
-            </button>
+            <div className="po-cta-row">
+              <button className="po-cta po-cta-camera" onClick={() => cameraRef.current?.click()}>
+                <Camera size={18} strokeWidth={2.4} />
+                <span>Take Photo</span>
+              </button>
+              <button className="po-cta po-cta-upload" onClick={() => uploadRef.current?.click()}>
+                <Upload size={18} strokeWidth={2.4} />
+                <span>Upload Image</span>
+              </button>
+            </div>
             <button className="po-skip" onClick={next}>
               <SkipForward size={14} strokeWidth={2.4} />
               <span>Skip for now</span>
@@ -220,19 +240,33 @@ function StarterPackOpenStyles() {
       .po-cta {
         width: 100%;
         display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-        padding: 16px 22px;
+        padding: 14px 18px;
         background: linear-gradient(180deg, color-mix(in srgb, var(--theme-color) 88%, #fff) 0%, var(--theme-color) 100%);
         color: #fff;
         border: 0;
         border-radius: 999px;
         font-family: inherit;
-        font-size: 15px; font-weight: 800;
+        font-size: 14px; font-weight: 800;
         letter-spacing: 0.02em;
         cursor: pointer;
         box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
         transition: transform .12s;
       }
       .po-cta:hover { transform: translateY(-1px); }
+      /* Two-up CTA row — Take Photo (primary, theme gradient) +
+         Upload Image (secondary, neutral). Lets the player pick
+         the source explicitly so the gallery isn't gated behind
+         "capture" attribute heuristics. */
+      .po-cta-row {
+        display: flex; gap: 8px; width: 100%;
+      }
+      .po-cta-row .po-cta { flex: 1; }
+      .po-cta.po-cta-upload {
+        background: ${PALETTE.paper};
+        color: ${PALETTE.text};
+        border: 1.5px solid ${PALETTE.border};
+        box-shadow: 0 4px 12px rgba(28,24,20,.12);
+      }
       .po-skip {
         background: transparent;
         border: 1.5px dashed ${PALETTE.border};

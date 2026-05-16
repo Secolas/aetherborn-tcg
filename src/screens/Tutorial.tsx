@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2 } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
+import { Card } from '../components/Card';
 import { getBoss } from '../data/bosses';
 import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
@@ -78,10 +79,10 @@ const TUTORIAL_DECK_IDS: string[] = [
  */
 interface TutorialStep {
   title: string;
-  icon: 'hand' | 'clock' | 'swords' | 'wand' | 'heart' | 'bond' | 'trophy';
+  icon: 'hand' | 'clock' | 'swords' | 'wand' | 'heart' | 'bond' | 'trophy' | 'book';
   text: string;
   spotlight: string[];
-  advanceOn: 'card-played' | 'turn-end' | 'attack' | 'spell-cast' | 'auto' | null;
+  advanceOn: 'card-played' | 'turn-end' | 'attack' | 'spell-cast' | 'auto' | 'tap' | null;
   /** When set, advanceOn 'card-played' / 'spell-cast' only counts
    *  if the played card's template id matches. Lets us gate "summon
    *  Coffee Mug" vs "summon Breakfast Plate" without sharing steps. */
@@ -94,9 +95,30 @@ interface TutorialStep {
    *  used for the "watch what just happened" beats (bond trigger,
    *  heal flash) that don't tie to a player action. */
   autoMs?: number;
+  /** When set, the step renders a card anatomy diagram instead of a
+   *  board spotlight. The label set differs by card type so we can
+   *  teach Creature (mana, atk, hp, type, ability) and Spell (mana,
+   *  type, ability) separately. Advances on tap of the Got it CTA. */
+  anatomy?: { cardId: string; kind: 'creature' | 'spell' };
 }
 
 const STEPS: TutorialStep[] = [
+  {
+    title: 'CARD · CREATURE',
+    icon: 'book',
+    text: "Creatures stay on the field and attack. Read every part: mana cost (top-left), attack and HP (bottom corners), type chip, and the ability line. Tap Got it when you're ready.",
+    spotlight: [],
+    advanceOn: 'tap',
+    anatomy: { cardId: 'fd-01', kind: 'creature' },
+  },
+  {
+    title: 'CARD · SPELL',
+    icon: 'book',
+    text: "Spells aren't creatures — they fire once and disappear. They have a mana cost and an ability, but no attack or HP. Drag them onto a valid target.",
+    spotlight: [],
+    advanceOn: 'tap',
+    anatomy: { cardId: 'ani-16', kind: 'spell' },
+  },
   {
     title: 'MAIN PHASE · SUMMON',
     icon: 'hand',
@@ -305,7 +327,20 @@ export function Tutorial({
   return (
     <div className="tu-root">
       <TutorialStyles />
-      <TutorialSpotlight step={step} key={`${attempt}-${stepIdx}`} />
+      {/* Anatomy step takes over the whole overlay — full-screen card
+          diagram with labels and a Got it CTA. Spotlight overlay
+          handles every other step. */}
+      {step.anatomy
+        ? (
+          <TutorialAnatomy
+            step={step}
+            onAdvance={() => setStepIdx((i) => Math.min(i + 1, STEPS.length - 1))}
+          />
+        )
+        : (
+          <TutorialSpotlight step={step} key={`${attempt}-${stepIdx}`} />
+        )
+      }
 
       <MatchBoard
         key={attempt}
@@ -329,6 +364,113 @@ export function Tutorial({
           setPhase('intro');
         }}
       />
+    </div>
+  );
+}
+
+// ─── Anatomy overlay ────────────────────────────────────────────────
+
+/**
+ * Full-screen card anatomy diagram. Renders the sample card center-
+ * screen with labelled callouts at the corners pointing at every
+ * part the player needs to learn: mana cost, name, attack, HP, type
+ * chip and ability text. Creature and Spell variants share the same
+ * frame but show different labels (spells have no atk/hp).
+ *
+ * Lives behind the same dark dim as the spotlight overlay so it
+ * reads as a "tutorial moment", not a separate screen. Bottom CTA
+ * advances the script.
+ */
+function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: () => void }) {
+  const tpl = step.anatomy ? getTemplateById(step.anatomy.cardId) : null;
+  if (!tpl) return null;
+  const card: CollectionCard = {
+    ...tpl,
+    uid: `tut_anatomy_${tpl.id}`,
+    photo: aiPhoto(tpl.id),
+    isPlaceholder: true,
+  };
+  const isCreature = step.anatomy?.kind === 'creature';
+  return (
+    <div className="tu-overlay">
+      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.78)' }} />
+      <div className="tu-anatomy">
+        <div className="tu-anatomy-eyebrow">
+          <BookOpen size={12} strokeWidth={2.4} />
+          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
+        </div>
+        <div className="tu-anatomy-blurb">{step.text}</div>
+
+        <div className="tu-anatomy-stage">
+          {/* Top-left: mana cost */}
+          <div className="tu-anatomy-label" data-pos="tl">
+            <span className="tu-anatomy-arrow">↘</span>
+            <div>
+              <strong>Mana cost</strong>
+              <em>What you pay to play it</em>
+            </div>
+          </div>
+          {/* Top-right: card name */}
+          <div className="tu-anatomy-label" data-pos="tr">
+            <span className="tu-anatomy-arrow">↙</span>
+            <div>
+              <strong>Card name</strong>
+              <em>Photo above is its art</em>
+            </div>
+          </div>
+
+          <div className="tu-anatomy-card">
+            <Card card={card} scale={1.35} />
+          </div>
+
+          {/* Middle-left: type chip + ability */}
+          <div className="tu-anatomy-label" data-pos="ml">
+            <span className="tu-anatomy-arrow">→</span>
+            <div>
+              <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
+              <em>
+                {isCreature
+                  ? 'Stays on the field and attacks'
+                  : 'Fires once, then it is gone'}
+              </em>
+            </div>
+          </div>
+          {/* Middle-right: ability */}
+          <div className="tu-anatomy-label" data-pos="mr">
+            <span className="tu-anatomy-arrow">←</span>
+            <div>
+              <strong>Ability</strong>
+              <em>Read it — it always means what it says</em>
+            </div>
+          </div>
+
+          {isCreature && (
+            <>
+              {/* Bottom-left: attack */}
+              <div className="tu-anatomy-label" data-pos="bl">
+                <span className="tu-anatomy-arrow">↗</span>
+                <div>
+                  <strong>Attack</strong>
+                  <em>Damage when it swings</em>
+                </div>
+              </div>
+              {/* Bottom-right: HP */}
+              <div className="tu-anatomy-label" data-pos="br">
+                <span className="tu-anatomy-arrow">↖</span>
+                <div>
+                  <strong>HP</strong>
+                  <em>It dies at 0</em>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        <button className="tu-anatomy-cta" onClick={onAdvance}>
+          <span>Got it</span>
+          <ChevronRight size={16} strokeWidth={2.4} />
+        </button>
+      </div>
     </div>
   );
 }
@@ -401,6 +543,8 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
       case 'heart':  return HeartPulse;
       case 'bond':   return Link2;
       case 'trophy': return Trophy;
+      case 'book':   return BookOpen;
+      default:       return Sparkles;
     }
   })();
 
@@ -638,6 +782,99 @@ function TutorialStyles() {
       @keyframes tuHintIn {
         from { transform: translate(-50%, -8px); opacity: 0; }
         to   { transform: translate(-50%, 0); opacity: 1; }
+      }
+
+      /* Anatomy diagram — fills the overlay with a single labelled
+         card. Labels float at the four corners with arrows pointing
+         inward at the matching card region. */
+      .tu-anatomy {
+        position: absolute; inset: 0;
+        z-index: 1;
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: space-between;
+        padding: max(20px, env(safe-area-inset-top, 20px)) 14px max(20px, env(safe-area-inset-bottom, 20px)) 14px;
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
+        color: #fff;
+        pointer-events: auto;
+      }
+      .tu-anatomy-eyebrow {
+        display: inline-flex; align-items: center; gap: 6px;
+        font-size: 10px; font-weight: 800;
+        letter-spacing: 0.14em;
+        opacity: 0.8;
+      }
+      .tu-anatomy-blurb {
+        text-align: center;
+        max-width: 320px;
+        font-size: 13px;
+        line-height: 1.4;
+        margin: 6px auto 0;
+        color: rgba(255,255,255,.88);
+      }
+      .tu-anatomy-stage {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        max-width: 380px;
+        display: grid;
+        place-items: center;
+        margin: 14px 0;
+      }
+      .tu-anatomy-card {
+        position: relative;
+        z-index: 2;
+        animation: tuPop .3s cubic-bezier(.2,.85,.3,1);
+      }
+      .tu-anatomy-label {
+        position: absolute;
+        display: flex; align-items: center; gap: 6px;
+        background: rgba(255,255,255,.95);
+        color: ${PALETTE.text};
+        border-radius: 10px;
+        padding: 6px 10px;
+        font-size: 11px;
+        box-shadow: 0 6px 14px rgba(28,24,20,.35);
+        max-width: 130px;
+        line-height: 1.2;
+        z-index: 3;
+      }
+      .tu-anatomy-label strong {
+        font-weight: 800;
+        font-size: 11px;
+        display: block;
+        margin-bottom: 1px;
+      }
+      .tu-anatomy-label em {
+        font-style: normal;
+        color: ${PALETTE.textMid};
+        font-size: 10px;
+        line-height: 1.2;
+      }
+      .tu-anatomy-arrow {
+        font-weight: 800;
+        font-size: 14px;
+        color: ${PALETTE.accent};
+        line-height: 1;
+        flex-shrink: 0;
+      }
+      .tu-anatomy-label[data-pos="tl"] { top:  4%; left:  2%; }
+      .tu-anatomy-label[data-pos="tr"] { top:  4%; right: 2%; }
+      .tu-anatomy-label[data-pos="ml"] { top: 46%; left:  2%; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="mr"] { top: 46%; right: 2%; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="bl"] { bottom: 12%; left:  2%; }
+      .tu-anatomy-label[data-pos="br"] { bottom: 12%; right: 2%; }
+      .tu-anatomy-cta {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 12px 22px;
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%);
+        color: #fff;
+        border: 0;
+        border-radius: 999px;
+        font-family: inherit;
+        font-size: 14px; font-weight: 800;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+        box-shadow: 0 8px 20px rgba(238,90,82,.32);
       }
     `}</style>
   );
