@@ -384,6 +384,30 @@ export function Tutorial({
         onPlayerTurnEnd={() => advance('turn-end')}
         onPlayerAttacked={(target) => advance('attack', { attackTarget: target })}
         onPlayerSpellCast={(id) => advance('spell-cast', { cardId: id })}
+        tutorialAllow={(action) => {
+          // Strict step enforcement — every player input is gated
+          // by the current step's advanceOn / requireCardId /
+          // requireAttackTarget. The free-play FINISH step (advanceOn
+          // === null) opens everything up so the player can close
+          // the match without hand-holding.
+          if (step.advanceOn === null) return true;
+          if (action.kind === 'play-creature') {
+            return step.advanceOn === 'card-played'
+              && (!step.requireCardId || step.requireCardId === action.cardId);
+          }
+          if (action.kind === 'play-spell') {
+            return step.advanceOn === 'spell-cast'
+              && (!step.requireCardId || step.requireCardId === action.cardId);
+          }
+          if (action.kind === 'attack') {
+            return step.advanceOn === 'attack'
+              && (!step.requireAttackTarget || step.requireAttackTarget === action.target);
+          }
+          if (action.kind === 'end-turn') {
+            return step.advanceOn === 'turn-end';
+          }
+          return true;
+        }}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();
@@ -526,76 +550,73 @@ function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
 function FieldAnatomyDiagram() {
   return (
     <div className="tu-field-stage">
+      {/* Mock board mirrors the real match layout at a fixed small
+          scale so the player gets a spatial sense. Each region is
+          numbered (1-7); the legend below repeats those numbers
+          with a one-line explanation. Replaces the earlier
+          callout-around-the-mock approach where labels overlapped
+          the board and clipped on narrow phones. */}
       <div className="tu-field-mock">
-        {/* Opponent row — avatar + HP/mana on left, deck+cemetery on right. */}
-        <div className="tu-field-row tu-field-row-top">
-          <div className="tu-field-chip">P · HP 6 · 1/1 mana</div>
+        <div className="tu-field-row">
+          <div className="tu-field-chip"><span className="tu-field-num">1</span> P · HP 6 · 1/1</div>
           <div className="tu-field-side-icons">
+            <span className="tu-field-num">2</span>
             <span>📚</span>
             <span>💀</span>
           </div>
         </div>
-
-        {/* Opponent field zone. */}
         <div className="tu-field-zone">
           <span>SLOT</span><span>SLOT</span><span>SLOT</span>
         </div>
-
-        {/* Divider — turn counter, give up, phase button. */}
         <div className="tu-field-divider">
-          <span className="tu-field-pill">1 / 12</span>
-          <span className="tu-field-pill">⚑ GIVE UP</span>
-          <span className="tu-field-pill tu-field-pill-phase">⚔ MAIN → BATTLE → END</span>
+          <span className="tu-field-pill"><span className="tu-field-num">3</span> 1 / 12</span>
+          <span className="tu-field-pill"><span className="tu-field-num">4</span> ⚔ MAIN → END</span>
+          <span className="tu-field-pill"><span className="tu-field-num">5</span> ⚑</span>
         </div>
-
-        {/* Player field zone. */}
         <div className="tu-field-zone">
           <span>SLOT</span><span>SLOT</span><span>SLOT</span>
         </div>
-
-        {/* Player row — avatar + HP/mana on left, deck+cemetery on right. */}
-        <div className="tu-field-row tu-field-row-bot">
-          <div className="tu-field-chip">P · HP 20 · 1/1 mana</div>
+        <div className="tu-field-row">
+          <div className="tu-field-chip"><span className="tu-field-num">6</span> P · HP 20 · 1/1</div>
           <div className="tu-field-side-icons">
             <span>📚</span>
             <span>💀</span>
           </div>
         </div>
-
-        {/* Your hand — three placeholder cards. */}
         <div className="tu-field-hand">
+          <span className="tu-field-num tu-field-num-hand">7</span>
           <div className="tu-field-card" /><div className="tu-field-card" /><div className="tu-field-card" />
         </div>
       </div>
 
-      {/* Callouts — anchored to the corners of the mock board. */}
-      <div className="tu-field-callouts">
-        <div className="tu-anatomy-label" data-pos="f-tl">
-          <span className="tu-anatomy-arrow">↘</span>
+      {/* Legend — numbered rows pair with the small chips above. */}
+      <div className="tu-field-legend">
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">1</span>
           <div><strong>Opponent</strong><em>Their HP and mana</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-tr">
-          <span className="tu-anatomy-arrow">↙</span>
-          <div><strong>Their deck · cemetery</strong><em>Tap to peek inside</em></div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">2</span>
+          <div><strong>Their deck · cemetery</strong><em>Tap to peek</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-ml">
-          <span className="tu-anatomy-arrow">→</span>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">3</span>
           <div><strong>Turn counter</strong><em>Match ends at turn 12</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-mr">
-          <span className="tu-anatomy-arrow">←</span>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">4</span>
           <div><strong>Phase button</strong><em>Main → Battle → End</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-bl">
-          <span className="tu-anatomy-arrow">↗</span>
-          <div><strong>Your HP &amp; mana</strong><em>Drops to 0 = you lose</em></div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">5</span>
+          <div><strong>Give up</strong><em>Concede the match</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-br">
-          <span className="tu-anatomy-arrow">↖</span>
-          <div><strong>Your deck · cemetery</strong><em>Same idea — tap to peek</em></div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">6</span>
+          <div><strong>Your HP &amp; mana</strong><em>0 = you lose</em></div>
         </div>
-        <div className="tu-anatomy-label" data-pos="f-hand">
-          <span className="tu-anatomy-arrow">↑</span>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">7</span>
           <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
         </div>
       </div>
@@ -1007,14 +1028,58 @@ function TutorialStyles() {
       /* Label positions — % is now relative to the cardbox (which is
          sized to the card itself), so percentages line up with the
          real card sections. Negative offsets push the labels outside
-         the card's edges. */
-      .tu-anatomy-label[data-pos="cost"]    { top:  -4%; left:   -110px; }
-      .tu-anatomy-label[data-pos="name"]    { top:  -4%; right:  -110px; }
-      .tu-anatomy-label[data-pos="type"]    { top:  52%; left:   -120px; }
-      .tu-anatomy-label[data-pos="rarity"]  { top:  52%; right:  -120px; }
-      .tu-anatomy-label[data-pos="ability"] { top:  74%; left:  50%; transform: translateX(-50%) translateY(115%); }
-      .tu-anatomy-label[data-pos="atk"]     { bottom: -4%; left:  -110px; }
-      .tu-anatomy-label[data-pos="hp"]      { bottom: -4%; right: -110px; }
+         the card's edges. Each label vertically aligns with its
+         target so the triangle tail (::after) extends straight
+         toward the named section. */
+      .tu-anatomy-label[data-pos="cost"]    { top:   5%;  left:   -110px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="type"]    { top:  64%;  left:   -120px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="rarity"]  { top:  64%;  right:  -120px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="ability"] { top:  75%;  left:    50%;   transform: translate(-50%, 115%); }
+      .tu-anatomy-label[data-pos="atk"]     { bottom: 5%; left:   -110px; transform: translateY(50%); }
+      .tu-anatomy-label[data-pos="hp"]      { bottom: 5%; right:  -110px; transform: translateY(50%); }
+
+      /* Triangle tail extending from each label edge toward the
+         card region it names. Direction matches the label's
+         position. */
+      .tu-anatomy-label::after {
+        content: "";
+        position: absolute;
+        width: 0; height: 0;
+        pointer-events: none;
+      }
+      /* Left-side labels (cost, type, atk) — tail on the right edge
+         pointing right toward the card. */
+      .tu-anatomy-label[data-pos="cost"]::after,
+      .tu-anatomy-label[data-pos="type"]::after,
+      .tu-anatomy-label[data-pos="atk"]::after {
+        right: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-style: solid;
+        border-width: 6px 0 6px 8px;
+        border-color: transparent transparent transparent rgba(255,255,255,.96);
+      }
+      /* Right-side labels (rarity, hp) — tail on the left edge
+         pointing left toward the card. */
+      .tu-anatomy-label[data-pos="rarity"]::after,
+      .tu-anatomy-label[data-pos="hp"]::after {
+        left: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-style: solid;
+        border-width: 6px 8px 6px 0;
+        border-color: transparent rgba(255,255,255,.96) transparent transparent;
+      }
+      /* Below-card label (ability) — tail on the top edge pointing
+         up toward the ability text on the card. */
+      .tu-anatomy-label[data-pos="ability"]::after {
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-style: solid;
+        border-width: 0 6px 8px 6px;
+        border-color: transparent transparent rgba(255,255,255,.96) transparent;
+      }
       /* Narrow phones — tighten label offsets so the diagram still
          fits in the viewport. The card itself shrinks too. */
       @media (max-width: 420px) {
@@ -1029,33 +1094,36 @@ function TutorialStyles() {
         .tu-anatomy-label[data-pos="atk"]     { left:  -88px; }
         .tu-anatomy-label[data-pos="hp"]      { right: -88px; }
       }
-      /* Field anatomy — mocked match board diagram + corner callouts.
-         The mock board mirrors the real match layout at a tiny size
-         so the player learns the geometry; callouts at the corners
-         point inward at each region. */
+      /* Field anatomy — mock board on top, numbered legend below.
+         Replaced the corner-callouts version which collided with the
+         mock at phone widths; this layout is two clean rows that
+         scale well on any viewport. */
       .tu-field-stage {
-        position: relative;
         flex: 1;
         width: 100%;
-        max-width: 360px;
+        max-width: 380px;
         margin: 8px auto;
         min-height: 0;
-        display: grid;
-        place-items: center;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        align-items: center;
+        padding: 0 4px;
       }
       .tu-field-mock {
-        position: relative;
-        width: 220px;
+        width: 100%;
+        max-width: 280px;
         background: rgba(255, 240, 220, 0.94);
         border: 1.5px solid rgba(255,255,255,.2);
         border-radius: 14px;
-        padding: 10px 8px;
+        padding: 10px 10px;
         display: flex; flex-direction: column;
         gap: 6px;
         box-shadow: 0 10px 24px rgba(28,24,20,.35);
         color: ${PALETTE.text};
-        font-size: 9px; font-weight: 700;
-        z-index: 2;
+        font-size: 10px; font-weight: 700;
+        flex-shrink: 0;
       }
       .tu-field-row {
         display: flex; justify-content: space-between; align-items: center;
@@ -1065,30 +1133,32 @@ function TutorialStyles() {
         background: ${PALETTE.bg};
         border: 1px solid ${PALETTE.border};
         border-radius: 999px;
-        padding: 3px 6px;
-        font-size: 8px;
+        padding: 3px 8px;
+        font-size: 9px;
         white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 4px;
       }
       .tu-field-side-icons {
         display: flex; gap: 4px;
-        font-size: 12px;
+        font-size: 13px;
+        align-items: center;
       }
       .tu-field-zone {
         display: flex; gap: 4px; justify-content: center;
       }
       .tu-field-zone > span {
         flex: 1;
-        height: 26px;
+        height: 28px;
         background: rgba(255,255,255,.55);
         border: 1px dashed ${PALETTE.border};
         border-radius: 4px;
         display: grid; place-items: center;
-        font-size: 7px;
+        font-size: 8px;
         color: ${PALETTE.textMid};
         letter-spacing: 0.1em;
       }
       .tu-field-divider {
-        display: flex; gap: 4px; justify-content: center; align-items: center;
+        display: flex; gap: 6px; justify-content: center; align-items: center;
         padding: 4px 0;
         border-top: 1px dashed ${PALETTE.border};
         border-bottom: 1px dashed ${PALETTE.border};
@@ -1097,53 +1167,67 @@ function TutorialStyles() {
         background: ${PALETTE.paper};
         border: 1px solid ${PALETTE.border};
         border-radius: 999px;
-        padding: 2px 5px;
-        font-size: 7px;
+        padding: 2px 6px;
+        font-size: 8px;
         font-weight: 800;
         letter-spacing: 0.04em;
-      }
-      .tu-field-pill-phase {
-        background: ${PALETTE.text};
-        color: #fff;
-        border-color: ${PALETTE.text};
+        display: inline-flex; align-items: center; gap: 4px;
       }
       .tu-field-hand {
-        display: flex; gap: 4px; justify-content: center;
+        display: flex; gap: 4px; justify-content: center; align-items: center;
         margin-top: 4px;
       }
       .tu-field-card {
-        width: 24px; height: 34px;
+        width: 26px; height: 36px;
         background: linear-gradient(180deg, #6b9a91, #2f5a52);
         border-radius: 4px;
         box-shadow: 0 2px 4px rgba(0,0,0,.30);
       }
+      /* Numbered chip — coral badge anchored on each labelled region
+         and repeated in the legend below. Gives the player a single
+         number to mentally pair the spot on the mock with its
+         explanation. */
+      .tu-field-num {
+        display: inline-grid; place-items: center;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: ${PALETTE.accent};
+        color: #fff;
+        font-size: 9px; font-weight: 800;
+        flex-shrink: 0;
+      }
+      .tu-field-num-hand { margin-right: 4px; }
 
-      .tu-field-callouts {
-        position: absolute; inset: 0;
-        pointer-events: none;
+      /* Numbered legend rows. */
+      .tu-field-legend {
+        width: 100%;
+        max-width: 320px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+        align-content: start;
       }
-      .tu-field-callouts > .tu-anatomy-label {
-        z-index: 3;
+      .tu-field-legend-row {
+        display: flex; align-items: center; gap: 8px;
+        background: rgba(255,255,255,.94);
+        color: ${PALETTE.text};
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-size: 10px;
+        line-height: 1.2;
       }
-      .tu-anatomy-label[data-pos="f-tl"]   { top:   -6px;  left:   -4px; }
-      .tu-anatomy-label[data-pos="f-tr"]   { top:   -6px;  right:  -4px; }
-      .tu-anatomy-label[data-pos="f-ml"]   { top:   42%;   left:   -4px; transform: translateY(-50%); }
-      .tu-anatomy-label[data-pos="f-mr"]   { top:   42%;   right:  -4px; transform: translateY(-50%); }
-      .tu-anatomy-label[data-pos="f-bl"]   { bottom: 60px; left:   -4px; }
-      .tu-anatomy-label[data-pos="f-br"]   { bottom: 60px; right:  -4px; }
-      .tu-anatomy-label[data-pos="f-hand"] { bottom: -6px; left:   50%;  transform: translateX(-50%); }
+      .tu-field-legend-row strong {
+        font-weight: 800;
+        font-size: 10px;
+        display: block;
+      }
+      .tu-field-legend-row em {
+        font-style: normal;
+        color: ${PALETTE.textMid};
+        font-size: 9px;
+      }
       @media (max-width: 420px) {
-        .tu-field-mock { width: 168px; }
-        .tu-anatomy-label[data-pos="f-tl"],
-        .tu-anatomy-label[data-pos="f-tr"],
-        .tu-anatomy-label[data-pos="f-bl"],
-        .tu-anatomy-label[data-pos="f-br"],
-        .tu-anatomy-label[data-pos="f-ml"],
-        .tu-anatomy-label[data-pos="f-mr"],
-        .tu-anatomy-label[data-pos="f-hand"] {
-          max-width: 92px;
-          font-size: 9px;
-        }
+        .tu-field-legend { grid-template-columns: 1fr; }
       }
 
       .tu-anatomy-cta {
