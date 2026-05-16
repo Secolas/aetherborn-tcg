@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Skull } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
 import { Card } from '../components/Card';
 import { getBoss } from '../data/bosses';
@@ -99,7 +99,7 @@ interface TutorialStep {
    *  board spotlight. The label set differs by card type so we can
    *  teach Creature (mana, atk, hp, type, ability) and Spell (mana,
    *  type, ability) separately. Advances on tap of the Got it CTA. */
-  anatomy?: { cardId: string; kind: 'creature' | 'spell' };
+  anatomy?: { cardId: string; kind: 'creature' | 'spell' | 'field' };
 }
 
 // End-turn step factory. After every teaching step the player must
@@ -126,10 +126,18 @@ const STEPS: TutorialStep[] = [
   {
     title: 'CARD · SPELL',
     icon: 'book',
-    text: "Spells aren't creatures — they fire once on a target and disappear. They have a mana cost and an ability, but no attack or HP.",
+    text: "Spells aren't creatures — they fire once on a target, then disappear. They have a mana cost and an ability, no attack or HP. Cast them during your Main Phase, before you swing in Battle.",
     spotlight: [],
     advanceOn: 'tap',
     anatomy: { cardId: 'ani-16', kind: 'spell' },
+  },
+  {
+    title: 'FIELD · LAYOUT',
+    icon: 'book',
+    text: "Quick tour of the match board. Tap your avatar in a real match to peek at your hand, deck, or cemetery.",
+    spotlight: [],
+    advanceOn: 'tap',
+    anatomy: { cardId: 'fd-01', kind: 'field' },
   },
   {
     title: 'MAIN PHASE · SUMMON',
@@ -376,6 +384,30 @@ export function Tutorial({
         onPlayerTurnEnd={() => advance('turn-end')}
         onPlayerAttacked={(target) => advance('attack', { attackTarget: target })}
         onPlayerSpellCast={(id) => advance('spell-cast', { cardId: id })}
+        tutorialAllow={(action) => {
+          // Strict step enforcement — every player input is gated
+          // by the current step's advanceOn / requireCardId /
+          // requireAttackTarget. The free-play FINISH step (advanceOn
+          // === null) opens everything up so the player can close
+          // the match without hand-holding.
+          if (step.advanceOn === null) return true;
+          if (action.kind === 'play-creature') {
+            return step.advanceOn === 'card-played'
+              && (!step.requireCardId || step.requireCardId === action.cardId);
+          }
+          if (action.kind === 'play-spell') {
+            return step.advanceOn === 'spell-cast'
+              && (!step.requireCardId || step.requireCardId === action.cardId);
+          }
+          if (action.kind === 'attack') {
+            return step.advanceOn === 'attack'
+              && (!step.requireAttackTarget || step.requireAttackTarget === action.target);
+          }
+          if (action.kind === 'end-turn') {
+            return step.advanceOn === 'turn-end';
+          }
+          return true;
+        }}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();
@@ -405,6 +437,37 @@ export function Tutorial({
  * advances the script.
  */
 function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: () => void }) {
+  const kind = step.anatomy?.kind;
+  return (
+    <div className="tu-overlay">
+      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.86)' }} />
+      <div className="tu-anatomy">
+        <div className="tu-anatomy-eyebrow">
+          <BookOpen size={12} strokeWidth={2.4} />
+          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
+        </div>
+        <div className="tu-anatomy-blurb">{step.text}</div>
+
+        {kind === 'field'
+          ? <FieldAnatomyDiagram />
+          : <CardAnatomyDiagram step={step} />
+        }
+
+        <button className="tu-anatomy-cta" onClick={onAdvance}>
+          <span>Got it</span>
+          <ChevronRight size={16} strokeWidth={2.4} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Card anatomy — numbered chips overlaid on the card, paired with a
+ *  legend below. Matches the field-anatomy pattern so the player
+ *  learns one system that works for both diagrams. Creature gets 7
+ *  callouts (Mana / Name / Type / Rarity / Ability / Attack / HP),
+ *  Spell gets 5 (no atk/hp). */
+function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
   const tpl = step.anatomy ? getTemplateById(step.anatomy.cardId) : null;
   if (!tpl) return null;
   const card: CollectionCard = {
@@ -414,103 +477,150 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
     isPlaceholder: true,
   };
   const isCreature = step.anatomy?.kind === 'creature';
+  type Row = { n: number; pos: string; title: string; body: string };
+  const rows: Row[] = [
+    { n: 1, pos: 'cost',    title: 'Mana cost',                              body: 'What you pay to play it' },
+    { n: 2, pos: 'name',    title: 'Card name',                              body: 'And its art below' },
+    { n: 3, pos: 'type',    title: isCreature ? 'Type · Creature' : 'Type · Spell',
+                            body: isCreature ? 'Stays on the field, attacks each turn' : 'Fires before Battle, then is gone' },
+    { n: 4, pos: 'rarity',  title: 'Rarity',                                 body: 'Common · Rare · Epic · Legendary — bumps in packs' },
+    { n: 5, pos: 'ability', title: 'Ability',                                body: 'e.g. Rush · Taunt · Heal · Buff' },
+  ];
+  if (isCreature) {
+    rows.push({ n: 6, pos: 'atk', title: 'Attack', body: 'Damage when it swings' });
+    rows.push({ n: 7, pos: 'hp',  title: 'HP',     body: 'The creature dies at 0' });
+  }
   return (
-    <div className="tu-overlay">
-      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.82)' }} />
-      <div className="tu-anatomy">
-        <div className="tu-anatomy-eyebrow">
-          <BookOpen size={12} strokeWidth={2.4} />
-          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
-        </div>
-        <div className="tu-anatomy-blurb">{step.text}</div>
+    <div className="tu-field-stage">
+      {/* Card sits in a positioning anchor; numbered chips overlay at
+          the section coordinates. Numbers are deliberately positioned
+          just OUTSIDE the cost/atk/hp orbs (not on top of them) so
+          they don't overlap the card's own numeric badges. */}
+      <div className="tu-card-anchor">
+        <Card card={card} scale={1.0} />
+        {rows.map(r => (
+          <span key={r.n} className="tu-card-num" data-pos={r.pos}>{r.n}</span>
+        ))}
+      </div>
 
-        {/* Card + labels live inside a fixed-size wrapper so the
-            label positions can be percentages of the CARD's bounding
-            box, not the stage. That keeps every callout actually
-            pointing at the region it names. */}
-        <div className="tu-anatomy-stage">
-          <div className="tu-anatomy-cardbox">
-            <div className="tu-anatomy-card">
-              <Card card={card} scale={1.0} />
-            </div>
-
-            {/* Mana cost — header row, top-left of card. */}
-            <div className="tu-anatomy-label" data-pos="cost">
-              <span className="tu-anatomy-arrow">↗</span>
-              <div>
-                <strong>Mana cost</strong>
-                <em>What you pay to play it</em>
-              </div>
-            </div>
-
-            {/* Card name — header row, top-right of card. */}
-            <div className="tu-anatomy-label" data-pos="name">
-              <span className="tu-anatomy-arrow">↖</span>
-              <div>
-                <strong>Card name</strong>
-                <em>And its art below</em>
-              </div>
-            </div>
-
-            {/* Type chip — directly below the photo, left side. */}
-            <div className="tu-anatomy-label" data-pos="type">
-              <span className="tu-anatomy-arrow">↗</span>
-              <div>
-                <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
-                <em>
-                  {isCreature
-                    ? 'Stays on the field, attacks each turn'
-                    : 'Fires once on a target, then is gone'}
-                </em>
-              </div>
-            </div>
-
-            {/* Rarity chip — directly below the photo, right side. */}
-            <div className="tu-anatomy-label" data-pos="rarity">
-              <span className="tu-anatomy-arrow">↖</span>
-              <div>
-                <strong>Rarity</strong>
-                <em>Common · Rare · Epic · Legendary — bumps in packs</em>
-              </div>
-            </div>
-
-            {/* Ability — sits below the chips on the card, points UP
-                at the ability text region. */}
-            <div className="tu-anatomy-label" data-pos="ability">
-              <span className="tu-anatomy-arrow">↑</span>
-              <div>
-                <strong>Ability</strong>
-                <em>Read it — the card always means what it says</em>
-              </div>
-            </div>
-
-            {isCreature && (
-              <>
-                {/* Attack orb — bottom-left of card. */}
-                <div className="tu-anatomy-label" data-pos="atk">
-                  <span className="tu-anatomy-arrow">↗</span>
-                  <div>
-                    <strong>Attack</strong>
-                    <em>Damage when it swings</em>
-                  </div>
-                </div>
-                {/* HP orb — bottom-right of card. */}
-                <div className="tu-anatomy-label" data-pos="hp">
-                  <span className="tu-anatomy-arrow">↖</span>
-                  <div>
-                    <strong>HP</strong>
-                    <em>The creature dies at 0</em>
-                  </div>
-                </div>
-              </>
-            )}
+      {/* Legend — same numbered-row layout as the field anatomy. */}
+      <div className="tu-field-legend">
+        {rows.map(r => (
+          <div key={r.n} className="tu-field-legend-row">
+            <span className="tu-field-num">{r.n}</span>
+            <div><strong>{r.title}</strong><em>{r.body}</em></div>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Field anatomy — mocked match-board mini-diagram with callouts at
+ *  the corners pointing at every region the player will see in a
+ *  real match: turn counter, phases button, HP/mana, hand, deck,
+ *  cemetery, give up, field zones. Doesn't mount MatchBoard — this
+ *  is a static teaching diagram. */
+function FieldAnatomyDiagram() {
+  return (
+    <div className="tu-field-stage">
+      {/* Mock board mirrors the real match layout at a fixed small
+          scale so the player gets a spatial sense. Each region is
+          numbered (1-7); the legend below repeats those numbers
+          with a one-line explanation. Replaces the earlier
+          callout-around-the-mock approach where labels overlapped
+          the board and clipped on narrow phones. */}
+      <div className="tu-field-mock">
+        {/* Opponent header — avatar circle + heart HP + mana count
+            on the left, cemetery icon on the right. Mirrors the
+            actual MatchBoard top bar (deck icon dropped per player
+            feedback — that data lives behind the avatar tap). */}
+        <div className="tu-field-row">
+          <span className="tu-field-num">1</span>
+          <div className="tu-field-avatar" data-side="opp" />
+          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 6</div>
+          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
+          <div className="tu-field-spacer" />
+          <span className="tu-field-num">2</span>
+          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
         </div>
 
-        <button className="tu-anatomy-cta" onClick={onAdvance}>
-          <span>Got it</span>
-          <ChevronRight size={16} strokeWidth={2.4} />
-        </button>
+        <div className="tu-field-zone">
+          <span>SLOT</span><span>SLOT</span><span>SLOT</span>
+        </div>
+
+        {/* Divider — turn counter, give up, phase button. Matches the
+            actual MatchBoard divider strip. */}
+        <div className="tu-field-divider">
+          <span className="tu-field-pill"><span className="tu-field-num">3</span> 1 / 12</span>
+          <div className="tu-field-icon-btn"><Flag size={11} strokeWidth={2.2} /></div>
+          <span className="tu-field-num">5</span>
+          <div className="tu-field-spacer" />
+          <span className="tu-field-num">4</span>
+          <div className="tu-field-icon-btn tu-field-icon-btn-phase"><Swords size={11} strokeWidth={2.2} /></div>
+        </div>
+
+        <div className="tu-field-zone tu-field-zone-player">
+          <span><span className="tu-field-num tu-field-num-slot">8</span>SLOT</span><span>SLOT</span><span>SLOT</span>
+        </div>
+
+        {/* Player header — same layout as opp, mirrored. */}
+        <div className="tu-field-row">
+          <span className="tu-field-num">6</span>
+          <div className="tu-field-avatar" data-side="player" />
+          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 20</div>
+          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
+          <div className="tu-field-spacer" />
+          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
+        </div>
+
+        {/* Hand — three placeholder cards. */}
+        <div className="tu-field-hand">
+          <span className="tu-field-num tu-field-num-hand">7</span>
+          <div className="tu-field-card" /><div className="tu-field-card" /><div className="tu-field-card" />
+        </div>
+      </div>
+
+      {/* Legend — numbered rows pair with the small chips above.
+          Bottom-row "tip" replaces the dedicated deck chip: in a
+          real match, tapping any avatar opens a peek modal showing
+          that player's hand size, remaining deck and cemetery. */}
+      <div className="tu-field-legend">
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">1</span>
+          <div><strong>Opponent</strong><em>Their HP and mana</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">2</span>
+          <div><strong>Cemetery</strong><em>Tap to peek at their dead</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">3</span>
+          <div><strong>Turn counter</strong><em>Match ends at turn 12</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">4</span>
+          <div><strong>Phase button</strong><em>Main → Battle → End</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">5</span>
+          <div><strong>Give up</strong><em>Concede the match</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">6</span>
+          <div><strong>Your HP &amp; mana</strong><em>0 = you lose</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">7</span>
+          <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">8</span>
+          <div><strong>Summon zone</strong><em>Three slots — drag creatures here to play them</em></div>
+        </div>
+      </div>
+      <div className="tu-field-tip">
+        Tap any avatar mid-match for hand size, deck count and cemetery details.
       </div>
     </div>
   );
@@ -858,9 +968,43 @@ function TutorialStyles() {
         margin: 6px auto 0;
         color: rgba(255,255,255,.88);
       }
-      /* Stage is a flex centre — the cardbox below carries the
-         label positioning so percentages line up with the actual
-         card regions, not the variable stage height. */
+      /* Card anatomy now uses the same numbered-chip pattern as the
+         field anatomy below. The card sits centred with little coral
+         numbered chips at the seven regions; the numbered legend
+         below explains each one. */
+      .tu-card-anchor {
+        position: relative;
+        display: inline-block;
+        margin: 8px auto;
+      }
+      .tu-card-num {
+        position: absolute;
+        z-index: 4;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: ${PALETTE.accent};
+        color: #fff;
+        border: 2px solid ${PALETTE.paper};
+        display: grid; place-items: center;
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 11px;
+        box-shadow: 0 4px 10px rgba(28,24,20,.45);
+      }
+      /* Chip positions on the card. Tuned to sit just OUTSIDE the
+         card's own numeric badges (cost orb top-left, atk/hp orbs
+         bottom corners) so they don't visually collide with the
+         numbers ALREADY on the card. */
+      .tu-card-num[data-pos="cost"]    { top: -10px;  left: -10px; }
+      .tu-card-num[data-pos="name"]    { top: -10px;  right: 38%; }
+      .tu-card-num[data-pos="type"]    { top: 60%;    left: 18%; }
+      .tu-card-num[data-pos="rarity"]  { top: 60%;    right: 4%; }
+      .tu-card-num[data-pos="ability"] { top: 78%;    left: 4%; }
+      .tu-card-num[data-pos="atk"]     { bottom: -10px; left: -10px; }
+      .tu-card-num[data-pos="hp"]      { bottom: -10px; right: -10px; }
+
+      /* Legacy stage container — left in for the field anatomy
+         which still uses .tu-anatomy-stage / .tu-anatomy-cardbox. */
       .tu-anatomy-stage {
         position: relative;
         flex: 1;
@@ -920,14 +1064,58 @@ function TutorialStyles() {
       /* Label positions — % is now relative to the cardbox (which is
          sized to the card itself), so percentages line up with the
          real card sections. Negative offsets push the labels outside
-         the card's edges. */
-      .tu-anatomy-label[data-pos="cost"]    { top:  -4%; left:   -110px; }
-      .tu-anatomy-label[data-pos="name"]    { top:  -4%; right:  -110px; }
-      .tu-anatomy-label[data-pos="type"]    { top:  52%; left:   -120px; }
-      .tu-anatomy-label[data-pos="rarity"]  { top:  52%; right:  -120px; }
-      .tu-anatomy-label[data-pos="ability"] { top:  74%; left:  50%; transform: translateX(-50%) translateY(115%); }
-      .tu-anatomy-label[data-pos="atk"]     { bottom: -4%; left:  -110px; }
-      .tu-anatomy-label[data-pos="hp"]      { bottom: -4%; right: -110px; }
+         the card's edges. Each label vertically aligns with its
+         target so the triangle tail (::after) extends straight
+         toward the named section. */
+      .tu-anatomy-label[data-pos="cost"]    { top:   5%;  left:   -110px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="type"]    { top:  64%;  left:   -120px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="rarity"]  { top:  64%;  right:  -120px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="ability"] { top:  75%;  left:    50%;   transform: translate(-50%, 115%); }
+      .tu-anatomy-label[data-pos="atk"]     { bottom: 5%; left:   -110px; transform: translateY(50%); }
+      .tu-anatomy-label[data-pos="hp"]      { bottom: 5%; right:  -110px; transform: translateY(50%); }
+
+      /* Triangle tail extending from each label edge toward the
+         card region it names. Direction matches the label's
+         position. */
+      .tu-anatomy-label::after {
+        content: "";
+        position: absolute;
+        width: 0; height: 0;
+        pointer-events: none;
+      }
+      /* Left-side labels (cost, type, atk) — tail on the right edge
+         pointing right toward the card. */
+      .tu-anatomy-label[data-pos="cost"]::after,
+      .tu-anatomy-label[data-pos="type"]::after,
+      .tu-anatomy-label[data-pos="atk"]::after {
+        right: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-style: solid;
+        border-width: 6px 0 6px 8px;
+        border-color: transparent transparent transparent rgba(255,255,255,.96);
+      }
+      /* Right-side labels (rarity, hp) — tail on the left edge
+         pointing left toward the card. */
+      .tu-anatomy-label[data-pos="rarity"]::after,
+      .tu-anatomy-label[data-pos="hp"]::after {
+        left: -8px;
+        top: 50%;
+        transform: translateY(-50%);
+        border-style: solid;
+        border-width: 6px 8px 6px 0;
+        border-color: transparent rgba(255,255,255,.96) transparent transparent;
+      }
+      /* Below-card label (ability) — tail on the top edge pointing
+         up toward the ability text on the card. */
+      .tu-anatomy-label[data-pos="ability"]::after {
+        top: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        border-style: solid;
+        border-width: 0 6px 8px 6px;
+        border-color: transparent transparent rgba(255,255,255,.96) transparent;
+      }
       /* Narrow phones — tighten label offsets so the diagram still
          fits in the viewport. The card itself shrinks too. */
       @media (max-width: 420px) {
@@ -942,6 +1130,222 @@ function TutorialStyles() {
         .tu-anatomy-label[data-pos="atk"]     { left:  -88px; }
         .tu-anatomy-label[data-pos="hp"]      { right: -88px; }
       }
+      /* Field anatomy — mock board on top, numbered legend below.
+         Replaced the corner-callouts version which collided with the
+         mock at phone widths; this layout is two clean rows that
+         scale well on any viewport. */
+      .tu-field-stage {
+        flex: 1;
+        width: 100%;
+        max-width: 380px;
+        margin: 8px auto;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        align-items: center;
+        padding: 0 4px;
+      }
+      .tu-field-mock {
+        width: 100%;
+        max-width: 280px;
+        background: rgba(255, 240, 220, 0.94);
+        border: 1.5px solid rgba(255,255,255,.2);
+        border-radius: 14px;
+        padding: 10px 10px;
+        display: flex; flex-direction: column;
+        gap: 6px;
+        box-shadow: 0 10px 24px rgba(28,24,20,.35);
+        color: ${PALETTE.text};
+        font-size: 10px; font-weight: 700;
+        flex-shrink: 0;
+      }
+      .tu-field-row {
+        display: flex; align-items: center;
+        gap: 4px;
+        flex-wrap: nowrap;
+      }
+      .tu-field-spacer { flex: 1; }
+      .tu-field-avatar {
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #5a3a2a, #3a2418);
+        border: 1.5px solid ${PALETTE.paper};
+        flex-shrink: 0;
+      }
+      .tu-field-avatar[data-side="opp"] {
+        background: linear-gradient(160deg, ${PALETTE.accent}, ${PALETTE.accentDeep});
+      }
+      .tu-field-hp {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 6px;
+        font-size: 9px;
+        font-weight: 800;
+        display: inline-flex; align-items: center; gap: 3px;
+        white-space: nowrap;
+      }
+      /* Mana pill — small blue orb + current/max text. Replaces
+         the original orb-row so the mana NUMBER is actually
+         visible (player flagged it was missing from the mock). */
+      .tu-field-mana-pill {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 6px 2px 3px;
+        font-size: 9px;
+        font-weight: 800;
+        display: inline-flex; align-items: center; gap: 4px;
+        white-space: nowrap;
+      }
+      .tu-field-mana-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #5fa9ff, #2a73d5);
+        box-shadow: 0 0 4px rgba(95,169,255,.6);
+      }
+      .tu-field-icon-btn {
+        width: 18px; height: 18px;
+        border-radius: 6px;
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        display: grid; place-items: center;
+        color: ${PALETTE.text};
+        flex-shrink: 0;
+      }
+      .tu-field-icon-btn-phase {
+        background: ${PALETTE.text};
+        color: #fff;
+        border-color: ${PALETTE.text};
+      }
+      .tu-field-chip {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-size: 9px;
+        white-space: nowrap;
+        display: inline-flex; align-items: center; gap: 4px;
+      }
+      .tu-field-side-icons {
+        display: flex; gap: 4px;
+        font-size: 13px;
+        align-items: center;
+      }
+      .tu-field-zone {
+        display: flex; gap: 4px; justify-content: center;
+      }
+      .tu-field-zone > span {
+        flex: 1;
+        height: 28px;
+        background: rgba(255,255,255,.55);
+        border: 1px dashed ${PALETTE.border};
+        border-radius: 4px;
+        display: grid; place-items: center;
+        font-size: 8px;
+        color: ${PALETTE.textMid};
+        letter-spacing: 0.1em;
+      }
+      .tu-field-divider {
+        display: flex; gap: 6px; justify-content: center; align-items: center;
+        padding: 4px 0;
+        border-top: 1px dashed ${PALETTE.border};
+        border-bottom: 1px dashed ${PALETTE.border};
+      }
+      .tu-field-pill {
+        background: ${PALETTE.paper};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 6px;
+        font-size: 8px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        display: inline-flex; align-items: center; gap: 4px;
+      }
+      .tu-field-hand {
+        display: flex; gap: 4px; justify-content: center; align-items: center;
+        margin-top: 4px;
+      }
+      .tu-field-card {
+        width: 26px; height: 36px;
+        background: linear-gradient(180deg, #6b9a91, #2f5a52);
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,.30);
+      }
+      /* Numbered chip — coral badge anchored on each labelled region
+         and repeated in the legend below. Gives the player a single
+         number to mentally pair the spot on the mock with its
+         explanation. */
+      .tu-field-num {
+        display: inline-grid; place-items: center;
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: ${PALETTE.accent};
+        color: #fff;
+        font-size: 9px; font-weight: 800;
+        flex-shrink: 0;
+      }
+      .tu-field-num-hand { margin-right: 4px; }
+      /* Slot chip — sits inside one of the player-side summon zone
+         boxes. Smaller than the other numbered chips so it fits the
+         28px-tall slot rectangle without crowding the "SLOT" label. */
+      .tu-field-num-slot {
+        width: 14px; height: 14px;
+        font-size: 9px;
+        margin-right: 3px;
+        vertical-align: middle;
+      }
+      .tu-field-zone-player > span:first-child {
+        background: rgba(255,235,200,.85);
+        border-color: ${PALETTE.accent};
+        color: ${PALETTE.text};
+      }
+
+      /* Numbered legend rows. */
+      .tu-field-legend {
+        width: 100%;
+        max-width: 320px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 6px 10px;
+        align-content: start;
+      }
+      .tu-field-legend-row {
+        display: flex; align-items: center; gap: 8px;
+        background: rgba(255,255,255,.94);
+        color: ${PALETTE.text};
+        border-radius: 8px;
+        padding: 5px 8px;
+        font-size: 10px;
+        line-height: 1.2;
+      }
+      .tu-field-legend-row strong {
+        font-weight: 800;
+        font-size: 10px;
+        display: block;
+      }
+      .tu-field-legend-row em {
+        font-style: normal;
+        color: ${PALETTE.textMid};
+        font-size: 9px;
+      }
+      @media (max-width: 420px) {
+        .tu-field-legend { grid-template-columns: 1fr; }
+      }
+      /* Bottom tip — explains the avatar-tap action that replaces
+         the dedicated deck icon in the mock. */
+      .tu-field-tip {
+        max-width: 320px;
+        margin: 4px auto 0;
+        text-align: center;
+        font-size: 10px;
+        color: rgba(255,255,255,.78);
+        font-style: italic;
+        line-height: 1.35;
+      }
+
       .tu-anatomy-cta {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 12px 22px;

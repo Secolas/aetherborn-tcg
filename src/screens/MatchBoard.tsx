@@ -64,6 +64,17 @@ interface Props {
    *  spell's template id so Tutorial scripts can branch on which
    *  spell was cast. Skipped if the engine rejected the cast. */
   onPlayerSpellCast?: (templateId: string) => void;
+  /** Tutorial gate. When provided, every player input (summon a
+   *  creature, cast a spell, attack, end turn) consults this
+   *  function before proceeding. Returning false silently blocks
+   *  the action — used by Tutorial.tsx to enforce the scripted
+   *  step. Undefined for normal matches: all inputs proceed. */
+  tutorialAllow?: (action:
+    | { kind: 'play-creature'; cardId: string }
+    | { kind: 'play-spell'; cardId: string }
+    | { kind: 'attack'; target: 'face' | 'creature' }
+    | { kind: 'end-turn' }
+  ) => boolean;
   /** True when the player has already defeated this boss before, so the
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
@@ -104,7 +115,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -1463,6 +1474,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // and effects apply silently. We instead show the card center-screen for ~900ms
   // (mirroring the AI's reveal) so the player feels what they cast.
   const castSpell = (card: BattleCard, target: SpellTarget): boolean => {
+    if (tutorialAllow && !tutorialAllow({ kind: 'play-spell', cardId: card.id })) {
+      flashMsg('Follow the tutorial step');
+      return false;
+    }
     const r = playCard(state, 'player', card.battleId, target);
     if (!r.ok) {
       flashMsg(r.reason ?? 'Cannot cast');
@@ -1595,6 +1610,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }
     if (card.type === 'Creature') {
       if (drag.overField) {
+        if (tutorialAllow && !tutorialAllow({ kind: 'play-creature', cardId: card.id })) {
+          flashMsg('Follow the tutorial step');
+          setDrag(null);
+          return;
+        }
         const r = playCard(state, 'player', card.battleId);
         if (r.ok) {
           // If the player dropped on a specific free slot, pre-assign it
@@ -1657,6 +1677,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }
 
     if (card.type === 'Creature') {
+      if (tutorialAllow && !tutorialAllow({ kind: 'play-creature', cardId: card.id })) {
+        flashMsg('Follow the tutorial step');
+        return;
+      }
       const r = playCard(state, 'player', card.battleId);
       if (r.ok) {
         setState(r.state);
@@ -1684,6 +1708,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (!selectedAttacker) return;
     const attacker = state.player.field.find(c => c.battleId === selectedAttacker);
     if (!attacker) return;
+    const targetKind: 'face' | 'creature' = target === 'face' ? 'face' : 'creature';
+    if (tutorialAllow && !tutorialAllow({ kind: 'attack', target: targetKind })) {
+      flashMsg('Follow the tutorial step');
+      return;
+    }
     const result = attack(state, 'player', selectedAttacker,
       target === 'face' ? { kind: 'face' } : { kind: 'creature', battleId: target.battleId });
     if (!result.ok) {
@@ -1771,6 +1800,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
   const onEndTurn = () => {
     if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    if (tutorialAllow && !tutorialAllow({ kind: 'end-turn' })) {
+      flashMsg('Follow the tutorial step');
+      return;
+    }
     setSelectedAttacker(null);
     setPendingSpell(null);
     showMsg(`${boss.name}'s turn`);
