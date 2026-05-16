@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Layers, Skull } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
 import { Card } from '../components/Card';
 import { getBoss } from '../data/bosses';
@@ -462,10 +462,11 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
   );
 }
 
-/** Card anatomy — labelled callouts pointing at every part of a card.
- *  Creature and Spell share the frame; spells drop atk / hp. The
- *  redundant "Card name" callout was removed per player feedback
- *  (the name is right there on the card; no label needed). */
+/** Card anatomy — numbered chips overlaid on the card, paired with a
+ *  legend below. Matches the field-anatomy pattern so the player
+ *  learns one system that works for both diagrams. Creature gets 7
+ *  callouts (Mana / Name / Type / Rarity / Ability / Attack / HP),
+ *  Spell gets 5 (no atk/hp). */
 function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
   const tpl = step.anatomy ? getTemplateById(step.anatomy.cardId) : null;
   if (!tpl) return null;
@@ -476,67 +477,40 @@ function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
     isPlaceholder: true,
   };
   const isCreature = step.anatomy?.kind === 'creature';
+  type Row = { n: number; pos: string; title: string; body: string };
+  const rows: Row[] = [
+    { n: 1, pos: 'cost',    title: 'Mana cost',                              body: 'What you pay to play it' },
+    { n: 2, pos: 'name',    title: 'Card name',                              body: 'And its art below' },
+    { n: 3, pos: 'type',    title: isCreature ? 'Type · Creature' : 'Type · Spell',
+                            body: isCreature ? 'Stays on the field, attacks each turn' : 'Fires before Battle, then is gone' },
+    { n: 4, pos: 'rarity',  title: 'Rarity',                                 body: 'Common · Rare · Epic · Legendary — bumps in packs' },
+    { n: 5, pos: 'ability', title: 'Ability',                                body: 'e.g. Rush · Taunt · Heal · Buff' },
+  ];
+  if (isCreature) {
+    rows.push({ n: 6, pos: 'atk', title: 'Attack', body: 'Damage when it swings' });
+    rows.push({ n: 7, pos: 'hp',  title: 'HP',     body: 'The creature dies at 0' });
+  }
   return (
-    <div className="tu-anatomy-stage">
-      <div className="tu-anatomy-cardbox">
-        <div className="tu-anatomy-card">
-          <Card card={card} scale={1.0} />
-        </div>
+    <div className="tu-field-stage">
+      {/* Card sits in a positioning anchor; numbered chips overlay at
+          the section coordinates. Numbers are deliberately positioned
+          just OUTSIDE the cost/atk/hp orbs (not on top of them) so
+          they don't overlap the card's own numeric badges. */}
+      <div className="tu-card-anchor">
+        <Card card={card} scale={1.0} />
+        {rows.map(r => (
+          <span key={r.n} className="tu-card-num" data-pos={r.pos}>{r.n}</span>
+        ))}
+      </div>
 
-        <div className="tu-anatomy-label" data-pos="cost">
-          <span className="tu-anatomy-arrow">↗</span>
-          <div>
-            <strong>Mana cost</strong>
-            <em>What you pay to play it</em>
+      {/* Legend — same numbered-row layout as the field anatomy. */}
+      <div className="tu-field-legend">
+        {rows.map(r => (
+          <div key={r.n} className="tu-field-legend-row">
+            <span className="tu-field-num">{r.n}</span>
+            <div><strong>{r.title}</strong><em>{r.body}</em></div>
           </div>
-        </div>
-
-        <div className="tu-anatomy-label" data-pos="type">
-          <span className="tu-anatomy-arrow">↗</span>
-          <div>
-            <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
-            <em>
-              {isCreature
-                ? 'Stays on the field, attacks each turn'
-                : 'Fires before Battle, then is gone'}
-            </em>
-          </div>
-        </div>
-
-        <div className="tu-anatomy-label" data-pos="rarity">
-          <span className="tu-anatomy-arrow">↖</span>
-          <div>
-            <strong>Rarity</strong>
-            <em>Common · Rare · Epic · Legendary — bumps in packs</em>
-          </div>
-        </div>
-
-        <div className="tu-anatomy-label" data-pos="ability">
-          <span className="tu-anatomy-arrow">↑</span>
-          <div>
-            <strong>Ability</strong>
-            <em>e.g. Rush · Taunt · Heal · Buff</em>
-          </div>
-        </div>
-
-        {isCreature && (
-          <>
-            <div className="tu-anatomy-label" data-pos="atk">
-              <span className="tu-anatomy-arrow">↗</span>
-              <div>
-                <strong>Attack</strong>
-                <em>Damage when it swings</em>
-              </div>
-            </div>
-            <div className="tu-anatomy-label" data-pos="hp">
-              <span className="tu-anatomy-arrow">↖</span>
-              <div>
-                <strong>HP</strong>
-                <em>The creature dies at 0</em>
-              </div>
-            </div>
-          </>
-        )}
+        ))}
       </div>
     </div>
   );
@@ -557,32 +531,51 @@ function FieldAnatomyDiagram() {
           callout-around-the-mock approach where labels overlapped
           the board and clipped on narrow phones. */}
       <div className="tu-field-mock">
+        {/* Opponent header — avatar circle + heart HP + mana orbs on
+            the left, deck + cemetery icons on the right. Mirrors the
+            actual MatchBoard top bar. */}
         <div className="tu-field-row">
-          <div className="tu-field-chip"><span className="tu-field-num">1</span> P · HP 6 · 1/1</div>
-          <div className="tu-field-side-icons">
-            <span className="tu-field-num">2</span>
-            <span>📚</span>
-            <span>💀</span>
-          </div>
+          <span className="tu-field-num">1</span>
+          <div className="tu-field-avatar" data-side="opp" />
+          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 6</div>
+          <div className="tu-field-mana"><span data-on /></div>
+          <div className="tu-field-spacer" />
+          <span className="tu-field-num">2</span>
+          <div className="tu-field-icon-btn"><Layers size={11} strokeWidth={2.2} /></div>
+          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
         </div>
+
         <div className="tu-field-zone">
           <span>SLOT</span><span>SLOT</span><span>SLOT</span>
         </div>
+
+        {/* Divider — turn counter, give up, phase button. Matches the
+            actual MatchBoard divider strip. */}
         <div className="tu-field-divider">
           <span className="tu-field-pill"><span className="tu-field-num">3</span> 1 / 12</span>
-          <span className="tu-field-pill"><span className="tu-field-num">4</span> ⚔ MAIN → END</span>
-          <span className="tu-field-pill"><span className="tu-field-num">5</span> ⚑</span>
+          <div className="tu-field-icon-btn"><Flag size={11} strokeWidth={2.2} /></div>
+          <span className="tu-field-num">5</span>
+          <div className="tu-field-spacer" />
+          <span className="tu-field-num">4</span>
+          <div className="tu-field-icon-btn tu-field-icon-btn-phase"><Swords size={11} strokeWidth={2.2} /></div>
         </div>
+
         <div className="tu-field-zone">
           <span>SLOT</span><span>SLOT</span><span>SLOT</span>
         </div>
+
+        {/* Player header — same layout as opp, mirrored. */}
         <div className="tu-field-row">
-          <div className="tu-field-chip"><span className="tu-field-num">6</span> P · HP 20 · 1/1</div>
-          <div className="tu-field-side-icons">
-            <span>📚</span>
-            <span>💀</span>
-          </div>
+          <span className="tu-field-num">6</span>
+          <div className="tu-field-avatar" data-side="player" />
+          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 20</div>
+          <div className="tu-field-mana"><span data-on /></div>
+          <div className="tu-field-spacer" />
+          <div className="tu-field-icon-btn"><Layers size={11} strokeWidth={2.2} /></div>
+          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
         </div>
+
+        {/* Hand — three placeholder cards. */}
         <div className="tu-field-hand">
           <span className="tu-field-num tu-field-num-hand">7</span>
           <div className="tu-field-card" /><div className="tu-field-card" /><div className="tu-field-card" />
@@ -966,9 +959,43 @@ function TutorialStyles() {
         margin: 6px auto 0;
         color: rgba(255,255,255,.88);
       }
-      /* Stage is a flex centre — the cardbox below carries the
-         label positioning so percentages line up with the actual
-         card regions, not the variable stage height. */
+      /* Card anatomy now uses the same numbered-chip pattern as the
+         field anatomy below. The card sits centred with little coral
+         numbered chips at the seven regions; the numbered legend
+         below explains each one. */
+      .tu-card-anchor {
+        position: relative;
+        display: inline-block;
+        margin: 8px auto;
+      }
+      .tu-card-num {
+        position: absolute;
+        z-index: 4;
+        width: 22px; height: 22px;
+        border-radius: 50%;
+        background: ${PALETTE.accent};
+        color: #fff;
+        border: 2px solid ${PALETTE.paper};
+        display: grid; place-items: center;
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
+        font-weight: 800;
+        font-size: 11px;
+        box-shadow: 0 4px 10px rgba(28,24,20,.45);
+      }
+      /* Chip positions on the card. Tuned to sit just OUTSIDE the
+         card's own numeric badges (cost orb top-left, atk/hp orbs
+         bottom corners) so they don't visually collide with the
+         numbers ALREADY on the card. */
+      .tu-card-num[data-pos="cost"]    { top: -10px;  left: -10px; }
+      .tu-card-num[data-pos="name"]    { top: -10px;  right: 38%; }
+      .tu-card-num[data-pos="type"]    { top: 60%;    left: 18%; }
+      .tu-card-num[data-pos="rarity"]  { top: 60%;    right: 4%; }
+      .tu-card-num[data-pos="ability"] { top: 78%;    left: 4%; }
+      .tu-card-num[data-pos="atk"]     { bottom: -10px; left: -10px; }
+      .tu-card-num[data-pos="hp"]      { bottom: -10px; right: -10px; }
+
+      /* Legacy stage container — left in for the field anatomy
+         which still uses .tu-anatomy-stage / .tu-anatomy-cardbox. */
       .tu-anatomy-stage {
         position: relative;
         flex: 1;
@@ -1126,8 +1153,56 @@ function TutorialStyles() {
         flex-shrink: 0;
       }
       .tu-field-row {
-        display: flex; justify-content: space-between; align-items: center;
-        gap: 6px;
+        display: flex; align-items: center;
+        gap: 4px;
+        flex-wrap: nowrap;
+      }
+      .tu-field-spacer { flex: 1; }
+      .tu-field-avatar {
+        width: 16px; height: 16px;
+        border-radius: 50%;
+        background: linear-gradient(160deg, #5a3a2a, #3a2418);
+        border: 1.5px solid ${PALETTE.paper};
+        flex-shrink: 0;
+      }
+      .tu-field-avatar[data-side="opp"] {
+        background: linear-gradient(160deg, ${PALETTE.accent}, ${PALETTE.accentDeep});
+      }
+      .tu-field-hp {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 6px;
+        font-size: 9px;
+        font-weight: 800;
+        display: inline-flex; align-items: center; gap: 3px;
+        white-space: nowrap;
+      }
+      .tu-field-mana {
+        display: inline-flex; gap: 2px; align-items: center;
+      }
+      .tu-field-mana > span {
+        width: 8px; height: 8px;
+        border-radius: 50%;
+        background: ${PALETTE.border};
+      }
+      .tu-field-mana > span[data-on] {
+        background: linear-gradient(160deg, #5fa9ff, #2a73d5);
+        box-shadow: 0 0 4px rgba(95,169,255,.6);
+      }
+      .tu-field-icon-btn {
+        width: 18px; height: 18px;
+        border-radius: 6px;
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        display: grid; place-items: center;
+        color: ${PALETTE.text};
+        flex-shrink: 0;
+      }
+      .tu-field-icon-btn-phase {
+        background: ${PALETTE.text};
+        color: #fff;
+        border-color: ${PALETTE.text};
       }
       .tu-field-chip {
         background: ${PALETTE.bg};
