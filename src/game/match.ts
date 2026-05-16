@@ -248,6 +248,7 @@ export function createMatch(
     boss?.startingHp,
     boss?.firstPlayer,
     !!boss?.skipShuffle,
+    boss?.turnLimit,
   );
 }
 
@@ -281,6 +282,10 @@ function assembleMatch(
    *  Used by the tutorial so each step's hint refers to a specific
    *  card guaranteed to be in hand at that moment. */
   skipShuffle: boolean = false,
+  /** Optional per-match turn-limit override (default is the global
+   *  TURN_LIMIT). Stored on MatchState so the end-of-turn check can
+   *  consult it. */
+  turnLimit?: number,
 ): MatchState {
   const playerDeck = (skipShuffle ? playerCards : shuffle(playerCards, rng)).map(toBattleCard);
   let oppDeck = (skipShuffle ? opponentCards : shuffle(opponentCards, rng)).map(toBattleCard);
@@ -338,6 +343,7 @@ function assembleMatch(
     log: [`Match begins — ${first === 'player' ? 'you' : 'the boss'} go first`],
     outcome: 'ongoing',
     difficulty,
+    turnLimit,
     rngState,
   };
 }
@@ -468,9 +474,13 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     state.log.push(`${owner === 'player' ? 'You' : 'The Boss'} took ${me.fatigueCount} fatigue damage`);
   }
 
-  // Turn-limit check — once turn 15 has been played, whoever has more HP
-  // wins. Ties resolve as a loss so aggressive play is rewarded.
-  if (state.turnNumber > TURN_LIMIT) {
+  // Turn-limit check — once the configured turn limit has been
+  // played, whoever has more HP wins. Ties resolve as a loss so
+  // aggressive play is rewarded. Tutorial matches use a higher
+  // override (set on BossDef.turnLimit -> MatchState.turnLimit) so
+  // the 19-step scripted lesson has room to finish.
+  const effectiveTurnLimit = state.turnLimit ?? TURN_LIMIT;
+  if (state.turnNumber > effectiveTurnLimit) {
     if (state.player.hp > state.opponent.hp) state.outcome = 'win';
     else if (state.player.hp === state.opponent.hp) state.outcome = 'draw';
     else state.outcome = 'loss';

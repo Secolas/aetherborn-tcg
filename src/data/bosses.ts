@@ -79,6 +79,14 @@ export interface BossDef {
    * boss should set this (gameplay relies on shuffled decks).
    */
   skipShuffle?: boolean;
+  /**
+   * Optional per-match turn limit override. Defaults to the
+   * engine's TURN_LIMIT (12). Used by the tutorial so the match
+   * has enough turns for the full scripted lesson (summon, end,
+   * bond, attack creature, attack face, three spells, finish)
+   * before the turn-limit guillotine drops.
+   */
+  turnLimit?: number;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -543,24 +551,31 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'Easy does it. Show me what you can do.',
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     rewardCoins: 0,
-    // Low HP override so the tutorial can be won in 3-4 turns of
-    // proper summon-wait-attack rhythm with 1-cost non-rush creatures.
-    startingHp: 6,
+    // HP tuned to the new 19-step turn-by-turn script. The player
+    // does ~6-7 face damage through scripted attacks + Snake Bite
+    // by turn 9, leaving the FINISH step (turn 11) with ~3-4 HP
+    // to clear via Rush + multi-attack closer.
+    startingHp: 12,
+    // Match-end turn-limit override — the script reaches turn 11
+    // for the finisher, plus a couple of free turns for the close,
+    // so 20 gives generous margin.
+    turnLimit: 20,
     // Player always opens the tutorial match so the scripted hint
     // sequence lines up with their first turn.
     firstPlayer: 'player',
-    // Deterministic draws — the tutorial's hint script assumes
-    // specific cards are in hand at specific turns. The engine
-    // honours this via the new skipShuffle path in assembleMatch.
+    // Deterministic draws — both decks deal in their declared
+    // array order (skipShuffle: true plumbed through assembleMatch).
     skipShuffle: true,
-    // Opponent's deck in draw order. Mostly 1/1 chumps so the
-    // dummy can't seriously threaten the player; the alternation
-    // between Mouse and Mosquito gives variety in the field
-    // visuals during the player's creature-vs-creature step.
+    // Opponent's deck in draw order, sized to the script:
+    //   turn 2: Mouse (1c)          - opponent summons
+    //   turn 4: Snake Bite (2c)     - opponent damage spell
+    //   turn 6: Family Pet (1c Rush)- opponent Rush threat
+    //   turn 8: Good Boy (1c buff)  - opponent buffs their creature
+    //   turn 10+: more Mice as filler so the dummy keeps blocking
     deck: [
-      'ani-01','ani-01','ani-14','ani-14',
-      'ani-01','ani-14','ani-01','ani-14',
-      'ani-01','ani-14','ani-01','ani-14',
+      'ani-01', 'ani-02', 'fam-01', 'ani-16',
+      'ani-01', 'ani-01', 'ani-01', 'ani-01',
+      'ani-01', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),
   },

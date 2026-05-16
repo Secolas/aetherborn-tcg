@@ -202,6 +202,12 @@ export interface MatchState {
    *  seeds it from the same rng that drives shuffle + coin flip so an
    *  entire match is reproducible from one seed. */
   rngState?: number;
+  /** Optional per-match turn-limit override. When set, the engine's
+   *  end-of-match guillotine uses this instead of the global
+   *  TURN_LIMIT (12). Used by the tutorial so the scripted lesson
+   *  has room to finish; every other match leaves it undefined and
+   *  the global limit applies. */
+  turnLimit?: number;
 }
 
 /** Difficulty tier for a single match. Picked by the player on the boss

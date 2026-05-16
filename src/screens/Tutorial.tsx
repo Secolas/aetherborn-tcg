@@ -24,36 +24,34 @@ const TUTORIAL_BOSS_ID = 'tutorial-dummy';
  *
  * The tutorial boss (`tutorial-dummy` in src/data/bosses.ts) sets
  * skipShuffle: true, so the engine deals both decks in their input
- * array order. That means every hint in this file can reference a
- * specific card guaranteed to be in the player's hand at the moment
- * the step is on screen — no "draw the right card" dance.
+ * array order. Every hint in the STEPS list references a specific
+ * card that is guaranteed to be in the player's hand at that moment.
  *
  * Opening hand (STARTING_HAND = 4) is indices 0-3:
- *   0  Coffee Mug     (1c 1/2)            -> turn 1 summon
- *   1  Coffee Mug     (1c 1/2)            -> spare for later
- *   2  Breakfast Plate (2c 1/3, draw-on-play) -> turn 2 BOND piece
- *   3  Good Boy       (1c spell +0/+2)    -> buff demo
+ *   0  Coffee Mug      (1c 1/2)             -> turn 1 summon
+ *   1  Snake Bite      (2c, 3 damage spell) -> turn 3 spell
+ *   2  Breakfast Plate (2c 1/3, draw + bond) -> turn 5 bond
+ *   3  Hug             (1c, heal +3 friend) -> turn 7 heal
  *
- * Draws thereafter:
- *   4  Hug            (1c spell heal +3)  -> heal demo
- *   5  Snake Bite     (2c spell, 3 dmg)   -> damage demo
- *   6  Coffee Mug     (filler)
- *   7-11  more filler so the player can finish the match without
- *         running into fatigue.
+ * Subsequent draws (one per turn, plus Plate's draw-on-play):
+ *   4  Dog             (3c 2/4 Taunt)       -> turn 9 taunt summon
+ *   5  Family Pet      (1c 2/1 Rush)        -> turn 11 rush finisher
+ *   6-11 filler so the player can keep attacking through the FINISH
+ *        step without running into fatigue.
  */
 const TUTORIAL_DECK_IDS: string[] = [
-  'fd-01',  // 0 — opening hand
-  'fd-01',  // 1 — opening hand
-  'fd-04',  // 2 — opening hand
-  'ani-16', // 3 — opening hand
-  'fam-14', // 4 — turn 2 draw
-  'ani-02', // 5 — turn 3 draw (or pulled by Plate's draw-on-play)
-  'fd-01',  // 6
-  'fd-04',  // 7
-  'ani-16', // 8
-  'fam-14', // 9
-  'ani-02', // 10
-  'fd-01',  // 11
+  'fd-01',  // 0 — opening hand: Coffee Mug
+  'ani-02', // 1 — opening hand: Snake Bite (damage)
+  'fd-04',  // 2 — opening hand: Breakfast Plate (bond)
+  'fam-14', // 3 — opening hand: Hug (heal)
+  'ani-05', // 4 — turn 2 draw: Dog (Taunt)
+  'fam-01', // 5 — turn 3 draw: Family Pet (Rush)
+  'fd-01',  // 6 — filler
+  'fd-04',  // 7 — filler
+  'fam-14', // 8 — filler
+  'ani-02', // 9 — filler
+  'fd-01',  // 10 — filler
+  'fam-01', // 11 — filler
 ];
 
 // ─── Step machine ───────────────────────────────────────────────────
@@ -139,20 +137,48 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'tap',
     anatomy: { cardId: 'fd-01', kind: 'field' },
   },
+  // ─────────────────────────────────────────────────────────
+  // TURN 1 — Player summons a creature.
+  // ─────────────────────────────────────────────────────────
   {
-    title: 'MAIN PHASE · SUMMON',
+    title: 'TURN 1 · SUMMON',
     icon: 'hand',
-    text: "Your turn opens in the Main Phase. Drag the Coffee Mug onto the field — it costs 1 mana (top of screen).",
+    text: "Drag Coffee Mug onto the field. It costs 1 mana — your max mana goes up by 1 each turn.",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
   },
-  endTurnStep("Creatures sleep the turn they're summoned. Tap End Turn — Battle Phase and your opponent's turn will pass automatically."),
+  endTurnStep("Tap End Turn. The opponent will summon a creature next."),
 
+  // ─────────────────────────────────────────────────────────
+  // TURN 3 — Player casts a spell to remove a threat, then
+  // attacks with the awake creature.
+  // ─────────────────────────────────────────────────────────
   {
-    title: 'BOND PIECE',
+    title: 'TURN 3 · SPELL · DAMAGE',
+    icon: 'wand',
+    text: "Opponent summoned a creature. Cast Snake Bite — drag it onto their Mouse to deal 3 damage and kill it. (You can also point a damage spell at the opponent's portrait.)",
+    spotlight: ['[data-tut-hand-card="ani-02"]'],
+    advanceOn: 'spell-cast',
+    requireCardId: 'ani-02',
+  },
+  {
+    title: 'TURN 3 · ATTACK',
+    icon: 'swords',
+    text: "Coffee Mug woke up — it can attack now. Drag it onto the opponent's portrait to deal 1 damage.",
+    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    advanceOn: 'attack',
+    requireAttackTarget: 'face',
+  },
+  endTurnStep("End turn. Watch out — the opponent might cast a damage spell on you next."),
+
+  // ─────────────────────────────────────────────────────────
+  // TURN 5 — Player summons the bond piece. Bond activates.
+  // ─────────────────────────────────────────────────────────
+  {
+    title: 'TURN 5 · BOND PIECE',
     icon: 'bond',
-    text: "New turn — you drew a card and gained +1 mana. Drag the Breakfast Plate onto the field. (Its own card text draws you a card on play — that's the card's ability, not the bond yet.)",
+    text: "Drop Breakfast Plate onto the field. It's the second half of Bond: Breakfast Combo with Coffee Mug.",
     spotlight: ['[data-tut-hand-card="fd-04"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-04',
@@ -160,68 +186,63 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BOND ACTIVE',
     icon: 'bond',
-    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo. From now on, your creatures heal +2 HP at the start of every turn — extra effects when specific cards share the field.",
+    text: "Coffee Mug + Breakfast Plate = Bond: Breakfast Combo. Your creatures heal +2 HP at the start of every turn from now on — extra effects when specific cards share the field.",
     spotlight: [],
     advanceOn: 'auto',
     autoMs: 3600,
   },
-  endTurnStep("Tap End Turn so your creatures wake up next turn."),
+  endTurnStep("End turn. The opponent may summon a Rush creature next — watch for it."),
 
+  // ─────────────────────────────────────────────────────────
+  // TURN 7 — Player attacks and casts a heal.
+  // ─────────────────────────────────────────────────────────
   {
-    title: 'BATTLE · CREATURE FIGHT',
+    title: 'TURN 7 · ATTACK',
     icon: 'swords',
-    text: "Your Coffee Mug woke up — it can attack now. Drag it onto an opponent creature; both deal their attack to each other. Smaller creatures die.",
-    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut-field-card][data-tut-side="opponent"]'],
-    advanceOn: 'attack',
-    requireAttackTarget: 'creature',
-  },
-  endTurnStep("Nice trade. End your turn."),
-
-  {
-    title: 'BATTLE · ATTACK FACE',
-    icon: 'swords',
-    text: "Creatures can also attack the opponent directly. Drag one of your creatures onto their portrait. That drains their HP — drop it to 0 to win.",
+    text: "Opponent dropped a Rush creature last turn — Rush lets a creature attack the SAME turn it's summoned. Your bond keeps your creatures topped up. Attack the opponent's portrait again.",
     spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
-  endTurnStep("End turn."),
-
   {
-    title: 'SPELL · BUFF',
-    icon: 'wand',
-    text: "Good Boy is a Buff spell — drag it onto one of your creatures for +0 attack / +2 HP, permanently.",
-    spotlight: ['[data-tut-hand-card="ani-16"]'],
-    advanceOn: 'spell-cast',
-    requireCardId: 'ani-16',
-  },
-  endTurnStep("End turn."),
-
-  {
-    title: 'SPELL · DAMAGE',
-    icon: 'wand',
-    text: "Snake Bite is a Damage spell — drop 3 damage on any target. Use it to remove an opponent creature, or to finish their HP.",
-    spotlight: ['[data-tut-hand-card="ani-02"]'],
-    advanceOn: 'spell-cast',
-    requireCardId: 'ani-02',
-  },
-  endTurnStep("End turn."),
-
-  {
-    title: 'SPELL · HEAL',
+    title: 'TURN 7 · SPELL · HEAL',
     icon: 'heart',
-    text: "Hug is a Heal spell — drop +3 HP on a friendly creature that took damage.",
+    text: "Cast Hug — drag it onto a friendly creature that took damage to restore +3 HP.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'fam-14',
   },
-  endTurnStep("End turn — one more lap to seal it."),
+  endTurnStep("End turn. The opponent may cast a Buff spell on their creature next."),
 
+  // ─────────────────────────────────────────────────────────
+  // TURN 9 — Player summons a Taunt creature.
+  // ─────────────────────────────────────────────────────────
+  {
+    title: 'TURN 9 · TAUNT',
+    icon: 'wand',
+    text: "Opponent buffed their creature with Good Boy (+0/+2 HP). Counter it — summon Dog. Dog has TAUNT: while it's alive, the opponent CAN'T attack you directly. They have to swing at Dog first.",
+    spotlight: ['[data-tut-hand-card="ani-05"]'],
+    advanceOn: 'card-played',
+    requireCardId: 'ani-05',
+  },
+  endTurnStep("End turn. The opponent's only legal attack target is Dog now."),
+
+  // ─────────────────────────────────────────────────────────
+  // TURN 11 — Player summons Family Pet (Rush) and closes.
+  // ─────────────────────────────────────────────────────────
+  {
+    title: 'TURN 11 · RUSH',
+    icon: 'hand',
+    text: "Drop Family Pet onto the field. It has RUSH — it can attack the same turn it's summoned, no sleeping.",
+    spotlight: ['[data-tut-hand-card="fam-01"]'],
+    advanceOn: 'card-played',
+    requireCardId: 'fam-01',
+  },
   {
     title: 'FINISH',
     icon: 'trophy',
-    text: "That's everything. Matches run 12 turns max — whoever lands the killing blow wins. Keep attacking until the opponent hits 0 HP.",
-    spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]', '[data-tut="opp-face"]'],
+    text: "Now use Rush — attack the opponent's portrait with Family Pet, then swing in with everything else (Mug, Plate, Dog) to drop their HP to 0 and win.",
+    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: null,
   },
 ];
@@ -883,11 +904,16 @@ function TutorialStyles() {
         50%      { transform: scale(1.04);  box-shadow: 0 0 0 8px rgba(238,90,82,.18), 0 0 40px 8px rgba(238,90,82,.55), inset 0 0 0 2px rgba(255,255,255,.55); }
       }
 
-      /* Hint card — fixed near the top of the match. Tap to collapse
-         so it stops covering the field; tap again to expand. */
+      /* Hint card — anchored to the BOTTOM of the match (was top
+         before; that covered the opponent's HP / portrait /
+         cemetery row, which is exactly the half of the board the
+         player needs to read most steps). Bottom sits above the
+         hand but below the field; players can also collapse it to
+         a thin chip via the toggle in the eyebrow if they want
+         even more space. */
       .tu-hint {
         position: absolute;
-        top: max(72px, env(safe-area-inset-top, 72px));
+        bottom: max(180px, calc(env(safe-area-inset-bottom, 0px) + 180px));
         left: 50%;
         transform: translateX(-50%);
         width: calc(100% - 28px);
@@ -937,7 +963,7 @@ function TutorialStyles() {
         line-height: 1.35;
       }
       @keyframes tuHintIn {
-        from { transform: translate(-50%, -8px); opacity: 0; }
+        from { transform: translate(-50%, 8px); opacity: 0; }
         to   { transform: translate(-50%, 0); opacity: 1; }
       }
 
