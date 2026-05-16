@@ -87,7 +87,7 @@ const THEMED: Record<string, string> = {
   'fd-13': U('photo-1556679343-c7306c1976bc'),     // Sip → glass of water/iced drink
 
   // Cheap-card pass additions
-  'fam-14': U('photo-1559548331-f9cb98001426'),  // Hug → two people embracing
+  'fam-14': '/cards/hug.png',  // Hug → custom illustrated family-embrace art
   'wrk-14': U('photo-1531403009284-440f080d1e12'),  // Stand-up Meeting → team gathered
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
