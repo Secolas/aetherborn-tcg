@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Layers, Skull } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Skull } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
 import { Card } from '../components/Card';
 import { getBoss } from '../data/bosses';
@@ -134,7 +134,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'FIELD · LAYOUT',
     icon: 'book',
-    text: "Quick tour of the match board so you know where everything sits. Tap any chip on the diagram to read what it does.",
+    text: "Quick tour of the match board. Tap your avatar in a real match to peek at your hand, deck, or cemetery.",
     spotlight: [],
     advanceOn: 'tap',
     anatomy: { cardId: 'fd-01', kind: 'field' },
@@ -531,17 +531,17 @@ function FieldAnatomyDiagram() {
           callout-around-the-mock approach where labels overlapped
           the board and clipped on narrow phones. */}
       <div className="tu-field-mock">
-        {/* Opponent header — avatar circle + heart HP + mana orbs on
-            the left, deck + cemetery icons on the right. Mirrors the
-            actual MatchBoard top bar. */}
+        {/* Opponent header — avatar circle + heart HP + mana count
+            on the left, cemetery icon on the right. Mirrors the
+            actual MatchBoard top bar (deck icon dropped per player
+            feedback — that data lives behind the avatar tap). */}
         <div className="tu-field-row">
           <span className="tu-field-num">1</span>
           <div className="tu-field-avatar" data-side="opp" />
           <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 6</div>
-          <div className="tu-field-mana"><span data-on /></div>
+          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
           <div className="tu-field-spacer" />
           <span className="tu-field-num">2</span>
-          <div className="tu-field-icon-btn"><Layers size={11} strokeWidth={2.2} /></div>
           <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
         </div>
 
@@ -569,9 +569,8 @@ function FieldAnatomyDiagram() {
           <span className="tu-field-num">6</span>
           <div className="tu-field-avatar" data-side="player" />
           <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 20</div>
-          <div className="tu-field-mana"><span data-on /></div>
+          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
           <div className="tu-field-spacer" />
-          <div className="tu-field-icon-btn"><Layers size={11} strokeWidth={2.2} /></div>
           <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
         </div>
 
@@ -582,7 +581,10 @@ function FieldAnatomyDiagram() {
         </div>
       </div>
 
-      {/* Legend — numbered rows pair with the small chips above. */}
+      {/* Legend — numbered rows pair with the small chips above.
+          Bottom-row "tip" replaces the dedicated deck chip: in a
+          real match, tapping any avatar opens a peek modal showing
+          that player's hand size, remaining deck and cemetery. */}
       <div className="tu-field-legend">
         <div className="tu-field-legend-row">
           <span className="tu-field-num">1</span>
@@ -590,7 +592,7 @@ function FieldAnatomyDiagram() {
         </div>
         <div className="tu-field-legend-row">
           <span className="tu-field-num">2</span>
-          <div><strong>Their deck · cemetery</strong><em>Tap to peek</em></div>
+          <div><strong>Cemetery</strong><em>Tap to peek at their dead</em></div>
         </div>
         <div className="tu-field-legend-row">
           <span className="tu-field-num">3</span>
@@ -612,6 +614,9 @@ function FieldAnatomyDiagram() {
           <span className="tu-field-num">7</span>
           <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
         </div>
+      </div>
+      <div className="tu-field-tip">
+        Tap any avatar mid-match for hand size, deck count and cemetery details.
       </div>
     </div>
   );
@@ -1178,15 +1183,22 @@ function TutorialStyles() {
         display: inline-flex; align-items: center; gap: 3px;
         white-space: nowrap;
       }
-      .tu-field-mana {
-        display: inline-flex; gap: 2px; align-items: center;
+      /* Mana pill — small blue orb + current/max text. Replaces
+         the original orb-row so the mana NUMBER is actually
+         visible (player flagged it was missing from the mock). */
+      .tu-field-mana-pill {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 6px 2px 3px;
+        font-size: 9px;
+        font-weight: 800;
+        display: inline-flex; align-items: center; gap: 4px;
+        white-space: nowrap;
       }
-      .tu-field-mana > span {
-        width: 8px; height: 8px;
+      .tu-field-mana-dot {
+        width: 10px; height: 10px;
         border-radius: 50%;
-        background: ${PALETTE.border};
-      }
-      .tu-field-mana > span[data-on] {
         background: linear-gradient(160deg, #5fa9ff, #2a73d5);
         box-shadow: 0 0 4px rgba(95,169,255,.6);
       }
@@ -1303,6 +1315,17 @@ function TutorialStyles() {
       }
       @media (max-width: 420px) {
         .tu-field-legend { grid-template-columns: 1fr; }
+      }
+      /* Bottom tip — explains the avatar-tap action that replaces
+         the dedicated deck icon in the mock. */
+      .tu-field-tip {
+        max-width: 320px;
+        margin: 4px auto 0;
+        text-align: center;
+        font-size: 10px;
+        color: rgba(255,255,255,.78);
+        font-style: italic;
+        line-height: 1.35;
       }
 
       .tu-anatomy-cta {
