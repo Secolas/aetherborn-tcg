@@ -368,20 +368,13 @@ export default function App() {
     setScreen('starter-open');
   };
 
-  /** Player finished the starter pack open. Auto-fill any starter
-   *  cards that still have no photo with the canonical aiPhoto
-   *  placeholder for that template (marked isPlaceholder so the
-   *  Collection screen can highlight them for later replacement).
-   *  Ensures the starter deck is fully playable the moment the open
-   *  flow ends regardless of whether the player took photos or
-   *  skipped them — no more "Need N more in deck" stalls on Home. */
+  /** Player finished the starter pack open. Cards the player skipped
+   *  are left photoless (no auto-placeholder) — the home CTA and
+   *  the nav-row gating now keep them on Collection until every
+   *  starter card has a real photo. Routes back Home so the player
+   *  sees the next-step CTA. */
   const onStarterOpenComplete = () => {
-    setSave(s => {
-      const collection = s.collection.map(c =>
-        c.photo ? c : { ...c, photo: aiPhoto(c.id), isPlaceholder: true }
-      );
-      return { ...s, starterOpened: true, collection };
-    });
+    setSave(s => ({ ...s, starterOpened: true }));
     setScreen('home');
   };
 
@@ -762,6 +755,20 @@ export default function App() {
     (save.daily?.streakClaimed ? 0 : 1) +
     (save.daily?.quests.filter(q => q.progress >= q.goal && !q.claimed).length ?? 0);
 
+  // Starter-photos gate — once the starter open flow ends, any card
+  // the player skipped is still photoless (no auto-placeholder), and
+  // every screen except Collection is gated until they finish
+  // photographing the deck. Legacy saves bypass.
+  const starterDeckSlot = (save.decks ?? []).find(d => d.name?.toLowerCase().endsWith('starter'));
+  const starterPhotosComplete = !starterDeckSlot
+    || !save.starterOpened
+    || save.starterThemeId === 'legacy'
+    || (starterDeckSlot.uids ?? []).every(uid => {
+        const c = save.collection.find(cc => cc.uid === uid);
+        return !!c?.photo;
+      });
+  const fullyUnlocked = !!save.starterThemeId && starterPhotosComplete;
+
   return (
     <CosmeticsProvider
       frame={save.equippedFrame}
@@ -849,7 +856,7 @@ export default function App() {
           onPackOpened={onPackOpened}
           onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
-          unlocked={!!save.starterThemeId}
+          unlocked={fullyUnlocked}
           onStartTutorial={() => setScreen('tutorial')}
         />
       )}
@@ -916,7 +923,7 @@ export default function App() {
           collection={save.collection}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
-          unlocked={!!save.starterThemeId}
+          unlocked={fullyUnlocked}
           onSetActiveDeck={onSetActiveDeck}
           onPickStop={onPickCampaignStop}
           onOpenDeckBuilder={() => setScreen('deck')}

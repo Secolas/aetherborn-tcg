@@ -55,6 +55,26 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
   const hasLegacyWins = save.bossesDefeated.length > 0;
   const playUnlocked = hasCampaignProgress || hasLegacyWins;
 
+  // Starter-photos gate. After the player finishes the open flow,
+  // any card they skipped stays photoless (no auto-placeholder).
+  // Until every starter card has a real photo, the secondary nav
+  // row stays locked (except Collection, where the photos are
+  // taken) and the home CTA points the player to Collection.
+  // Legacy saves (starterThemeId === 'legacy') are exempt — they
+  // were created before the starter pack flow existed.
+  const starterDeck = (save.decks ?? []).find(d => d.name?.toLowerCase().endsWith('starter'));
+  const starterMissingPhotos = save.starterOpened
+    && save.starterThemeId
+    && save.starterThemeId !== 'legacy'
+    && (starterDeck?.uids ?? []).some(uid => {
+      const c = save.collection.find(cc => cc.uid === uid);
+      return !c?.photo;
+    });
+  const photosNeeded = (starterDeck?.uids ?? []).reduce((n, uid) => {
+    const c = save.collection.find(cc => cc.uid === uid);
+    return n + (c?.photo ? 0 : 1);
+  }, 0);
+
   // Progressive primary CTA. Walks the player through the onboarding
   // chain step by step (each completed step rolls the CTA forward),
   // then settles into Play Match once everything is set up. Boot
@@ -63,6 +83,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
     | { kind: 'tutorial'; label: string; icon: React.ReactNode; nav: 'tutorial' }
     | { kind: 'starter-pick'; label: string; icon: React.ReactNode; nav: 'starter-pick' }
     | { kind: 'starter-open'; label: string; icon: React.ReactNode; nav: 'starter-open' }
+    | { kind: 'starter-photos'; label: string; icon: React.ReactNode; nav: 'collection' }
     | { kind: 'campaign'; label: string; icon: React.ReactNode; nav: 'campaign' }
     | { kind: 'need-deck'; label: string; icon: React.ReactNode; nav: null }
     | { kind: 'play'; label: string; icon: React.ReactNode; nav: 'play' };
@@ -72,6 +93,8 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
     ? { kind: 'starter-pick', label: 'Pick Your Starter',    icon: <Package  size={20} strokeWidth={2.4} />, nav: 'starter-pick' }
     : (save.starterThemeId !== 'legacy' && !save.starterOpened)
     ? { kind: 'starter-open', label: 'Open Your Starter',    icon: <BookOpen size={20} strokeWidth={2.4} />, nav: 'starter-open' }
+    : starterMissingPhotos
+    ? { kind: 'starter-photos', label: `${photosNeeded} starter photo${photosNeeded === 1 ? '' : 's'} to take`, icon: <Camera size={20} strokeWidth={2.4} />, nav: 'collection' }
     : !playUnlocked
     ? { kind: 'campaign',     label: 'Play Campaign',        icon: <Flag     size={20} strokeWidth={2.4} />, nav: 'campaign' }
     : !deckReady
@@ -244,19 +267,23 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
           </button>
 
           <div className="home-nav">
-            {/* The entire secondary nav row is gated behind picking
-                a starter theme. Every tile greys out + shows a
-                transparent lock overlay until save.starterThemeId is
-                set; clicks are no-ops in that state. Routes the
-                player back onto the primary CTA, which walks through
-                Tutorial -> Pick Starter -> ... until everything
-                opens up. */}
-            <NavButton locked={!save.starterThemeId} label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
-            <NavButton locked={!save.starterThemeId} label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
-            <NavButton locked={!save.starterThemeId} label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
-            <NavButton locked={!save.starterThemeId} label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
-            <NavButton locked={!save.starterThemeId} label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
-            <NavButton locked={!save.starterThemeId} label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
+            {/* Nav row is gated in two phases:
+                  1. Pre-starter: every tile locked until
+                     save.starterThemeId is set (Tutorial -> Pick
+                     Starter -> Open Starter walk-through).
+                  2. Starter-incomplete: starter is opened but some
+                     cards have no photo yet. Only Collection is
+                     accessible — that's where the player takes the
+                     missing photos. Everything else stays locked
+                     until every starter card has a real photo.
+                Tiles route back onto the primary CTA in either
+                locked state. */}
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
+            <NavButton locked={!save.starterThemeId}                                                          label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
           </div>
         </div>
       </div>
