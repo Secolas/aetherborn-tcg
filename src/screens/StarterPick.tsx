@@ -1,5 +1,4 @@
-import { useState } from 'react';
-import { Coins, ChevronRight, Sparkles } from 'lucide-react';
+import { Coins, Sparkles } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { PALETTE } from '../components/styles';
@@ -21,15 +20,11 @@ interface Props {
  * and a frosted bottom band with the deck size + a "FREE" coin chip
  * (since this is the player's complimentary starter, not a paid pack).
  *
- * Picking a tile selects it (highlight ring). A floating Confirm CTA
- * at the bottom of the screen reads "Take the {Theme} deck" — same
- * pattern as DialogueSheet's Battle CTA. Player can flip between
- * tiles before committing.
+ * Tapping a pack picks it directly — no separate confirm step. The
+ * player commits the moment they tap, then the App immediately
+ * routes forward to StarterPackOpen.
  */
 export function StarterPick({ themes, onPick }: Props) {
-  const [activeId, setActiveId] = useState<ElementId | null>(themes[0]?.id ?? null);
-  const active = themes.find(t => t.id === activeId);
-
   return (
     <div className="sp-root">
       <StarterPickStyles />
@@ -38,20 +33,18 @@ export function StarterPick({ themes, onPick }: Props) {
           <Sparkles size={12} strokeWidth={2.4} color={PALETTE.accent} />
           <span>FIRST DAY</span>
         </div>
-        <div className="sp-title">Pick your starter</div>
+        <div className="sp-title">Select your starter deck</div>
         <div className="sp-sub">Twelve cards. You'll photograph each one. The other themes you can earn later.</div>
       </div>
 
       <div className="sp-grid">
         {themes.map((theme) => {
           const el = ELEMENTS[theme.id];
-          const isActive = activeId === theme.id;
           return (
             <button
               key={theme.id}
               className="bp sp-bp"
-              data-active={isActive}
-              onClick={() => setActiveId(theme.id)}
+              onClick={() => onPick(theme.id)}
               aria-label={`Pick the ${el.name} starter deck — 12 cards`}
               style={{
                 background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
@@ -85,23 +78,6 @@ export function StarterPick({ themes, onPick }: Props) {
           );
         })}
       </div>
-
-      {active && (
-        <div className="sp-foot">
-          <div className="sp-desc">{active.description}</div>
-          <button
-            className="sp-confirm"
-            onClick={() => onPick(active.id)}
-            style={{
-              '--theme-color': ELEMENTS[active.id].color,
-              '--theme-deep': ELEMENTS[active.id].deep,
-            } as React.CSSProperties}
-          >
-            <span>Take the {active.name} deck</span>
-            <ChevronRight size={18} strokeWidth={2.4} />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -145,33 +121,35 @@ function StarterPickStyles() {
         margin-right: auto;
       }
 
-      /* Stack the three tiles vertically so each pack reads fully —
-         booster art, eyebrow, name, pitch and the bottom band all
-         visible without having to squint at a 33% column on mobile.
-         Each tile keeps its portrait booster aspect (0.72) so the
-         booster-pack visual stays intact; the player scrolls the
-         page (sp-root is already overflow-y: auto) to reach the
-         last tile if their viewport is short. */
+      /* Three-up horizontal grid — all three starter packs visible
+         at once so the player can compare side by side. Each tile
+         keeps the portrait booster aspect (0.72) so the booster-pack
+         visual reads as a real pack. Inner type sizes drop a notch
+         on narrow phones (see media query below) so name + pitch +
+         band still fit at 33% width. */
       .sp-grid {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 14px;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        align-items: stretch;
+        gap: 8px;
         margin-bottom: 14px;
       }
-      .sp-bp {
-        width: 100%;
-        max-width: 260px;
-      }
-      @media (min-width: 720px) {
-        /* Three-up only on tablet/desktop widths where the pack
-           portraits still read at a comfortable size. */
-        .sp-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          align-items: stretch;
-        }
-        .sp-bp { max-width: none; }
+      /* Tighten the pack internals at phone widths so the 3-up
+         grid stays legible without overflowing each tile. */
+      @media (max-width: 480px) {
+        .sp-grid { gap: 6px; }
+        .sp-bp .bp-sigil { width: 48px; height: 48px; top: 18%; }
+        .sp-bp .bp-wordmark { left: 8px; right: 8px; bottom: 46px; }
+        .sp-bp .bp-name { font-size: 15px; }
+        .sp-bp .bp-pitch { font-size: 9px; line-height: 1.25; margin-top: 4px; }
+        .sp-bp .bp-eyebrow { font-size: 8px; letter-spacing: 0.16em; }
+        .sp-bp .bp-band { left: 6px; right: 6px; bottom: 6px; padding: 5px 8px; }
+        .sp-bp .bp-band-l { font-size: 9px; gap: 3px; }
+        .sp-bp .bp-band-l > span:not(.bp-band-rare):not(.bp-band-dot) { display: none; }
+        .sp-bp .bp-band-dot { display: none; }
+        .sp-bp .bp-coin { padding: 2px 6px; font-size: 9px; }
+        .sp-bp .bp-tear { height: 18px; }
+        .sp-bp .bp-tear-label { font-size: 7px; letter-spacing: 0.30em; }
       }
 
       /* Inherit the booster shop's .bp visual — colors / shadows /
@@ -349,35 +327,6 @@ function StarterPickStyles() {
         color: #ffd96b;
       }
 
-      /* Footer — long description + confirm CTA. */
-      .sp-foot {
-        margin-top: auto;
-        padding-top: 12px;
-        display: flex; flex-direction: column; gap: 10px;
-      }
-      .sp-desc {
-        font-size: 13px;
-        color: ${PALETTE.textMid};
-        line-height: 1.45;
-        text-align: center;
-        padding: 0 8px;
-      }
-      .sp-confirm {
-        width: 100%;
-        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
-        padding: 16px 22px;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--theme-color) 88%, #fff) 0%, var(--theme-color) 60%, var(--theme-deep) 100%);
-        color: #fff;
-        border: 0;
-        border-radius: 999px;
-        font-family: inherit;
-        font-size: 15px; font-weight: 800;
-        letter-spacing: 0.02em;
-        cursor: pointer;
-        box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
-        transition: transform .12s;
-      }
-      .sp-confirm:hover { transform: translateY(-1px); }
     `}</style>
   );
 }
