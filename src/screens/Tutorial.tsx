@@ -99,7 +99,7 @@ interface TutorialStep {
    *  board spotlight. The label set differs by card type so we can
    *  teach Creature (mana, atk, hp, type, ability) and Spell (mana,
    *  type, ability) separately. Advances on tap of the Got it CTA. */
-  anatomy?: { cardId: string; kind: 'creature' | 'spell' };
+  anatomy?: { cardId: string; kind: 'creature' | 'spell' | 'field' };
 }
 
 // End-turn step factory. After every teaching step the player must
@@ -126,10 +126,18 @@ const STEPS: TutorialStep[] = [
   {
     title: 'CARD · SPELL',
     icon: 'book',
-    text: "Spells aren't creatures — they fire once on a target and disappear. They have a mana cost and an ability, but no attack or HP.",
+    text: "Spells aren't creatures — they fire once on a target, then disappear. They have a mana cost and an ability, no attack or HP. Cast them during your Main Phase, before you swing in Battle.",
     spotlight: [],
     advanceOn: 'tap',
     anatomy: { cardId: 'ani-16', kind: 'spell' },
+  },
+  {
+    title: 'FIELD · LAYOUT',
+    icon: 'book',
+    text: "Quick tour of the match board so you know where everything sits. Tap any chip on the diagram to read what it does.",
+    spotlight: [],
+    advanceOn: 'tap',
+    anatomy: { cardId: 'fd-01', kind: 'field' },
   },
   {
     title: 'MAIN PHASE · SUMMON',
@@ -405,6 +413,36 @@ export function Tutorial({
  * advances the script.
  */
 function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: () => void }) {
+  const kind = step.anatomy?.kind;
+  return (
+    <div className="tu-overlay">
+      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.86)' }} />
+      <div className="tu-anatomy">
+        <div className="tu-anatomy-eyebrow">
+          <BookOpen size={12} strokeWidth={2.4} />
+          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
+        </div>
+        <div className="tu-anatomy-blurb">{step.text}</div>
+
+        {kind === 'field'
+          ? <FieldAnatomyDiagram />
+          : <CardAnatomyDiagram step={step} />
+        }
+
+        <button className="tu-anatomy-cta" onClick={onAdvance}>
+          <span>Got it</span>
+          <ChevronRight size={16} strokeWidth={2.4} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Card anatomy — labelled callouts pointing at every part of a card.
+ *  Creature and Spell share the frame; spells drop atk / hp. The
+ *  redundant "Card name" callout was removed per player feedback
+ *  (the name is right there on the card; no label needed). */
+function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
   const tpl = step.anatomy ? getTemplateById(step.anatomy.cardId) : null;
   if (!tpl) return null;
   const card: CollectionCard = {
@@ -415,102 +453,151 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
   };
   const isCreature = step.anatomy?.kind === 'creature';
   return (
-    <div className="tu-overlay">
-      <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.82)' }} />
-      <div className="tu-anatomy">
-        <div className="tu-anatomy-eyebrow">
-          <BookOpen size={12} strokeWidth={2.4} />
-          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
+    <div className="tu-anatomy-stage">
+      <div className="tu-anatomy-cardbox">
+        <div className="tu-anatomy-card">
+          <Card card={card} scale={1.0} />
         </div>
-        <div className="tu-anatomy-blurb">{step.text}</div>
 
-        {/* Card + labels live inside a fixed-size wrapper so the
-            label positions can be percentages of the CARD's bounding
-            box, not the stage. That keeps every callout actually
-            pointing at the region it names. */}
-        <div className="tu-anatomy-stage">
-          <div className="tu-anatomy-cardbox">
-            <div className="tu-anatomy-card">
-              <Card card={card} scale={1.0} />
-            </div>
-
-            {/* Mana cost — header row, top-left of card. */}
-            <div className="tu-anatomy-label" data-pos="cost">
-              <span className="tu-anatomy-arrow">↗</span>
-              <div>
-                <strong>Mana cost</strong>
-                <em>What you pay to play it</em>
-              </div>
-            </div>
-
-            {/* Card name — header row, top-right of card. */}
-            <div className="tu-anatomy-label" data-pos="name">
-              <span className="tu-anatomy-arrow">↖</span>
-              <div>
-                <strong>Card name</strong>
-                <em>And its art below</em>
-              </div>
-            </div>
-
-            {/* Type chip — directly below the photo, left side. */}
-            <div className="tu-anatomy-label" data-pos="type">
-              <span className="tu-anatomy-arrow">↗</span>
-              <div>
-                <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
-                <em>
-                  {isCreature
-                    ? 'Stays on the field, attacks each turn'
-                    : 'Fires once on a target, then is gone'}
-                </em>
-              </div>
-            </div>
-
-            {/* Rarity chip — directly below the photo, right side. */}
-            <div className="tu-anatomy-label" data-pos="rarity">
-              <span className="tu-anatomy-arrow">↖</span>
-              <div>
-                <strong>Rarity</strong>
-                <em>Common · Rare · Epic · Legendary — bumps in packs</em>
-              </div>
-            </div>
-
-            {/* Ability — sits below the chips on the card, points UP
-                at the ability text region. */}
-            <div className="tu-anatomy-label" data-pos="ability">
-              <span className="tu-anatomy-arrow">↑</span>
-              <div>
-                <strong>Ability</strong>
-                <em>Read it — the card always means what it says</em>
-              </div>
-            </div>
-
-            {isCreature && (
-              <>
-                {/* Attack orb — bottom-left of card. */}
-                <div className="tu-anatomy-label" data-pos="atk">
-                  <span className="tu-anatomy-arrow">↗</span>
-                  <div>
-                    <strong>Attack</strong>
-                    <em>Damage when it swings</em>
-                  </div>
-                </div>
-                {/* HP orb — bottom-right of card. */}
-                <div className="tu-anatomy-label" data-pos="hp">
-                  <span className="tu-anatomy-arrow">↖</span>
-                  <div>
-                    <strong>HP</strong>
-                    <em>The creature dies at 0</em>
-                  </div>
-                </div>
-              </>
-            )}
+        <div className="tu-anatomy-label" data-pos="cost">
+          <span className="tu-anatomy-arrow">↗</span>
+          <div>
+            <strong>Mana cost</strong>
+            <em>What you pay to play it</em>
           </div>
         </div>
 
-        <button className="tu-anatomy-cta" onClick={onAdvance}>
-          <span>Got it</span>
-          <ChevronRight size={16} strokeWidth={2.4} />
-        </button>
+        <div className="tu-anatomy-label" data-pos="type">
+          <span className="tu-anatomy-arrow">↗</span>
+          <div>
+            <strong>{isCreature ? 'Type · Creature' : 'Type · Spell'}</strong>
+            <em>
+              {isCreature
+                ? 'Stays on the field, attacks each turn'
+                : 'Fires before Battle, then is gone'}
+            </em>
+          </div>
+        </div>
+
+        <div className="tu-anatomy-label" data-pos="rarity">
+          <span className="tu-anatomy-arrow">↖</span>
+          <div>
+            <strong>Rarity</strong>
+            <em>Common · Rare · Epic · Legendary — bumps in packs</em>
+          </div>
+        </div>
+
+        <div className="tu-anatomy-label" data-pos="ability">
+          <span className="tu-anatomy-arrow">↑</span>
+          <div>
+            <strong>Ability</strong>
+            <em>e.g. Rush · Taunt · Heal · Buff</em>
+          </div>
+        </div>
+
+        {isCreature && (
+          <>
+            <div className="tu-anatomy-label" data-pos="atk">
+              <span className="tu-anatomy-arrow">↗</span>
+              <div>
+                <strong>Attack</strong>
+                <em>Damage when it swings</em>
+              </div>
+            </div>
+            <div className="tu-anatomy-label" data-pos="hp">
+              <span className="tu-anatomy-arrow">↖</span>
+              <div>
+                <strong>HP</strong>
+                <em>The creature dies at 0</em>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Field anatomy — mocked match-board mini-diagram with callouts at
+ *  the corners pointing at every region the player will see in a
+ *  real match: turn counter, phases button, HP/mana, hand, deck,
+ *  cemetery, give up, field zones. Doesn't mount MatchBoard — this
+ *  is a static teaching diagram. */
+function FieldAnatomyDiagram() {
+  return (
+    <div className="tu-field-stage">
+      <div className="tu-field-mock">
+        {/* Opponent row — avatar + HP/mana on left, deck+cemetery on right. */}
+        <div className="tu-field-row tu-field-row-top">
+          <div className="tu-field-chip">P · HP 6 · 1/1 mana</div>
+          <div className="tu-field-side-icons">
+            <span>📚</span>
+            <span>💀</span>
+          </div>
+        </div>
+
+        {/* Opponent field zone. */}
+        <div className="tu-field-zone">
+          <span>SLOT</span><span>SLOT</span><span>SLOT</span>
+        </div>
+
+        {/* Divider — turn counter, give up, phase button. */}
+        <div className="tu-field-divider">
+          <span className="tu-field-pill">1 / 12</span>
+          <span className="tu-field-pill">⚑ GIVE UP</span>
+          <span className="tu-field-pill tu-field-pill-phase">⚔ MAIN → BATTLE → END</span>
+        </div>
+
+        {/* Player field zone. */}
+        <div className="tu-field-zone">
+          <span>SLOT</span><span>SLOT</span><span>SLOT</span>
+        </div>
+
+        {/* Player row — avatar + HP/mana on left, deck+cemetery on right. */}
+        <div className="tu-field-row tu-field-row-bot">
+          <div className="tu-field-chip">P · HP 20 · 1/1 mana</div>
+          <div className="tu-field-side-icons">
+            <span>📚</span>
+            <span>💀</span>
+          </div>
+        </div>
+
+        {/* Your hand — three placeholder cards. */}
+        <div className="tu-field-hand">
+          <div className="tu-field-card" /><div className="tu-field-card" /><div className="tu-field-card" />
+        </div>
+      </div>
+
+      {/* Callouts — anchored to the corners of the mock board. */}
+      <div className="tu-field-callouts">
+        <div className="tu-anatomy-label" data-pos="f-tl">
+          <span className="tu-anatomy-arrow">↘</span>
+          <div><strong>Opponent</strong><em>Their HP and mana</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-tr">
+          <span className="tu-anatomy-arrow">↙</span>
+          <div><strong>Their deck · cemetery</strong><em>Tap to peek inside</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-ml">
+          <span className="tu-anatomy-arrow">→</span>
+          <div><strong>Turn counter</strong><em>Match ends at turn 12</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-mr">
+          <span className="tu-anatomy-arrow">←</span>
+          <div><strong>Phase button</strong><em>Main → Battle → End</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-bl">
+          <span className="tu-anatomy-arrow">↗</span>
+          <div><strong>Your HP &amp; mana</strong><em>Drops to 0 = you lose</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-br">
+          <span className="tu-anatomy-arrow">↖</span>
+          <div><strong>Your deck · cemetery</strong><em>Same idea — tap to peek</em></div>
+        </div>
+        <div className="tu-anatomy-label" data-pos="f-hand">
+          <span className="tu-anatomy-arrow">↑</span>
+          <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
+        </div>
       </div>
     </div>
   );
@@ -942,6 +1029,123 @@ function TutorialStyles() {
         .tu-anatomy-label[data-pos="atk"]     { left:  -88px; }
         .tu-anatomy-label[data-pos="hp"]      { right: -88px; }
       }
+      /* Field anatomy — mocked match board diagram + corner callouts.
+         The mock board mirrors the real match layout at a tiny size
+         so the player learns the geometry; callouts at the corners
+         point inward at each region. */
+      .tu-field-stage {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        max-width: 360px;
+        margin: 8px auto;
+        min-height: 0;
+        display: grid;
+        place-items: center;
+      }
+      .tu-field-mock {
+        position: relative;
+        width: 220px;
+        background: rgba(255, 240, 220, 0.94);
+        border: 1.5px solid rgba(255,255,255,.2);
+        border-radius: 14px;
+        padding: 10px 8px;
+        display: flex; flex-direction: column;
+        gap: 6px;
+        box-shadow: 0 10px 24px rgba(28,24,20,.35);
+        color: ${PALETTE.text};
+        font-size: 9px; font-weight: 700;
+        z-index: 2;
+      }
+      .tu-field-row {
+        display: flex; justify-content: space-between; align-items: center;
+        gap: 6px;
+      }
+      .tu-field-chip {
+        background: ${PALETTE.bg};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 3px 6px;
+        font-size: 8px;
+        white-space: nowrap;
+      }
+      .tu-field-side-icons {
+        display: flex; gap: 4px;
+        font-size: 12px;
+      }
+      .tu-field-zone {
+        display: flex; gap: 4px; justify-content: center;
+      }
+      .tu-field-zone > span {
+        flex: 1;
+        height: 26px;
+        background: rgba(255,255,255,.55);
+        border: 1px dashed ${PALETTE.border};
+        border-radius: 4px;
+        display: grid; place-items: center;
+        font-size: 7px;
+        color: ${PALETTE.textMid};
+        letter-spacing: 0.1em;
+      }
+      .tu-field-divider {
+        display: flex; gap: 4px; justify-content: center; align-items: center;
+        padding: 4px 0;
+        border-top: 1px dashed ${PALETTE.border};
+        border-bottom: 1px dashed ${PALETTE.border};
+      }
+      .tu-field-pill {
+        background: ${PALETTE.paper};
+        border: 1px solid ${PALETTE.border};
+        border-radius: 999px;
+        padding: 2px 5px;
+        font-size: 7px;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      .tu-field-pill-phase {
+        background: ${PALETTE.text};
+        color: #fff;
+        border-color: ${PALETTE.text};
+      }
+      .tu-field-hand {
+        display: flex; gap: 4px; justify-content: center;
+        margin-top: 4px;
+      }
+      .tu-field-card {
+        width: 24px; height: 34px;
+        background: linear-gradient(180deg, #6b9a91, #2f5a52);
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,.30);
+      }
+
+      .tu-field-callouts {
+        position: absolute; inset: 0;
+        pointer-events: none;
+      }
+      .tu-field-callouts > .tu-anatomy-label {
+        z-index: 3;
+      }
+      .tu-anatomy-label[data-pos="f-tl"]   { top:   -6px;  left:   -4px; }
+      .tu-anatomy-label[data-pos="f-tr"]   { top:   -6px;  right:  -4px; }
+      .tu-anatomy-label[data-pos="f-ml"]   { top:   42%;   left:   -4px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="f-mr"]   { top:   42%;   right:  -4px; transform: translateY(-50%); }
+      .tu-anatomy-label[data-pos="f-bl"]   { bottom: 60px; left:   -4px; }
+      .tu-anatomy-label[data-pos="f-br"]   { bottom: 60px; right:  -4px; }
+      .tu-anatomy-label[data-pos="f-hand"] { bottom: -6px; left:   50%;  transform: translateX(-50%); }
+      @media (max-width: 420px) {
+        .tu-field-mock { width: 168px; }
+        .tu-anatomy-label[data-pos="f-tl"],
+        .tu-anatomy-label[data-pos="f-tr"],
+        .tu-anatomy-label[data-pos="f-bl"],
+        .tu-anatomy-label[data-pos="f-br"],
+        .tu-anatomy-label[data-pos="f-ml"],
+        .tu-anatomy-label[data-pos="f-mr"],
+        .tu-anatomy-label[data-pos="f-hand"] {
+          max-width: 92px;
+          font-size: 9px;
+        }
+      }
+
       .tu-anatomy-cta {
         display: inline-flex; align-items: center; gap: 8px;
         padding: 12px 22px;
