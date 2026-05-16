@@ -28,7 +28,6 @@ import { STARTER_EMOTES, type EmoteId } from './data/victoryEmotes';
 import { STARTER_CARD_BACKS, DEFAULT_CARD_BACK, type CardBackId } from './data/cardBacks';
 import { CosmeticsProvider } from './state/cosmetics';
 import { Cosmetics } from './screens/Cosmetics';
-import { getMemoryPack } from './data/memoryPacks';
 import { aiPhoto } from './data/samplePhotos';
 import { getTemplateById, templatesByTheme } from './data/templates';
 import type { BossDef } from './data/bosses';
@@ -493,12 +492,12 @@ export default function App() {
   /** Memory pack open. Debits coins, appends cards, marks the pack as
    *  opened, and on first-open grants the pack's bonus cosmetic filter. */
   const onMemoryPackOpened = (packId: string, cards: CollectionCard[], cost: number) => {
-    const def = getMemoryPack(packId);
+    // Memory packs no longer grant a free cosmetic filter on first
+    // open — filters are now only unlockable through the Cosmetics
+    // shop. We still track openedMemoryPacks so the shop can decide
+    // whether to discount / hide a pack the player has already seen.
     setSave(s => {
       const already = (s.openedMemoryPacks ?? []).includes(packId);
-      const unlocked = s.unlockedFilters ?? [...STARTER_FILTERS];
-      const bonus = def?.bonusFilter;
-      const grantFilter = !already && bonus && !unlocked.includes(bonus);
       return {
         ...s,
         coins: s.coins - cost,
@@ -507,7 +506,6 @@ export default function App() {
         openedMemoryPacks: already
           ? s.openedMemoryPacks
           : [...(s.openedMemoryPacks ?? []), packId],
-        unlockedFilters: grantFilter ? [...unlocked, bonus] : unlocked,
       };
     });
     trackEvent({ kind: 'pack_opened' });

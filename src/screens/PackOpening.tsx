@@ -7,7 +7,6 @@ import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles
 import { openPack, openMemoryPack, PACK_COST, PACK_SIZE } from '../game/pack';
 import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import { MEMORY_PACKS, type MemoryPackDef } from '../data/memoryPacks';
-import { FILTERS } from '../data/filters';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { useViewport } from '../hooks/useViewport';
@@ -367,7 +366,7 @@ export function PackOpening({
                     <div className="ps-sec-title">Curated moments</div>
                   </div>
                   <div className="ps-sec-r">
-                    First open also unlocks a free cosmetic filter.
+                    Themed cards that fit the moment.
                   </div>
                 </header>
                 <div className="ps-grid">
@@ -376,8 +375,7 @@ export function PackOpening({
                       key={def.id}
                       def={def}
                       coins={coins}
-                      firstOpen={!openedMemoryPacks.includes(def.id)}
-                      onClick={() => setConfirming({ kind: 'memory', def, firstOpen: !openedMemoryPacks.includes(def.id) })}
+                      onClick={() => setConfirming({ kind: 'memory', def, firstOpen: false })}
                     />
                   ))}
                   {/* Locked "coming soon" tile — matches design's Season 2 placeholder. */}
@@ -453,30 +451,6 @@ export function PackOpening({
                   <Card key={c.uid} card={c} scale={isMobile ? 0.5 : 0.6} />
                 ))}
               </div>
-
-              {pick.kind === 'memory' && pick.firstOpen && (
-                <div style={{
-                  margin: '0 auto 18px', maxWidth: 380,
-                  padding: '12px 14px', borderRadius: 14,
-                  background: `linear-gradient(135deg, ${pick.vibe.deep}, ${pick.vibe.color})`,
-                  color: '#fff',
-                  boxShadow: `0 6px 18px ${pick.vibe.glow}55`,
-                  display: 'flex', alignItems: 'center', gap: 10,
-                }}>
-                  <Sparkles size={18} color={pick.vibe.glow} fill={pick.vibe.glow} />
-                  <div style={{ textAlign: 'left', flex: 1 }}>
-                    <div style={{ fontSize: 10, opacity: 0.85, letterSpacing: '0.15em', textTransform: 'uppercase', fontWeight: 700 }}>
-                      Cosmetic Filter Unlocked
-                    </div>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>
-                      {FILTERS[pick.pack.bonusFilter].name}
-                    </div>
-                    <div style={{ fontSize: 10, opacity: 0.85, marginTop: 2, fontStyle: 'italic' }}>
-                      Apply it to any card when you take its photo.
-                    </div>
-                  </div>
-                </div>
-              )}
 
               <div style={{ fontSize: 11, color: PALETTE.textMid, marginBottom: 18, fontStyle: 'italic', textAlign: 'center' }}>
                 Visit Collection and tap any card to summon it with a photo.
@@ -565,13 +539,12 @@ function BoosterElement({
 }
 
 /** Memory booster — same shape, but uses the memory pack's gradient and
- *  surfaces the "first open unlocks {filter}" chip at the top-left. */
+ *  same shape as the element boosters above. */
 function BoosterMemory({
-  def, coins, firstOpen, onClick,
-}: { def: MemoryPackDef; coins: number; firstOpen: boolean; onClick: () => void }) {
+  def, coins, onClick,
+}: { def: MemoryPackDef; coins: number; onClick: () => void }) {
   const canAfford = coins >= def.cost;
   const [hue, hue2] = def.gradient;
-  const filter = FILTERS[def.bonusFilter];
   return (
     <button
       className="bp"
@@ -595,12 +568,6 @@ function BoosterMemory({
         <div className="bp-eyebrow">Memory pack</div>
         <div className="bp-name">{def.name}</div>
       </div>
-      {firstOpen && (
-        <div className="bp-bonus">
-          <Sparkles size={11} fill="#fff" color="#fff" strokeWidth={2.2} />
-          Unlocks <strong>{filter.name}</strong>
-        </div>
-      )}
       <div className="bp-band">
         <div className="bp-band-l">
           <span>{PACK_SIZE} cards</span>
@@ -655,8 +622,6 @@ function ConfirmSheet({
   const gradient = isMemory
     ? `linear-gradient(155deg, ${confirming.def.gradient[0]} 0%, ${confirming.def.gradient[1]} 100%)`
     : `linear-gradient(165deg, ${ELEMENTS[confirming.theme].color} 0%, ${ELEMENTS[confirming.theme].deep} 100%)`;
-  const filter = isMemory ? FILTERS[confirming.def.bonusFilter] : null;
-  const firstOpen = isMemory && confirming.firstOpen;
 
   return (
     <>
@@ -685,12 +650,6 @@ function ConfirmSheet({
             <div className="ps-stat-l">dupes</div>
           </div>
         </div>
-        {firstOpen && filter && (
-          <div className="ps-sheet-bonus">
-            <Sparkles size={12} fill={PALETTE.accent} color={PALETTE.accent} strokeWidth={2.2} />
-            First open unlocks <strong>{filter.name}</strong>
-          </div>
-        )}
         <button
           className="ps-sheet-cta"
           onClick={onConfirm}

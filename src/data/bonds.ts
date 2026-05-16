@@ -49,7 +49,7 @@ export const BONDS: BondDef[] = [
   // ============================================================
   {
     id: 'sunday-dinner',
-    name: 'Sunday Dinner',
+    name: 'Family Reunion',
     themeId: 'family',
     cardA: 'fam-05', // Mom
     cardB: 'fam-11', // Dad

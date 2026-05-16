@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Coins, Package, Images, Layers, Swords, ScrollText,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
@@ -98,24 +98,6 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
     }, 4000);
     return () => window.clearInterval(id);
   }, [slideshow.length]);
-
-  // Memory caption: as the fan rotates, find whichever of the visible
-  // six cards has a memory and surface it below the fan. Keyed to the
-  // slideIdx so the animation restarts each cycle. Plays the memory of
-  // the "center" card preferentially; otherwise any card that has one.
-  const featuredMemory = useMemo(() => {
-    const N = Math.min(6, Math.max(2, slideshow.length));
-    const visible: (CollectionCard | CardTemplate)[] = [];
-    for (let i = 0; i < N; i++) visible.push(slideshow[(slideIdx * N + i) % slideshow.length]);
-    const center = visible[Math.floor(visible.length / 2)];
-    if (isCollection(center) && center.memory) {
-      return { name: center.name, memory: center.memory };
-    }
-    for (const c of visible) {
-      if (isCollection(c) && c.memory) return { name: c.name, memory: c.memory };
-    }
-    return null;
-  }, [slideIdx, slideshow]);
 
   return (
     <div className="home-container">
@@ -243,14 +225,6 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
             })()}
           </div>
 
-          {/* Memory caption — fades in for the cycle when a fan card
-              has a memory attached. Restarts on every slideIdx tick. */}
-          {featuredMemory && (
-            <div className="home-memory" key={`mem-${slideIdx}`} aria-live="polite">
-              <div className="home-memory-eyebrow">{featuredMemory.name}</div>
-              <div className="home-memory-text">“{featuredMemory.memory}”</div>
-            </div>
-          )}
         </div>
 
         {/* CTA + nav. The primary CTA walks the player through the
@@ -308,10 +282,6 @@ function NavButton({ label, icon, onClick, locked = false }: { label: string; ic
       )}
     </button>
   );
-}
-
-function isCollection(c: CollectionCard | CardTemplate): c is CollectionCard {
-  return (c as CollectionCard).uid !== undefined;
 }
 
 // ─── Scoped stylesheet ──────────────────────────────────────────────
@@ -477,38 +447,6 @@ function HomeStyles() {
         display: flex; align-items: center; justify-content: center;
       }
 
-      /* Memory caption — surfaces when the fan lands on a card with a
-         memory. Fades in with the new cycle and drifts up gently. */
-      .home-memory {
-        margin: 0 auto 10px;
-        max-width: 380px;
-        padding: 10px 14px;
-        background: rgba(255,255,255,.72);
-        border: 1px solid ${PALETTE.border};
-        border-left: 3px solid ${PALETTE.accent};
-        border-radius: 14px;
-        box-shadow: 0 6px 18px rgba(58,46,42,.10);
-        text-align: center;
-        animation: homeMemoryIn .8s cubic-bezier(.2,.85,.3,1) 0.4s both;
-        backdrop-filter: blur(2px);
-      }
-      .home-memory-eyebrow {
-        font-size: 9px; font-weight: 800;
-        letter-spacing: 0.22em; text-transform: uppercase;
-        color: ${PALETTE.accent};
-        margin-bottom: 4px;
-      }
-      .home-memory-text {
-        font-size: 13px; line-height: 1.4;
-        font-style: italic;
-        color: ${PALETTE.text};
-        font-family: "Inter", system-ui, sans-serif;
-      }
-      @keyframes homeMemoryIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
-      }
-
       /* Actions */
       .home-actions {
         padding-bottom: max(28px, env(safe-area-inset-bottom, 28px));
@@ -602,7 +540,7 @@ function HomeStyles() {
 
       @media (prefers-reduced-motion: reduce) {
         .home-cta, .home-cta:hover, .home-cta:active,
-        .home-nav-btn:hover, .home-memory {
+        .home-nav-btn:hover {
           animation: none !important;
           transition: none !important;
           transform: none !important;
