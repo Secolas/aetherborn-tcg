@@ -145,18 +145,33 @@ function StarterPickStyles() {
         margin-right: auto;
       }
 
-      /* Three-up grid; collapses to a single column on narrow phones. */
+      /* Stack the three tiles vertically so each pack reads fully —
+         booster art, eyebrow, name, pitch and the bottom band all
+         visible without having to squint at a 33% column on mobile.
+         Each tile keeps its portrait booster aspect (0.72) so the
+         booster-pack visual stays intact; the player scrolls the
+         page (sp-root is already overflow-y: auto) to reach the
+         last tile if their viewport is short. */
       .sp-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
         margin-bottom: 14px;
       }
-      @media (max-width: 480px) {
-        .sp-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .sp-bp {
+        width: 100%;
+        max-width: 260px;
       }
-      @media (max-width: 360px) {
-        .sp-grid { grid-template-columns: 1fr; }
+      @media (min-width: 720px) {
+        /* Three-up only on tablet/desktop widths where the pack
+           portraits still read at a comfortable size. */
+        .sp-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          align-items: stretch;
+        }
+        .sp-bp { max-width: none; }
       }
 
       /* Inherit the booster shop's .bp visual — colors / shadows /
