@@ -71,6 +71,14 @@ export interface BossDef {
    * turn -> attack") always lines up with the player's first turn.
    */
   firstPlayer?: 'player' | 'opponent';
+  /**
+   * Optional override that disables deck shuffling for this match.
+   * Both sides draw their decks in the exact array order specified.
+   * Used by the tutorial so every step lines up with a card the
+   * player is guaranteed to be holding at that moment; no other
+   * boss should set this (gameplay relies on shuffled decks).
+   */
+  skipShuffle?: boolean;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -541,9 +549,17 @@ export const MINI_BOSSES: BossDef[] = [
     // Player always opens the tutorial match so the scripted hint
     // sequence lines up with their first turn.
     firstPlayer: 'player',
+    // Deterministic draws — the tutorial's hint script assumes
+    // specific cards are in hand at specific turns. The engine
+    // honours this via the new skipShuffle path in assembleMatch.
+    skipShuffle: true,
+    // Opponent's deck in draw order. Mostly 1/1 chumps so the
+    // dummy can't seriously threaten the player; the alternation
+    // between Mouse and Mosquito gives variety in the field
+    // visuals during the player's creature-vs-creature step.
     deck: [
-      'ani-01','ani-01','ani-01','ani-01',
-      'ani-14','ani-14','ani-14','ani-14',
+      'ani-01','ani-01','ani-14','ani-14',
+      'ani-01','ani-14','ani-01','ani-14',
       'ani-01','ani-14','ani-01','ani-14',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),

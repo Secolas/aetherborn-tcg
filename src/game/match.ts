@@ -247,6 +247,7 @@ export function createMatch(
     rng,
     boss?.startingHp,
     boss?.firstPlayer,
+    !!boss?.skipShuffle,
   );
 }
 
@@ -276,9 +277,13 @@ function assembleMatch(
    *  flip and forces this side to open. Used by the tutorial so the
    *  scripted hints always line up with the player's first turn. */
   forceFirst?: Owner,
+  /** When true, both decks keep their input array order (no shuffle).
+   *  Used by the tutorial so each step's hint refers to a specific
+   *  card guaranteed to be in hand at that moment. */
+  skipShuffle: boolean = false,
 ): MatchState {
-  const playerDeck = shuffle(playerCards, rng).map(toBattleCard);
-  let oppDeck = shuffle(opponentCards, rng).map(toBattleCard);
+  const playerDeck = (skipShuffle ? playerCards : shuffle(playerCards, rng)).map(toBattleCard);
+  let oppDeck = (skipShuffle ? opponentCards : shuffle(opponentCards, rng)).map(toBattleCard);
 
   // Keep the two decks the same length so neither side gets a draw advantage
   // over the course of a match.
