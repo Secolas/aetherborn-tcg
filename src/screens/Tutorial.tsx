@@ -108,7 +108,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'END TURN',
     icon: 'clock',
-    text: "Creatures can't attack the turn they're summoned. Tap End Turn — you'll pass through the Battle Phase (no attackers yet) and the opponent will play their turn.",
+    text: "Creatures sleep the turn they're summoned — they can't attack yet. Tap End Turn to pass through Battle Phase and hand the turn to your opponent.",
     spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]'],
     advanceOn: 'turn-end',
   },
@@ -131,7 +131,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BATTLE · CREATURE FIGHT',
     icon: 'swords',
-    text: "Now your Coffee Mug isn't summoning-sick anymore. Drag it onto an opponent creature — both deal their attack to each other. Smaller creatures die.",
+    text: "Your Coffee Mug woke up — it can attack now. Drag it onto an opponent creature; both deal their attack to each other. Smaller creatures die.",
     spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut-field-card][data-tut-side="opponent"]'],
     advanceOn: 'attack',
     requireAttackTarget: 'creature',
@@ -266,7 +266,7 @@ export function Tutorial({
                 <div className="tu-rule-icon"><Hand size={18} strokeWidth={2.4} /></div>
                 <div>
                   <div className="tu-rule-h">Summon creatures</div>
-                  <div className="tu-rule-p">Drag a creature card to the field. Pay its mana cost. It can't attack the turn it was summoned — but it attacks every turn after.</div>
+                  <div className="tu-rule-p">Drag a creature card to the field. Pay its mana cost. The creature sleeps the turn you summon it — wakes up and attacks from the next turn on.</div>
                 </div>
               </div>
               <div className="tu-rule">
@@ -352,6 +352,12 @@ export function Tutorial({
  */
 function TutorialSpotlight({ step }: { step: TutorialStep }) {
   const [rects, setRects] = useState<DOMRect[]>([]);
+  // Hint card can be collapsed to a small chip so the player can see
+  // the field clearly. Resets to expanded each time the step changes
+  // (the new step deserves the full explanation; player can re-
+  // collapse if they don't need it).
+  const [collapsed, setCollapsed] = useState(false);
+  useEffect(() => { setCollapsed(false); }, [step]);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -418,14 +424,26 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
         />
       ))}
 
-      {/* Hint card — fixed near the top so it never overlaps the hand. */}
-      <div className="tu-hint">
+      {/* Hint card — collapsible so the player can see the field
+          when the full hint would otherwise cover important cards.
+          Tap anywhere on the card to toggle. Auto-resets to
+          expanded each time the step changes. */}
+      <button
+        type="button"
+        className="tu-hint"
+        data-collapsed={collapsed}
+        onClick={() => setCollapsed((c) => !c)}
+        aria-label={collapsed ? 'Show hint' : 'Hide hint'}
+      >
         <div className="tu-hint-eyebrow">
           <Icon size={12} strokeWidth={2.4} />
-          <span>STEP {STEPS.indexOf(step) + 1} OF {STEPS.length} · {step.title}</span>
+          <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
+          <span className="tu-hint-toggle" aria-hidden="true">
+            {collapsed ? '+' : '–'}
+          </span>
         </div>
-        <div className="tu-hint-body">{step.text}</div>
-      </div>
+        {!collapsed && <div className="tu-hint-body">{step.text}</div>}
+      </button>
     </div>
   );
 }
@@ -564,7 +582,8 @@ function TutorialStyles() {
         50%      { transform: scale(1.04);  box-shadow: 0 0 0 8px rgba(238,90,82,.18), 0 0 40px 8px rgba(238,90,82,.55), inset 0 0 0 2px rgba(255,255,255,.55); }
       }
 
-      /* Hint card — fixed near the top of the match. */
+      /* Hint card — fixed near the top of the match. Tap to collapse
+         so it stops covering the field; tap again to expand. */
       .tu-hint {
         position: absolute;
         top: max(72px, env(safe-area-inset-top, 72px));
@@ -579,15 +598,38 @@ function TutorialStyles() {
         font-family: "Fredoka", "Inter", system-ui, sans-serif;
         box-shadow: 0 10px 28px rgba(28,24,20,.30);
         animation: tuHintIn .35s cubic-bezier(.2,.85,.3,1);
-        pointer-events: none;
+        text-align: left;
+        cursor: pointer;
+        border: 0;
         z-index: 1;
+        pointer-events: auto;
+        transition: padding .15s, max-width .15s;
+      }
+      .tu-hint[data-collapsed="true"] {
+        padding: 6px 12px;
+        max-width: 280px;
       }
       .tu-hint-eyebrow {
-        display: inline-flex; align-items: center; gap: 6px;
+        display: flex; align-items: center; gap: 6px;
         font-size: 10px; font-weight: 800;
         letter-spacing: 0.14em;
         opacity: 0.75;
         margin-bottom: 4px;
+      }
+      .tu-hint[data-collapsed="true"] .tu-hint-eyebrow {
+        margin-bottom: 0;
+      }
+      .tu-hint-eyebrow > span:nth-child(2) { flex: 1; min-width: 0; }
+      .tu-hint-toggle {
+        flex-shrink: 0;
+        width: 18px; height: 18px;
+        display: inline-grid; place-items: center;
+        background: rgba(255,255,255,.16);
+        border-radius: 50%;
+        font-size: 13px;
+        font-weight: 800;
+        letter-spacing: 0;
+        opacity: 0.9;
       }
       .tu-hint-body {
         font-size: 13px; font-weight: 600;
