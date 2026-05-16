@@ -851,7 +851,7 @@ export default function App() {
           onPackOpened={onPackOpened}
           onMemoryPackOpened={onMemoryPackOpened}
           onBack={() => setScreen('home')}
-          tutorialCompleted={!!save.tutorialCompleted}
+          unlocked={!!save.starterThemeId}
           onStartTutorial={() => setScreen('tutorial')}
         />
       )}
@@ -918,7 +918,7 @@ export default function App() {
           collection={save.collection}
           decks={save.decks ?? []}
           activeDeckId={save.activeDeckId}
-          tutorialCompleted={!!save.tutorialCompleted}
+          unlocked={!!save.starterThemeId}
           onSetActiveDeck={onSetActiveDeck}
           onPickStop={onPickCampaignStop}
           onOpenDeckBuilder={() => setScreen('deck')}

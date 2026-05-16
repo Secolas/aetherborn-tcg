@@ -45,11 +45,12 @@ interface Props {
   openedMemoryPacks?: string[];
   onBack: () => void;
   settings?: Settings;
-  /** Tutorial gate. Same pattern as Campaign — the pack shop is
-   *  hidden behind a "Finish the Tutorial first" overlay until the
-   *  player clears the scripted match, so brand-new players can't
-   *  burn coins on a shop they don't yet know how to use. */
-  tutorialCompleted?: boolean;
+  /** Onboarding gate. Same pattern as Campaign — the pack shop is
+   *  hidden behind a "Finish setup first" overlay until the player
+   *  has picked a starter (which only happens post-tutorial), so
+   *  brand-new players can't burn coins on a shop they don't yet
+   *  know how to use. */
+  unlocked?: boolean;
   /** Routes the player into Tutorial.tsx when they tap the gate CTA. */
   onStartTutorial?: () => void;
 }
@@ -63,13 +64,13 @@ const STAGE_DURATIONS: Record<Exclude<Stage, 'pick' | 'revealing' | 'done'>, num
 export function PackOpening({
   coins, onPackOpened, onMemoryPackOpened, openedMemoryPacks = [],
   onBack, settings = DEFAULT_SETTINGS,
-  tutorialCompleted = true, onStartTutorial,
+  unlocked = true, onStartTutorial,
 }: Props) {
-  // Tutorial gate — render a clean locked view instead of the shop
-  // when the player hasn't cleared the tutorial yet. Matches the
+  // Onboarding gate — render a clean locked view instead of the shop
+  // when the player hasn't picked a starter yet. Matches the
   // Campaign screen's gate one-for-one so the player learns the
   // pattern: locked screens explain what to do, in their own words.
-  if (!tutorialCompleted) {
+  if (!unlocked) {
     return (
       <div style={{
         position: 'absolute', inset: 0,
@@ -121,7 +122,7 @@ export function PackOpening({
             letterSpacing: '-0.01em',
             lineHeight: 1.1,
           }}>
-            Finish the Tutorial first
+            Finish setup first
           </div>
           <div style={{
             fontSize: 13,
@@ -130,8 +131,8 @@ export function PackOpening({
             maxWidth: 320,
             marginBottom: 6,
           }}>
-            Booster packs unlock after you've cleared the Practice Dummy.
-            It's a quick scripted match — won't take long.
+            Booster packs unlock once you've finished the tutorial and
+            picked a starter deck. Won't take long.
           </div>
           {onStartTutorial && (
             <button

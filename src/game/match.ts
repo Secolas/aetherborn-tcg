@@ -246,6 +246,8 @@ export function createMatch(
     difficulty,
     rng,
     boss?.startingHp,
+    boss?.firstPlayer,
+    !!boss?.skipShuffle,
   );
 }
 
@@ -271,9 +273,17 @@ function assembleMatch(
    *  tutorial boss so the match wraps up in 3-4 turns. Undefined for
    *  every other boss; they all keep the engine-wide STARTING_HP. */
   opponentStartingHp?: number,
+  /** Optional first-player override. Skips the engine's 50/50 coin
+   *  flip and forces this side to open. Used by the tutorial so the
+   *  scripted hints always line up with the player's first turn. */
+  forceFirst?: Owner,
+  /** When true, both decks keep their input array order (no shuffle).
+   *  Used by the tutorial so each step's hint refers to a specific
+   *  card guaranteed to be in hand at that moment. */
+  skipShuffle: boolean = false,
 ): MatchState {
-  const playerDeck = shuffle(playerCards, rng).map(toBattleCard);
-  let oppDeck = shuffle(opponentCards, rng).map(toBattleCard);
+  const playerDeck = (skipShuffle ? playerCards : shuffle(playerCards, rng)).map(toBattleCard);
+  let oppDeck = (skipShuffle ? opponentCards : shuffle(opponentCards, rng)).map(toBattleCard);
 
   // Keep the two decks the same length so neither side gets a draw advantage
   // over the course of a match.
@@ -310,7 +320,9 @@ function assembleMatch(
   opponent.deck = oppDeck;
 
   // Coin flip — neither side has an inherent "I go first" advantage.
-  const first: Owner = rng() < 0.5 ? 'player' : 'opponent';
+  // Exception: tutorial / fixture matches can force a specific opener
+  // via forceFirst so scripted hint sequences line up.
+  const first: Owner = forceFirst ?? (rng() < 0.5 ? 'player' : 'opponent');
 
   // Seed an in-state PRNG so in-engine randomness (pop_quiz discard,
   // recover_on_death spell pick) is deterministic when an rng was

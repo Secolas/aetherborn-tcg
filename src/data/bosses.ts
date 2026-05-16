@@ -64,6 +64,21 @@ export interface BossDef {
    * creatures.
    */
   startingHp?: number;
+  /**
+   * Optional first-player override. When set, that side always opens
+   * the match instead of the engine's normal 50/50 coin flip. Used
+   * by the tutorial so the scripted hint sequence ("summon -> end
+   * turn -> attack") always lines up with the player's first turn.
+   */
+  firstPlayer?: 'player' | 'opponent';
+  /**
+   * Optional override that disables deck shuffling for this match.
+   * Both sides draw their decks in the exact array order specified.
+   * Used by the tutorial so every step lines up with a card the
+   * player is guaranteed to be holding at that moment; no other
+   * boss should set this (gameplay relies on shuffled decks).
+   */
+  skipShuffle?: boolean;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -531,9 +546,20 @@ export const MINI_BOSSES: BossDef[] = [
     // Low HP override so the tutorial can be won in 3-4 turns of
     // proper summon-wait-attack rhythm with 1-cost non-rush creatures.
     startingHp: 6,
+    // Player always opens the tutorial match so the scripted hint
+    // sequence lines up with their first turn.
+    firstPlayer: 'player',
+    // Deterministic draws — the tutorial's hint script assumes
+    // specific cards are in hand at specific turns. The engine
+    // honours this via the new skipShuffle path in assembleMatch.
+    skipShuffle: true,
+    // Opponent's deck in draw order. Mostly 1/1 chumps so the
+    // dummy can't seriously threaten the player; the alternation
+    // between Mouse and Mosquito gives variety in the field
+    // visuals during the player's creature-vs-creature step.
     deck: [
-      'ani-01','ani-01','ani-01','ani-01',
-      'ani-14','ani-14','ani-14','ani-14',
+      'ani-01','ani-01','ani-14','ani-14',
+      'ani-01','ani-14','ani-01','ani-14',
       'ani-01','ani-14','ani-01','ani-14',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),

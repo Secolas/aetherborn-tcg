@@ -19,25 +19,40 @@ interface Props {
 const TUTORIAL_BOSS_ID = 'tutorial-dummy';
 
 /**
- * Scripted tutorial deck — built around the Breakfast Combo bond
- * (fd-01 Coffee Mug + fd-04 Breakfast Plate) so the tutorial can
- * walk a brand-new player through summon, attack, spell, heal and
- * bond in a single match.
+ * Scripted tutorial deck — DETERMINISTIC, in draw order.
  *
- *   4 x fd-01 Coffee Mug     (1c 1/2 — turn 1 summon)
- *   4 x fd-04 Breakfast Plate (2c 1/3 — turn 2, triggers the bond)
- *   2 x ani-16 Good Boy      (1c spell, +0/+2 buff — spell step)
- *   2 x fam-14 Hug           (1c spell, heal a creature — heal step)
+ * The tutorial boss (`tutorial-dummy` in src/data/bosses.ts) sets
+ * skipShuffle: true, so the engine deals both decks in their input
+ * array order. That means every hint in this file can reference a
+ * specific card guaranteed to be in the player's hand at the moment
+ * the step is on screen — no "draw the right card" dance.
  *
- * Practice Dummy boots at 6 HP (see BossDef.startingHp on tutorial-
- * dummy in src/data/bosses.ts), so 3-4 attacks finish the match
- * once the player has worked through the script.
+ * Opening hand (STARTING_HAND = 4) is indices 0-3:
+ *   0  Coffee Mug     (1c 1/2)            -> turn 1 summon
+ *   1  Coffee Mug     (1c 1/2)            -> spare for later
+ *   2  Breakfast Plate (2c 1/3, draw-on-play) -> turn 2 BOND piece
+ *   3  Good Boy       (1c spell +0/+2)    -> buff demo
+ *
+ * Draws thereafter:
+ *   4  Hug            (1c spell heal +3)  -> heal demo
+ *   5  Snake Bite     (2c spell, 3 dmg)   -> damage demo
+ *   6  Coffee Mug     (filler)
+ *   7-11  more filler so the player can finish the match without
+ *         running into fatigue.
  */
 const TUTORIAL_DECK_IDS: string[] = [
-  'fd-01','fd-01','fd-01','fd-01',
-  'fd-04','fd-04','fd-04','fd-04',
-  'ani-16','ani-16',
-  'fam-14','fam-14',
+  'fd-01',  // 0 — opening hand
+  'fd-01',  // 1 — opening hand
+  'fd-04',  // 2 — opening hand
+  'ani-16', // 3 — opening hand
+  'fam-14', // 4 — turn 2 draw
+  'ani-02', // 5 — turn 3 draw (or pulled by Plate's draw-on-play)
+  'fd-01',  // 6
+  'fd-04',  // 7
+  'ani-16', // 8
+  'fam-14', // 9
+  'ani-02', // 10
+  'fd-01',  // 11
 ];
 
 // ─── Step machine ───────────────────────────────────────────────────
@@ -71,6 +86,10 @@ interface TutorialStep {
    *  if the played card's template id matches. Lets us gate "summon
    *  Coffee Mug" vs "summon Breakfast Plate" without sharing steps. */
   requireCardId?: string;
+  /** When set, advanceOn 'attack' only counts when the player swings
+   *  at this kind of target. Lets us split "attack a creature" and
+   *  "attack the opponent's face" into distinct teaching beats. */
+  requireAttackTarget?: 'face' | 'creature';
   /** When set, the script auto-advances this many ms after entry —
    *  used for the "watch what just happened" beats (bond trigger,
    *  heal flash) that don't tie to a player action. */
@@ -79,9 +98,9 @@ interface TutorialStep {
 
 const STEPS: TutorialStep[] = [
   {
-    title: 'SUMMON',
+    title: 'MAIN PHASE · SUMMON',
     icon: 'hand',
-    text: "Drag the highlighted Coffee Mug onto the field. It costs 1 mana.",
+    text: "Your turn opens in the Main Phase. Drag the Coffee Mug onto the field to summon it — it costs 1 mana (top of screen).",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
@@ -89,14 +108,14 @@ const STEPS: TutorialStep[] = [
   {
     title: 'END TURN',
     icon: 'clock',
-    text: "Creatures can't attack the turn you summon them. Tap End Turn — your opponent will play, then it's your turn again.",
+    text: "Creatures can't attack the turn they're summoned. Tap End Turn — you'll pass through the Battle Phase (no attackers yet) and the opponent will play their turn.",
     spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]'],
     advanceOn: 'turn-end',
   },
   {
     title: 'BOND PIECE',
     icon: 'bond',
-    text: "Drag a Breakfast Plate onto the field. (Its own ability draws you a card — that's the card text, not the bond.)",
+    text: "New turn — you drew a card and gained +1 mana. Drag the Breakfast Plate onto the field. (Its own card text draws you a card on play — that's the card's ability, not the bond yet.)",
     spotlight: ['[data-tut-hand-card="fd-04"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-04',
@@ -104,30 +123,47 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BOND ACTIVE',
     icon: 'bond',
-    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo — your creatures will heal +2 HP at the start of every turn from now on.",
+    text: "Coffee Mug + Breakfast Plate together form Bond: Breakfast Combo. From now on, your creatures heal +2 HP every turn — extra effects when specific cards share the field.",
     spotlight: [],
     advanceOn: 'auto',
-    autoMs: 3200,
+    autoMs: 3600,
   },
   {
-    title: 'ATTACK',
+    title: 'BATTLE · CREATURE FIGHT',
     icon: 'swords',
-    text: "Drag your Coffee Mug from the field onto the opponent's portrait to attack.",
-    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    text: "Now your Coffee Mug isn't summoning-sick anymore. Drag it onto an opponent creature — both deal their attack to each other. Smaller creatures die.",
+    spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut-field-card][data-tut-side="opponent"]'],
     advanceOn: 'attack',
+    requireAttackTarget: 'creature',
   },
   {
-    title: 'SPELL',
+    title: 'BATTLE · ATTACK FACE',
+    icon: 'swords',
+    text: "Creatures can also attack the opponent directly. Drag onto their portrait. That's how you drain their HP — drop it to 0 to win.",
+    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    advanceOn: 'attack',
+    requireAttackTarget: 'face',
+  },
+  {
+    title: 'SPELL · BUFF',
     icon: 'wand',
-    text: "Spells aren't creatures — drag Good Boy onto one of your creatures to buff it (+2 HP).",
+    text: "Spells aren't creatures — they fire once and gone. Drag Good Boy onto one of your creatures: +0 attack / +2 HP, permanently.",
     spotlight: ['[data-tut-hand-card="ani-16"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'ani-16',
   },
   {
-    title: 'HEAL',
+    title: 'SPELL · DAMAGE',
+    icon: 'wand',
+    text: "Snake Bite deals 3 damage to any target. Use it to remove an opponent creature, or finish their HP. Drag it on whoever you want hit.",
+    spotlight: ['[data-tut-hand-card="ani-02"]'],
+    advanceOn: 'spell-cast',
+    requireCardId: 'ani-02',
+  },
+  {
+    title: 'SPELL · HEAL',
     icon: 'heart',
-    text: "Hug restores HP. Drag it onto a creature that took damage.",
+    text: "Hug restores +3 HP on a friendly creature. Drag it onto a creature that took damage to top it back up.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'fam-14',
@@ -135,7 +171,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'FINISH',
     icon: 'trophy',
-    text: "You know all the basics now. Keep ending turns and attacking until the opponent's HP hits 0.",
+    text: "That's everything. Matches run 12 turns max — whoever lands the killing blow wins. Keep attacking until the opponent hits 0 HP.",
     spotlight: ['[data-tut="end-turn"]', '[data-tut="go-battle"]', '[data-tut="opp-face"]'],
     advanceOn: null,
   },
@@ -167,11 +203,19 @@ export function Tutorial({
     }).filter((c): c is CollectionCard => !!c);
   }, []);
 
-  const advance = (kind: TutorialStep['advanceOn'], cardId?: string) => {
+  const advance = (
+    kind: TutorialStep['advanceOn'],
+    payload?: { cardId?: string; attackTarget?: 'face' | 'creature' },
+  ) => {
     if (step.advanceOn !== kind) return;
     if ((kind === 'spell-cast' || kind === 'card-played')
         && step.requireCardId
-        && cardId !== step.requireCardId) {
+        && payload?.cardId !== step.requireCardId) {
+      return;
+    }
+    if (kind === 'attack'
+        && step.requireAttackTarget
+        && payload?.attackTarget !== step.requireAttackTarget) {
       return;
     }
     setStepIdx((i) => Math.min(i + 1, STEPS.length - 1));
@@ -207,26 +251,36 @@ export function Tutorial({
               <span>FIRST STEPS</span>
             </div>
             <div className="tu-intro-title">How to play</div>
+            <div className="tu-intro-lede">
+              Drop the opponent's HP to 0 within 12 turns. You'll always go first in this tutorial.
+            </div>
             <div className="tu-intro-rules">
+              <div className="tu-rule">
+                <div className="tu-rule-icon"><Clock size={18} strokeWidth={2.4} /></div>
+                <div>
+                  <div className="tu-rule-h">Each turn has phases</div>
+                  <div className="tu-rule-p">Draw a card &amp; gain +1 max mana → Main Phase (play creatures &amp; spells) → Battle Phase (attack) → End Turn.</div>
+                </div>
+              </div>
               <div className="tu-rule">
                 <div className="tu-rule-icon"><Hand size={18} strokeWidth={2.4} /></div>
                 <div>
-                  <div className="tu-rule-h">Summon, then wait, then attack</div>
-                  <div className="tu-rule-p">Drag a card to play it. Creatures can't attack the turn they were summoned — end your turn first.</div>
+                  <div className="tu-rule-h">Summon creatures</div>
+                  <div className="tu-rule-p">Drag a creature card to the field. Pay its mana cost. It can't attack the turn it was summoned — but it attacks every turn after.</div>
                 </div>
               </div>
               <div className="tu-rule">
                 <div className="tu-rule-icon"><Wand2 size={18} strokeWidth={2.4} /></div>
                 <div>
-                  <div className="tu-rule-h">Spells &amp; heals</div>
-                  <div className="tu-rule-p">Some cards aren't creatures — drag them on the right target to buff, damage, or heal.</div>
+                  <div className="tu-rule-h">Cast spells</div>
+                  <div className="tu-rule-p">Spells aren't creatures — drag them onto a target. They buff, damage, or heal, then they're gone.</div>
                 </div>
               </div>
               <div className="tu-rule">
                 <div className="tu-rule-icon"><Link2 size={18} strokeWidth={2.4} /></div>
                 <div>
-                  <div className="tu-rule-h">Bonds</div>
-                  <div className="tu-rule-p">Two specific cards together unlock a Bond — extra effects every turn.</div>
+                  <div className="tu-rule-h">Card abilities &amp; bonds</div>
+                  <div className="tu-rule-p">Read each card — some have on-play abilities. Specific pairs share Bonds: extra effects whenever both are on the field.</div>
                 </div>
               </div>
             </div>
@@ -261,10 +315,10 @@ export function Tutorial({
         playerAvatar={playerAvatar}
         settings={settings}
         alreadyBeaten={false}
-        onCreaturePlayed={(id) => advance('card-played', id)}
+        onCreaturePlayed={(id) => advance('card-played', { cardId: id })}
         onPlayerTurnEnd={() => advance('turn-end')}
-        onPlayerAttacked={() => advance('attack')}
-        onPlayerSpellCast={(id) => advance('spell-cast', id)}
+        onPlayerAttacked={(target) => advance('attack', { attackTarget: target })}
+        onPlayerSpellCast={(id) => advance('spell-cast', { cardId: id })}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();
@@ -432,7 +486,13 @@ function TutorialStyles() {
         font-size: 24px; font-weight: 800;
         letter-spacing: -0.01em;
         line-height: 1.05;
-        margin-bottom: 16px;
+        margin-bottom: 6px;
+      }
+      .tu-intro-lede {
+        font-size: 13px;
+        color: ${PALETTE.textMid};
+        line-height: 1.45;
+        margin-bottom: 14px;
       }
       .tu-intro-rules {
         display: flex; flex-direction: column; gap: 12px;

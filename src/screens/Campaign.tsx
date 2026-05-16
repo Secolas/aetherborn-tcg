@@ -13,10 +13,12 @@ interface Props {
   collection: CollectionCard[];
   decks: DeckSlot[];
   activeDeckId: string | undefined;
-  /** Tutorial gate — Campaign is locked until the player wins the
-   *  tutorial match. When false, the lane is hidden behind a clear
-   *  "Finish the Tutorial first" overlay with a CTA to start it. */
-  tutorialCompleted: boolean;
+  /** Onboarding gate — Campaign is locked until the player has at
+   *  minimum picked a starter (which only happens after the tutorial
+   *  match ends in a win, see the Home CTA chain). When false, the
+   *  lane is hidden behind a clear "Finish onboarding first" overlay
+   *  with a CTA that takes the player back to the tutorial. */
+  unlocked: boolean;
   onSetActiveDeck: (deckId: string) => void;
   onPickStop: (arcId: string, stopIndex: number) => void;
   onOpenDeckBuilder: () => void;
@@ -84,15 +86,15 @@ const MOBILE_STOPS: { arcId: string; x: number; y: number }[] = [
 ];
 
 export function Campaign({
-  progress, collection, decks, activeDeckId, tutorialCompleted,
+  progress, collection, decks, activeDeckId, unlocked,
   onSetActiveDeck, onPickStop, onOpenDeckBuilder, onBack, onStartTutorial,
 }: Props) {
-  // Tutorial gate — hide the lane entirely and prompt the player to
-  // finish the tutorial first. Cleaner than greying the lane behind
-  // an overlay (the lane is the screen's whole identity; showing it
-  // disabled reads as a bug). Player can back out to Home or jump
-  // straight into Tutorial.tsx via the CTA.
-  if (!tutorialCompleted) {
+  // Onboarding gate — hide the lane and prompt the player to finish
+  // the tutorial + starter pick. Cleaner than greying the lane
+  // behind an overlay (the lane is the screen's whole identity;
+  // showing it disabled reads as a bug). Player can back out to
+  // Home or jump straight into Tutorial.tsx via the CTA.
+  if (!unlocked) {
     return (
       <div className="cm-root">
         <CampaignStyles />
@@ -107,10 +109,10 @@ export function Campaign({
             <Sparkles size={12} strokeWidth={2.4} />
             <span>MEMORY LANE LOCKED</span>
           </div>
-          <div className="cm-gate-title">Finish the Tutorial first</div>
+          <div className="cm-gate-title">Finish setup first</div>
           <div className="cm-gate-body">
-            The campaign opens up once you've cleared the Practice Dummy.
-            It's a quick scripted match — won't take long.
+            Memory Lane opens up once you've cleared the tutorial and
+            picked a starter deck. Won't take long.
           </div>
           <button className="cm-gate-cta" onClick={onStartTutorial}>
             <Sparkles size={16} strokeWidth={2.4} />
