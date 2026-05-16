@@ -560,8 +560,8 @@ function FieldAnatomyDiagram() {
           <div className="tu-field-icon-btn tu-field-icon-btn-phase"><Swords size={11} strokeWidth={2.2} /></div>
         </div>
 
-        <div className="tu-field-zone">
-          <span>SLOT</span><span>SLOT</span><span>SLOT</span>
+        <div className="tu-field-zone tu-field-zone-player">
+          <span><span className="tu-field-num tu-field-num-slot">8</span>SLOT</span><span>SLOT</span><span>SLOT</span>
         </div>
 
         {/* Player header — same layout as opp, mirrored. */}
@@ -613,6 +613,10 @@ function FieldAnatomyDiagram() {
         <div className="tu-field-legend-row">
           <span className="tu-field-num">7</span>
           <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
+        </div>
+        <div className="tu-field-legend-row">
+          <span className="tu-field-num">8</span>
+          <div><strong>Summon zone</strong><em>Three slots — drag creatures here to play them</em></div>
         </div>
       </div>
       <div className="tu-field-tip">
@@ -1284,6 +1288,20 @@ function TutorialStyles() {
         flex-shrink: 0;
       }
       .tu-field-num-hand { margin-right: 4px; }
+      /* Slot chip — sits inside one of the player-side summon zone
+         boxes. Smaller than the other numbered chips so it fits the
+         28px-tall slot rectangle without crowding the "SLOT" label. */
+      .tu-field-num-slot {
+        width: 14px; height: 14px;
+        font-size: 9px;
+        margin-right: 3px;
+        vertical-align: middle;
+      }
+      .tu-field-zone-player > span:first-child {
+        background: rgba(255,235,200,.85);
+        border-color: ${PALETTE.accent};
+        color: ${PALETTE.text};
+      }
 
       /* Numbered legend rows. */
       .tu-field-legend {
