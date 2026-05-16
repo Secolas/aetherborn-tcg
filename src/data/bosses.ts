@@ -79,6 +79,14 @@ export interface BossDef {
    * boss should set this (gameplay relies on shuffled decks).
    */
   skipShuffle?: boolean;
+  /**
+   * Optional per-match turn limit override. Defaults to the
+   * engine's TURN_LIMIT (12). Used by the tutorial so the match
+   * has enough turns for the full scripted lesson (summon, end,
+   * bond, attack creature, attack face, three spells, finish)
+   * before the turn-limit guillotine drops.
+   */
+  turnLimit?: number;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -543,9 +551,18 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'Easy does it. Show me what you can do.',
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     rewardCoins: 0,
-    // Low HP override so the tutorial can be won in 3-4 turns of
-    // proper summon-wait-attack rhythm with 1-cost non-rush creatures.
-    startingHp: 6,
+    // HP set high enough that the opponent can't die before the
+    // player has stepped through every scripted teaching beat
+    // (the previous HP 6 let the match end at step 17 because
+    // Snake Bite + face attacks killed the dummy too early).
+    // The FINISH step still has plenty of room to close it out
+    // — Mug + Plate at ~1 atk each plus a fresh Snake Bite
+    // bring 15 HP down in under five turns.
+    startingHp: 15,
+    // Match-end turn-limit override. Default is 12 turns, which
+    // wasn't enough for the 19-step tutorial; 30 gives the player
+    // generous room to read each hint and play deliberately.
+    turnLimit: 30,
     // Player always opens the tutorial match so the scripted hint
     // sequence lines up with their first turn.
     firstPlayer: 'player',

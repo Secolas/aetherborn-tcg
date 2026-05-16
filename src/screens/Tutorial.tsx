@@ -883,11 +883,16 @@ function TutorialStyles() {
         50%      { transform: scale(1.04);  box-shadow: 0 0 0 8px rgba(238,90,82,.18), 0 0 40px 8px rgba(238,90,82,.55), inset 0 0 0 2px rgba(255,255,255,.55); }
       }
 
-      /* Hint card — fixed near the top of the match. Tap to collapse
-         so it stops covering the field; tap again to expand. */
+      /* Hint card — anchored to the BOTTOM of the match (was top
+         before; that covered the opponent's HP / portrait /
+         cemetery row, which is exactly the half of the board the
+         player needs to read most steps). Bottom sits above the
+         hand but below the field; players can also collapse it to
+         a thin chip via the toggle in the eyebrow if they want
+         even more space. */
       .tu-hint {
         position: absolute;
-        top: max(72px, env(safe-area-inset-top, 72px));
+        bottom: max(180px, calc(env(safe-area-inset-bottom, 0px) + 180px));
         left: 50%;
         transform: translateX(-50%);
         width: calc(100% - 28px);
@@ -937,7 +942,7 @@ function TutorialStyles() {
         line-height: 1.35;
       }
       @keyframes tuHintIn {
-        from { transform: translate(-50%, -8px); opacity: 0; }
+        from { transform: translate(-50%, 8px); opacity: 0; }
         to   { transform: translate(-50%, 0); opacity: 1; }
       }
 
