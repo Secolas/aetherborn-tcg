@@ -1,4 +1,5 @@
-import { Coins, Sparkles } from 'lucide-react';
+import { useState } from 'react';
+import { Coins, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { PALETTE } from '../components/styles';
@@ -11,20 +12,29 @@ interface Props {
 }
 
 /**
- * StarterPick — first-boot theme selector.
+ * StarterPick — first-boot theme selector, carousel edition.
  *
- * Visual language mirrors the existing Booster shop (.bp class in
- * src/screens/PackOpening.tsx): three large vertical "pack" tiles
- * with a "PULL" tear strip at top, an element sigil disc in the
- * middle, "STARTER PACK" eyebrow + theme name in the lower-left,
- * and a frosted bottom band with the deck size + a "FREE" coin chip
- * (since this is the player's complimentary starter, not a paid pack).
+ * One pack visible at a time, full-width on phones. Player swipes
+ * or taps the side arrows to flip between Family / Animals / Food,
+ * then taps the bottom CTA to commit. The previous side-by-side
+ * 3-up grid was unreadable at phone width (sigil clipped over the
+ * pitch, name truncated, FREE chip cut off).
  *
- * Tapping a pack picks it directly — no separate confirm step. The
- * player commits the moment they tap, then the App immediately
- * routes forward to StarterPackOpen.
+ * Visual language for the pack itself stays identical to
+ * PackOpening's booster shop (.bp class) — tear strip, sigil disc,
+ * wordmark, frosted bottom band.
  */
 export function StarterPick({ themes, onPick }: Props) {
+  const [idx, setIdx] = useState(0);
+  const current = themes[idx];
+  const total = themes.length;
+  const el = current ? ELEMENTS[current.id] : null;
+
+  const goPrev = () => setIdx((i) => (i - 1 + total) % total);
+  const goNext = () => setIdx((i) => (i + 1) % total);
+
+  if (!current || !el) return null;
+
   return (
     <div className="sp-root">
       <StarterPickStyles />
@@ -37,47 +47,86 @@ export function StarterPick({ themes, onPick }: Props) {
         <div className="sp-sub">Twelve cards. You'll photograph each one. The other themes you can earn later.</div>
       </div>
 
-      <div className="sp-grid">
-        {themes.map((theme) => {
-          const el = ELEMENTS[theme.id];
-          return (
-            <button
-              key={theme.id}
-              className="bp sp-bp"
-              onClick={() => onPick(theme.id)}
-              aria-label={`Pick the ${el.name} starter deck — 12 cards`}
-              style={{
-                background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
-              }}
-            >
-              <div className="bp-tear" aria-hidden>
-                <div className="bp-tear-pattern" />
-                <div className="bp-tear-label">PULL</div>
+      <div className="sp-carousel">
+        <button
+          className="sp-arrow sp-arrow-l"
+          onClick={goPrev}
+          aria-label="Previous deck"
+        >
+          <ChevronLeft size={22} strokeWidth={2.6} />
+        </button>
+
+        <div className="sp-card-wrap" key={current.id}>
+          <div
+            className="bp sp-bp"
+            style={{
+              background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
+            }}
+            role="img"
+            aria-label={`${el.name} starter deck — 12 cards`}
+          >
+            <div className="bp-tear" aria-hidden>
+              <div className="bp-tear-pattern" />
+              <div className="bp-tear-label">PULL</div>
+            </div>
+            <div className="bp-foil" aria-hidden />
+            <div className="bp-sigil" aria-hidden>
+              <ElementGlyph el={current.id} size={56} />
+            </div>
+            <div className="bp-wordmark">
+              <div className="bp-eyebrow">Starter pack</div>
+              <div className="bp-name">{current.name}</div>
+              <div className="bp-pitch">{current.pitch}</div>
+            </div>
+            <div className="bp-band">
+              <div className="bp-band-l">
+                <span>12 cards</span>
+                <span className="bp-band-dot">·</span>
+                <span className="bp-band-rare">Beginner</span>
               </div>
-              <div className="bp-foil" aria-hidden />
-              <div className="bp-sigil" aria-hidden>
-                <ElementGlyph el={theme.id} size={48} />
-              </div>
-              <div className="bp-wordmark">
-                <div className="bp-eyebrow">Starter pack</div>
-                <div className="bp-name">{theme.name}</div>
-                <div className="bp-pitch">{theme.pitch}</div>
-              </div>
-              <div className="bp-band">
-                <div className="bp-band-l">
-                  <span>12 cards</span>
-                  <span className="bp-band-dot">·</span>
-                  <span className="bp-band-rare">Beginner</span>
-                </div>
-                <span className="bp-coin">
-                  <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
-                  FREE
-                </span>
-              </div>
-            </button>
-          );
-        })}
+              <span className="bp-coin">
+                <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+                FREE
+              </span>
+            </div>
+          </div>
+          <div className="sp-desc">{current.description}</div>
+        </div>
+
+        <button
+          className="sp-arrow sp-arrow-r"
+          onClick={goNext}
+          aria-label="Next deck"
+        >
+          <ChevronRight size={22} strokeWidth={2.6} />
+        </button>
       </div>
+
+      <div className="sp-dots" role="tablist" aria-label="Starter decks">
+        {themes.map((t, i) => (
+          <button
+            key={t.id}
+            className="sp-dot"
+            data-active={i === idx}
+            onClick={() => setIdx(i)}
+            role="tab"
+            aria-selected={i === idx}
+            aria-label={`Show ${ELEMENTS[t.id].name} deck`}
+          />
+        ))}
+      </div>
+
+      <button
+        className="sp-confirm"
+        onClick={() => onPick(current.id)}
+        style={{
+          '--theme-color': el.color,
+          '--theme-deep': el.deep,
+        } as React.CSSProperties}
+      >
+        <span>Take the {current.name} deck</span>
+        <ChevronRight size={18} strokeWidth={2.4} />
+      </button>
     </div>
   );
 }
@@ -94,11 +143,11 @@ function StarterPickStyles() {
         color: ${PALETTE.text};
         font-family: "Fredoka", "Inter", system-ui, sans-serif;
         display: flex; flex-direction: column;
-        overflow-y: auto;
-        padding: max(24px, env(safe-area-inset-top, 24px)) 16px 16px 16px;
+        padding: max(24px, env(safe-area-inset-top, 24px)) 16px max(20px, env(safe-area-inset-bottom, 20px)) 16px;
+        gap: 14px;
       }
 
-      .sp-head { text-align: center; margin-bottom: 16px; }
+      .sp-head { text-align: center; }
       .sp-eyebrow {
         display: inline-flex; align-items: center; gap: 6px;
         font-size: 11px; font-weight: 800;
@@ -121,109 +170,66 @@ function StarterPickStyles() {
         margin-right: auto;
       }
 
-      /* Three-up horizontal grid — all three starter packs visible
-         at once so the player can compare side by side. Each tile
-         keeps the portrait booster aspect (0.72) so the booster-pack
-         visual reads as a real pack. Inner type sizes drop a notch
-         on narrow phones (see media query below) so name + pitch +
-         band still fit at 33% width. */
-      .sp-grid {
+      /* Carousel — chevrons flank a single full-width pack. The
+         pack reanimates when idx changes via the React key on
+         .sp-card-wrap, so flipping feels like a real swap, not a
+         silent color change. */
+      .sp-carousel {
+        flex: 1;
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        align-items: stretch;
-        gap: 8px;
-        margin-bottom: 14px;
+        grid-template-columns: 36px 1fr 36px;
+        align-items: center;
+        gap: 6px;
+        min-height: 0;
       }
-      /* Tighten the pack internals at phone widths so the 3-up
-         grid stays legible without overflowing each tile. */
-      @media (max-width: 480px) {
-        .sp-grid { gap: 6px; }
-        .sp-bp .bp-sigil { width: 48px; height: 48px; top: 18%; }
-        .sp-bp .bp-wordmark { left: 8px; right: 8px; bottom: 46px; }
-        .sp-bp .bp-name { font-size: 15px; }
-        .sp-bp .bp-pitch { font-size: 9px; line-height: 1.25; margin-top: 4px; }
-        .sp-bp .bp-eyebrow { font-size: 8px; letter-spacing: 0.16em; }
-        .sp-bp .bp-band { left: 6px; right: 6px; bottom: 6px; padding: 5px 8px; }
-        .sp-bp .bp-band-l { font-size: 9px; gap: 3px; }
-        .sp-bp .bp-band-l > span:not(.bp-band-rare):not(.bp-band-dot) { display: none; }
-        .sp-bp .bp-band-dot { display: none; }
-        .sp-bp .bp-coin { padding: 2px 6px; font-size: 9px; }
-        .sp-bp .bp-tear { height: 18px; }
-        .sp-bp .bp-tear-label { font-size: 7px; letter-spacing: 0.30em; }
+      .sp-card-wrap {
+        display: flex; flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        animation: spCarouselIn .22s cubic-bezier(.2,.85,.3,1);
       }
-
-      /* Inherit the booster shop's .bp visual — colors / shadows /
-         tear strip / foil / sigil / band — and only override what
-         differs for the starter picker (active ring, eyebrow text
-         size, no-disabled state). */
+      @keyframes spCarouselIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+      }
       .sp-bp {
         position: relative;
         aspect-ratio: 0.72;
+        width: 100%;
+        max-width: 260px;
         border-radius: 16px;
         border: 0; padding: 0;
-        cursor: pointer; color: #fff;
-        font-family: inherit;
+        color: #fff;
         overflow: hidden;
         box-shadow:
-          0 4px 0 rgba(28,24,20,.08),
-          0 14px 28px -10px rgba(28,24,20,.18),
-          inset 0 -3px 0 rgba(0,0,0,.22),
-          inset 0 1.5px 0 rgba(255,255,255,.18);
-        transition: transform .18s cubic-bezier(.2,.7,.2,1), box-shadow .2s;
-      }
-      /* Hover animation mimics a pack about to be torn open — the
-         whole pack lifts and rocks, the tear strip slides up + tips
-         back, and a foil sheen sweeps across. Active (already picked)
-         tile holds the lifted state without the rock. */
-      .sp-bp:hover {
-        transform: translateY(-8px) rotate(-1.2deg);
-        animation: spPackWobble 1.2s ease-in-out infinite;
-        box-shadow:
           0 8px 0 rgba(28,24,20,.10),
-          0 22px 40px -10px rgba(28,24,20,.32),
+          0 18px 36px -10px rgba(28,24,20,.28),
           inset 0 -3px 0 rgba(0,0,0,.22),
           inset 0 1.5px 0 rgba(255,255,255,.18);
       }
-      .sp-bp:hover .bp-tear {
-        transform: translateY(-3px) rotate(-1.2deg);
-        transform-origin: left center;
+      .sp-desc {
+        font-size: 12px;
+        color: ${PALETTE.textMid};
+        line-height: 1.4;
+        text-align: center;
+        max-width: 280px;
       }
-      .sp-bp:hover .bp-foil {
-        animation: spFoilSweep 1.4s ease-out infinite;
+      .sp-arrow {
+        width: 36px; height: 36px;
+        display: grid; place-items: center;
+        background: ${PALETTE.paper};
+        color: ${PALETTE.text};
+        border: 1.5px solid ${PALETTE.border};
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(28,24,20,.12);
+        transition: transform .12s;
       }
-      .sp-bp:hover .bp-sigil {
-        transform: translate(-50%, -2px) scale(1.06);
-      }
-      .sp-bp:active { transform: translateY(-2px) rotate(0deg); animation: none; }
-      .sp-bp[data-active="true"] {
-        transform: translateY(-6px) rotate(-0.8deg);
-        box-shadow:
-          0 8px 0 rgba(28,24,20,.10),
-          0 22px 40px -10px rgba(28,24,20,.32),
-          inset 0 -3px 0 rgba(0,0,0,.22),
-          inset 0 0 0 3px rgba(255,255,255,.55),
-          inset 0 1.5px 0 rgba(255,255,255,.18);
-      }
-      .sp-bp[data-active="true"] .bp-tear {
-        transform: translateY(-3px) rotate(-1.2deg);
-        transform-origin: left center;
-      }
-      .sp-bp .bp-tear,
-      .sp-bp .bp-sigil {
-        transition: transform .18s cubic-bezier(.2,.85,.3,1);
-      }
+      .sp-arrow:hover { transform: scale(1.05); }
+      .sp-arrow:active { transform: scale(0.96); }
 
-      @keyframes spPackWobble {
-        0%, 100% { transform: translateY(-8px) rotate(-1.2deg); }
-        50%      { transform: translateY(-10px) rotate(1.0deg); }
-      }
-      @keyframes spFoilSweep {
-        0%   { opacity: 0.6; transform: translateX(-20%); }
-        50%  { opacity: 1;   transform: translateX(15%); }
-        100% { opacity: 0.6; transform: translateX(-20%); }
-      }
-
-      /* Foil sheen overlay (mirrors .bp-foil). */
+      /* Booster pack internals — copied from PackOpening.tsx's .bp
+         so the look stays consistent. */
       .sp-bp .bp-foil {
         position: absolute; inset: 22px 0 0 0;
         background:
@@ -233,11 +239,9 @@ function StarterPickStyles() {
         opacity: 0.85;
         pointer-events: none;
       }
-
-      /* Sigil disc. */
       .sp-bp .bp-sigil {
         position: absolute; top: 22%; left: 50%;
-        width: 72px; height: 72px;
+        width: 82px; height: 82px;
         transform: translate(-50%, 0);
         border-radius: 50%;
         background: rgba(255,255,255,.10);
@@ -246,38 +250,29 @@ function StarterPickStyles() {
         display: grid; place-items: center;
         color: #fff;
       }
-      @media (min-width: 480px) {
-        .sp-bp .bp-sigil { width: 84px; height: 84px; }
-      }
-
-      /* Wordmark — extended with a per-tile pitch line. */
       .sp-bp .bp-wordmark {
         position: absolute;
-        left: 12px; right: 12px; bottom: 52px;
+        left: 12px; right: 12px; bottom: 56px;
         text-align: left;
       }
       .sp-bp .bp-eyebrow {
-        font-family: inherit; font-weight: 800;
+        font-weight: 800;
         font-size: 9px; letter-spacing: 0.22em;
         text-transform: uppercase; opacity: 0.75;
       }
       .sp-bp .bp-name {
-        font-family: inherit; font-weight: 800;
-        font-size: 20px; letter-spacing: -0.005em;
+        font-weight: 800;
+        font-size: 22px; letter-spacing: -0.005em;
         margin-top: 2px;
         text-shadow: 0 1px 0 rgba(0,0,0,.18);
         line-height: 1.05;
       }
       .sp-bp .bp-pitch {
         margin-top: 6px;
-        font-size: 10px; font-weight: 600;
-        opacity: 0.82;
-        letter-spacing: 0.01em;
+        font-size: 11px; font-weight: 600;
+        opacity: 0.85;
         line-height: 1.3;
       }
-      @media (min-width: 720px) { .sp-bp .bp-name { font-size: 22px; } }
-
-      /* Tear strip. */
       .sp-bp .bp-tear {
         position: absolute; top: 0; left: 0; right: 0;
         height: 22px;
@@ -294,12 +289,10 @@ function StarterPickStyles() {
       }
       .sp-bp .bp-tear-label {
         position: relative;
-        font-family: inherit; font-weight: 800;
+        font-weight: 800;
         font-size: 8px; letter-spacing: 0.35em;
         color: rgba(255,255,255,.65);
       }
-
-      /* Bottom band — info chip. */
       .sp-bp .bp-band {
         position: absolute; left: 10px; right: 10px; bottom: 10px;
         padding: 7px 10px;
@@ -309,7 +302,7 @@ function StarterPickStyles() {
         border-radius: 10px;
         display: flex; justify-content: space-between; align-items: center;
         gap: 8px;
-        font-family: inherit; font-weight: 700;
+        font-weight: 700;
         font-size: 10px; letter-spacing: 0.04em;
       }
       .sp-bp .bp-band-l {
@@ -327,6 +320,43 @@ function StarterPickStyles() {
         color: #ffd96b;
       }
 
+      /* Pagination dots */
+      .sp-dots {
+        display: flex; gap: 8px; justify-content: center;
+      }
+      .sp-dot {
+        width: 8px; height: 8px;
+        background: ${PALETTE.border};
+        border: 0;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: width .15s, background .15s;
+      }
+      .sp-dot[data-active="true"] {
+        width: 22px;
+        background: ${PALETTE.accent};
+        border-radius: 999px;
+      }
+
+      /* Bottom confirm — restored at user request so the pick is
+         intentional ("Take the X deck") instead of triggered by
+         every accidental carousel tap. */
+      .sp-confirm {
+        width: 100%;
+        display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+        padding: 14px 22px;
+        background: linear-gradient(180deg, color-mix(in srgb, var(--theme-color) 88%, #fff) 0%, var(--theme-color) 60%, var(--theme-deep) 100%);
+        color: #fff;
+        border: 0;
+        border-radius: 999px;
+        font-family: inherit;
+        font-size: 15px; font-weight: 800;
+        letter-spacing: 0.02em;
+        cursor: pointer;
+        box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
+        transition: transform .12s;
+      }
+      .sp-confirm:hover { transform: translateY(-1px); }
     `}</style>
   );
 }
