@@ -178,7 +178,7 @@ export function BossPicker({
             </span>
           </div>
           <div className="crest">
-            <div className="vol">Bestiary</div>
+            <div className="vol">Bosses</div>
             <div className="title">Pick a fight</div>
           </div>
           <div className="right-tools">
