@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coins, Sparkles, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Coins, Sparkles, ChevronRight } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { PALETTE } from '../components/styles';
@@ -12,28 +12,26 @@ interface Props {
 }
 
 /**
- * StarterPick — first-boot theme selector, carousel edition.
+ * StarterPick — first-boot theme selector, fan-of-three edition.
  *
- * One pack visible at a time, full-width on phones. Player swipes
- * or taps the side arrows to flip between Family / Animals / Food,
- * then taps the bottom CTA to commit. The previous side-by-side
- * 3-up grid was unreadable at phone width (sigil clipped over the
- * pitch, name truncated, FREE chip cut off).
+ * All three starter packs fan out across the screen like a hand of
+ * cards: the focused pack sits dead-centre at full size, the two
+ * others rotate and shrink to either side. Tapping a side pack
+ * brings it to the centre; the bottom CTA commits the centred
+ * pack.
  *
- * Visual language for the pack itself stays identical to
- * PackOpening's booster shop (.bp class) — tear strip, sigil disc,
- * wordmark, frosted bottom band.
+ * Visual language for each pack stays identical to PackOpening's
+ * booster shop (.bp class) — tear strip, sigil disc, wordmark,
+ * frosted bottom band.
  */
 export function StarterPick({ themes, onPick }: Props) {
-  const [idx, setIdx] = useState(0);
-  const current = themes[idx];
-  const total = themes.length;
-  const el = current ? ELEMENTS[current.id] : null;
-
-  const goPrev = () => setIdx((i) => (i - 1 + total) % total);
-  const goNext = () => setIdx((i) => (i + 1) % total);
-
-  if (!current || !el) return null;
+  // Default focus = middle of the array so the player can clearly
+  // see there ARE side options (the previous carousel landed on
+  // Family first and read as "only one choice").
+  const [focusIdx, setFocusIdx] = useState(Math.floor(themes.length / 2));
+  const focused = themes[focusIdx];
+  if (!focused) return null;
+  const focusedEl = ELEMENTS[focused.id];
 
   return (
     <div className="sp-root">
@@ -44,87 +42,72 @@ export function StarterPick({ themes, onPick }: Props) {
           <span>FIRST DAY</span>
         </div>
         <div className="sp-title">Select your starter deck</div>
-        <div className="sp-sub">Twelve cards. You'll photograph each one. The other themes you can earn later.</div>
+        <div className="sp-sub">Three decks. Tap one to bring it forward, then commit at the bottom.</div>
       </div>
 
-      <div className="sp-carousel">
-        <button
-          className="sp-arrow sp-arrow-l"
-          onClick={goPrev}
-          aria-label="Previous deck"
-        >
-          <ChevronLeft size={22} strokeWidth={2.6} />
-        </button>
-
-        <div className="sp-card-wrap" key={current.id}>
-          <div
-            className="bp sp-bp"
-            style={{
-              background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
-            }}
-            role="img"
-            aria-label={`${el.name} starter deck — 12 cards`}
-          >
-            <div className="bp-tear" aria-hidden>
-              <div className="bp-tear-pattern" />
-              <div className="bp-tear-label">PULL</div>
-            </div>
-            <div className="bp-foil" aria-hidden />
-            <div className="bp-sigil" aria-hidden>
-              <ElementGlyph el={current.id} size={56} />
-            </div>
-            <div className="bp-wordmark">
-              <div className="bp-eyebrow">Starter pack</div>
-              <div className="bp-name">{current.name}</div>
-              <div className="bp-pitch">{current.pitch}</div>
-            </div>
-            <div className="bp-band">
-              <div className="bp-band-l">
-                <span>12 cards</span>
-                <span className="bp-band-dot">·</span>
-                <span className="bp-band-rare">Beginner</span>
+      <div className="sp-fan">
+        {themes.map((theme, i) => {
+          const el = ELEMENTS[theme.id];
+          // Position relative to the focused pack. Centre = 0,
+          // left side packs negative offset, right side positive.
+          // The transform stack (translate + rotate + scale) sells
+          // the "hand of cards" feel; layered z-index keeps the
+          // focused pack rendered on top of its neighbours.
+          const offset = i - focusIdx;
+          const isFocused = offset === 0;
+          return (
+            <button
+              key={theme.id}
+              className="bp sp-bp"
+              data-focused={isFocused}
+              data-offset={offset}
+              onClick={() => setFocusIdx(i)}
+              aria-label={`${el.name} starter deck${isFocused ? ' — focused' : ''}`}
+              style={{
+                background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
+                '--offset': offset,
+              } as React.CSSProperties}
+            >
+              <div className="bp-tear" aria-hidden>
+                <div className="bp-tear-pattern" />
+                <div className="bp-tear-label">PULL</div>
               </div>
-              <span className="bp-coin">
-                <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
-                FREE
-              </span>
-            </div>
-          </div>
-          <div className="sp-desc">{current.description}</div>
-        </div>
-
-        <button
-          className="sp-arrow sp-arrow-r"
-          onClick={goNext}
-          aria-label="Next deck"
-        >
-          <ChevronRight size={22} strokeWidth={2.6} />
-        </button>
+              <div className="bp-foil" aria-hidden />
+              <div className="bp-sigil" aria-hidden>
+                <ElementGlyph el={theme.id} size={56} />
+              </div>
+              <div className="bp-wordmark">
+                <div className="bp-eyebrow">Starter pack</div>
+                <div className="bp-name">{theme.name}</div>
+                <div className="bp-pitch">{theme.pitch}</div>
+              </div>
+              <div className="bp-band">
+                <div className="bp-band-l">
+                  <span>12 cards</span>
+                  <span className="bp-band-dot">·</span>
+                  <span className="bp-band-rare">Beginner</span>
+                </div>
+                <span className="bp-coin">
+                  <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+                  FREE
+                </span>
+              </div>
+            </button>
+          );
+        })}
       </div>
 
-      <div className="sp-dots" role="tablist" aria-label="Starter decks">
-        {themes.map((t, i) => (
-          <button
-            key={t.id}
-            className="sp-dot"
-            data-active={i === idx}
-            onClick={() => setIdx(i)}
-            role="tab"
-            aria-selected={i === idx}
-            aria-label={`Show ${ELEMENTS[t.id].name} deck`}
-          />
-        ))}
-      </div>
+      <div className="sp-desc">{focused.description}</div>
 
       <button
         className="sp-confirm"
-        onClick={() => onPick(current.id)}
+        onClick={() => onPick(focused.id)}
         style={{
-          '--theme-color': el.color,
-          '--theme-deep': el.deep,
+          '--theme-color': focusedEl.color,
+          '--theme-deep': focusedEl.deep,
         } as React.CSSProperties}
       >
-        <span>Take the {current.name} deck</span>
+        <span>Take the {focused.name} deck</span>
         <ChevronRight size={18} strokeWidth={2.4} />
       </button>
     </div>
@@ -170,63 +153,85 @@ function StarterPickStyles() {
         margin-right: auto;
       }
 
-      /* Carousel — chevrons flank a single full-width pack. The
-         pack reanimates when idx changes via the React key on
-         .sp-card-wrap, so flipping feels like a real swap, not a
-         silent color change. */
-      .sp-carousel {
+      /* Fan stage — three packs absolutely positioned around the
+         centre. Transform stack derives from the data-offset
+         attribute (-1, 0, 1 for left / centre / right). */
+      .sp-fan {
+        position: relative;
         flex: 1;
-        display: grid;
-        grid-template-columns: 36px 1fr 36px;
-        align-items: center;
-        gap: 6px;
         min-height: 0;
-      }
-      .sp-card-wrap {
-        display: flex; flex-direction: column;
-        align-items: center;
-        gap: 12px;
-        animation: spCarouselIn .22s cubic-bezier(.2,.85,.3,1);
-      }
-      @keyframes spCarouselIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to   { opacity: 1; transform: translateY(0); }
+        display: grid;
+        place-items: center;
+        perspective: 900px;
       }
       .sp-bp {
-        position: relative;
+        position: absolute;
+        width: 220px;
         aspect-ratio: 0.72;
-        width: 100%;
-        max-width: 260px;
         border-radius: 16px;
         border: 0; padding: 0;
         color: #fff;
         overflow: hidden;
+        cursor: pointer;
         box-shadow:
           0 8px 0 rgba(28,24,20,.10),
           0 18px 36px -10px rgba(28,24,20,.28),
           inset 0 -3px 0 rgba(0,0,0,.22),
           inset 0 1.5px 0 rgba(255,255,255,.18);
+        transform-origin: 50% 110%;
+        transition: transform .35s cubic-bezier(.2,.85,.3,1), filter .25s, box-shadow .25s;
+        font-family: inherit;
       }
-      .sp-desc {
-        font-size: 12px;
-        color: ${PALETTE.textMid};
-        line-height: 1.4;
-        text-align: center;
-        max-width: 280px;
+      /* Side packs: rotated outward, shrunk, slightly faded — they
+         read as "available but not selected". The actual rotation
+         angle is driven by the inline --offset variable so adding
+         a fourth pack later would extend the fan cleanly. */
+      .sp-bp[data-focused="false"] {
+        transform:
+          translateX(calc(var(--offset) * 78px))
+          rotate(calc(var(--offset) * 11deg))
+          translateY(20px)
+          scale(.88);
+        filter: brightness(.72) saturate(.85);
+        z-index: 1;
       }
-      .sp-arrow {
-        width: 36px; height: 36px;
-        display: grid; place-items: center;
-        background: ${PALETTE.paper};
-        color: ${PALETTE.text};
-        border: 1.5px solid ${PALETTE.border};
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 4px 10px rgba(28,24,20,.12);
-        transition: transform .12s;
+      .sp-bp[data-focused="false"]:hover {
+        filter: brightness(.85) saturate(.95);
+        transform:
+          translateX(calc(var(--offset) * 78px))
+          rotate(calc(var(--offset) * 11deg))
+          translateY(14px)
+          scale(.92);
       }
-      .sp-arrow:hover { transform: scale(1.05); }
-      .sp-arrow:active { transform: scale(0.96); }
+      .sp-bp[data-focused="true"] {
+        transform: translateY(0) scale(1);
+        z-index: 3;
+        box-shadow:
+          0 12px 0 rgba(28,24,20,.10),
+          0 22px 48px -10px rgba(28,24,20,.40),
+          inset 0 -3px 0 rgba(0,0,0,.22),
+          inset 0 0 0 3px rgba(255,255,255,.45),
+          inset 0 1.5px 0 rgba(255,255,255,.18);
+      }
+      /* Phone-sized fan — narrower offset so the side packs stay on
+         screen and don't crash into the screen edges. */
+      @media (max-width: 480px) {
+        .sp-bp { width: 200px; }
+        .sp-bp[data-focused="false"] {
+          transform:
+            translateX(calc(var(--offset) * 58px))
+            rotate(calc(var(--offset) * 12deg))
+            translateY(18px)
+            scale(.86);
+        }
+        .sp-bp[data-focused="false"]:hover {
+          transform:
+            translateX(calc(var(--offset) * 58px))
+            rotate(calc(var(--offset) * 12deg))
+            translateY(12px)
+            scale(.90);
+        }
+      }
 
       /* Booster pack internals — copied from PackOpening.tsx's .bp
          so the look stays consistent. */
@@ -241,7 +246,7 @@ function StarterPickStyles() {
       }
       .sp-bp .bp-sigil {
         position: absolute; top: 22%; left: 50%;
-        width: 82px; height: 82px;
+        width: 78px; height: 78px;
         transform: translate(-50%, 0);
         border-radius: 50%;
         background: rgba(255,255,255,.10);
@@ -320,27 +325,15 @@ function StarterPickStyles() {
         color: #ffd96b;
       }
 
-      /* Pagination dots */
-      .sp-dots {
-        display: flex; gap: 8px; justify-content: center;
-      }
-      .sp-dot {
-        width: 8px; height: 8px;
-        background: ${PALETTE.border};
-        border: 0;
-        border-radius: 50%;
-        cursor: pointer;
-        transition: width .15s, background .15s;
-      }
-      .sp-dot[data-active="true"] {
-        width: 22px;
-        background: ${PALETTE.accent};
-        border-radius: 999px;
+      .sp-desc {
+        font-size: 13px;
+        color: ${PALETTE.textMid};
+        line-height: 1.45;
+        text-align: center;
+        max-width: 320px;
+        margin: 0 auto;
       }
 
-      /* Bottom confirm — restored at user request so the pick is
-         intentional ("Take the X deck") instead of triggered by
-         every accidental carousel tap. */
       .sp-confirm {
         width: 100%;
         display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -354,7 +347,7 @@ function StarterPickStyles() {
         letter-spacing: 0.02em;
         cursor: pointer;
         box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
-        transition: transform .12s;
+        transition: transform .12s, background .25s;
       }
       .sp-confirm:hover { transform: translateY(-1px); }
     `}</style>
