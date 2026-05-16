@@ -165,6 +165,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [playerSlots, setPlayerSlots] = useState<Record<string, number>>({});
   const [opponentSlots, setOpponentSlots] = useState<Record<string, number>>({});
   const [inspect, setInspect] = useState<BattleCard | null>(null);
+  /** Memory modal — when the player taps the (i) on a card with a
+   *  memory attached, the memory text gets surfaced over the board.
+   *  Tap anywhere to dismiss. */
+  const [memoryView, setMemoryView] = useState<BattleCard | null>(null);
   /** Card that the AI just played, shown as a centered reveal so the player sees it. */
   const [opponentReveal, setOpponentReveal] = useState<BattleCard | null>(null);
   /** Legendary-summon cinematic. Whenever a creature of rarity `legendary`
@@ -2442,7 +2446,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 pointerEvents: 'auto',
               }}
             >
-              <Card card={card} scale={0.95} hovered unaffordable={!playableNow} />
+              <Card
+                card={card}
+                scale={0.95}
+                hovered
+                unaffordable={!playableNow}
+                onMemoryClick={() => setMemoryView(card)}
+              />
               {/* Spell-lock indicator in the preview — matches the
                   hand overlay so the player sees the same cue at any
                   zoom level. The action-label below also reads
@@ -3188,6 +3198,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               // belongs to the opponent and shouldn't wear the
               // player's frame.
               owned={state.player.field.some(c => c.battleId === inspect.battleId) || state.player.hand.some(c => c.battleId === inspect.battleId)}
+              onMemoryClick={() => { setInspect(null); setMemoryView(inspect); }}
             />
             {/* Status labels — long-press surfaces what every icon on the
                 creature actually means, since the small status pills aren't
@@ -3226,6 +3237,74 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             textAlign: 'center', fontSize: 10, opacity: 0.6,
             letterSpacing: '0.2em', textTransform: 'uppercase',
           }}>tap anywhere to close</div>
+        </div>
+      )}
+
+      {/* Memory modal — surfaces the player's written memory for a
+          card when they tap the (i) icon on its title row. Tap the
+          backdrop to dismiss. Only fires for cards that actually
+          have a non-empty memory string. */}
+      {memoryView && (memoryView as unknown as { memory?: string }).memory && (
+        <div
+          onClick={() => setMemoryView(null)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(8, 4, 12, 0.78)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 220,
+            padding: 24,
+            animation: 'fadeIn .18s ease-out',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 360,
+              background: PALETTE.paper,
+              border: `1.5px solid ${PALETTE.border}`,
+              borderLeft: `4px solid ${PALETTE.accent}`,
+              borderRadius: 18,
+              padding: '22px 22px 20px',
+              boxShadow: '0 20px 40px rgba(28,24,20,.40)',
+              animation: 'cardSummon 0.3s cubic-bezier(.2,.8,.3,1)',
+            }}
+          >
+            <div style={{
+              fontSize: 10, fontWeight: 800,
+              letterSpacing: '0.18em', textTransform: 'uppercase',
+              color: PALETTE.accent,
+              marginBottom: 4,
+            }}>
+              MEMORY · {memoryView.name}
+            </div>
+            <div style={{
+              fontSize: 16, fontWeight: 600,
+              color: PALETTE.text,
+              fontStyle: 'italic',
+              lineHeight: 1.5,
+            }}>
+              "{(memoryView as unknown as { memory: string }).memory}"
+            </div>
+            <button
+              onClick={() => setMemoryView(null)}
+              style={{
+                marginTop: 16,
+                background: PALETTE.text,
+                color: '#fff',
+                border: 0,
+                borderRadius: 999,
+                padding: '8px 18px',
+                fontFamily: 'inherit',
+                fontWeight: 800,
+                fontSize: 12,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
 

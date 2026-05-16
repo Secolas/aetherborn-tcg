@@ -178,7 +178,7 @@ export function BossPicker({
             </span>
           </div>
           <div className="crest">
-            <div className="vol">Vol. III · Bestiary</div>
+            <div className="vol">Bestiary</div>
             <div className="title">Pick a fight</div>
           </div>
           <div className="right-tools">
@@ -656,6 +656,7 @@ function BestiaryStyles() {
       .duel-container {
         container-type: inline-size;
         width: 100%; height: 100%;
+        overflow-x: hidden;
         overflow-y: auto;
         background:
           radial-gradient(ellipse 100% 60% at 50% 0%, #fff8e8 0%, transparent 70%),

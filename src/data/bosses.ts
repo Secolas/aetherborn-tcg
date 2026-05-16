@@ -123,7 +123,7 @@ export const BOSSES: BossDef[] = [
     },
     // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.
     backdrop: U('photo-1556909114-f6e7ad7d3136'),
-    // Mythic: 2x Abuela and 2x Dad so the Generations / Sunday Dinner
+    // Mythic: 2x Abuela and 2x Dad so the Generations / Family Reunion
     // bonds fire reliably. Drops the cheaper bodies that the Normal
     // deck used as filler. Includes the cheap Hug heal.
     mythicDeck: [

@@ -173,7 +173,17 @@ function SettingsStyles() {
       }
       .settings .settings-sec-r {
         font-size: 12px; font-style: italic; color: ${PALETTE.textMid};
-        max-width: 28ch; text-align: right;
+        text-align: left;
+        flex: 1 1 200px;
+        min-width: 0;
+      }
+      /* Desktop / tablet — right-align as before once there's room. */
+      @container (min-width: 720px) {
+        .settings .settings-sec-r {
+          flex: 0 1 auto;
+          max-width: 28ch;
+          text-align: right;
+        }
       }
 
       /* Card */

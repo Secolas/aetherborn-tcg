@@ -141,12 +141,12 @@ function emptyPlayer(): PlayerState {
  *     If either has left the field, the claim releases and its cards
  *     become free to form new bonds.
  *  2. Already-claimed cards block any other bond they participate in
- *     from forming. Mom locked in Sunday Dinner with Dad → Generations
- *     stays dormant even if Abuela is also on the field. Sunday Dinner
+ *     from forming. Mom locked in Family Reunion with Dad → Generations
+ *     stays dormant even if Abuela is also on the field. Family Reunion
  *     stays the link until Dad leaves.
  *  3. Newly eligible bonds (both cards present, neither claimed) compete
  *     by `amount` — higher amount wins the tie, so when all three Family
- *     creatures land at once, Generations (+2) beats Sunday Dinner (+1).
+ *     creatures land at once, Generations (+2) beats Family Reunion (+1).
  *     Same-amount ties fall back to definition order.
  *
  * Both UI and effects read through `activeBonds(p)` which simply returns
@@ -432,7 +432,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
     state.log.push(`${displayName(c)} heals ${owner === 'player' ? 'you' : 'The Boss'} for ${c.abilityValue}`);
   });
 
-  // Bond: heal_face_per_turn (Family — Sunday Dinner)
+  // Bond: heal_face_per_turn (Family — Family Reunion)
   for (const b of activeBonds(me)) {
     if (b.effect.kind === 'heal_face_per_turn' && b.effect.amount) {
       const before = me.hp;
