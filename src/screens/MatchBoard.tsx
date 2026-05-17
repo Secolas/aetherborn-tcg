@@ -281,6 +281,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  boss summons its next card. Updated by `holdAnim(ms)` from
    *  anywhere that schedules a visual. */
   const animBusyUntilRef = useRef<number>(0);
+  // Tutorial-only throttle: counts creature plays so the dummy boss
+  // (boss.oneCreaturePerTurn) can be capped at one body per turn.
+  // Resets at the start of every opponent turn.
+  const oppCreaturesPlayedRef = useRef<number>(0);
   const holdAnim = (ms: number) => {
     const target = Date.now() + ms;
     if (target > animBusyUntilRef.current) animBusyUntilRef.current = target;
@@ -441,7 +445,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         busyTimer = setTimeout(tick, wait);
         return;
       }
-      const step = aiStep(state);
+      const skipCreaturePlays = !!boss.oneCreaturePerTurn && oppCreaturesPlayedRef.current >= 1;
+      const step = aiStep(state, { skipCreaturePlays });
+      if (step?.played?.type === 'Creature') {
+        oppCreaturesPlayedRef.current += 1;
+      }
       if (step) {
         // ai.ts uses a generic "The Boss" prefix in its log strings; we
         // substitute the actual boss name at display time so the message
@@ -544,6 +552,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     // state since the boss can't be in the middle of human phase
     // navigation.)
     if (state.turn === 'player') setPlayerPhase('main');
+    if (state.turn === 'opponent') oppCreaturesPlayedRef.current = 0;
     if (firstTurnRef.current) { firstTurnRef.current = false; return; }
     if (state.outcome !== 'ongoing') return;
     const targetTurn = state.turn;

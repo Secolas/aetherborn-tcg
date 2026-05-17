@@ -87,6 +87,13 @@ export interface BossDef {
    * before the turn-limit guillotine drops.
    */
   turnLimit?: number;
+  /**
+   * Optional tutorial-only AI throttle. When true the engine caps the
+   * opponent to ONE creature summon per turn (spells and attacks are
+   * unaffected). Without this the AI would empty cheap creatures from
+   * hand and flood its field, blocking later scripted Rush plays.
+   */
+  oneCreaturePerTurn?: boolean;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -541,13 +548,14 @@ export const MINI_BOSSES: BossDef[] = [
   // ============================================================
   {
     id: 'tutorial-dummy',
-    name: 'Practice Dummy',
-    subtitle: 'A friendly sparring partner',
+    name: 'Mom',
+    subtitle: 'Showing you the ropes',
     themeId: 'family',
-    avatar: '?',
-    avatarPhoto: U('photo-1607513746994-51f730a44832'),
+    avatar: 'M',
+    avatarPhoto: '/cards/mom.png',
     intro: 'Easy does it. Show me what you can do.',
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
+    oneCreaturePerTurn: true,
     rewardCoins: 0,
     // HP tuned to the new 19-step turn-by-turn script. The player
     // does ~6-7 face damage through scripted attacks + Snake Bite
