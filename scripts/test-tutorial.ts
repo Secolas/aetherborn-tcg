@@ -93,7 +93,7 @@ function runOppAi(state: MatchState, oppCreatureCap: boolean): MatchState {
   return state;
 }
 
-function executeStep(state: MatchState, step: Step, oppCreatureCap: boolean): { state: MatchState; ok: boolean; reason?: string } {
+function executeStep(state: MatchState, step: Step, oppCreatureCap: boolean, spellAim?: 'face' | 'creature'): { state: MatchState; ok: boolean; reason?: string } {
   // Anatomy + auto + tap have no engine action — just pass through.
   if (step.anatomy || step.advanceOn === 'auto' || step.advanceOn === 'tap') {
     return { state, ok: true };
@@ -125,16 +125,17 @@ function executeStep(state: MatchState, step: Step, oppCreatureCap: boolean): { 
     if (effectiveCost(state.player, card) > state.player.mana) {
       return { state, ok: false, reason: `not enough mana for ${step.requireCardId} (cost ${card.cost}, mana ${state.player.mana})` };
     }
-    // Target selection:
-    // - spell_damage (Snake Bite) → opp creature if any, else opp face.
-    //   The script for ani-02 expects a Mouse on opp board to one-shot.
-    // - spell_heal (Hug) → player face.
+    // Target selection — driven by the test config's spellAim so we can
+    // simulate both "responsible" players (target the mouse) and
+    // "rebellious" players (point Snake Bite at opp face). For
+    // spell_heal it always heals friendly face (the only legal target).
     let target: any = undefined;
     if (card.abilityKind === 'spell_damage') {
-      const opp = state.opponent.field.find(c => c.abilityKind !== 'untargetable');
-      target = opp
-        ? { kind: 'creature', owner: 'opponent', battleId: opp.battleId }
-        : { kind: 'face', owner: 'opponent' };
+      const oppCreature = state.opponent.field.find(c => c.abilityKind !== 'untargetable');
+      const aim = spellAim ?? 'creature';
+      target = aim === 'face' || !oppCreature
+        ? { kind: 'face', owner: 'opponent' }
+        : { kind: 'creature', owner: 'opponent', battleId: oppCreature.battleId };
     } else if (card.abilityKind === 'spell_heal') {
       target = { kind: 'face', owner: 'player' };
     }
@@ -180,27 +181,36 @@ function executeStep(state: MatchState, step: Step, oppCreatureCap: boolean): { 
 
 // ─── Driver ──────────────────────────────────────────────────────
 
-function runOnce(seed: number): { ok: boolean; lines: string[]; finalState: MatchState } {
+function runOnce(seed: number, spellAim: 'face' | 'creature'): { ok: boolean; lines: string[]; finalState: MatchState; allStepsRun: boolean } {
   const lines: string[] = [];
   const rng = mulberry32(seed);
   const boss = getBoss('tutorial-dummy');
   if (!boss) throw new Error('tutorial-dummy boss missing');
 
   let state = createMatch(buildPlayerDeck(), boss, 'normal', rng);
-  lines.push(`init: player HP ${state.player.hp}, opp HP ${state.opponent.hp}, turn ${state.turnNumber} (${state.turn})`);
+  lines.push(`init: player HP ${state.player.hp}, opp HP ${state.opponent.hp}, turn ${state.turnNumber} (${state.turn}), spellAim=${spellAim}`);
 
   // Anatomy steps + initial turn flip — if opp goes first by some override,
   // run AI; tutorial pins firstPlayer to 'player' so this should be a no-op.
   if (state.turn === 'opponent') state = runOppAi(state, !!boss.oneCreaturePerTurn);
 
+  let stepsRun = 0;
   for (let i = 0; i < STEPS.length; i++) {
     const step = STEPS[i];
-    const r = executeStep(state, step, !!boss.oneCreaturePerTurn);
+    // Match must not end before the FINISH step (idx 17). If outcome
+    // flips to 'win' on an earlier step, that means the player killed
+    // mom before reaching the Taunt / Rush lessons — bug.
+    if (state.outcome !== 'ongoing' && i < STEPS.length - 1) {
+      lines.push(`✗ MATCH ENDED EARLY at step ${i + 1} (${step.title}) — outcome=${state.outcome}, oHP=${state.opponent.hp}`);
+      return { ok: false, lines, finalState: state, allStepsRun: false };
+    }
+    const r = executeStep(state, step, !!boss.oneCreaturePerTurn, spellAim);
     if (!r.ok) {
       lines.push(`✗ STEP ${i + 1} (${step.title}) FAILED: ${r.reason}`);
-      return { ok: false, lines, finalState: state };
+      return { ok: false, lines, finalState: state, allStepsRun: false };
     }
     state = r.state;
+    stepsRun++;
     lines.push(`✓ STEP ${i + 1} (${step.title}) — turn ${state.turnNumber} (${state.turn}), pHP ${state.player.hp}, oHP ${state.opponent.hp}, pField [${state.player.field.map(c => c.id).join(',')}], oField [${state.opponent.field.map(c => c.id).join(',')}]`);
 
     // After a turn-end (or FINISH), let opp run its turn.
@@ -213,19 +223,27 @@ function runOnce(seed: number): { ok: boolean; lines: string[]; finalState: Matc
     }
   }
 
-  lines.push(`final: outcome=${state.outcome}, turn ${state.turnNumber}, pHP ${state.player.hp}, oHP ${state.opponent.hp}`);
-  return { ok: state.outcome === 'win', lines, finalState: state };
+  lines.push(`final: outcome=${state.outcome}, turn ${state.turnNumber}, pHP ${state.player.hp}, oHP ${state.opponent.hp}, stepsRun=${stepsRun}/${STEPS.length}`);
+  return {
+    ok: state.outcome === 'win' && stepsRun === STEPS.length,
+    lines,
+    finalState: state,
+    allStepsRun: stepsRun === STEPS.length,
+  };
 }
 
 // ─── Entry ──────────────────────────────────────────────────────
 
 const seeds = [1, 2, 3, 7, 42];
+const aims: Array<'creature' | 'face'> = ['creature', 'face'];
 let allOk = true;
-for (const seed of seeds) {
-  const { ok, lines } = runOnce(seed);
-  console.log(`\n=== seed ${seed} ${ok ? 'OK' : 'FAIL'} ===`);
-  for (const l of lines) console.log(l);
-  if (!ok) allOk = false;
+for (const aim of aims) {
+  for (const seed of seeds) {
+    const { ok, lines } = runOnce(seed, aim);
+    console.log(`\n=== seed ${seed} / Snake Bite → ${aim} ${ok ? 'OK' : 'FAIL'} ===`);
+    for (const l of lines) console.log(l);
+    if (!ok) allOk = false;
+  }
 }
-console.log(`\n${allOk ? '✓ all seeds passed' : '✗ at least one seed failed'}`);
+console.log(`\n${allOk ? '✓ all seeds × aims passed' : '✗ at least one combo failed'}`);
 process.exit(allOk ? 0 : 1);
