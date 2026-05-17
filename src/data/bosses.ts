@@ -101,7 +101,7 @@ export const BOSSES: BossDef[] = [
     subtitle: 'Disappointed',
     themeId: 'family',
     avatar: 'M',
-    avatarPhoto: U('photo-1438761681033-6461ffad8d80'),  // smiling woman portrait
+    avatarPhoto: '/cards/mom.png',                       // illustrated mom portrait
     intro: "You haven't called.",
     playstyle: "Sunday dinner regulars. Mom heals every turn she stands, and when Dad joins the table the family grows stronger together.",
     rewardCoins: 150,
