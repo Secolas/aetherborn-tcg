@@ -17,7 +17,7 @@ const THEMED: Record<string, string> = {
   'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
   'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
-  'fam-05': U('photo-1438761681033-6461ffad8d80'),  // Mom → smiling woman
+  'fam-05': '/cards/mom.png',  // Mom → custom illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
   'fam-07': U('photo-1500648767791-00dcc994a43e'),  // Older Sibling → young adult
   'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
