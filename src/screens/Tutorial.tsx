@@ -280,7 +280,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'card-played',
     requireCardId: 'ani-05',
   },
-  endTurnStep("Tap Battle {swords}, then End Turn {battle}. Dog blocks attacks — but the opponent might try to remove it."),
+  endTurnStep("Tap Battle {swords}, then End Turn {battle}. Watch — the opponent has to swing at Dog instead of your portrait."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 11 — Player summons Family Pet (Rush) and closes.

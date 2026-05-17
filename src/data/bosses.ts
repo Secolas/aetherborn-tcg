@@ -557,15 +557,20 @@ export const MINI_BOSSES: BossDef[] = [
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     oneCreaturePerTurn: true,
     rewardCoins: 0,
-    // HP tuned to the new 19-step turn-by-turn script. The player
-    // does ~6-7 face damage through scripted attacks + Snake Bite
-    // by turn 9, leaving the FINISH step (turn 11) with ~3-4 HP
-    // to clear via Rush + multi-attack closer.
-    startingHp: 12,
-    // Match-end turn-limit override — the script reaches turn 11
-    // for the finisher, plus a couple of free turns for the close,
-    // so 20 gives generous margin.
-    turnLimit: 20,
+    // HP + turn-limit tuned so the player wins by turn 11 / 12. With
+    // tutorialAllow gating attacks to step-required moments, the
+    // player only gets ONE face-attack per attack step (turns 3, 7);
+    // turn 11 opens up free attacks on the FINISH step where Plate
+    // (1 ATK) + Family Pet (Rush, 2 ATK) close out the remaining HP.
+    // Sequence: T3 -1, T7 -1, T11 -3 = 5 face damage by turn 11 with
+    // a baseline player.
+    startingHp: 5,
+    // Match-end turn-limit override. The script reaches the FINISH
+    // step (turn 11) and the player kills opp the same turn, so 12
+    // is plenty of cushion — and an HP-comparison fallback at turn
+    // 12 still resolves as a player win since opp is by then at
+    // very low HP and the player is at 12+.
+    turnLimit: 12,
     // Player always opens the tutorial match so the scripted hint
     // sequence lines up with their first turn.
     firstPlayer: 'player',
@@ -591,17 +596,15 @@ export const MINI_BOSSES: BossDef[] = [
     //     the same turn it summons).
     //   turn 8 draw (card 7): Good Boy (buff demo, target is opp's
     //     own creature — visible spell effect with no player damage).
-    //   turn 10 draw (card 8): Sales Pitch (4-damage removal spell).
-    //     AI targets the highest-threat creature on the player's
-    //     board — by T10 that's Dog (Taunt, 2/4), which would
-    //     otherwise still be alive and blocking T11's Family Pet
-    //     summon slot. Clearing it both teaches "spells can clear
-    //     your defenders" AND guarantees the player has an open
-    //     field slot for the RUSH lesson on T11.
+    //   turn 10+: more mice. By turn 10 opp's field is full (M2 + FP
+    //     + M3) so the AI doesn't summon — instead it must attack
+    //     the player's Taunt (Dog) with all three. M2 survives at
+    //     1 HP, FP and M3 trade into Dog. Dog dies heroically,
+    //     freeing the slot for the player's Family Pet on turn 11.
     deck: [
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
       'ani-01', 'ani-01', 'fam-01', 'ani-16',
-      'wrk-06', 'ani-01', 'ani-01', 'ani-01',
+      'ani-01', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),
   },
