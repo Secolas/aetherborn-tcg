@@ -125,8 +125,6 @@ export const BOSSES: BossDef[] = [
       'fam-15',          // Family Chat (draw — gives Mom card advantage)
     ],
     photoOverrides: {
-      'fam-11': U('photo-1539571696357-5a69c17a67c6'),  // her own warm-smile dad
-      'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // her own grandmother
       'fam-12': U('photo-1559847844-5315695dadae'),    // her own dinner table
     },
     // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.

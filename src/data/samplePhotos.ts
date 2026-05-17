@@ -14,15 +14,15 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 const THEMED: Record<string, string> = {
   // Family
   'fam-01': '/cards/family-pet.png',                // Family Pet → illustrated puppy
-  'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
+  'fam-02': '/cards/cousin.png',                    // Cousin → illustrated kids
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
-  'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
+  'fam-04': '/cards/tio.png',                       // Tio → illustrated portrait
   'fam-05': '/cards/mom.png',                       // Mom → illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
-  'fam-07': U('photo-1500648767791-00dcc994a43e'),  // Older Sibling → young adult
-  'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
+  'fam-07': '/cards/older-sibling.png',             // Older Sibling → illustrated portrait
+  'fam-08': '/cards/abuela.png',                    // Abuela → illustrated portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
-  'fam-10': U('photo-1511895426328-dc8714191300'),  // Family Photo → group
+  'fam-10': '/cards/family-photo.png',              // Family Photo → illustrated group
   'fam-11': '/cards/dad.png',                       // Dad → illustrated portrait
   'fam-12': U('photo-1414235077428-338989a2e8c0'),  // Sunday Dinner → table
   'fam-13': U('photo-1559839734-2b71ea197ec2'),     // Tough Love → stern parent
