@@ -566,19 +566,24 @@ export const MINI_BOSSES: BossDef[] = [
     // Deterministic draws — both decks deal in their declared
     // array order (skipShuffle: true plumbed through assembleMatch).
     skipShuffle: true,
-    // Opponent's deck in draw order, sized to the script:
-    //   opening hand (cards 0-3): four 1c chumps. With only weak
-    //     creatures available on turn 2, the AI is forced to play
-    //     a Mouse — Family Pet (Rush) used to live in the opener
-    //     and the AI preferred it for the 2-atk Rush burst, which
-    //     broke the "opponent summons Mouse on turn 2" beat.
-    //   turn 4 draw: Snake Bite (opp's damage spell)
-    //   turn 6 draw: Family Pet (Rush demo)
-    //   turn 8 draw: Good Boy (buff demo)
+    // Opponent's deck in draw order, sized to the script. Critical
+    // mana note: when endTurn flips to the opponent, beginTurn ticks
+    // maxMana up by 1 — so opp's FIRST turn (turn 2) has 2 mana, not
+    // 1. That means anything 2-cost in the opp's hand on turn 2 is
+    // castable; we have to keep Snake Bite out until later.
+    //
+    //   opening hand (cards 0-3): four 1c chumps so the only legal
+    //     turn-2 play is a Mouse summon. (Two of them — the AI uses
+    //     both mana points on 1c Mice, leaving Snake Bite for later.)
+    //   turn 2 draw (card 4): another Mouse to fill the hand.
+    //   turn 4 draw (card 5): Snake Bite — opp now has 3 mana so the
+    //     damage spell fires this turn, matching the T4 demo.
+    //   turn 6 draw (card 6): Family Pet (Rush demo, 4 mana available).
+    //   turn 8 draw (card 7): Good Boy (buff demo, 5 mana).
     deck: [
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
-      'ani-02', 'fam-01', 'ani-16',
-      'ani-01', 'ani-01', 'ani-01', 'ani-01', 'ani-01',
+      'ani-01', 'ani-02', 'fam-01', 'ani-16',
+      'ani-01', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),
   },

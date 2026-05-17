@@ -27,26 +27,39 @@ const TUTORIAL_BOSS_ID = 'tutorial-dummy';
  * array order. Every hint in the STEPS list references a specific
  * card that is guaranteed to be in the player's hand at that moment.
  *
- * Opening hand (STARTING_HAND = 4) is indices 0-3:
+ * Draw timing reminder (engine quirk):
+ * - assembleMatch dumps the initial hand (cards 0-3) without ever
+ *   calling beginTurn.
+ * - beginTurn fires when the turn flips, so the FIRST draw happens
+ *   at the start of the player's SECOND turn (turn 3 here, since
+ *   player goes first). One draw per beginTurn after that.
+ * - fd-04 Breakfast Plate's draw_on_play ability draws one extra
+ *   card the turn it's summoned (turn 5), pulling the index-6
+ *   filler immediately.
+ *
+ * Opening hand (cards 0-3):
  *   0  Coffee Mug      (1c 1/2)             -> turn 1 summon
  *   1  Snake Bite      (2c, 3 damage spell) -> turn 3 spell
  *   2  Breakfast Plate (2c 1/3, draw + bond) -> turn 5 bond
  *   3  Hug             (1c, heal +3 friend) -> turn 7 heal
  *
- * Subsequent draws (one per turn, plus Plate's draw-on-play):
- *   4  Dog             (3c 2/4 Taunt)       -> turn 9 taunt summon
- *   5  Family Pet      (1c 2/1 Rush)        -> turn 11 rush finisher
- *   6-11 filler so the player can keep attacking through the FINISH
- *        step without running into fatigue.
+ * Drawn on each subsequent player turn (beginTurn shift):
+ *   4  Dog             (3c 2/4 Taunt)       -> drawn turn 3, played turn 9
+ *   5  Family Pet      (1c 2/1 Rush)        -> drawn turn 5, played turn 11
+ *   6-11 filler so the player doesn't fatigue through the FINISH.
+ *
+ * The cards drawn but not yet legal (Dog from turn 3-7, Family Pet
+ * from turn 5-9) sit in hand untouched — tutorialAllow rejects any
+ * out-of-script summon.
  */
 const TUTORIAL_DECK_IDS: string[] = [
   'fd-01',  // 0 — opening hand: Coffee Mug
   'ani-02', // 1 — opening hand: Snake Bite (damage)
   'fd-04',  // 2 — opening hand: Breakfast Plate (bond)
   'fam-14', // 3 — opening hand: Hug (heal)
-  'ani-05', // 4 — turn 2 draw: Dog (Taunt)
-  'fam-01', // 5 — turn 3 draw: Family Pet (Rush)
-  'fd-01',  // 6 — filler
+  'ani-05', // 4 — turn-3 draw: Dog (played turn 9)
+  'fam-01', // 5 — turn-5 draw: Family Pet (played turn 11)
+  'fd-01',  // 6 — filler (pulled by Plate's draw_on_play on turn 5)
   'fd-04',  // 7 — filler
   'fam-14', // 8 — filler
   'ani-02', // 9 — filler
