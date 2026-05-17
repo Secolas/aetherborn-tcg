@@ -203,7 +203,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
   },
-  endTurnStep("Tap End Turn {clock}. The opponent will summon a creature next."),
+  endTurnStep("Toast is still sleeping {moon} — nothing to attack yet. Tap Battle {swords} to enter Battle Phase, then End Turn {battle}. The opponent will summon a creature next."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 3 — Player casts a spell to remove a threat, then
@@ -225,7 +225,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
-  endTurnStep("Tap End Turn {clock}. The opponent will drop another creature on the board."),
+  endTurnStep("You're still in Battle Phase from attacking. Tap End Turn {battle}. The opponent will drop another creature on the board."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 5 — Player summons the bond piece. Bond activates.
@@ -246,7 +246,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'auto',
     autoMs: 4200,
   },
-  endTurnStep("Tap End Turn {clock}. The opponent may summon a Rush {rush} creature next — watch for it."),
+  endTurnStep("Tap Battle {swords}, then End Turn {battle}. The opponent may summon a Rush {rush} creature next — watch for it."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 7 — Player attacks and casts a heal.
@@ -254,7 +254,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 7 · SPELL · HEAL',
     icon: 'heart',
-    text: "Opponent dropped a Rush {rush} creature last turn — Rush lets it attack the same turn it's summoned. First, cast Hug {heart} — drag it onto a friendly creature to restore +3 HP. Spells must be cast in Main Phase, BEFORE you tap Battle {swords}.",
+    text: "Opponent dropped a Rush {rush} creature last turn — Rush lets it attack the same turn it's summoned. First, cast Hug {heart} — drag it onto your portrait to restore +2 HP. Spells must be cast in Main Phase, BEFORE you tap Battle {swords}.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'fam-14',
@@ -267,7 +267,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
-  endTurnStep("Tap End Turn {clock}. The opponent may cast a Buff spell on their creature next."),
+  endTurnStep("Tap End Turn {battle}. The opponent may cast a Buff spell on their own creature next."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 9 — Player summons a Taunt creature.
@@ -280,7 +280,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'card-played',
     requireCardId: 'ani-05',
   },
-  endTurnStep("Tap End Turn {clock}. The opponent's only legal attack target is Dog now."),
+  endTurnStep("Tap Battle {swords}, then End Turn {battle}. Dog blocks attacks — but the opponent might try to remove it."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 11 — Player summons Family Pet (Rush) and closes.
@@ -296,8 +296,8 @@ const STEPS: TutorialStep[] = [
   {
     title: 'FINISH',
     icon: 'trophy',
-    text: "Now use Rush {rush} — attack the opponent's portrait with Family Pet, then tap Battle {swords} and swing in with everything else (Toast, Plate, Dog) to drop HP to 0.",
-    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    text: "Tap Battle {swords}, then drag every awake creature onto the opponent's portrait to drop their HP to 0. Family Pet has Rush {rush} so it can swing this same turn.",
+    spotlight: ['[data-tut="opp-face"]'],
     advanceOn: null,
   },
 ];

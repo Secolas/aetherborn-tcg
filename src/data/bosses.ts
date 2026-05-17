@@ -591,10 +591,17 @@ export const MINI_BOSSES: BossDef[] = [
     //     the same turn it summons).
     //   turn 8 draw (card 7): Good Boy (buff demo, target is opp's
     //     own creature — visible spell effect with no player damage).
+    //   turn 10 draw (card 8): Sales Pitch (4-damage removal spell).
+    //     AI targets the highest-threat creature on the player's
+    //     board — by T10 that's Dog (Taunt, 2/4), which would
+    //     otherwise still be alive and blocking T11's Family Pet
+    //     summon slot. Clearing it both teaches "spells can clear
+    //     your defenders" AND guarantees the player has an open
+    //     field slot for the RUSH lesson on T11.
     deck: [
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
       'ani-01', 'ani-01', 'fam-01', 'ani-16',
-      'ani-01', 'ani-01', 'ani-01', 'ani-01',
+      'wrk-06', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),
   },
