@@ -38,7 +38,7 @@ const TUTORIAL_BOSS_ID = 'tutorial-dummy';
  *   filler immediately.
  *
  * Opening hand (cards 0-3):
- *   0  Coffee Mug      (1c 1/2)             -> turn 1 summon
+ *   0  Toast      (1c 1/2)             -> turn 1 summon
  *   1  Snake Bite      (2c, 3 damage spell) -> turn 3 spell
  *   2  Breakfast Plate (2c 1/3, draw + bond) -> turn 5 bond
  *   3  Hug             (1c, heal +3 friend) -> turn 7 heal
@@ -53,7 +53,7 @@ const TUTORIAL_BOSS_ID = 'tutorial-dummy';
  * out-of-script summon.
  */
 const TUTORIAL_DECK_IDS: string[] = [
-  'fd-01',  // 0 — opening hand: Coffee Mug
+  'fd-01',  // 0 — opening hand: Toast
   'ani-02', // 1 — opening hand: Snake Bite (damage)
   'fd-04',  // 2 — opening hand: Breakfast Plate (bond)
   'fam-14', // 3 — opening hand: Hug (heal)
@@ -96,7 +96,7 @@ interface TutorialStep {
   advanceOn: 'card-played' | 'turn-end' | 'attack' | 'spell-cast' | 'auto' | 'tap' | null;
   /** When set, advanceOn 'card-played' / 'spell-cast' only counts
    *  if the played card's template id matches. Lets us gate "summon
-   *  Coffee Mug" vs "summon Breakfast Plate" without sharing steps. */
+   *  Toast" vs "summon Breakfast Plate" without sharing steps. */
   requireCardId?: string;
   /** When set, advanceOn 'attack' only counts when the player swings
    *  at this kind of target. Lets us split "attack a creature" and
@@ -156,7 +156,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 1 · SUMMON',
     icon: 'hand',
-    text: "Drag Coffee Mug onto the field. It costs 1 mana — your max mana goes up by 1 each turn.",
+    text: "Drag Toast onto the field. It costs 1 mana — your max mana goes up by 1 each turn.",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
@@ -178,7 +178,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 3 · ATTACK',
     icon: 'swords',
-    text: "Coffee Mug woke up — it can attack now. Drag it onto the opponent's portrait to deal 1 damage.",
+    text: "Toast woke up — it can attack now. Drag it onto the opponent's portrait to deal 1 damage.",
     spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: 'attack',
     requireAttackTarget: 'face',
@@ -191,7 +191,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 5 · BOND PIECE',
     icon: 'bond',
-    text: "Drop Breakfast Plate onto the field. It's the second half of Bond: Breakfast Combo with Coffee Mug.",
+    text: "Drop Breakfast Plate onto the field. It's the second half of Bond: Breakfast Combo with Toast.",
     spotlight: ['[data-tut-hand-card="fd-04"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-04',
@@ -199,7 +199,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BOND ACTIVE',
     icon: 'bond',
-    text: "Coffee Mug + Breakfast Plate = Bond: Breakfast Combo. Your creatures heal +2 HP at the start of every turn from now on — extra effects when specific cards share the field.",
+    text: "Toast + Breakfast Plate = Bond: Breakfast Combo. Your creatures heal +2 HP at the start of every turn from now on — extra effects when specific cards share the field.",
     spotlight: [],
     advanceOn: 'auto',
     autoMs: 3600,

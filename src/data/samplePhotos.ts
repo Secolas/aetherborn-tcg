@@ -13,7 +13,7 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
 const THEMED: Record<string, string> = {
   // Family
-  'fam-01': U('photo-1514888286974-6c03e2ca1dba'),     // Family Pet → kitten (distinct from ani-05 Dog)
+  'fam-01': U('photo-1517849845537-4d257902454a'),     // Family Pet → puppy (distinct from ani-05 adult Dog)
   'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
   'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
@@ -72,7 +72,7 @@ const THEMED: Record<string, string> = {
   'trv-12': U('photo-1464822759023-fed622ff2c3b'),  // Mountain Summit → peak panorama
 
   // Food — meals, snacks, coffee, kitchen.
-  'fd-01': U('photo-1495474472287-4d71bcdd2085'),  // Coffee Mug → steaming mug
+  'fd-01': U('photo-1486297678162-eb2a19b0a32d'),  // Toast → buttered toast
   'fd-02': U('photo-1547592180-85f173990554'),     // Hot Soup → bowl of soup
   'fd-03': U('photo-1599490659213-e2b9527bd087'),  // Snack → chips / bowl of snacks
   'fd-04': U('photo-1490645935967-10de6ba17061'),  // Breakfast Plate → eggs / pancakes
