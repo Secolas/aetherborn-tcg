@@ -731,6 +731,15 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Track elements we've decorated with the "tu-spotlit" class so we
+    // can remove the class when the spotlight set changes — otherwise
+    // every previously-spotlit hand card stays bumped to the front for
+    // the rest of the match.
+    let decorated: HTMLElement[] = [];
+    const undecorate = () => {
+      for (const el of decorated) el.classList.remove('tu-spotlit');
+      decorated = [];
+    };
     const tick = () => {
       if (cancelled) return;
       const root = rootRef.current?.parentElement?.parentElement;
@@ -740,6 +749,7 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
       }
       const rootRect = root.getBoundingClientRect();
       const found: DOMRect[] = [];
+      const nextDecorated: HTMLElement[] = [];
       for (const sel of step.spotlight) {
         const el = document.querySelector(sel) as HTMLElement | null;
         if (!el) continue;
@@ -753,12 +763,26 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
           r.width,
           r.height,
         ));
+        // Mark hand cards so the CSS below can pop them above their
+        // fan-neighbours — without this, Dog at hand index 0 (zIndex
+        // 10) rendered BEHIND Family Pet (zIndex 11) and the user
+        // thought the spotlight was on Family Pet.
+        if (el.hasAttribute('data-tut-hand-card')) {
+          el.classList.add('tu-spotlit');
+          nextDecorated.push(el);
+        }
       }
+      // Remove the class from any element that's no longer in the
+      // current spotlight set.
+      for (const old of decorated) {
+        if (!nextDecorated.includes(old)) old.classList.remove('tu-spotlit');
+      }
+      decorated = nextDecorated;
       setRects(found);
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-    return () => { cancelled = true; };
+    return () => { cancelled = true; undecorate(); };
   }, [step]);
 
   const Icon = (() => {
@@ -825,6 +849,15 @@ function TutorialStyles() {
   return (
     <style>{`
       .tu-root { position: absolute; inset: 0; }
+
+      /* Bump the currently-spotlit hand card above its fan neighbours.
+         MatchBoard stacks hand cards with zIndex 10+i so older cards
+         (which sit at lower indexes) render BEHIND newer cards. Dog
+         gets drawn before Family Pet, so at step 15 Dog was visually
+         hidden behind Family Pet even though the spotlight ring was
+         (correctly) drawn around Dog's bounding box. !important is
+         needed because MatchBoard applies the base zIndex inline. */
+      [data-tut-hand-card].tu-spotlit { z-index: 150 !important; }
 
       /* Intro phase — full-screen rules page. MatchBoard does NOT
          mount until the player taps Begin. */
