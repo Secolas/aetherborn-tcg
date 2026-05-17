@@ -13,7 +13,7 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
 const THEMED: Record<string, string> = {
   // Family
-  'fam-01': U('photo-1543466835-00a7907e9de1'),     // Family Pet → dog
+  'fam-01': U('photo-1514888286974-6c03e2ca1dba'),     // Family Pet → kitten (distinct from ani-05 Dog)
   'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
   'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
