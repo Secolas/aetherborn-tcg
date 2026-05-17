@@ -183,7 +183,7 @@ const STEPS: TutorialStep[] = [
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
-  endTurnStep("End turn. Watch out — the opponent might cast a damage spell on you next."),
+  endTurnStep("End turn. The opponent will drop another creature on the board."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 5 — Player summons the bond piece. Bond activates.

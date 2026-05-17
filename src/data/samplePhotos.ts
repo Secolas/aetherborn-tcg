@@ -13,17 +13,17 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
 const THEMED: Record<string, string> = {
   // Family
-  'fam-01': U('photo-1517849845537-4d257902454a'),     // Family Pet → puppy (distinct from ani-05 adult Dog)
-  'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
+  'fam-01': '/cards/family-pet.png',                // Family Pet → illustrated puppy
+  'fam-02': '/cards/cousin.png',                    // Cousin → illustrated kids
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
-  'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
-  'fam-05': U('photo-1438761681033-6461ffad8d80'),  // Mom → smiling woman
+  'fam-04': '/cards/tio.png',                       // Tio → illustrated portrait
+  'fam-05': '/cards/mom.png',                       // Mom → illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
-  'fam-07': U('photo-1500648767791-00dcc994a43e'),  // Older Sibling → young adult
-  'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
+  'fam-07': '/cards/older-sibling.png',             // Older Sibling → illustrated portrait
+  'fam-08': '/cards/abuela.png',                    // Abuela → illustrated portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
-  'fam-10': U('photo-1511895426328-dc8714191300'),  // Family Photo → group
-  'fam-11': U('photo-1507003211169-0a1dd7228f2d'),  // Dad → man
+  'fam-10': '/cards/family-photo.png',              // Family Photo → illustrated group
+  'fam-11': '/cards/dad.png',                       // Dad → illustrated portrait
   'fam-12': U('photo-1414235077428-338989a2e8c0'),  // Sunday Dinner → table
   'fam-13': U('photo-1559839734-2b71ea197ec2'),     // Tough Love → stern parent
 
@@ -31,7 +31,7 @@ const THEMED: Record<string, string> = {
   'wrk-01': U('photo-1573496359142-b8d87734a5a2'),  // Intern → young employee
   'wrk-02': U('photo-1526374965328-7f61d4dc18c5'),  // Spam Email → screen/code
   'wrk-03': U('photo-1494790108377-be9c29b29330'),  // Coworker → portrait
-  'wrk-04': U('photo-1495474472287-4d71bcdd2085'),  // Coffee → mug
+  'wrk-04': '/cards/coffee.png',                    // Coffee → illustrated mug
   'wrk-05': U('photo-1517694712202-14dd9538aa97'),  // IT Support → cables/code
   'wrk-06': U('photo-1556761175-5973dc0f32e7'),     // Sales Pitch → presentation
   'wrk-07': U('photo-1573497019703-cef38d1b8da9'),  // HR → professional
@@ -43,11 +43,11 @@ const THEMED: Record<string, string> = {
   'wrk-13': U('photo-1454165804606-c3d57bc86b40'),  // Performance Review → laptop / paperwork
 
   // Animals
-  'ani-01': U('photo-1425082661705-1834bfd09dca'),  // Mouse → small mouse
-  'ani-02': U('photo-1531386151447-fd76ad50012f'),  // Snake Bite → snake
+  'ani-01': '/cards/mouse.png',                     // Mouse → illustrated mouse
+  'ani-02': '/cards/snake-bite.png',                // Snake Bite → illustrated bottle
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
-  'ani-05': U('photo-1543466835-00a7907e9de1'),     // Dog → dog
+  'ani-05': '/cards/dog.png',                       // Dog → illustrated sleeping dog
   'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet

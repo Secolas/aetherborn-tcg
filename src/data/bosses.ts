@@ -101,7 +101,7 @@ export const BOSSES: BossDef[] = [
     subtitle: 'Disappointed',
     themeId: 'family',
     avatar: 'M',
-    avatarPhoto: U('photo-1438761681033-6461ffad8d80'),  // smiling woman portrait
+    avatarPhoto: '/cards/mom.png',                       // illustrated mom portrait
     intro: "You haven't called.",
     playstyle: "Sunday dinner regulars. Mom heals every turn she stands, and when Dad joins the table the family grows stronger together.",
     rewardCoins: 150,
@@ -125,8 +125,6 @@ export const BOSSES: BossDef[] = [
       'fam-15',          // Family Chat (draw — gives Mom card advantage)
     ],
     photoOverrides: {
-      'fam-11': U('photo-1539571696357-5a69c17a67c6'),  // her own warm-smile dad
-      'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // her own grandmother
       'fam-12': U('photo-1559847844-5315695dadae'),    // her own dinner table
     },
     // Warm sunlit kitchen — Mom's natural habitat, soft yellows + wood.
@@ -566,23 +564,28 @@ export const MINI_BOSSES: BossDef[] = [
     // Deterministic draws — both decks deal in their declared
     // array order (skipShuffle: true plumbed through assembleMatch).
     skipShuffle: true,
-    // Opponent's deck in draw order, sized to the script. Critical
-    // mana note: when endTurn flips to the opponent, beginTurn ticks
-    // maxMana up by 1 — so opp's FIRST turn (turn 2) has 2 mana, not
-    // 1. That means anything 2-cost in the opp's hand on turn 2 is
-    // castable; we have to keep Snake Bite out until later.
+    // Opponent's deck in draw order, sized to the script.
     //
-    //   opening hand (cards 0-3): four 1c chumps so the only legal
-    //     turn-2 play is a Mouse summon. (Two of them — the AI uses
-    //     both mana points on 1c Mice, leaving Snake Bite for later.)
-    //   turn 2 draw (card 4): another Mouse to fill the hand.
-    //   turn 4 draw (card 5): Snake Bite — opp now has 3 mana so the
-    //     damage spell fires this turn, matching the T4 demo.
-    //   turn 6 draw (card 6): Family Pet (Rush demo, 4 mana available).
-    //   turn 8 draw (card 7): Good Boy (buff demo, 5 mana).
+    // Opp has NO damage spells deliberately. Snake Bite used to live
+    // here as the "opp uses a spell" T4 demo, but the AI's targeting
+    // heuristic always picked the player's creature (3 dmg into
+    // Toast 1/2 = dead bond piece), wrecking the BOND ACTIVE step at
+    // T5. The "opps cast spells too" lesson still lands at T8 via
+    // Good Boy, which is a friendly-only buff and can't touch the
+    // player's board.
+    //
+    //   opening hand (cards 0-3): four Mice. Turn 2 (opp's first
+    //     turn) AI plays a Mouse with 1 of 2 mana, holds the rest.
+    //   turn 2 draw (card 4): Mouse.
+    //   turn 4 draw (card 5): Mouse — no spell this turn, just more
+    //     bodies on the board.
+    //   turn 6 draw (card 6): Family Pet (Rush demo, AI swings on
+    //     the same turn it summons).
+    //   turn 8 draw (card 7): Good Boy (buff demo, target is opp's
+    //     own creature — visible spell effect with no player damage).
     deck: [
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
-      'ani-01', 'ani-02', 'fam-01', 'ani-16',
+      'ani-01', 'ani-01', 'fam-01', 'ani-16',
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),

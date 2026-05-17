@@ -20,7 +20,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'First to the rescue.',
     abilityKind: 'rush',
-    rarity: 'rare', suggested: 'your pet, or any pet you love' },
+    rarity: 'rare', suggested: 'my first puppy, my first pet, or any pet you grew up with' },
 
   { id: 'fam-02', name: 'Cousin', el: 'family', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: '',

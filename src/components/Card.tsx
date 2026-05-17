@@ -168,7 +168,7 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
                 </span>
           )}
         </div>
-        <ElementGlyph el={card.el} size={22 * scale} />
+        {!isSpell && <ElementGlyph el={card.el} size={22 * scale} />}
       </div>
 
       <div style={{
@@ -205,8 +205,12 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         }}>
           {isSpell && <Sparkles size={9 * scale} strokeWidth={2.6} />}
           <span>{card.type}</span>
-          <span style={{ opacity: 0.6 }}>·</span>
-          <span style={{ opacity: 0.95 }}>{ELEMENTS[card.el].name}</span>
+          {!isSpell && (
+            <>
+              <span style={{ opacity: 0.6 }}>·</span>
+              <span style={{ opacity: 0.95 }}>{ELEMENTS[card.el].name}</span>
+            </>
+          )}
         </div>
         {/* Rarity chip — small text label. Replaces the previous 8px colored
             dot that was easy to miss / misread. The background still uses the
