@@ -557,14 +557,19 @@ export const MINI_BOSSES: BossDef[] = [
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     oneCreaturePerTurn: true,
     rewardCoins: 0,
-    // HP + turn-limit tuned so the player wins by turn 11 / 12. With
-    // tutorialAllow gating attacks to step-required moments, the
-    // player only gets ONE face-attack per attack step (turns 3, 7);
-    // turn 11 opens up free attacks on the FINISH step where Plate
-    // (1 ATK) + Family Pet (Rush, 2 ATK) close out the remaining HP.
-    // Sequence: T3 -1, T7 -1, T11 -3 = 5 face damage by turn 11 with
-    // a baseline player.
-    startingHp: 5,
+    // HP + turn-limit tuned so the player can ONLY finish the boss
+    // on the FINISH step (turn 11). Damage budget:
+    //   Pre-FINISH max = Snake Bite face (3) + T3 attack (1)
+    //                  + T7 attack (1) = 5
+    //   Pre-FINISH min = Snake Bite on mouse (0) + 2 attacks = 2
+    //   FINISH (free) damage = Family Pet Rush (2) + Toast (1)
+    //                         + Plate (1) = 4
+    // HP set to 6: max path leaves boss at 1 HP for FINISH, min path
+    // leaves boss at 4 HP — FINISH closes both. With HP=5, the max
+    // path killed her on turn 7 and the player skipped the Taunt +
+    // Rush lessons; HP=6 forces every scripted step to fire before
+    // the match can end.
+    startingHp: 6,
     // Match-end turn-limit override. The script reaches the FINISH
     // step (turn 11) and the player kills opp the same turn, so 12
     // is plenty of cushion — and an HP-comparison fallback at turn
