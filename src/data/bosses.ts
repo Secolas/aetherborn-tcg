@@ -557,15 +557,20 @@ export const MINI_BOSSES: BossDef[] = [
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     oneCreaturePerTurn: true,
     rewardCoins: 0,
-    // HP tuned to the new 19-step turn-by-turn script. The player
-    // does ~6-7 face damage through scripted attacks + Snake Bite
-    // by turn 9, leaving the FINISH step (turn 11) with ~3-4 HP
-    // to clear via Rush + multi-attack closer.
-    startingHp: 12,
-    // Match-end turn-limit override — the script reaches turn 11
-    // for the finisher, plus a couple of free turns for the close,
-    // so 20 gives generous margin.
-    turnLimit: 20,
+    // HP + turn-limit tuned so the player wins by turn 11 / 12. With
+    // tutorialAllow gating attacks to step-required moments, the
+    // player only gets ONE face-attack per attack step (turns 3, 7);
+    // turn 11 opens up free attacks on the FINISH step where Plate
+    // (1 ATK) + Family Pet (Rush, 2 ATK) close out the remaining HP.
+    // Sequence: T3 -1, T7 -1, T11 -3 = 5 face damage by turn 11 with
+    // a baseline player.
+    startingHp: 5,
+    // Match-end turn-limit override. The script reaches the FINISH
+    // step (turn 11) and the player kills opp the same turn, so 12
+    // is plenty of cushion — and an HP-comparison fallback at turn
+    // 12 still resolves as a player win since opp is by then at
+    // very low HP and the player is at 12+.
+    turnLimit: 12,
     // Player always opens the tutorial match so the scripted hint
     // sequence lines up with their first turn.
     firstPlayer: 'player',
