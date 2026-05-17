@@ -23,7 +23,7 @@ const THEMED: Record<string, string> = {
   'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
   'fam-10': U('photo-1511895426328-dc8714191300'),  // Family Photo → group
-  'fam-11': U('photo-1507003211169-0a1dd7228f2d'),  // Dad → man
+  'fam-11': '/cards/dad.png',  // Dad → custom illustrated portrait
   'fam-12': U('photo-1414235077428-338989a2e8c0'),  // Sunday Dinner → table
   'fam-13': U('photo-1559839734-2b71ea197ec2'),     // Tough Love → stern parent
 
