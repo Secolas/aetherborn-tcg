@@ -44,7 +44,7 @@ const THEMED: Record<string, string> = {
 
   // Animals
   'ani-01': U('photo-1425082661705-1834bfd09dca'),  // Mouse → small mouse
-  'ani-02': '/cards/snake-bite.png',  // Snake Bite → custom illustrated potion
+  'ani-02': U('photo-1531386151447-fd76ad50012f'),  // Snake Bite → snake
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
   'ani-05': U('photo-1543466835-00a7907e9de1'),     // Dog → dog
@@ -87,7 +87,7 @@ const THEMED: Record<string, string> = {
   'fd-13': U('photo-1556679343-c7306c1976bc'),     // Sip → glass of water/iced drink
 
   // Cheap-card pass additions
-  'fam-14': '/cards/hug.png',  // Hug → custom illustrated family-embrace art
+  'fam-14': U('photo-1521185496955-15097b20c5fe'),  // Hug → two people embracing
   'wrk-14': U('photo-1531403009284-440f080d1e12'),  // Stand-up Meeting → team gathered
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
@@ -119,7 +119,7 @@ const THEMED: Record<string, string> = {
 
   // Family Pet micro-set (Animals theme support spells).
   'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted
-  'ani-16': '/cards/good-boy.png',     // Good Boy → custom illustrated
+  'ani-16': U('photo-1561037404-61cd46aa615b'),     // Good Boy → happy dog
   'ani-17': U('photo-1530281700549-e82e7bf110d6'),  // Walkies → dog on a leash mid-walk
 };
 
