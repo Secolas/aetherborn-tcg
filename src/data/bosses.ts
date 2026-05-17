@@ -336,7 +336,7 @@ export const BOSSES: BossDef[] = [
     // Normal: no legendary. Family Feast (fd-12, legendary +8 face
     // heal + creature heal) is Mythic-only.
     deck: [
-      'fd-01', 'fd-01',  // Coffee Mug x2 — early body + Breakfast Combo enabler
+      'fd-01', 'fd-01',  // Toast x2 — early body + Breakfast Combo enabler
       'fd-02',           // Hot Soup — defensive buff
       'fd-03',           // Snack — early rush body
       'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
@@ -360,10 +360,10 @@ export const BOSSES: BossDef[] = [
     },
     // Warm restaurant kitchen — copper pans, low light, food prep counter.
     backdrop: U('photo-1517248135467-4c7edcad34c4'),
-    // Mythic: 2x Coffee Mug + 2x Breakfast Plate so the Breakfast Combo
+    // Mythic: 2x Toast + 2x Breakfast Plate so the Breakfast Combo
     // bond fires turn 2-3 every game. Adds Sip (cheap creature heal).
     mythicDeck: [
-      'fd-01', 'fd-01',  // Coffee Mug x2 — Breakfast Combo enabler
+      'fd-01', 'fd-01',  // Toast x2 — Breakfast Combo enabler
       'fd-14',           // Spicy Sauce removal
       'fd-04', 'fd-04',  // Breakfast Plate x2 — Breakfast Combo enabler + draw
       'fd-05',           // Lunch Box recover
@@ -742,7 +742,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'B',
     avatarPhoto: U('photo-1521017432531-fbd92d768814'),
     intro: 'Same as yesterday?',
-    playstyle: "Breakfast Combo enthusiast. Coffee Mug + Breakfast Plate heals creatures every turn.",
+    playstyle: "Breakfast Combo enthusiast. Toast + Breakfast Plate heals creatures every turn.",
     rewardCoins: 75,
     deck: ['fd-01','fd-01','fd-04','fd-04','fd-13','fd-13','fd-09','fd-03','fd-02','fd-05','fd-06','fd-08'],
     backdrop: U('photo-1453614512568-c4024d13c247'),

@@ -133,10 +133,10 @@ export const BONDS: BondDef[] = [
     id: 'breakfast-combo',
     name: 'Breakfast Combo',
     themeId: 'food',
-    cardA: 'fd-01', // Coffee Mug
+    cardA: 'fd-01', // Toast
     cardB: 'fd-04', // Breakfast Plate
     description: 'Heal each of your creatures +2 HP at the start of your turn.',
-    flavor: "Coffee in one hand, plate in the other.",
+    flavor: "Toast in one hand, plate in the other.",
     effect: { kind: 'heal_creatures_per_turn', amount: 2 },
   },
 

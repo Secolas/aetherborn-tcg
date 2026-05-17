@@ -399,11 +399,11 @@ export const TEMPLATES: CardTemplate[] = [
   // than Work, doesn't heal-the-face like Family — its own identity.
   // ============================================================
 
-  { id: 'fd-01', name: 'Coffee Mug', el: 'food', cost: 1, atk: 1, hp: 2, type: 'Creature',
+  { id: 'fd-01', name: 'Toast', el: 'food', cost: 1, atk: 1, hp: 2, type: 'Creature',
     ability: '',
-    flavor: 'The first sip of the day.',
+    flavor: 'Crisp edges, warm center.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a coffee cup, latte, or steaming mug' },
+    rarity: 'common', suggested: 'a slice of toast, butter, jam, or breakfast bread' },
 
   { id: 'fd-02', name: 'Hot Soup', el: 'food', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Food-type creature +0/+2 HP.',

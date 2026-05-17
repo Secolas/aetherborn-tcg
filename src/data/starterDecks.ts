@@ -103,13 +103,13 @@ export const STARTER_THEMES: StarterTheme[] = [
     /* Identity: value / sustain / late-game flip.
      * Toolkit: 1 Rush creature (Snack), 2 heals (Sip, Grandma's Pie
      * passive), 1 draw (Breakfast Plate on-play), 1 damage spell
-     * (Spicy Sauce), 1 buff (Recipe Card), bond pair (Coffee Mug
+     * (Spicy Sauce), 1 buff (Recipe Card), bond pair (Toast
      * + Breakfast Plate = "Breakfast Combo"), finishers (The Cook
      * + Family Feast late-game heal flip). Lower raw ATK total than
      * the others — Food wins by outlasting and out-trading, not by
      * out-damaging. */
     deck: [
-      'fd-01',                  // 1c 1/2  — Coffee Mug (bond piece)
+      'fd-01',                  // 1c 1/2  — Toast (bond piece)
       'fd-03',                  // 1c 2/1 Rush — Snack
       'fd-13',                  // 1c spell — Sip (heal +3 friend)
       'fd-04',                  // 2c 1/3  — Breakfast Plate (bond, draw)
