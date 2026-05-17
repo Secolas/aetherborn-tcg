@@ -13,17 +13,17 @@ const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
 const THEMED: Record<string, string> = {
   // Family
-  'fam-01': '/cards/family-pet.png',     // Family Pet → custom illustrated
+  'fam-01': U('photo-1543466835-00a7907e9de1'),     // Family Pet → dog
   'fam-02': U('photo-1503454537195-1dcabb73ffb9'),  // Cousin → young person candid portrait
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
   'fam-04': U('photo-1521119989659-a83eee488004'),  // Tio → older man w/ story
-  'fam-05': '/cards/mom.png',  // Mom → custom illustrated portrait
+  'fam-05': U('photo-1438761681033-6461ffad8d80'),  // Mom → smiling woman
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
   'fam-07': U('photo-1500648767791-00dcc994a43e'),  // Older Sibling → young adult
   'fam-08': U('photo-1566616213894-2d4e1baee5d8'),  // Abuela → kind grandmother portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
   'fam-10': U('photo-1511895426328-dc8714191300'),  // Family Photo → group
-  'fam-11': '/cards/dad.png',  // Dad → custom illustrated portrait
+  'fam-11': U('photo-1507003211169-0a1dd7228f2d'),  // Dad → man
   'fam-12': U('photo-1414235077428-338989a2e8c0'),  // Sunday Dinner → table
   'fam-13': U('photo-1559839734-2b71ea197ec2'),     // Tough Love → stern parent
 
@@ -43,11 +43,11 @@ const THEMED: Record<string, string> = {
   'wrk-13': U('photo-1454165804606-c3d57bc86b40'),  // Performance Review → laptop / paperwork
 
   // Animals
-  'ani-01': '/cards/mouse.png',  // Mouse → custom illustrated
-  'ani-02': '/cards/snake-bite.png',  // Snake Bite → custom illustrated potion
+  'ani-01': U('photo-1425082661705-1834bfd09dca'),  // Mouse → small mouse
+  'ani-02': U('photo-1531386151447-fd76ad50012f'),  // Snake Bite → snake
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
-  'ani-05': '/cards/dog.png',     // Dog → custom illustrated
+  'ani-05': U('photo-1543466835-00a7907e9de1'),     // Dog → dog
   'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
@@ -72,10 +72,10 @@ const THEMED: Record<string, string> = {
   'trv-12': U('photo-1464822759023-fed622ff2c3b'),  // Mountain Summit → peak panorama
 
   // Food — meals, snacks, coffee, kitchen.
-  'fd-01': '/cards/coffee-mug.png',  // Coffee Mug → custom illustrated steaming mug
+  'fd-01': U('photo-1495474472287-4d71bcdd2085'),  // Coffee Mug → steaming mug
   'fd-02': U('photo-1547592180-85f173990554'),     // Hot Soup → bowl of soup
   'fd-03': U('photo-1599490659213-e2b9527bd087'),  // Snack → chips / bowl of snacks
-  'fd-04': '/cards/breakfast-plate.png',  // Breakfast Plate → custom illustrated
+  'fd-04': U('photo-1490645935967-10de6ba17061'),  // Breakfast Plate → eggs / pancakes
   'fd-05': U('photo-1565299507177-b0ac66763828'),  // Lunch Box → packed meal box
   'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Slow Cooker → kitchen stove
   'fd-07': U('photo-1455619452474-d2be8b1e70cd'),  // Recipe Card → handwritten recipe
@@ -87,7 +87,7 @@ const THEMED: Record<string, string> = {
   'fd-13': U('photo-1556679343-c7306c1976bc'),     // Sip → glass of water/iced drink
 
   // Cheap-card pass additions
-  'fam-14': '/cards/hug.png',  // Hug → custom illustrated family-embrace art
+  'fam-14': U('photo-1521185496955-15097b20c5fe'),  // Hug → two people embracing
   'wrk-14': U('photo-1531403009284-440f080d1e12'),  // Stand-up Meeting → team gathered
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
@@ -119,7 +119,7 @@ const THEMED: Record<string, string> = {
 
   // Family Pet micro-set (Animals theme support spells).
   'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted
-  'ani-16': '/cards/good-boy.png',     // Good Boy → custom illustrated
+  'ani-16': U('photo-1561037404-61cd46aa615b'),     // Good Boy → happy dog
   'ani-17': U('photo-1530281700549-e82e7bf110d6'),  // Walkies → dog on a leash mid-walk
 };
 
