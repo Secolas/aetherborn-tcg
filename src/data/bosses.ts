@@ -567,15 +567,18 @@ export const MINI_BOSSES: BossDef[] = [
     // array order (skipShuffle: true plumbed through assembleMatch).
     skipShuffle: true,
     // Opponent's deck in draw order, sized to the script:
-    //   turn 2: Mouse (1c)          - opponent summons
-    //   turn 4: Snake Bite (2c)     - opponent damage spell
-    //   turn 6: Family Pet (1c Rush)- opponent Rush threat
-    //   turn 8: Good Boy (1c buff)  - opponent buffs their creature
-    //   turn 10+: more Mice as filler so the dummy keeps blocking
+    //   opening hand (cards 0-3): four 1c chumps. With only weak
+    //     creatures available on turn 2, the AI is forced to play
+    //     a Mouse — Family Pet (Rush) used to live in the opener
+    //     and the AI preferred it for the 2-atk Rush burst, which
+    //     broke the "opponent summons Mouse on turn 2" beat.
+    //   turn 4 draw: Snake Bite (opp's damage spell)
+    //   turn 6 draw: Family Pet (Rush demo)
+    //   turn 8 draw: Good Boy (buff demo)
     deck: [
-      'ani-01', 'ani-02', 'fam-01', 'ani-16',
       'ani-01', 'ani-01', 'ani-01', 'ani-01',
-      'ani-01', 'ani-01', 'ani-01', 'ani-01',
+      'ani-02', 'fam-01', 'ani-16',
+      'ani-01', 'ani-01', 'ani-01', 'ani-01', 'ani-01',
     ],
     backdrop: U('photo-1503676260728-1c00da094a0b'),
   },
