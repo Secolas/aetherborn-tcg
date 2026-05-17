@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Skull } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Skull, Moon, ChevronsRight, ShieldHalf, Zap } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
 import { Card } from '../components/Card';
 import { getBoss } from '../data/bosses';
@@ -8,6 +8,48 @@ import { aiPhoto } from '../data/samplePhotos';
 import { PALETTE } from '../components/styles';
 import type { CollectionCard, SaveData } from '../game/types';
 import type { Settings } from '../state/settings';
+import type { ReactNode } from 'react';
+
+/**
+ * Inline icon parser. Step text can include `{moon}`, `{swords}`,
+ * `{clock}`, `{battle}`, `{wand}`, `{heart}`, `{bond}`, `{shield}`,
+ * `{rush}` tokens which render as Lucide icons inline with the text —
+ * same glyphs the match board uses for sleeping creatures, the battle
+ * phase button, etc. — so a teaching beat can show the player exactly
+ * which icon to look for.
+ */
+const HINT_ICONS: Record<string, typeof Moon> = {
+  moon:   Moon,
+  swords: Swords,
+  clock:  Clock,
+  battle: ChevronsRight,
+  wand:   Wand2,
+  heart:  HeartPulse,
+  bond:   Link2,
+  shield: ShieldHalf,
+  rush:   Zap,
+};
+function renderHintText(text: string): ReactNode {
+  return text.split(/(\{[a-z]+\})/g).map((part, i) => {
+    const m = part.match(/^\{([a-z]+)\}$/);
+    if (m && HINT_ICONS[m[1]]) {
+      const Icon = HINT_ICONS[m[1]];
+      return (
+        <Icon
+          key={i}
+          size={13}
+          strokeWidth={2.5}
+          style={{
+            display: 'inline-block',
+            verticalAlign: '-2px',
+            margin: '0 2px',
+          }}
+        />
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 
 interface Props {
   starterThemeId: SaveData['starterThemeId'];
@@ -156,12 +198,12 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 1 · SUMMON',
     icon: 'hand',
-    text: "Drag Toast onto the field. It costs 1 mana — your max mana goes up by 1 each turn.",
+    text: "Drag Toast onto the field. It costs 1 mana. New creatures sleep {moon} the turn they're summoned — they wake up and can attack next turn.",
     spotlight: ['[data-tut-hand-card="fd-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fd-01',
   },
-  endTurnStep("Tap End Turn. The opponent will summon a creature next."),
+  endTurnStep("Tap End Turn {clock}. The opponent will summon a creature next."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 3 — Player casts a spell to remove a threat, then
@@ -178,12 +220,12 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 3 · ATTACK',
     icon: 'swords',
-    text: "Toast woke up — it can attack now. Drag it onto the opponent's portrait to deal 1 damage.",
+    text: "Toast woke up — its {moon} sleep icon is gone. Tap Battle Phase {swords} (top-right), then drag Toast onto the opponent's portrait for 1 damage.",
     spotlight: ['[data-tut-field-card="fd-01"][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: 'attack',
     requireAttackTarget: 'face',
   },
-  endTurnStep("End turn. The opponent will drop another creature on the board."),
+  endTurnStep("Tap End Turn {clock}. The opponent will drop another creature on the board."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 5 — Player summons the bond piece. Bond activates.
@@ -199,33 +241,33 @@ const STEPS: TutorialStep[] = [
   {
     title: 'BOND ACTIVE',
     icon: 'bond',
-    text: "Toast + Breakfast Plate = Bond: Breakfast Combo. Your creatures heal +2 HP at the start of every turn from now on — extra effects when specific cards share the field.",
+    text: "Toast + Breakfast Plate = Bond {bond}: Breakfast Combo. Your creatures heal +2 HP at the start of every turn from now on. Tap any card in your hand or on the field to read its full ability and bond info.",
     spotlight: [],
     advanceOn: 'auto',
-    autoMs: 3600,
+    autoMs: 4200,
   },
-  endTurnStep("End turn. The opponent may summon a Rush creature next — watch for it."),
+  endTurnStep("Tap End Turn {clock}. The opponent may summon a Rush {rush} creature next — watch for it."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 7 — Player attacks and casts a heal.
   // ─────────────────────────────────────────────────────────
   {
-    title: 'TURN 7 · ATTACK',
-    icon: 'swords',
-    text: "Opponent dropped a Rush creature last turn — Rush lets a creature attack the SAME turn it's summoned. Your bond keeps your creatures topped up. Attack the opponent's portrait again.",
-    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
-    advanceOn: 'attack',
-    requireAttackTarget: 'face',
-  },
-  {
     title: 'TURN 7 · SPELL · HEAL',
     icon: 'heart',
-    text: "Cast Hug — drag it onto a friendly creature that took damage to restore +3 HP.",
+    text: "Opponent dropped a Rush {rush} creature last turn — Rush lets it attack the same turn it's summoned. First, cast Hug {heart} — drag it onto a friendly creature to restore +3 HP. Spells must be cast in Main Phase, BEFORE you tap Battle {swords}.",
     spotlight: ['[data-tut-hand-card="fam-14"]'],
     advanceOn: 'spell-cast',
     requireCardId: 'fam-14',
   },
-  endTurnStep("End turn. The opponent may cast a Buff spell on their creature next."),
+  {
+    title: 'TURN 7 · ATTACK',
+    icon: 'swords',
+    text: "Now tap Battle Phase {swords} (top-right). Your awake creatures can swing — drag them onto the opponent's portrait.",
+    spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
+    advanceOn: 'attack',
+    requireAttackTarget: 'face',
+  },
+  endTurnStep("Tap End Turn {clock}. The opponent may cast a Buff spell on their creature next."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 9 — Player summons a Taunt creature.
@@ -233,12 +275,12 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 9 · TAUNT',
     icon: 'wand',
-    text: "Opponent buffed their creature with Good Boy (+0/+2 HP). Counter it — summon Dog. Dog has TAUNT: while it's alive, the opponent CAN'T attack you directly. They have to swing at Dog first.",
+    text: "Opponent buffed their creature with Good Boy (+0/+2 HP). Counter it — summon Dog. Dog has TAUNT {shield}: while it's alive, the opponent CAN'T attack your portrait. They have to swing at Dog first.",
     spotlight: ['[data-tut-hand-card="ani-05"]'],
     advanceOn: 'card-played',
     requireCardId: 'ani-05',
   },
-  endTurnStep("End turn. The opponent's only legal attack target is Dog now."),
+  endTurnStep("Tap End Turn {clock}. The opponent's only legal attack target is Dog now."),
 
   // ─────────────────────────────────────────────────────────
   // TURN 11 — Player summons Family Pet (Rush) and closes.
@@ -246,7 +288,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'TURN 11 · RUSH',
     icon: 'hand',
-    text: "Drop Family Pet onto the field. It has RUSH — it can attack the same turn it's summoned, no sleeping.",
+    text: "Drop Family Pet onto the field. It has RUSH {rush} — it can attack the same turn it's summoned, no {moon} sleeping.",
     spotlight: ['[data-tut-hand-card="fam-01"]'],
     advanceOn: 'card-played',
     requireCardId: 'fam-01',
@@ -254,7 +296,7 @@ const STEPS: TutorialStep[] = [
   {
     title: 'FINISH',
     icon: 'trophy',
-    text: "Now use Rush — attack the opponent's portrait with Family Pet, then swing in with everything else (Mug, Plate, Dog) to drop their HP to 0 and win.",
+    text: "Now use Rush {rush} — attack the opponent's portrait with Family Pet, then tap Battle {swords} and swing in with everything else (Toast, Plate, Dog) to drop HP to 0.",
     spotlight: ['[data-tut-field-card][data-tut-side="player"]', '[data-tut="opp-face"]'],
     advanceOn: null,
   },
@@ -480,7 +522,7 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
           <BookOpen size={12} strokeWidth={2.4} />
           <span>STEP {STEPS.indexOf(step) + 1} / {STEPS.length} · {step.title}</span>
         </div>
-        <div className="tu-anatomy-blurb">{step.text}</div>
+        <div className="tu-anatomy-blurb">{renderHintText(step.text)}</div>
 
         {kind === 'field'
           ? <FieldAnatomyDiagram />
@@ -771,7 +813,7 @@ function TutorialSpotlight({ step }: { step: TutorialStep }) {
             {collapsed ? '+' : '–'}
           </span>
         </div>
-        {!collapsed && <div className="tu-hint-body">{step.text}</div>}
+        {!collapsed && <div className="tu-hint-body">{renderHintText(step.text)}</div>}
       </button>
     </div>
   );

@@ -93,7 +93,7 @@ function caps(d: Difficulty): AiCaps {
  * If the step was an attack, `combat` is populated so the UI can play the
  * lunge + damage popup animations on the right creatures.
  */
-export function aiStep(state: MatchState): AiStepResult | null {
+export function aiStep(state: MatchState, opts?: { skipCreaturePlays?: boolean }): AiStepResult | null {
   if (state.outcome !== 'ongoing') return null;
   if (state.turn !== 'opponent') return null;
 
@@ -108,9 +108,12 @@ export function aiStep(state: MatchState): AiStepResult | null {
 
   // 2. Play the best card we can afford. scoreCard branches on difficulty
   //    so Mythic prefers bond-completing summons and Hard penalises
-  //    over-cost waste plays.
+  //    over-cost waste plays. `skipCreaturePlays` is used by the
+  //    tutorial AI throttle so the dummy boss only ever drops one
+  //    body per turn.
   const playable = me.hand
     .filter(card => effectiveCost(me, card) <= me.mana)
+    .filter(card => !opts?.skipCreaturePlays || card.type !== 'Creature')
     .sort((a, b) => scoreCard(b, state, c) - scoreCard(a, state, c));
 
   for (const card of playable) {
