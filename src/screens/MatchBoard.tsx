@@ -2240,8 +2240,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           slotMap={playerSlots}
           registerEl={registerEl}
           onCardClick={(c) => {
+            // If a friendly spell is mid-cast, tapping one of the
+            // player's own creatures commits it to that target. Mirror
+            // the set used by isTargetableForSpell / spellTargetHint
+            // so every friendly variant (theme-locked buffs, open
+            // buffs, heals, nourish) drops into the cast path.
             const ak = pendingSpell?.abilityKind;
-            if (ak === 'spell_buff' || ak === 'spell_nourish' || ak === 'spell_heal_friend') {
+            const isFriendlySpell =
+              ak === 'spell_buff' ||
+              ak === 'spell_buff_taunt' ||
+              ak === 'spell_buff_any' ||
+              ak === 'spell_heal_friend' ||
+              ak === 'spell_nourish';
+            if (isFriendlySpell) {
               castPendingAt({ kind: 'creature', owner: 'player', battleId: c.battleId });
             } else {
               onMyCreatureClick(c);
@@ -4071,13 +4082,15 @@ function GraveyardButton({ count, onClick, elRef, pulseKey }: {
 /** Plain-English hint telling the player what kind of target a pending spell needs. */
 function spellTargetHint(card: BattleCard): string {
   switch (card.abilityKind) {
-    case 'spell_damage': return 'Select enemy';
-    case 'spell_freeze': return 'Select enemy';
-    case 'spell_buff':   return 'Select ally';
-    case 'spell_nourish':return 'Select ally';
+    case 'spell_damage':      return 'Select enemy';
+    case 'spell_freeze':      return 'Select enemy';
+    case 'silence':           return 'Select enemy';
+    case 'spell_buff':        return 'Select ally';
+    case 'spell_buff_taunt':  return 'Select ally';
+    case 'spell_buff_any':    return 'Select ally';
+    case 'spell_nourish':     return 'Select ally';
     case 'spell_heal_friend': return 'Select ally';
-    case 'silence':      return 'Select enemy';
-    default:             return 'Select target';
+    default:                  return 'Select target';
   }
 }
 /** Maps a pending spell to its color-coded highlight kind for the
@@ -4090,12 +4103,14 @@ function spellTargetHighlight(
   card: BattleCard | null
 ): 'spell' | 'spell-damage' | 'spell-heal' | 'spell-freeze' {
   switch (card?.abilityKind) {
-    case 'spell_damage': return 'spell-damage';
-    case 'spell_freeze': return 'spell-freeze';
-    case 'spell_buff':   return 'spell-heal';
-    case 'spell_nourish':return 'spell-heal';
+    case 'spell_damage':      return 'spell-damage';
+    case 'spell_freeze':      return 'spell-freeze';
+    case 'spell_buff':        return 'spell-heal';
+    case 'spell_buff_taunt':  return 'spell-heal';
+    case 'spell_buff_any':    return 'spell-heal';
+    case 'spell_nourish':     return 'spell-heal';
     case 'spell_heal_friend': return 'spell-heal';
-    default:             return 'spell';
+    default:                  return 'spell';
   }
 }
 
@@ -4124,18 +4139,26 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   if (!spell) return false;
   // Silence ignores 'untargetable' on purpose — that's its job.
   if (spell.abilityKind === 'silence') return owner === 'opponent';
-  // Friendly buffs / heals (spell_buff, spell_nourish, spell_heal_friend)
-  // ignore untargetable since the friendly creature isn't being attacked.
-  const isFriendly = spell.abilityKind === 'spell_buff'
-    || spell.abilityKind === 'spell_nourish'
-    || spell.abilityKind === 'spell_heal_friend';
+  // Friendly spells split into two flavours, mirroring the engine's
+  // isValidSpellTarget rules:
+  //   - Theme-locked buffs (spell_buff, spell_buff_taunt) — the card
+  //     text says "Give a <Theme>-type creature ..." and the engine
+  //     enforces c.el === spell.el. Only valid on same-theme allies.
+  //   - Open friendlies (spell_buff_any, spell_heal_friend,
+  //     spell_nourish) — any friendly creature, no theme check.
+  // Both ignore the target's 'untargetable' since they're helping it,
+  // not attacking it.
+  const isThemeBuff = spell.abilityKind === 'spell_buff'
+    || spell.abilityKind === 'spell_buff_taunt';
+  const isOpenFriendly = spell.abilityKind === 'spell_buff_any'
+    || spell.abilityKind === 'spell_heal_friend'
+    || spell.abilityKind === 'spell_nourish';
+  const isFriendly = isThemeBuff || isOpenFriendly;
   if (c.abilityKind === 'untargetable' && !isFriendly) return false;
   if (isFriendly) {
     if (owner !== 'player') return false;
-    // Theme restriction: common/rare buffs and heals only work on same-theme
-    // creatures. Legendary and epic spells bypass the restriction.
-    const unrestricted = spell.rarity === 'legendary' || spell.rarity === 'epic';
-    return unrestricted || c.el === spell.el;
+    if (isOpenFriendly) return true;
+    return c.el === spell.el;
   }
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return owner === 'opponent';
