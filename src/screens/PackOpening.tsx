@@ -1261,7 +1261,7 @@ function PackArt({ vibe }: { vibe: PackVibe }) {
       <div style={{
         fontSize: 11, letterSpacing: '0.4em', textTransform: 'uppercase',
         color: vibe.glow, fontFamily: '"Cinzel", Georgia, serif',
-      }}>Lifedeck</div>
+      }}>Memoria</div>
       <div style={{
         fontSize: 28, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif',
         color: '#fff', textShadow: `0 0 20px ${vibe.glow}`,

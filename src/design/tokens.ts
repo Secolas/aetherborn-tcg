@@ -1,5 +1,5 @@
 /**
- * Aetherborn design tokens — the canonical name for every semantic
+ * Memoria design tokens — the canonical name for every semantic
  * color in the app. Every component should import from here instead of
  * hard-coding hex values, so the palette can shift in one place and
  * propagate everywhere.
