@@ -318,6 +318,25 @@ export function Tutorial({
   const boss = getBoss(TUTORIAL_BOSS_ID);
   const step = STEPS[Math.min(stepIdx, STEPS.length - 1)];
 
+  // Preload every card image the tutorial will need (anatomy steps +
+  // tutorial deck) on first mount so the player doesn't see a 1-2s
+  // pop-in when stepping from one anatomy card to the next on a cold
+  // cache. We trigger an off-screen Image() fetch for each URL —
+  // browser cache hands them to <img> instantly when the real card
+  // renders later in the script.
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const s of STEPS) if (s.anatomy) ids.add(s.anatomy.cardId);
+    for (const id of TUTORIAL_DECK_IDS) ids.add(id);
+    const fetched: HTMLImageElement[] = [];
+    for (const id of ids) {
+      const img = new Image();
+      img.src = aiPhoto(id);
+      fetched.push(img);
+    }
+    return () => { for (const img of fetched) img.src = ''; };
+  }, []);
+
   // Build a placeholder-photo deck from the scripted ID list.
   const deck: CollectionCard[] = useMemo(() => {
     return TUTORIAL_DECK_IDS.map((id, i) => {
