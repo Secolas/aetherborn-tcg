@@ -582,15 +582,24 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     };
   }, [state.turn, state.outcome]);
 
-  // Win/lose stinger fires once when the match resolves. Also notifies
-  // any tutorial-style overlay (TutorialSpotlight) so it can dismiss
-  // BEFORE the MatchEnd screen mounts — otherwise the step-hint card
-  // leaks over the win/loss UI until the player taps Exit.
+  // Win/lose stinger fires once when the match resolves.
   const outcomePlayedRef = useRef(false);
   useEffect(() => {
     if (state.outcome === 'ongoing' || outcomePlayedRef.current) return;
     outcomePlayedRef.current = true;
     sfx(state.outcome === 'win' ? 'win' : state.outcome === 'draw' ? 'turn' : 'lose');
+  }, [state.outcome]);
+
+  // Tell any tutorial-style overlay (TutorialSpotlight) the moment the
+  // match resolves so it can dismiss BEFORE the MatchEnd screen paints
+  // — otherwise the step-hint card leaks over the win/loss UI. This
+  // runs in a layout effect (synchronously, pre-paint) so the parent
+  // re-render lands in the same frame as the outcome change and the
+  // overlay never flashes on top of MatchEnd.
+  const matchOverFiredRef = useRef(false);
+  useLayoutEffect(() => {
+    if (state.outcome === 'ongoing' || matchOverFiredRef.current) return;
+    matchOverFiredRef.current = true;
     onMatchOver?.(state.outcome);
   }, [state.outcome]);
 
