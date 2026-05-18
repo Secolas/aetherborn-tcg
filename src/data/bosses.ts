@@ -108,7 +108,7 @@ export const BOSSES: BossDef[] = [
     subtitle: 'Disappointed',
     themeId: 'family',
     avatar: 'M',
-    avatarPhoto: '/cards/mom.png',                       // illustrated mom portrait
+    avatarPhoto: '/cards/mom.webp',                       // illustrated mom portrait
     intro: "You haven't called.",
     playstyle: "Sunday dinner regulars. Mom heals every turn she stands, and when Dad joins the table the family grows stronger together.",
     rewardCoins: 150,
@@ -552,7 +552,7 @@ export const MINI_BOSSES: BossDef[] = [
     subtitle: 'Showing you the ropes',
     themeId: 'family',
     avatar: 'M',
-    avatarPhoto: '/cards/mom.png',
+    avatarPhoto: '/cards/mom.webp',
     intro: 'Easy does it. Show me what you can do.',
     playstyle: 'Plays one weak creature per turn. Nothing fancy. Built for new players.',
     oneCreaturePerTurn: true,

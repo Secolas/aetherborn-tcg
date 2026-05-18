@@ -2,28 +2,35 @@
  * Photo URLs the AI uses for its battlefield creatures so a match looks like
  * a duel between two photo-summoners.
  *
- * Themed Unsplash CDN URLs where the card concept maps cleanly to a photo
- * subject. These need to stay current — when an Unsplash photo gets removed
- * or its ID rotates, SmartImage falls back to picsum.photos/seed which
- * returns a totally random image (e.g. Abuela showed up as a wolf because
- * her ID had rotted). When in doubt, prefer popular long-stable IDs.
+ * Mix of two sources:
+ *   - Themed Unsplash CDN URLs where the card concept maps cleanly to a
+ *     photo subject. These need to stay current — when an Unsplash photo
+ *     gets removed or its ID rotates, SmartImage falls back to
+ *     picsum.photos/seed which returns a totally random image (e.g.
+ *     Abuela showed up as a wolf because her ID had rotted). When in
+ *     doubt, prefer popular long-stable IDs.
+ *   - Local illustrated cards in /public/cards/*.webp for the iconic
+ *     family / pet / spell art. WebP at ~40-60 KB each (down from the
+ *     1.5-1.7 MB source PNGs) so they load instantly on mobile —
+ *     resized to 440x640 max, more than enough for the 220x320
+ *     display size at 2x retina.
  */
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
 
 const THEMED: Record<string, string> = {
   // Family
-  'fam-01': '/cards/family-pet.png',                // Family Pet → illustrated puppy
-  'fam-02': '/cards/cousin.png',                    // Cousin → illustrated kids
+  'fam-01': '/cards/family-pet.webp',                // Family Pet → illustrated puppy
+  'fam-02': '/cards/cousin.webp',                    // Cousin → illustrated kids
   'fam-03': U('photo-1547592180-85f173990554'),     // Soup → bowl of soup
-  'fam-04': '/cards/tio.png',                       // Tio → illustrated portrait
-  'fam-05': '/cards/mom.png',                       // Mom → illustrated portrait
+  'fam-04': '/cards/tio.webp',                       // Tio → illustrated portrait
+  'fam-05': '/cards/mom.webp',                       // Mom → illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
-  'fam-07': '/cards/older-sibling.png',             // Older Sibling → illustrated portrait
-  'fam-08': '/cards/abuela.png',                    // Abuela → illustrated portrait
+  'fam-07': '/cards/older-sibling.webp',             // Older Sibling → illustrated portrait
+  'fam-08': '/cards/abuela.webp',                    // Abuela → illustrated portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
-  'fam-10': '/cards/family-photo.png',              // Family Photo → illustrated group
-  'fam-11': '/cards/dad.png',                       // Dad → illustrated portrait
+  'fam-10': '/cards/family-photo.webp',              // Family Photo → illustrated group
+  'fam-11': '/cards/dad.webp',                       // Dad → illustrated portrait
   'fam-12': U('photo-1414235077428-338989a2e8c0'),  // Sunday Dinner → table
   'fam-13': U('photo-1559839734-2b71ea197ec2'),     // Tough Love → stern parent
 
@@ -31,7 +38,7 @@ const THEMED: Record<string, string> = {
   'wrk-01': U('photo-1573496359142-b8d87734a5a2'),  // Intern → young employee
   'wrk-02': U('photo-1526374965328-7f61d4dc18c5'),  // Spam Email → screen/code
   'wrk-03': U('photo-1494790108377-be9c29b29330'),  // Coworker → portrait
-  'wrk-04': '/cards/coffee.png',                    // Coffee → illustrated mug
+  'wrk-04': '/cards/coffee.webp',                    // Coffee → illustrated mug
   'wrk-05': U('photo-1517694712202-14dd9538aa97'),  // IT Support → cables/code
   'wrk-06': U('photo-1556761175-5973dc0f32e7'),     // Sales Pitch → presentation
   'wrk-07': U('photo-1573497019703-cef38d1b8da9'),  // HR → professional
@@ -43,11 +50,11 @@ const THEMED: Record<string, string> = {
   'wrk-13': U('photo-1454165804606-c3d57bc86b40'),  // Performance Review → laptop / paperwork
 
   // Animals
-  'ani-01': '/cards/mouse.png',                     // Mouse → illustrated mouse
-  'ani-02': '/cards/snake-bite.png',                // Snake Bite → illustrated bottle
+  'ani-01': '/cards/mouse.webp',                     // Mouse → illustrated mouse
+  'ani-02': '/cards/snake-bite.webp',                // Snake Bite → illustrated bottle
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
-  'ani-05': '/cards/dog.png',                       // Dog → illustrated sleeping dog
+  'ani-05': '/cards/dog.webp',                       // Dog → illustrated sleeping dog
   'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
@@ -87,7 +94,7 @@ const THEMED: Record<string, string> = {
   'fd-13': U('photo-1556679343-c7306c1976bc'),     // Sip → glass of water/iced drink
 
   // Cheap-card pass additions
-  'fam-14': '/cards/hug.png',                       // Hug → illustrated embrace
+  'fam-14': '/cards/hug.webp',                       // Hug → illustrated embrace
   'wrk-14': U('photo-1531403009284-440f080d1e12'),  // Stand-up Meeting → team gathered
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
@@ -119,7 +126,7 @@ const THEMED: Record<string, string> = {
 
   // Family Pet micro-set (Animals theme support spells).
   'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted
-  'ani-16': '/cards/good-boy.png',                  // Good Boy → illustrated petting
+  'ani-16': '/cards/good-boy.webp',                  // Good Boy → illustrated petting
   'ani-17': U('photo-1530281700549-e82e7bf110d6'),  // Walkies → dog on a leash mid-walk
 };
 
