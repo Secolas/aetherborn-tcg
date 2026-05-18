@@ -41,8 +41,8 @@ export function StarterPick({ themes, onPick }: Props) {
           <Sparkles size={12} strokeWidth={2.4} color={PALETTE.accent} />
           <span>FIRST DAY</span>
         </div>
-        <div className="sp-title">Select your starter deck</div>
-        <div className="sp-sub">Three decks. Tap one to bring it forward, then commit at the bottom. Pick carefully — your deck is built from your own photos.</div>
+        <div className="sp-title">What memories do you want to build?</div>
+        <div className="sp-sub">Pick a starter deck. Tap one to bring it forward, then commit at the bottom — your deck becomes 12 cards built from your own photos.</div>
         <div className="sp-photo-notice" role="note">
           <Camera size={13} strokeWidth={2.4} />
           <span>You'll take or upload <strong>12 photos</strong> after picking, one per card.</span>

@@ -210,7 +210,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
           <div className="home-brand-crest">
             <img src="/logo.png" alt="" />
           </div>
-          <div className="home-brand-tag">your life · in cards</div>
+          <div className="home-brand-tag">your memories · in cards</div>
           <div className="home-brand-name">Memoria</div>
         </div>
 
