@@ -735,14 +735,18 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
     return !!c && c.abilityKind !== 'untargetable';
   }
   if (card.abilityKind === 'spell_buff' || card.abilityKind === 'spell_buff_taunt') {
-    // Theme-locked: card text says "Give a X-type creature ..." and
-    // the engine now enforces it (was previously honor-system, which
-    // let players quietly buff any creature regardless of theme).
+    // Theme-locked at common / rare — card text reads "Give a X-type
+    // creature ..." and the engine enforces c.el === card.el so the
+    // cheap spells stay honest. Epic and legendary buffs bypass the
+    // theme check (mirrors the spell_buff_all on-play cross-theme
+    // rule) — the premium-rarity tax is what lets cross-theme decks
+    // (e.g. the couple memory pack) actually buff their mixed pieces.
     if (target.kind !== 'creature') return false;
     if (target.owner !== owner) return false;
     const c = side(state, owner).field.find(x => x.battleId === target.battleId);
     if (!c) return false;
-    return c.el === card.el;
+    const crossTheme = card.rarity === 'epic' || card.rarity === 'legendary';
+    return crossTheme || c.el === card.el;
   }
   if (card.abilityKind === 'spell_buff_any') {
     // Cross-theme flex buff — any friendly creature, no theme check.

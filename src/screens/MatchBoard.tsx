@@ -4158,7 +4158,10 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
   if (isFriendly) {
     if (owner !== 'player') return false;
     if (isOpenFriendly) return true;
-    return c.el === spell.el;
+    // Theme-locked buffs (spell_buff, spell_buff_taunt) — epic and
+    // legendary rarities bypass the theme check, matching the engine.
+    const crossTheme = spell.rarity === 'epic' || spell.rarity === 'legendary';
+    return crossTheme || c.el === spell.el;
   }
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
   if (spell.abilityKind === 'spell_damage') return owner === 'opponent';
