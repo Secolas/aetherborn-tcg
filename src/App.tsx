@@ -21,7 +21,7 @@ import {
 } from './game/quests';
 import { usePersistedState } from './hooks/usePersistedState';
 import { MATCH_WIN_REWARD, MATCH_LOSS_REWARD, MATCH_DRAW_REWARD, STARTER_REWARD } from './game/pack';
-import { STARTER_THEMES, getStarterTheme } from './data/starterDecks';
+import { STARTER_THEMES, PICKABLE_STARTER_THEMES, getStarterTheme } from './data/starterDecks';
 import { StarterPick } from './screens/StarterPick';
 import { StarterPackOpen } from './screens/StarterPackOpen';
 import { Tutorial } from './screens/Tutorial';
@@ -847,7 +847,7 @@ function Game() {
     <PhoneShell>
       {screen === 'starter-pick' && (
         <StarterPick
-          themes={STARTER_THEMES}
+          themes={PICKABLE_STARTER_THEMES}
           onPick={(themeId) => onStarterPick(themeId)}
         />
       )}
