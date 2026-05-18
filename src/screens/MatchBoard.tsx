@@ -1962,7 +1962,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             themeColor={bossElement.color}
             themeDeep={bossElement.deep}
             hp={state.opponent.hp}
-            highlight={pendingSpell ? 'spell' : selectedAttacker ? 'attack' : null}
+            // Only highlight the opponent's portrait when the pending
+            // spell can actually hit a face (damage spells). Freeze and
+            // friendly buffs/heals can't land on opp face, so the ring
+            // would have been a false promise.
+            highlight={
+              pendingSpell?.abilityKind === 'spell_damage'
+                ? 'spell-damage'
+                : selectedAttacker ? 'attack' : null
+            }
             onClick={onOppFaceClick}
             damage={damages[FACE_OPP] ?? null}
             elRef={(el) => registerEl(FACE_OPP, el)}
@@ -2066,17 +2074,51 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 absolute. Color flips to a light palette on dark board
                 skins (Twilight, Inkwell) so the message stays readable;
                 light skins keep the warm brown so the chip blends with
-                the daylight backdrop. */}
-            <div style={{
-              flex: 1, textAlign: 'center', pointerEvents: 'none',
-              fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
-              textTransform: 'uppercase',
-              color: boardSkin.isDark ? 'rgba(255,255,255,.85)' : PALETTE.textMid,
-              textShadow: boardSkin.isDark ? '0 1px 2px rgba(0,0,0,.45)' : 'none',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>
-              {centerText}
-            </div>
+                the daylight backdrop. When a spell is mid-cast the
+                "Select enemy/ally/target" prompt is rendered as a
+                bigger pill with a Target icon and color tinting so the
+                player can't miss what to do next. */}
+            {pendingSpell ? (() => {
+              const kind = spellTargetHighlight(pendingSpell);
+              const tint =
+                kind === 'spell-damage' ? '#ef5a5a' :
+                kind === 'spell-heal'   ? '#48d39a' :
+                kind === 'spell-freeze' ? '#5ea3e8' :
+                '#9ed6f7';
+              return (
+                <div style={{
+                  flex: 1, textAlign: 'center', pointerEvents: 'none',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '4px 12px', borderRadius: 999,
+                    background: `${tint}26`,
+                    border: `1.5px solid ${tint}aa`,
+                    color: '#fff',
+                    fontSize: 11, fontWeight: 800, letterSpacing: '0.16em',
+                    textTransform: 'uppercase',
+                    textShadow: '0 1px 2px rgba(0,0,0,.55)',
+                    boxShadow: `0 0 12px ${tint}55`,
+                    animation: 'spellTargetBadgePulse 1.05s ease-in-out infinite',
+                  }}>
+                    <Target size={13} strokeWidth={2.6} color={tint} />
+                    <span>{spellTargetHint(pendingSpell)}</span>
+                  </div>
+                </div>
+              );
+            })() : (
+              <div style={{
+                flex: 1, textAlign: 'center', pointerEvents: 'none',
+                fontSize: 9, fontWeight: 700, letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                color: boardSkin.isDark ? 'rgba(255,255,255,.85)' : PALETTE.textMid,
+                textShadow: boardSkin.isDark ? '0 1px 2px rgba(0,0,0,.45)' : 'none',
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
+                {centerText}
+              </div>
+            )}
 
             {/* Right: cancel (while casting) or phase action button */}
             {pendingSpell ? (
@@ -3816,8 +3858,10 @@ function FieldRow({
               }
               highlight={
                 side === 'player'
-                  ? (friendlySpell ? 'spell' : null)
-                  : (pendingSpell && targetable ? 'spell' : (selectedAttacker ? 'attack' : null))
+                  ? (friendlySpell ? spellTargetHighlight(pendingSpell) : null)
+                  : (pendingSpell && targetable
+                      ? spellTargetHighlight(pendingSpell)
+                      : (selectedAttacker ? 'attack' : null))
               }
               lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
               impact={isCombatDefender}
@@ -4020,6 +4064,24 @@ function spellTargetHint(card: BattleCard): string {
     default:             return 'Select target';
   }
 }
+/** Maps a pending spell to its color-coded highlight kind for the
+ *  battlefield ring. Damage spells pulse red, buffs/heals pulse green,
+ *  freezes pulse blue — so the player reads "what's about to happen"
+ *  from the ring color before they tap a target. Pendings without a
+ *  classified kind (or when called with no spell) fall back to the
+ *  generic 'spell' (neutral blue). */
+function spellTargetHighlight(
+  card: BattleCard | null
+): 'spell' | 'spell-damage' | 'spell-heal' | 'spell-freeze' {
+  switch (card?.abilityKind) {
+    case 'spell_damage': return 'spell-damage';
+    case 'spell_freeze': return 'spell-freeze';
+    case 'spell_buff':   return 'spell-heal';
+    case 'spell_nourish':return 'spell-heal';
+    case 'spell_heal_friend': return 'spell-heal';
+    default:             return 'spell';
+  }
+}
 
 /** Spells that don't need a target — they self-resolve when cast.
  *  Centralised so every entry point (drag, tap-to-play, needsTarget
@@ -4069,12 +4131,23 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   themeColor: string;
   themeDeep: string;
   hp: number;
-  highlight: 'attack' | 'spell' | null;
+  highlight: 'attack' | 'spell' | 'spell-damage' | 'spell-freeze' | null;
   onClick: () => void;
   damage: number | null;
   elRef?: (el: HTMLElement | null) => void;
 }) {
-  const ring = highlight === 'attack' ? '#ee5a52' : highlight === 'spell' ? '#3a8fc4' : null;
+  // Spell-targeting ring color matches the spell's intent: damage rings
+  // red (matches the damage-spell creature target ring), freeze rings
+  // blue, generic 'spell' falls back to the deeper blue. Attack ring
+  // stays its existing red. `pulseRing` drives the breathing animation
+  // for any spell-target ring so it doesn't blend into the background.
+  const ring =
+    highlight === 'attack' ? '#ee5a52' :
+    highlight === 'spell-damage' ? '#ef5a5a' :
+    highlight === 'spell-freeze' ? '#5ea3e8' :
+    highlight === 'spell' ? '#3a8fc4' :
+    null;
+  const pulseRing = highlight === 'spell' || highlight === 'spell-damage' || highlight === 'spell-freeze';
   const hit = damage != null && damage > 0;
   return (
     <Portrait
@@ -4084,6 +4157,7 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
       avatarRing={`conic-gradient(from 90deg, ${themeDeep}, ${themeColor}, ${themeDeep})`}
       hp={hp}
       ring={ring}
+      pulseRing={pulseRing}
       hit={hit}
       damage={damage}
       onClick={onClick}
@@ -4130,7 +4204,7 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
  * enough and dropping the names removes the layout asymmetry that the
  * names were creating).
  */
-function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, damage, onClick, elRef }: {
+function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, pulseRing, hit, damage, onClick, elRef }: {
   /** Centered fallback content shown when no avatarPhoto is set —
    *  usually a letter (for bosses) or a Lucide icon (for the player's
    *  default state). Accepts any ReactNode so callers can pass an
@@ -4143,6 +4217,11 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
   avatarRing: string;
   hp: number;
   ring: string | null;
+  /** When true the ring animates with the spell-target pulse keyframe
+   *  instead of staying static — used by the opp portrait while a
+   *  damage/freeze spell is mid-cast so the player sees the target
+   *  breathing, not just a faded glow. */
+  pulseRing?: boolean;
   hit: boolean;
   damage: number | null;
   onClick: () => void;
@@ -4154,12 +4233,18 @@ function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, hit, da
       cursor: 'pointer',
       padding: 4, borderRadius: 30,
       background: '#fff',
+      ...(pulseRing && ring ? {
+        ['--target-ring' as string]: ring,
+        ['--target-ring-soft' as string]: `${ring}aa`,
+      } : {}),
       boxShadow: ring
         ? `0 0 0 2px ${ring}, 0 0 14px ${ring}, 0 4px 10px rgba(58,46,42,.12)`
         : hit
           ? '0 0 0 2px #ee5a52, 0 0 16px rgba(238,90,82,.6), 0 4px 10px rgba(58,46,42,.12)'
           : '0 4px 10px rgba(58,46,42,.12)',
-      animation: hit ? 'shake 0.4s, hpFlash 0.5s' : damage ? 'hpFlash 0.5s' : undefined,
+      animation: pulseRing && ring
+        ? 'spellTargetPulse 1.05s ease-in-out infinite'
+        : hit ? 'shake 0.4s, hpFlash 0.5s' : damage ? 'hpFlash 0.5s' : undefined,
       transition: 'box-shadow .15s',
     }}>
       <div style={{
