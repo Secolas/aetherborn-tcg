@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Coins, Package, Images, Layers, Swords, ScrollText,
+  Coins, Package, Layers, Swords,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
-  Sparkles, BookOpen, Lock, Wifi, LogOut,
+  Sparkles, BookOpen, Lock, LogOut,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PALETTE } from '../components/styles';
@@ -14,7 +14,7 @@ interface Props {
   /** Total claimable items in Daily (completed quests + unclaimed streak).
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open' | 'pvp') => void;
+  onNav: (screen: 'cards' | 'pack' | 'play' | 'settings' | 'daily' | 'cosmetics' | 'battle' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open') => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
   /** When provided, the Home header surfaces a small sign-out chip. */
   onSignOut?: () => void;
@@ -87,7 +87,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
     | { kind: 'tutorial'; label: string; icon: React.ReactNode; nav: 'tutorial' }
     | { kind: 'starter-pick'; label: string; icon: React.ReactNode; nav: 'starter-pick' }
     | { kind: 'starter-open'; label: string; icon: React.ReactNode; nav: 'starter-open' }
-    | { kind: 'starter-photos'; label: string; icon: React.ReactNode; nav: 'collection' }
+    | { kind: 'starter-photos'; label: string; icon: React.ReactNode; nav: 'cards' }
     | { kind: 'campaign'; label: string; icon: React.ReactNode; nav: 'campaign' }
     | { kind: 'need-deck'; label: string; icon: React.ReactNode; nav: null }
     | { kind: 'play'; label: string; icon: React.ReactNode; nav: 'play' };
@@ -98,7 +98,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
     : (save.starterThemeId !== 'legacy' && !save.starterOpened)
     ? { kind: 'starter-open', label: 'Open Your Starter',    icon: <BookOpen size={20} strokeWidth={2.4} />, nav: 'starter-open' }
     : starterMissingPhotos
-    ? { kind: 'starter-photos', label: `${photosNeeded} starter photo${photosNeeded === 1 ? '' : 's'} to take`, icon: <Camera size={20} strokeWidth={2.4} />, nav: 'collection' }
+    ? { kind: 'starter-photos', label: `${photosNeeded} starter photo${photosNeeded === 1 ? '' : 's'} to take`, icon: <Camera size={20} strokeWidth={2.4} />, nav: 'cards' }
     : !playUnlocked
     ? { kind: 'campaign',     label: 'Play Campaign',        icon: <Flag     size={20} strokeWidth={2.4} />, nav: 'campaign' }
     : !deckReady
@@ -289,19 +289,22 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
                      save.starterThemeId is set (Tutorial -> Pick
                      Starter -> Open Starter walk-through).
                   2. Starter-incomplete: starter is opened but some
-                     cards have no photo yet. Only Collection is
-                     accessible — that's where the player takes the
-                     missing photos. Everything else stays locked
-                     until every starter card has a real photo.
+                     cards have no photo yet. Only Cards is
+                     accessible — its Collection tab is where the
+                     player takes the missing photos. Everything else
+                     stays locked until every starter card has a
+                     real photo.
                 Tiles route back onto the primary CTA in either
-                locked state. */}
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Online PVP" icon={<Wifi       size={18} strokeWidth={2.2} />} onClick={() => onNav('pvp')} />
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
-            <NavButton locked={!save.starterThemeId}                                                          label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Deck"       icon={<ScrollText size={18} strokeWidth={2.2} />} onClick={() => onNav('deck')} />
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Album"      icon={<Images     size={18} strokeWidth={2.2} />} onClick={() => onNav('album')} />
-            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Cosmetics"  icon={<Palette    size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
+                locked state.
+
+                Battle is the hub for both Online PVP and Campaign;
+                Cards is the tabbed hub for Collection / Deck / Album.
+                Consolidating these reduces the bottom row to four
+                same-sized tiles so it reads like a game's main nav. */}
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos} label="Battle"    icon={<Swords  size={18} strokeWidth={2.2} />} onClick={() => onNav('battle')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos} label="Packs"     icon={<Package size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
+            <NavButton locked={!save.starterThemeId}                           label="Cards"     icon={<Layers  size={18} strokeWidth={2.2} />} onClick={() => onNav('cards')} />
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos} label="Cosmetics" icon={<Palette size={18} strokeWidth={2.2} />} onClick={() => onNav('cosmetics')} />
           </div>
         </div>
       </div>

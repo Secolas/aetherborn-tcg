@@ -44,11 +44,16 @@ interface Props {
   /** Update the player's memory text for a card. Optional. */
   onUpdateMemory?: (uid: string, memory: string) => void;
   onBack: () => void;
+  /** When true, hides the internal back button and tightens the top
+   *  padding — the screen assumes an outer wrapper (the Cards tabbed
+   *  shell) is supplying the navigation chrome above. */
+  embedded?: boolean;
 }
 
 export function DeckBuilder({
   collection, decks, activeDeckId, maxDecks,
   onChange, onSetActive, onCreate, onRename, onDelete, onUpdateMemory, onBack,
+  embedded = false,
 }: Props) {
   const { isMobile, isDesktop } = useViewport();
   /** Compact = dense grid; Big = roomier preview cards. */
@@ -144,17 +149,23 @@ export function DeckBuilder({
     }}>
       {/* ===================== HEADER ===================== */}
       <div style={{
-        padding: isMobile ? '52px 16px 8px' : '36px 24px 10px',
+        padding: embedded
+          ? (isMobile ? '4px 16px 4px' : '6px 24px 6px')
+          : (isMobile ? '52px 16px 8px' : '36px 24px 10px'),
         display: 'flex', alignItems: 'center', gap: 12,
         width: '100%',
       }}>
-        <button onClick={onBack} style={iconBtn} aria-label="Back"><ArrowLeft size={18} /></button>
+        {!embedded && (
+          <button onClick={onBack} style={iconBtn} aria-label="Back"><ArrowLeft size={18} /></button>
+        )}
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: isMobile ? 20 : 22, fontWeight: 700,
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>{activeDeck?.name ?? 'Deck'}</div>
-          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
+          {!embedded && (
+            <div style={{
+              fontSize: isMobile ? 20 : 22, fontWeight: 700,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }}>{activeDeck?.name ?? 'Deck'}</div>
+          )}
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: embedded ? 0 : 2 }}>
             {deckUids.length} / {DECK_SIZE} cards
             {!isMobile && stats.playableCount < deckUids.length && (
               <span style={{ marginLeft: 8, color: '#b04a2e', fontWeight: 700 }}>

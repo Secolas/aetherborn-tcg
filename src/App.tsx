@@ -6,13 +6,12 @@ import { useFirestoreSave } from './hooks/useFirestoreSave';
 import { Login } from './screens/Login';
 import { PvpLobby } from './screens/PvpLobby';
 import { PvpRoom } from './screens/PvpRoom';
-import { Collection } from './screens/Collection';
 import { Capture } from './screens/Capture';
-import { DeckBuilder } from './screens/DeckBuilder';
 import { PackOpening } from './screens/PackOpening';
 import { MatchBoard } from './screens/MatchBoard';
 import { BossPicker } from './screens/BossPicker';
-import { Album } from './screens/Album';
+import { Cards, type CardsTab } from './screens/Cards';
+import { Battle } from './screens/Battle';
 import { SettingsScreen } from './screens/Settings';
 import { Daily } from './screens/Daily';
 import { QuestToast } from './components/QuestToast';
@@ -93,7 +92,7 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial' | 'pvp-lobby' | 'pvp-room';
+type Screen = 'home' | 'cards' | 'capture' | 'pack' | 'match' | 'boss-picker' | 'settings' | 'daily' | 'cosmetics' | 'battle' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial' | 'pvp-lobby' | 'pvp-room';
 
 export default function App() {
   // One-time wipe of any legacy localStorage save so a freshly-signed-in
@@ -138,6 +137,11 @@ function Game() {
   // player can choose when to start each step instead of being
   // dropped straight into the next screen on every app open.
   const [screen, setScreen] = useState<Screen>('home');
+  /** Which tab the tabbed Cards screen opens to. Set by callers that
+   *  want to land on a specific surface (deck builder from BossPicker,
+   *  collection from Capture-return) before routing to 'cards'. */
+  const [cardsTab, setCardsTab] = useState<CardsTab>('collection');
+  const goCards = (tab: CardsTab) => { setCardsTab(tab); setScreen('cards'); };
   const [capturing, setCapturing] = useState<CollectionCard | null>(null);
   const [activeBoss, setActiveBoss] = useState<BossDef | null>(null);
   const [activeDifficulty, setActiveDifficulty] = useState<Difficulty>('normal');
@@ -452,7 +456,7 @@ function Game() {
       collection: s.collection.map(c => c.uid === real.uid ? real : c),
     }));
     setCapturing(null);
-    setScreen('collection');
+    goCards('collection');
   };
 
   /**
@@ -867,8 +871,7 @@ function Game() {
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
-            else if (s === 'settings') setScreen('settings');
-            else if (s === 'pvp') setScreen('pvp-lobby');
+            else if (s === 'cards') goCards('collection');
             else setScreen(s);
           }}
         />
@@ -893,13 +896,31 @@ function Game() {
           onBack={() => setScreen('home')}
         />
       )}
-      {screen === 'collection' && (
-        <Collection
+      {screen === 'cards' && (
+        <Cards
+          initialTab={cardsTab}
           collection={save.collection}
+          onUpdateMemory={onUpdateMemory}
+          onBack={() => setScreen('home')}
           onCapture={goCapture}
           onClearPhoto={onClearPhoto}
           onQuickFill={onQuickFill}
-          onUpdateMemory={onUpdateMemory}
+          decks={save.decks ?? []}
+          activeDeckId={save.activeDeckId ?? (save.decks?.[0]?.id ?? '')}
+          maxDecks={MAX_DECKS}
+          onDeckChange={onDeckChange}
+          onSetActiveDeck={onSetActiveDeck}
+          onCreateDeck={onCreateDeck}
+          onRenameDeck={onRenameDeck}
+          onDeleteDeck={onDeleteDeck}
+          discoveredBonds={save.discoveredBonds ?? []}
+        />
+      )}
+      {screen === 'battle' && (
+        <Battle
+          unlocked={fullyUnlocked}
+          onPickPeople={() => setScreen('pvp-lobby')}
+          onPickCampaign={() => setScreen('campaign')}
           onBack={() => setScreen('home')}
         />
       )}
@@ -910,22 +931,7 @@ function Game() {
           unlockedFilters={save.unlockedFilters ?? [...STARTER_FILTERS]}
           onBuyFilter={onBuyFilter}
           onComplete={onCaptureComplete}
-          onBack={() => { setCapturing(null); setScreen('collection'); }}
-        />
-      )}
-      {screen === 'deck' && (
-        <DeckBuilder
-          collection={save.collection}
-          decks={save.decks ?? []}
-          activeDeckId={save.activeDeckId ?? (save.decks?.[0]?.id ?? '')}
-          maxDecks={MAX_DECKS}
-          onChange={onDeckChange}
-          onSetActive={onSetActiveDeck}
-          onCreate={onCreateDeck}
-          onRename={onRenameDeck}
-          onDelete={onDeleteDeck}
-          onUpdateMemory={onUpdateMemory}
-          onBack={() => setScreen('home')}
+          onBack={() => { setCapturing(null); goCards('collection'); }}
         />
       )}
       {screen === 'pack' && (
@@ -938,13 +944,6 @@ function Game() {
           onBack={() => setScreen('home')}
           unlocked={fullyUnlocked}
           onStartTutorial={() => setScreen('tutorial')}
-        />
-      )}
-      {screen === 'album' && (
-        <Album
-          collection={save.collection}
-          discoveredBonds={save.discoveredBonds ?? []}
-          onBack={() => setScreen('home')}
         />
       )}
       {screen === 'daily' && save.daily && (
@@ -994,7 +993,7 @@ function Game() {
           onSetActiveDeck={onSetActiveDeck}
           onPick={onPickBoss}
           onBack={() => setScreen('home')}
-          onOpenDeckBuilder={() => setScreen('deck')}
+          onOpenDeckBuilder={() => goCards('deck')}
         />
       )}
       {screen === 'campaign' && (
@@ -1006,7 +1005,7 @@ function Game() {
           unlocked={fullyUnlocked}
           onSetActiveDeck={onSetActiveDeck}
           onPickStop={onPickCampaignStop}
-          onOpenDeckBuilder={() => setScreen('deck')}
+          onOpenDeckBuilder={() => goCards('deck')}
           onBack={() => setScreen('home')}
           onStartTutorial={() => setScreen('tutorial')}
         />

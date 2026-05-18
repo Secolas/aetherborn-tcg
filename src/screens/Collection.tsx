@@ -35,9 +35,13 @@ interface Props {
    *  still renders when wired into older callers. */
   onUpdateMemory?: (uid: string, memory: string) => void;
   onBack: () => void;
+  /** When true, hides the internal back button and tightens the top
+   *  padding — the screen assumes an outer wrapper (the Cards tabbed
+   *  shell) is supplying the navigation chrome above. */
+  embedded?: boolean;
 }
 
-export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onUpdateMemory, onBack }: Props) {
+export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, onUpdateMemory, onBack, embedded = false }: Props) {
   const [filter, setFilter] = useState<Filter>('All');
   const [actionFor, setActionFor] = useState<CollectionCard | null>(null);
   /** Card opened for read-only preview — tapped a real-photo card. The
@@ -92,11 +96,16 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
       fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ padding: '52px 20px 12px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
+      <div style={{
+        padding: embedded ? '4px 20px 8px' : '52px 20px 12px',
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        {!embedded && (
+          <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
+        )}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Collection</div>
-          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
+          {!embedded && <div style={{ fontSize: 20, fontWeight: 700 }}>Collection</div>}
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: embedded ? 0 : 2 }}>
             {summoned} summoned · {total - summoned} dormant
             {placeholderCount > 0 && ` · ${placeholderCount} placeholder`}
           </div>
