@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coins, Sparkles, ChevronRight } from 'lucide-react';
+import { Coins, Sparkles, ChevronRight, Camera } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { PALETTE } from '../components/styles';
@@ -42,7 +42,11 @@ export function StarterPick({ themes, onPick }: Props) {
           <span>FIRST DAY</span>
         </div>
         <div className="sp-title">Select your starter deck</div>
-        <div className="sp-sub">Three decks. Tap one to bring it forward, then commit at the bottom.</div>
+        <div className="sp-sub">Three decks. Tap one to bring it forward, then commit at the bottom. Pick carefully — your deck is built from your own photos.</div>
+        <div className="sp-photo-notice" role="note">
+          <Camera size={13} strokeWidth={2.4} />
+          <span>You'll take or upload <strong>12 photos</strong> after picking, one per card.</span>
+        </div>
       </div>
 
       <div className="sp-fan">
@@ -152,6 +156,25 @@ function StarterPickStyles() {
         margin-left: auto;
         margin-right: auto;
       }
+      /* Photo-requirement notice — front-loads the commitment so the
+         player doesn't pick a deck whose cards they can't realistically
+         photograph. Coral chip language echoes the home CTA so it
+         reads as "important next step" rather than a footnote. */
+      .sp-photo-notice {
+        display: inline-flex; align-items: center; gap: 8px;
+        margin-top: 12px;
+        padding: 8px 14px;
+        background: rgba(238,90,82,0.10);
+        border: 1.5px solid rgba(238,90,82,0.30);
+        border-radius: 999px;
+        color: ${PALETTE.accentDeep};
+        font-size: 12px; font-weight: 600;
+        line-height: 1.35;
+        max-width: 320px;
+        margin-left: auto; margin-right: auto;
+        text-align: left;
+      }
+      .sp-photo-notice strong { font-weight: 800; }
 
       /* Fan stage — three packs absolutely positioned around the
          centre. Transform stack derives from the data-offset

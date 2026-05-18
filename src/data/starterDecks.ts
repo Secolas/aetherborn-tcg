@@ -4,13 +4,18 @@ import type { ElementId } from '../game/types';
  * Pokémon-style starter decks — the player picks ONE on first boot and
  * receives those 12 cards (with empty photos) as their starting pool.
  *
- * Each deck is hand-curated for the new-player experience:
- *   - Family   — long-game sustain. Heals + chunky bodies. Hardest to
- *                lose with, easiest to mis-play with.
- *   - Animals  — fast aggro. Cheap bodies and burst spells. Teaches
- *                trading and tempo.
- *   - Food     — board control. Lots of 1-2c plays that snowball with
- *                heals + buffs. Teaches sustain and value.
+ * Three themes are presented in the picker (`PICKABLE_STARTER_THEMES`):
+ *   - Family    — long-game sustain. Heals + chunky bodies. Photos:
+ *                 your relatives.
+ *   - Work      — fast tempo. Cheap aggressive bodies + two damage
+ *                 spells. Photos: your desk, coworkers, office objects.
+ *   - Education — scaling ramp. Level-up creatures and a wide-board
+ *                 finisher. Photos: school stuff (books, pencil,
+ *                 backpack), old school photos, library/classroom.
+ *
+ * Animals and Food themes remain defined below (but excluded from the
+ * picker) so saves from earlier builds where the player chose one of
+ * them resolve cleanly through `getStarterTheme`.
  *
  * Curves are tuned so the deck has at least one 1-cost and one 2-cost
  * for every opening hand: even a brand-new player can land a play on
@@ -31,8 +36,8 @@ export interface StarterTheme {
   /** Slightly longer body copy — appears on the picker tile's back. */
   description: string;
   /** Template id that previews the deck's "iconic" card on the picker
-   *  tile (e.g. Dad for Family, Wolf for Animals, Grandma's Pie for
-   *  Food). Renders large on the tile. */
+   *  tile (e.g. Dad for Family, The Boss for Work, Graduation Day for
+   *  Education). Renders large on the tile. */
   iconCardId: string;
   /** Ordered list of 12 template ids granted on starter pick. Order is
    *  the sequence the starter pack open flow reveals them in. */
@@ -67,18 +72,71 @@ export const STARTER_THEMES: StarterTheme[] = [
     ],
   },
   {
+    id: 'work',
+    name: 'Work',
+    pitch: 'Hit early. Promote your best.',
+    description: 'Cheap bodies, two damage spells, a draw engine, and a +4/+4 promotion to seal it. Punishes slow decks before they stabilise.',
+    iconCardId: 'wrk-12',
+    /* Identity: tempo / aggressive curve / direct damage.
+     * Toolkit: 1c body + 1c removal spell on turn 1, three 2c plays
+     * for turn 2 momentum (two bodies + silence), a 3c value-creature
+     * with draw and a 3c 4-dmg spell to keep pressure on, a sticky
+     * untargetable body, a +4/+4 buff finisher, a 5c full-board heal,
+     * and the 6c Boss with Taunt to close. Cheaper curve than Family
+     * — Work wins on tempo, not stats. 6 creatures / 6 spells keeps
+     * the body count in line with the other two starters. */
+    deck: [
+      'wrk-01',                 // 1c 1/1  — Intern
+      'wrk-02', 'wrk-02',       // 1c spell x2 — Spam Email (2 dmg)
+      'wrk-03', 'wrk-03',       // 2c 2/2 x2 — Coworker
+      'wrk-13',                 // 2c spell — Performance Review (silence)
+      'wrk-05',                 // 3c 2/3  — IT Support (draw on play)
+      'wrk-06',                 // 3c spell — Sales Pitch (4 dmg)
+      'wrk-07',                 // 4c 3/4  — HR (untargetable)
+      'wrk-10',                 // 4c spell — Promotion (+4/+4 buff)
+      'wrk-11',                 // 5c spell — Lunch Break (heal 7)
+      'wrk-12',                 // 6c 5/6  — The Boss (taunt, finisher)
+    ],
+  },
+  {
+    id: 'education',
+    name: 'Education',
+    pitch: 'Study. Level up. Graduate.',
+    description: 'Level-up creatures grow stronger each turn, draw engines keep your hand full, and Graduation Day buffs your whole team to close.',
+    iconCardId: 'edu-12',
+    /* Identity: scaling / ramp / wide-board payoff.
+     * Toolkit: 1c body + 1c draw spell + duplicate draw spell to
+     * dig fast, two 2c level_up bodies that grow over time, a 2c
+     * freeze and a 2c discard-2/draw-2 cycle, a 3c rush creature
+     * and a 3c 4/2 pressure body, a 4c heal-each-turn tank, a 4c
+     * graduating creature (Senior Year), and a 6c Graduation Day
+     * buff-all finisher. Slowest of the three — Education wants
+     * to survive into turn 5+ where the level_up math takes over. */
+    deck: [
+      'edu-01',                 // 1c 1/1  — Pencil
+      'edu-02', 'edu-02',       // 1c spell x2 — Backpack (draw)
+      'edu-03',                 // 2c 1/3  — Math Teacher (level_up)
+      'edu-04',                 // 2c spell — Bathroom Break (freeze)
+      'edu-07',                 // 2c spell — Pop Quiz (discard 1, draw 2)
+      'edu-13',                 // 3c 3/3  — Physical Ed Class (rush)
+      'edu-06',                 // 3c 2/4  — Physics Class (level_up)
+      'edu-08',                 // 3c 4/2  — The Bully
+      'edu-09',                 // 4c 1/6  — Library (heal each turn)
+      'edu-11',                 // 4c 2/3  — Senior Year (graduate)
+      'edu-12',                 // 6c 4/5  — Graduation Day (buff_all on play)
+    ],
+  },
+
+  // ─── Retired starter themes ──────────────────────────────────────
+  // Kept defined so saves where the player picked one of these in an
+  // earlier build still resolve through getStarterTheme — the new
+  // picker (PICKABLE_STARTER_THEMES below) excludes them.
+  {
     id: 'animals',
     name: 'Animals',
     pitch: 'Strike fast. Strike often.',
-    description: 'Family Pet attacks the turn you play it. Snake Bite finishes wounded creatures. Wolf closes the game.',
+    description: 'A rush creature swings the turn you play it, a damage spell finishes wounded creatures, and Wolf closes the game.',
     iconCardId: 'ani-11',
-    /* Identity: aggro / Rush / burst.
-     * Toolkit: 1 Rush creature (Family Pet, cross-theme by design —
-     * the existing animals theme has no Rush creatures of its own),
-     * 1 heal (Belly Rub), 1 damage spell (Snake Bite), 1 draw spell
-     * (Walkies, draws 2), 1 buff (Good Boy), bond pair (Cat + Dog
-     * = "Tale of Tails"), finisher (Wolf). Cheapest curve so the
-     * player can lead with multiple 1-cost plays. */
     deck: [
       'fam-01',                 // 1c 2/1 Rush — Family Pet (themed: animals)
       'ani-01',                 // 1c 1/1  — Mouse
@@ -98,16 +156,8 @@ export const STARTER_THEMES: StarterTheme[] = [
     id: 'food',
     name: 'Food',
     pitch: 'Snack. Recover. Win late.',
-    description: 'Sticky 1-cost plays, on-play card draw, and Family Feast to flip a losing late game with +4 HP across the board.',
+    description: 'Sticky 1-cost plays, on-play card draw, and a 6c board-wide heal to flip a losing late game.',
     iconCardId: 'fd-10',
-    /* Identity: value / sustain / late-game flip.
-     * Toolkit: 1 Rush creature (Snack), 2 heals (Sip, Grandma's Pie
-     * passive), 1 draw (Breakfast Plate on-play), 1 damage spell
-     * (Spicy Sauce), 1 buff (Recipe Card), bond pair (Toast
-     * + Breakfast Plate = "Breakfast Combo"), finishers (The Cook
-     * + Family Feast late-game heal flip). Lower raw ATK total than
-     * the others — Food wins by outlasting and out-trading, not by
-     * out-damaging. */
     deck: [
       'fd-01',                  // 1c 1/2  — Toast (bond piece)
       'fd-03',                  // 1c 2/1 Rush — Snack
@@ -124,6 +174,17 @@ export const STARTER_THEMES: StarterTheme[] = [
     ],
   },
 ];
+
+/** Themes shown in the StarterPick picker. Family / Work / Education
+ *  are the three options new players see — chosen for clear playstyle
+ *  separation (sustain / tempo / scaling) AND because every adult has
+ *  easy access to photographable subjects for each (relatives, the
+ *  office / coworkers / desk objects, old school memorabilia or
+ *  current school stuff for parents). Animals and Food are still
+ *  defined in STARTER_THEMES so legacy saves resolve, but they don't
+ *  appear here. */
+export const PICKABLE_STARTER_THEMES: StarterTheme[] =
+  STARTER_THEMES.filter(t => t.id === 'family' || t.id === 'work' || t.id === 'education');
 
 export function getStarterTheme(id: ElementId): StarterTheme | undefined {
   return STARTER_THEMES.find(t => t.id === id);
