@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { PhoneShell } from './components/PhoneShell';
 import { HomeMenu } from './screens/HomeMenu';
+import { AuthProvider, useAuth } from './firebase/auth';
+import { useFirestoreSave } from './hooks/useFirestoreSave';
+import { Login } from './screens/Login';
+import { PvpLobby } from './screens/PvpLobby';
+import { PvpRoom } from './screens/PvpRoom';
 import { Collection } from './screens/Collection';
 import { Capture } from './screens/Capture';
 import { DeckBuilder } from './screens/DeckBuilder';
@@ -47,6 +52,19 @@ import { DEFAULT_SETTINGS, SETTINGS_KEY, type Settings } from './state/settings'
 import { unlockAudio, setMusicVolume, playSfx } from './audio/sfx';
 
 const SAVE_KEY = 'lifedeck-save-v1';
+const LOCAL_WIPE_FLAG = 'aetherborn-local-wiped-v1';
+
+/** One-time wipe of the legacy localStorage save. As of the Firebase
+ *  rollout, the source of truth is per-user Firestore — anything still
+ *  in localStorage is stale, and we don't want a left-over save bleeding
+ *  back into a fresh account. Runs once per browser (flag persists). */
+function wipeLegacyLocalSave() {
+  try {
+    if (localStorage.getItem(LOCAL_WIPE_FLAG)) return;
+    localStorage.removeItem(SAVE_KEY);
+    localStorage.setItem(LOCAL_WIPE_FLAG, '1');
+  } catch { /* private mode / quota — fine */ }
+}
 
 /** Brand-new save — empty collection. The player has not yet picked
  *  a starter theme, so SaveData.starterThemeId is undefined and the
@@ -75,11 +93,46 @@ function makeInitialSave(): SaveData {
   };
 }
 
-type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial';
+type Screen = 'home' | 'collection' | 'capture' | 'deck' | 'pack' | 'match' | 'boss-picker' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'starter-pick' | 'starter-open' | 'tutorial' | 'pvp-lobby' | 'pvp-room';
 
 export default function App() {
-  const [save, setSave] = usePersistedState<SaveData>(SAVE_KEY, makeInitialSave());
+  // One-time wipe of any legacy localStorage save so a freshly-signed-in
+  // user can't accidentally inherit it. Idempotent across reloads.
+  useEffect(() => { wipeLegacyLocalSave(); }, []);
+  return (
+    <AuthProvider>
+      <AuthGate />
+    </AuthProvider>
+  );
+}
+
+function AuthGate() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <PhoneShell>
+        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center',
+          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)', color: 'rgba(255,255,255,.7)' }}>
+          Loading…
+        </div>
+      </PhoneShell>
+    );
+  }
+  if (!user) {
+    return (
+      <PhoneShell>
+        <Login />
+      </PhoneShell>
+    );
+  }
+  return <Game />;
+}
+
+function Game() {
+  const { user, signOutUser } = useAuth();
+  const { save, setSave, loading: saveLoading } = useFirestoreSave(user, makeInitialSave());
   const [settings, setSettings] = usePersistedState<Settings>(SETTINGS_KEY, DEFAULT_SETTINGS);
+  const [pvpRoomId, setPvpRoomId] = useState<string | null>(null);
   // Boot always lands on Home. Onboarding (tutorial -> starter pick
   // -> starter pack open) is surfaced as Home's primary CTA so the
   // player can choose when to start each step instead of being
@@ -769,6 +822,17 @@ export default function App() {
       });
   const fullyUnlocked = !!save.starterThemeId && starterPhotosComplete;
 
+  if (saveLoading) {
+    return (
+      <PhoneShell>
+        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center',
+          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)', color: 'rgba(255,255,255,.7)' }}>
+          Loading your collection…
+        </div>
+      </PhoneShell>
+    );
+  }
+
   return (
     <CosmeticsProvider
       frame={save.equippedFrame}
@@ -798,12 +862,28 @@ export default function App() {
         <HomeMenu
           save={save}
           dailyReadyCount={dailyReadyCount}
+          playerName={user?.displayName || user?.email?.split('@')[0]}
+          onSignOut={() => { signOutUser(); }}
           onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
             else if (s === 'settings') setScreen('settings');
+            else if (s === 'pvp') setScreen('pvp-lobby');
             else setScreen(s);
           }}
+        />
+      )}
+      {screen === 'pvp-lobby' && (
+        <PvpLobby
+          collection={save.collection}
+          onEnterRoom={(id) => { setPvpRoomId(id); setScreen('pvp-room'); }}
+          onBack={() => setScreen('home')}
+        />
+      )}
+      {screen === 'pvp-room' && pvpRoomId && (
+        <PvpRoom
+          roomId={pvpRoomId}
+          onLeave={() => { setPvpRoomId(null); setScreen('pvp-lobby'); }}
         />
       )}
       {screen === 'settings' && (
