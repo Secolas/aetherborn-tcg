@@ -209,14 +209,23 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
       background: '#000',
       color: '#fff', fontFamily: '"Inter", system-ui, sans-serif',
       display: 'flex', flexDirection: 'column',
-      position: 'relative', overflow: 'hidden',
+      position: 'relative',
+      // On short viewports (iPad landscape, phones with browser chrome
+      // visible) the FilterPicker + memory textarea + "Add to
+      // Collection" button stack would push the button below the fold
+      // with overflow: hidden — the player was stranded mid-summon.
+      // Allow vertical scroll instead so the button is always
+      // reachable, even if it means scrolling to it on tight heights.
+      overflowY: 'auto',
+      overflowX: 'hidden',
     }}>
       <div style={{
-        position: 'absolute', inset: 0,
+        position: 'fixed', inset: 0,
         background: stage === 'revealed'
           ? `radial-gradient(ellipse at 50% 30%, ${e.color}33, ${e.deep}88, #000 80%)`
           : 'radial-gradient(circle at 50% 50%, #1a1a2e 0%, #000 80%)',
         transition: 'background 0.6s',
+        pointerEvents: 'none',
       }} />
 
       {stage === 'flashing' && (
@@ -328,7 +337,7 @@ export function Capture({ template, coins = 0, unlockedFilters = ['none', 'sepia
         )}
       </div>
 
-      <div style={{ padding: '0 20px 40px', position: 'relative', zIndex: 2 }}>
+      <div style={{ padding: '0 20px max(40px, env(safe-area-inset-bottom, 40px))', position: 'relative', zIndex: 2 }}>
         {stage === 'framing' && (
           <>
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 24 }}>
