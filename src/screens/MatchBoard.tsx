@@ -79,6 +79,11 @@ interface Props {
    *  match-end screen knows not to advertise the first-time bonus. App
    *  computes this from `save.bossesDefeated`. */
   alreadyBeaten?: boolean;
+  /** Fires once the moment the match resolves (state.outcome flips off
+   *  'ongoing'), BEFORE the player taps Exit on the end screen. Lets
+   *  callers like the Tutorial dismiss any overlays they were painting
+   *  on top of the board so they don't leak into the MatchEnd screen. */
+  onMatchOver?: (outcome: 'win' | 'loss' | 'draw') => void;
   onExit: (outcome: 'win' | 'loss' | 'draw' | 'quit') => void;
 }
 
@@ -115,7 +120,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, onMatchOver, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -577,12 +582,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     };
   }, [state.turn, state.outcome]);
 
-  // Win/lose stinger fires once when the match resolves.
+  // Win/lose stinger fires once when the match resolves. Also notifies
+  // any tutorial-style overlay (TutorialSpotlight) so it can dismiss
+  // BEFORE the MatchEnd screen mounts — otherwise the step-hint card
+  // leaks over the win/loss UI until the player taps Exit.
   const outcomePlayedRef = useRef(false);
   useEffect(() => {
     if (state.outcome === 'ongoing' || outcomePlayedRef.current) return;
     outcomePlayedRef.current = true;
     sfx(state.outcome === 'win' ? 'win' : state.outcome === 'draw' ? 'turn' : 'lose');
+    onMatchOver?.(state.outcome);
   }, [state.outcome]);
 
   // Bond activation diff — flag any newly-active bonds on each side so the

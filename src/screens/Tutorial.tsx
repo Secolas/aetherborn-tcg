@@ -310,6 +310,10 @@ export function Tutorial({
   const [phase, setPhase] = useState<'intro' | 'match'>('intro');
   const [stepIdx, setStepIdx] = useState(0);
   const [attempt, setAttempt] = useState(0);
+  /** True once the match has resolved (win / loss / draw). Suppresses
+   *  the spotlight overlay so the MatchEnd screen owns the foreground
+   *  until the player taps Exit. Reset on every new attempt. */
+  const [matchOver, setMatchOver] = useState(false);
 
   const boss = getBoss(TUTORIAL_BOSS_ID);
   const step = STEPS[Math.min(stepIdx, STEPS.length - 1)];
@@ -413,6 +417,7 @@ export function Tutorial({
               className="tu-intro-cta"
               onClick={() => {
                 setStepIdx(0);
+                setMatchOver(false);
                 setPhase('match');
               }}
             >
@@ -442,7 +447,7 @@ export function Tutorial({
             onAdvance={() => setStepIdx((i) => Math.min(i + 1, STEPS.length - 1))}
           />
         )
-        : (
+        : !matchOver && (
           <TutorialSpotlight step={step} key={`${attempt}-${stepIdx}`} />
         )
       }
@@ -484,6 +489,7 @@ export function Tutorial({
           }
           return true;
         }}
+        onMatchOver={() => setMatchOver(true)}
         onExit={(outcome) => {
           if (outcome === 'win') {
             onComplete();
@@ -491,6 +497,7 @@ export function Tutorial({
           }
           setAttempt((a) => a + 1);
           setStepIdx(0);
+          setMatchOver(false);
           setPhase('intro');
         }}
       />
