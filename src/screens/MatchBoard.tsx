@@ -3810,11 +3810,6 @@ function FieldRow({
         const targetable = c ? isTargetableForSpell(c, pendingSpell, side) : false;
         const isCombatAttacker = c ? combat?.attackerId === c.battleId && combat.attackerOwner === side : false;
         const isCombatDefender = c ? combat?.defenderId === c.battleId && combat.defenderOwner === side : false;
-        const friendlySpell = side === 'player' && (
-          pendingSpell?.abilityKind === 'spell_buff' ||
-          pendingSpell?.abilityKind === 'spell_nourish' ||
-          pendingSpell?.abilityKind === 'spell_heal_friend'
-        );
         const dyingEntry = c ? dying[c.battleId] : null;
 
         // Single stable wrapper per slot — always present in the DOM
@@ -3875,11 +3870,14 @@ function FieldRow({
                   : !!selectedAttacker
               }
               highlight={
-                side === 'player'
-                  ? (friendlySpell ? spellTargetHighlight(pendingSpell) : null)
-                  : (pendingSpell && targetable
-                      ? spellTargetHighlight(pendingSpell)
-                      : (selectedAttacker ? 'attack' : null))
+                // Both sides pulse the spell-target ring only when the
+                // creature is ACTUALLY targetable — e.g. a Family buff
+                // shouldn't light up my Work creatures the spell can't
+                // hit. Falls back to the attack ring on the opponent
+                // side when an attacker is selected.
+                pendingSpell && targetable
+                  ? spellTargetHighlight(pendingSpell)
+                  : (side === 'opponent' && selectedAttacker ? 'attack' : null)
               }
               lunging={isCombatAttacker ? (side === 'player' ? 'up' : 'down') : null}
               impact={isCombatDefender}
@@ -4193,6 +4191,10 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
   elRef?: (el: HTMLElement | null) => void;
 }) {
   const ring = highlight === 'heal' ? '#06d6a0' : null;
+  // Heal target rings now breathe like the opponent's damage ring so
+  // the player notices their own portrait is a legal heal target on a
+  // busy mobile board.
+  const pulseRing = highlight === 'heal';
   const hit = damage != null && damage > 0;
   // Default-state portrait: a friendly silhouette icon instead of the
   // letter "Y" — reads as "tap to add your photo" instead of an
@@ -4206,6 +4208,7 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
       avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
       hp={hp}
       ring={ring}
+      pulseRing={pulseRing}
       hit={hit}
       damage={damage}
       onClick={onClick}

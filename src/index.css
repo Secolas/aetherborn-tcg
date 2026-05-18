@@ -129,19 +129,28 @@ input {
    player can tap. The variables let each callsite set its own ring
    color (red for damage, green for buff/heal, blue for freeze etc.).
    Inline `boxShadow` on the element is overridden by this animation
-   while it runs. */
+   while it runs.
+
+   Cranked up from the original subtle breathe: thicker ring band
+   (3px → 7px), a much wider outer glow (8px → 38px), a faster
+   cadence (1.05s → 0.85s), and a subtle scale wobble so the eye
+   actually catches it on a busy mobile board. */
 @keyframes spellTargetPulse {
   0%, 100% {
     box-shadow:
-      0 0 0 2.5px var(--target-ring),
-      0 0 6px var(--target-ring-soft, var(--target-ring)),
+      0 0 0 3px var(--target-ring),
+      0 0 8px var(--target-ring-soft, var(--target-ring)),
+      0 0 0 0px var(--target-ring-soft, var(--target-ring)),
       0 4px 10px rgba(0,0,0,.25);
+    transform: scale(1);
   }
   50% {
     box-shadow:
-      0 0 0 4px var(--target-ring),
-      0 0 24px var(--target-ring-soft, var(--target-ring)),
+      0 0 0 5px var(--target-ring),
+      0 0 38px var(--target-ring-soft, var(--target-ring)),
+      0 0 0 10px transparent,
       0 4px 10px rgba(0,0,0,.25);
+    transform: scale(1.04);
   }
 }
 @keyframes spellTargetBadgePulse {
