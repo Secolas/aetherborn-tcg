@@ -4138,7 +4138,7 @@ function isTargetableForSpell(c: BattleCard, spell: BattleCard | null, owner: 'p
     return unrestricted || c.el === spell.el;
   }
   if (spell.abilityKind === 'spell_freeze') return owner === 'opponent';
-  if (spell.abilityKind === 'spell_damage') return true;
+  if (spell.abilityKind === 'spell_damage') return owner === 'opponent';
   return false;
 }
 

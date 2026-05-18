@@ -116,7 +116,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a young coworker, or a workspace' },
 
   { id: 'wrk-02', name: 'Spam Email', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 2 damage to any target.',
+    ability: 'Deal 2 damage to an enemy.',
     abilityKind: 'spell_damage', abilityValue: 2,
     rarity: 'common', suggested: 'an inbox, a screen, anything annoying' },
 
@@ -139,7 +139,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a tangle of cables, a tech setup' },
 
   { id: 'wrk-06', name: 'Sales Pitch', el: 'work', cost: 3, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 4 damage to any target.',
+    ability: 'Deal 4 damage to an enemy.',
     abilityKind: 'spell_damage', abilityValue: 4,
     rarity: 'common', suggested: 'a presentation, a whiteboard, a slide' },
 
@@ -209,7 +209,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'any small animal you can find' },
 
   { id: 'ani-02', name: 'Snake Bite', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 3 damage to any target.',
+    ability: 'Deal 3 damage to an enemy.',
     abilityKind: 'spell_damage', abilityValue: 3,
     rarity: 'common', suggested: 'a snake, lizard, or bug' },
 
@@ -348,7 +348,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'rare', suggested: 'a train, station, or platform sign' },
 
   { id: 'trv-07', name: 'Roadmap', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 3 damage to any target.',
+    ability: 'Deal 3 damage to an enemy.',
     flavor: 'Some routes shouldn\'t be taken.',
     abilityKind: 'spell_damage', abilityValue: 3,
     rarity: 'common', suggested: 'a paper map, a GPS screen, a road sign' },
@@ -478,7 +478,7 @@ export const TEMPLATES: CardTemplate[] = [
     rarity: 'common', suggested: 'a glass of water, an iced tea, a smoothie' },
 
   { id: 'fd-14', name: 'Spicy Sauce', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 2 damage to any target.',
+    ability: 'Deal 2 damage to an enemy.',
     flavor: 'Too much? Never.',
     abilityKind: 'spell_damage', abilityValue: 2,
     rarity: 'common', suggested: 'a hot sauce bottle, chili peppers, a spicy dish' },
@@ -788,7 +788,7 @@ export const TEMPLATES: CardTemplate[] = [
   // gives Cook a 3-mana 4-damage option on parity with Sales Pitch
   // (wrk-06) so the sustain plan can survive long enough to come online.
   { id: 'fd-17', name: 'Stew Pot', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
-    ability: 'Deal 4 damage to any target.',
+    ability: 'Deal 4 damage to an enemy.',
     flavor: 'Hot enough to clear a room.',
     abilityKind: 'spell_damage', abilityValue: 4,
     rarity: 'rare', suggested: 'a bubbling pot, ladle, a thick stew' },

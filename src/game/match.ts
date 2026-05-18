@@ -715,7 +715,12 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
   if (!target) return false;
 
   if (card.abilityKind === 'spell_damage') {
-    // Can hit anything (face or creature). Can't target untargetable creatures.
+    // Damage spells only hit the OPPONENT side — their creatures or
+    // their portrait. Casters can't damage their own board (no
+    // self-damage strategies, and the visual highlight system already
+    // matches this expectation). Untargetable enemy creatures stay
+    // safe.
+    if (target.owner === owner) return false;
     if (target.kind === 'creature') {
       const c = side(state, target.owner).field.find(x => x.battleId === target.battleId);
       if (!c) return false;
