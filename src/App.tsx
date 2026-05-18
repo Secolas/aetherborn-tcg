@@ -3,6 +3,7 @@ import { PhoneShell } from './components/PhoneShell';
 import { HomeMenu } from './screens/HomeMenu';
 import { AuthProvider, useAuth } from './firebase/auth';
 import { useFirestoreSave } from './hooks/useFirestoreSave';
+import { uploadCardPhoto, deleteCardPhoto, migrateCollectionPhotos, isDataUriPhoto } from './firebase/photos';
 import { Login } from './screens/Login';
 import { PvpLobby } from './screens/PvpLobby';
 import { PvpRoom } from './screens/PvpRoom';
@@ -232,6 +233,37 @@ function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** One-time photo-storage migration. Saves from before the Firebase
+   *  Storage rollout inlined every card photo as a ~150 KB base64 data
+   *  URI directly in the save doc — fine at 5-10 cards but Firestore
+   *  caps a single doc at 1 MB so a full collection couldn't even
+   *  round-trip. On every boot, scan the collection for any leftover
+   *  data URIs, upload each to Storage, and rewrite the save with the
+   *  download URLs. Idempotent — once every card's photo is a URL, the
+   *  scan finds nothing and exits.
+   *
+   *  Runs in a separate effect (not bundled with the cosmetic / nickname
+   *  migrations above) so the async work doesn't stall those synchronous
+   *  patches. Guarded by `user` + `!saveLoading` so we don't fire it
+   *  before the save has actually arrived from Firestore. */
+  const photoMigrationRanRef = useRef(false);
+  useEffect(() => {
+    if (!user || saveLoading || photoMigrationRanRef.current) return;
+    const hasInlinePhotos = (save.collection ?? []).some(c => isDataUriPhoto(c.photo));
+    if (!hasInlinePhotos) {
+      photoMigrationRanRef.current = true;
+      return;
+    }
+    photoMigrationRanRef.current = true;
+    (async () => {
+      const { collection, migrated } = await migrateCollectionPhotos(user.uid, save.collection);
+      if (migrated > 0) {
+        setSave(s => ({ ...s, collection }));
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, saveLoading]);
+
   /** Apply a quest event to the player's save. Surfaces toasts for any
    *  newly-completed quest so the player gets immediate feedback. */
   const trackEvent = (event: QuestEvent) => {
@@ -448,6 +480,29 @@ function Game() {
     setScreen('capture');
   };
 
+  /** Fire-and-forget: ship a captured photo to Firebase Storage and
+   *  swap the inline data URI in the save for the resulting download
+   *  URL once the upload lands. Save is updated optimistically (the
+   *  data URI renders instantly), and the URL-replacement happens
+   *  asynchronously so the UI never blocks on the network. If the
+   *  upload fails (offline / quota / etc.), the data URI stays put
+   *  and the boot-time migration retries on the next session.
+   *
+   *  Cards in our collection are uniquely keyed by their `uid`, so
+   *  using that as the storage filename means a retake naturally
+   *  overwrites the previous bytes. */
+  const uploadPhotoInBackground = (cardUid: string, dataUri: string) => {
+    if (!user || !isDataUriPhoto(dataUri)) return;
+    uploadCardPhoto(user.uid, cardUid, dataUri)
+      .then((url) => {
+        setSave(s => ({
+          ...s,
+          collection: s.collection.map(c => c.uid === cardUid ? { ...c, photo: url } : c),
+        }));
+      })
+      .catch(() => { /* migration will retry on next boot */ });
+  };
+
   const onCaptureComplete = (updated: CollectionCard) => {
     // Real photo replaces any placeholder
     const real = { ...updated, isPlaceholder: false };
@@ -455,6 +510,7 @@ function Game() {
       ...s,
       collection: s.collection.map(c => c.uid === real.uid ? real : c),
     }));
+    if (real.photo) uploadPhotoInBackground(real.uid, real.photo);
     setCapturing(null);
     goCards('collection');
   };
@@ -514,6 +570,10 @@ function Game() {
   };
 
   const onClearPhoto = (uid: string) => {
+    // Best-effort Storage cleanup so retakes / discards don't leave
+    // orphaned objects piling up under users/{uid}/photos/. Failures
+    // are swallowed inside the helper.
+    if (user) deleteCardPhoto(user.uid, uid);
     setSave(s => {
       const decks = (s.decks ?? []).map(d => ({ ...d, uids: d.uids.filter(x => x !== uid) }));
       const activeUids = decks.find(d => d.id === s.activeDeckId)?.uids
@@ -855,10 +915,13 @@ function Game() {
         <StarterPackOpen
           theme={getStarterTheme(save.starterThemeId)!}
           cards={save.collection.slice(-12)}
-          onSetPhoto={(uid, dataUrl) => setSave(s => ({
-            ...s,
-            collection: s.collection.map(c => c.uid === uid ? { ...c, photo: dataUrl, isPlaceholder: false } : c),
-          }))}
+          onSetPhoto={(uid, dataUrl) => {
+            setSave(s => ({
+              ...s,
+              collection: s.collection.map(c => c.uid === uid ? { ...c, photo: dataUrl, isPlaceholder: false } : c),
+            }));
+            uploadPhotoInBackground(uid, dataUrl);
+          }}
           onDone={onStarterOpenComplete}
         />
       )}
