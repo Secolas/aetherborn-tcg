@@ -6,6 +6,7 @@ import {
 } from '../firebase/pvp';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
+import { SmartImage } from '../components/SmartImage';
 import type { ElementId } from '../game/types';
 
 interface Props {
@@ -242,8 +243,9 @@ function BoardRow({ board, canAttack, onAttack }: {
               boxShadow: can ? `0 0 20px ${ELEMENTS[b.card.el as ElementId]?.glow ?? '#fff'}80` : undefined,
             }}
           >
-            <span style={{ fontSize: 10, fontWeight: 700 }}>{b.card.name}</span>
-            <span style={{ fontSize: 11 }}>{b.card.atk}/{b.hp}</span>
+            <MiniPhoto photo={b.card.photo} el={b.card.el} cardUid={b.card.uid} />
+            <span style={miniLabelStyle}>{b.card.name}</span>
+            <span style={miniStatStyle}>{b.card.atk}/{b.hp}</span>
           </button>
         );
       })}
@@ -267,14 +269,56 @@ function HandCard({ card, playable, onPlay }: { card: PvpCardLite; playable: boo
       onMouseEnter={(e) => playable && (e.currentTarget.style.transform = 'translateY(-6px)')}
       onMouseLeave={(e) => (e.currentTarget.style.transform = 'translateY(0)')}
     >
-      <div style={{ fontSize: 10, fontWeight: 700, lineHeight: 1.1 }}>{card.name}</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 11, marginTop: 'auto' }}>
+      <MiniPhoto photo={card.photo} el={card.el} cardUid={card.uid} />
+      <div style={{ ...miniLabelStyle, fontSize: 10 }}>{card.name}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%', fontSize: 11, marginTop: 'auto', position: 'relative', zIndex: 1 }}>
         <span>◆{card.cost}</span>
         <span>{card.atk}/{card.hp}</span>
       </div>
     </button>
   );
 }
+
+/** Tiny photo strip across the top of a PVP mini-card. Photos are
+ *  Firebase Storage download URLs (player-captured) — SmartImage
+ *  handles the fade-in + picsum fallback if a URL 404s. No photo →
+ *  the strip is skipped so the element-gradient background shows
+ *  through and the card still reads as theirs. */
+function MiniPhoto({ photo, el, cardUid }: { photo: string | null; el: string; cardUid: string }) {
+  if (!photo) return null;
+  return (
+    <div style={{
+      position: 'absolute', top: 0, left: 0, right: 0,
+      height: '55%',
+      overflow: 'hidden',
+      borderRadius: '8px 8px 0 0',
+      zIndex: 0,
+    }}>
+      <SmartImage
+        src={photo}
+        alt=""
+        fallbackSeed={`pvp-${el}-${cardUid}`}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+      <div style={{
+        position: 'absolute', inset: 0,
+        background: 'linear-gradient(180deg, rgba(0,0,0,0) 50%, rgba(0,0,0,0.55) 100%)',
+        pointerEvents: 'none',
+      }} />
+    </div>
+  );
+}
+
+const miniLabelStyle: React.CSSProperties = {
+  fontSize: 10, fontWeight: 700, lineHeight: 1.1,
+  position: 'relative', zIndex: 1,
+  textShadow: '0 1px 2px rgba(0,0,0,.7)',
+};
+const miniStatStyle: React.CSSProperties = {
+  fontSize: 11,
+  position: 'relative', zIndex: 1,
+  textShadow: '0 1px 2px rgba(0,0,0,.7)',
+};
 
 function miniCardStyle(el: string): React.CSSProperties {
   const def = ELEMENTS[el as ElementId] ?? { color: '#666', deep: '#222', glow: '#aaa' };
@@ -286,6 +330,8 @@ function miniCardStyle(el: string): React.CSSProperties {
     padding: 6,
     color: '#fff', textShadow: '0 1px 1px rgba(0,0,0,.5)',
     display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'space-between',
+    position: 'relative',
+    overflow: 'hidden',
   };
 }
 
