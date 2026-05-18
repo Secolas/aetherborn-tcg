@@ -50,9 +50,8 @@ export function Login() {
   };
 
   return (
-    <div style={{
+    <div className="login-root" style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'radial-gradient(ellipse at 30% 20%, #2a1b4a 0%, #0a0c1c 60%, #050816 100%)',
       color: '#fff',
     }}>
@@ -76,6 +75,33 @@ export function Login() {
         }
         .login-card { animation: float-card 8s ease-in-out infinite; }
         .login-glow { animation: pulse-glow 6s ease-in-out infinite; }
+
+        /* The login screen scrolls instead of overflowing so the iOS
+           keyboard never clips the form. We use the inner scroll
+           container for flex-centering; on tall phones the form sits
+           centered, on short ones (keyboard open) it scrolls. */
+        .login-scroll {
+          position: absolute; inset: 0;
+          display: flex; align-items: center; justify-content: center;
+          padding: 24px 18px;
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        /* The floating sample cards are decorative — on narrow screens
+           they crash into the auth form and only add visual noise.
+           Hide them below 600px and let the starfield + form carry the
+           atmosphere instead. */
+        @media (max-width: 600px) {
+          .login-floating-card { display: none !important; }
+        }
+
+        /* Logo + title scale down on small phones so the form stays
+           one tap away from the password field. */
+        @media (max-width: 480px) {
+          .login-brand img { width: 96px !important; }
+          .login-brand h1 { font-size: 26px !important; }
+        }
       `}</style>
 
       {/* Drifting starfield */}
@@ -92,7 +118,8 @@ export function Login() {
         pointerEvents: 'none',
       }} />
 
-      {/* Floating sample cards */}
+      {/* Floating sample cards — hidden on narrow screens via the
+          .login-floating-card media query above. */}
       <FloatingCard el="family"   top="12%" left="8%"   rot={-12} delay={0}   />
       <FloatingCard el="animals"  top="22%" left="78%"  rot={14}  delay={1.2} />
       <FloatingCard el="work"     top="68%" left="12%"  rot={8}   delay={2.4} />
@@ -100,19 +127,23 @@ export function Login() {
       <FloatingCard el="food"     top="42%" left="86%"  rot={-6}  delay={3.0} small />
       <FloatingCard el="education" top="48%" left="4%"  rot={4}   delay={1.7} small />
 
+      {/* Scroll wrapper — lets the form move with the iOS keyboard
+          instead of getting clipped behind it. */}
+      <div className="login-scroll">
+
       {/* Center auth panel */}
       <div style={{
         position: 'relative', zIndex: 2,
-        width: 'min(420px, 86%)',
+        width: 'min(420px, 100%)',
         background: 'rgba(8, 10, 24, 0.78)',
         backdropFilter: 'blur(18px)',
         WebkitBackdropFilter: 'blur(18px)',
         border: '1px solid rgba(244, 208, 74, 0.22)',
         borderRadius: 22,
-        padding: '28px 26px 24px',
+        padding: '24px 22px 22px',
         boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 60px rgba(244, 208, 74, 0.12) inset',
       }}>
-        <div style={{ textAlign: 'center', marginBottom: 18 }}>
+        <div className="login-brand" style={{ textAlign: 'center', marginBottom: 18 }}>
           {/* App brand mark — transparent PNG of the ornate "M in a
               starlit spellbook" logo. Sits free on the dark backdrop
               with a warm golden halo behind it for depth. The pulse
@@ -254,6 +285,7 @@ export function Login() {
           </div>
         )}
       </div>
+      </div>{/* /login-scroll */}
     </div>
   );
 }
@@ -305,7 +337,7 @@ function FloatingCard(props: {
   }), []);
   return (
     <div
-      className="login-card"
+      className="login-card login-floating-card"
       style={{
         position: 'absolute', top: props.top, left: props.left,
         width: w, height: h,
