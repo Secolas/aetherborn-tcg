@@ -203,10 +203,13 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
           </div>
         </div>
 
-        {/* Game wordmark. Smaller and tighter than the pre-revamp huge
-            gradient so it reads as a banner rather than dominating the
-            screen. */}
+        {/* Game wordmark — small parchment-framed logo crest above the
+            wordmark text. Same circular vellum treatment used on the
+            login screen so the brand identity reads consistently. */}
         <div className="home-brand">
+          <div className="home-brand-crest">
+            <img src="/logo.jpg" alt="" />
+          </div>
           <div className="home-brand-tag">your life · in cards</div>
           <div className="home-brand-name">Memoria</div>
         </div>
@@ -429,6 +432,27 @@ function HomeStyles() {
       .home-brand {
         margin-top: 14px;
         text-align: center;
+      }
+      /* Parchment-framed brand crest. Pure CSS frame (radial parchment
+         gradient + warm glow) holding the logo asset clipped to a
+         circle, so the source's white background reads as the frame
+         itself. Sized to sit comfortably above the wordmark. */
+      .home-brand-crest {
+        width: 64px; height: 64px;
+        margin: 0 auto 8px;
+        border-radius: 50%;
+        background: radial-gradient(circle at center, #fff 0%, #f4e4c0 70%, #c8a868 100%);
+        padding: 2px;
+        box-shadow: 0 0 18px rgba(244, 208, 74, 0.45), 0 4px 14px rgba(0,0,0,0.18);
+      }
+      .home-brand-crest img {
+        width: 100%; height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+        display: block;
+      }
+      @container (min-width: 720px) {
+        .home-brand-crest { width: 80px; height: 80px; }
       }
       .home-brand-tag {
         font-size: 9px; font-weight: 800;

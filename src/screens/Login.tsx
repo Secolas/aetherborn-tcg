@@ -113,10 +113,39 @@ export function Login() {
         boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 60px rgba(244, 208, 74, 0.12) inset',
       }}>
         <div style={{ textAlign: 'center', marginBottom: 18 }}>
+          {/* App brand mark — the ornate "M in a starlit spellbook" logo.
+              Sits inside a soft circular vellum frame so the asset's
+              white background reads as parchment rather than a stray
+              tile against the dark backdrop. The pulsing gold halo is
+              the same shimmer cadence as the old text title. */}
+          <div
+            style={{
+              width: 96, height: 96, margin: '0 auto 8px',
+              borderRadius: '50%',
+              background: 'radial-gradient(circle at center, #fff 0%, #f4e4c0 70%, #c8a868 100%)',
+              padding: 3,
+              boxShadow: '0 0 32px rgba(244, 208, 74, 0.55), 0 8px 28px rgba(0,0,0,0.55)',
+              animation: 'title-shimmer 4s ease-in-out infinite',
+            }}
+          >
+            <img
+              src="/logo.jpg"
+              alt="Memoria"
+              style={{
+                width: '100%', height: '100%',
+                borderRadius: '50%',
+                objectFit: 'cover',
+                display: 'block',
+                // The source asset uses a white background; clip it to
+                // the circular frame so it blends with the parchment ring.
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
           <h1 style={{
             margin: 0,
             fontFamily: 'Fredoka, system-ui, sans-serif',
-            fontSize: 38, fontWeight: 700,
+            fontSize: 30, fontWeight: 700,
             background: 'linear-gradient(135deg, #f4d04a 0%, #f49a4a 60%, #d96658 100%)',
             WebkitBackgroundClip: 'text', backgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
