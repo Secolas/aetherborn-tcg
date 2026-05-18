@@ -13,6 +13,10 @@ interface Props {
    *  field together, the bond shows as a locked silhouette with hint text. */
   discoveredBonds: string[];
   onBack: () => void;
+  /** When true, hides the internal back button and tightens the top
+   *  padding — the screen assumes an outer wrapper (the Cards tabbed
+   *  shell) is supplying the navigation chrome above. */
+  embedded?: boolean;
 }
 
 type Tab = 'cards' | 'bonds';
@@ -23,7 +27,7 @@ type Tab = 'cards' | 'bonds';
  * curated card-pair synergies and which ones the player has discovered
  * through play.
  */
-export function Album({ collection, discoveredBonds, onBack }: Props) {
+export function Album({ collection, discoveredBonds, onBack, embedded = false }: Props) {
   const summoned = collection.filter(c => c.photo);
   const [inspect, setInspect] = useState<CollectionCard | null>(null);
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
@@ -44,11 +48,16 @@ export function Album({ collection, discoveredBonds, onBack }: Props) {
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden',
     }}>
-      <div style={{ padding: '52px 16px 8px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
+      <div style={{
+        padding: embedded ? '4px 16px 6px' : '52px 16px 8px',
+        display: 'flex', alignItems: 'center', gap: 12,
+      }}>
+        {!embedded && (
+          <button onClick={onBack} style={iconBtn}><ArrowLeft size={18} /></button>
+        )}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 20, fontWeight: 700 }}>Life Album</div>
-          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>
+          {!embedded && <div style={{ fontSize: 20, fontWeight: 700 }}>Life Album</div>}
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: embedded ? 0 : 2 }}>
             {tab === 'cards'
               ? (summoned.length === 0
                 ? 'You haven’t summoned anything yet'
