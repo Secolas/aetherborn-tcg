@@ -121,6 +121,33 @@ input {
   0%, 100% { box-shadow: 0 0 0 2.5px #f4d04a, 0 0 0 rgba(244,208,74,0), 0 4px 10px rgba(0,0,0,.25); }
   50%      { box-shadow: 0 0 0 2.5px #f4d04a, 0 0 18px rgba(244,208,74,.85), 0 4px 10px rgba(0,0,0,.25); }
 }
+
+/* Spell-target pulse — fires on every legal target the moment a spell
+   is mid-cast (pendingSpell !== null). The ring breathes between two
+   intensities, drawing the eye away from the divider strip's small
+   "Select enemy" text and onto the actual creatures/portraits the
+   player can tap. The variables let each callsite set its own ring
+   color (red for damage, green for buff/heal, blue for freeze etc.).
+   Inline `boxShadow` on the element is overridden by this animation
+   while it runs. */
+@keyframes spellTargetPulse {
+  0%, 100% {
+    box-shadow:
+      0 0 0 2.5px var(--target-ring),
+      0 0 6px var(--target-ring-soft, var(--target-ring)),
+      0 4px 10px rgba(0,0,0,.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 4px var(--target-ring),
+      0 0 24px var(--target-ring-soft, var(--target-ring)),
+      0 4px 10px rgba(0,0,0,.25);
+  }
+}
+@keyframes spellTargetBadgePulse {
+  0%, 100% { transform: translate(-50%, 0) scale(1);    opacity: .92; }
+  50%      { transform: translate(-50%, -2px) scale(1.06); opacity: 1; }
+}
 @keyframes damagePopup {
   0%   { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
   15%  { transform: translate(-50%, -8px) scale(1.2); opacity: 1; }

@@ -45,7 +45,7 @@ interface Props {
    *  is also on the field right now. Drives the persistent corner heart
    *  icon: gold/glowing when active, dim when waiting for the partner. */
   bondState?: 'active' | 'waiting';
-  highlight?: 'attack' | 'spell' | null;
+  highlight?: 'attack' | 'spell' | 'spell-damage' | 'spell-heal' | 'spell-freeze' | null;
   /** True when the tile belongs to the player's side. Drives whether
    *  the equipped cosmetic frame applies — boss creatures stay in
    *  their baseline chrome (same rule as the full Card component). */
@@ -92,11 +92,21 @@ export function BattlefieldCard({
   // Plain attack-ready creatures intentionally have NO ring — the
   // Swords corner badge already signals "this can attack now" without
   // adding a competing yellow outline to every Rush / untapped creature.
+  // Spell-target ring colors track the spell's intent so the player
+  // reads "what's about to happen" before they tap: red for damage,
+  // green for heal/buff, blue for freeze. The generic 'spell' fallback
+  // keeps the old neutral blue for any subtype not classified.
+  const spellTargetRing =
+    highlight === 'spell-damage'  ? '#ef5a5a' :
+    highlight === 'spell-heal'    ? '#48d39a' :
+    highlight === 'spell-freeze'  ? '#5ea3e8' :
+    highlight === 'spell'         ? '#9ed6f7' :
+    null;
   const ringColor = selected ? '#f4d04a'
     : highlight === 'attack' ? '#e85a5a'
-    : highlight === 'spell'  ? '#9ed6f7'
-    : isTaunt                ? '#5ea863'
-    : null;
+    : spellTargetRing
+    ?? (isTaunt ? '#5ea863' : null);
+  const isSpellTarget = !!spellTargetRing;
 
   const pressTimer = useRef<number | null>(null);
   const longFired = useRef(false);
@@ -166,6 +176,15 @@ export function BattlefieldCard({
           : frameOuter
             ? `${frameOuter}, inset 0 0 0 1.5px rgba(255,255,255,.2)`
             : `0 4px 10px rgba(0,0,0,.25), inset 0 0 0 1.5px rgba(255,255,255,.2)`,
+        // Pulse the box-shadow when a spell is mid-cast and this card
+        // is a legal target — much more attention-grabbing than the
+        // static blue glow that was there before. The animation reads
+        // CSS variables so each callsite can dial in its own ring
+        // color; that lets the card pulse red for damage, green for
+        // heal/buff, blue for freeze without baking the color into
+        // the keyframe.
+        ['--target-ring' as string]: spellTargetRing ?? 'transparent',
+        ['--target-ring-soft' as string]: spellTargetRing ? `${spellTargetRing}aa` : 'transparent',
         position: 'relative',
         cursor: onClick ? 'pointer' : 'default',
         // Tapped player creatures fade so you can see at a glance who's
@@ -173,7 +192,9 @@ export function BattlefieldCard({
         // tapped state isn't actionable for the player and the dim was
         // confusing them with "greyed out / dead" cards.
         opacity: card.frozen ? 0.6 : (exhausted && dimWhenExhausted) ? 0.6 : 1,
-        animation,
+        animation: isSpellTarget
+          ? `spellTargetPulse 1.05s ease-in-out infinite`
+          : animation,
         transition: 'opacity .2s, box-shadow .2s',
         flex: '0 0 auto',
         overflow: 'visible',
