@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Coins, Package, Images, Layers, Swords, ScrollText,
   Settings as SettingsIcon, Flame, Palette, UserRound, Camera, Flag,
-  Sparkles, BookOpen, Lock,
+  Sparkles, BookOpen, Lock, Wifi, LogOut,
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { PALETTE } from '../components/styles';
@@ -14,8 +14,12 @@ interface Props {
   /** Total claimable items in Daily (completed quests + unclaimed streak).
    *  Drives the badge on the Daily nav chip. */
   dailyReadyCount?: number;
-  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open') => void;
+  onNav: (screen: 'collection' | 'pack' | 'deck' | 'play' | 'album' | 'settings' | 'daily' | 'cosmetics' | 'campaign' | 'tutorial' | 'starter-pick' | 'starter-open' | 'pvp') => void;
   onSetAvatar: (dataUrl: string | undefined) => void;
+  /** When provided, the Home header surfaces a small sign-out chip. */
+  onSignOut?: () => void;
+  /** Display name shown next to the sign-out chip. */
+  playerName?: string;
 }
 
 /**
@@ -28,7 +32,7 @@ interface Props {
  * the player has written a memory for, the memory fades in under the
  * fan and rides out with that cycle's heartbeat.
  */
-export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Props) {
+export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSignOut, playerName }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -160,7 +164,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
             </button>
             <div className="home-id-meta">
               <div className="home-id-eyebrow">Welcome back</div>
-              <div className="home-id-name">You</div>
+              <div className="home-id-name">{playerName ?? 'You'}</div>
             </div>
           </div>
 
@@ -186,6 +190,16 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
             >
               <SettingsIcon size={15} strokeWidth={2.2} />
             </button>
+            {onSignOut && (
+              <button
+                className="home-chip home-settings"
+                onClick={onSignOut}
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut size={14} strokeWidth={2.2} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -278,6 +292,7 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar }: Prop
                      until every starter card has a real photo.
                 Tiles route back onto the primary CTA in either
                 locked state. */}
+            <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Online PVP" icon={<Wifi       size={18} strokeWidth={2.2} />} onClick={() => onNav('pvp')} />
             <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Campaign"   icon={<Flag       size={18} strokeWidth={2.2} />} onClick={() => onNav('campaign')} />
             <NavButton locked={!save.starterThemeId || !!starterMissingPhotos}                                label="Packs"      icon={<Package    size={18} strokeWidth={2.2} />} onClick={() => onNav('pack')} />
             <NavButton locked={!save.starterThemeId}                                                          label="Collection" icon={<Layers     size={18} strokeWidth={2.2} />} onClick={() => onNav('collection')} />
