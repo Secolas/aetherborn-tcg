@@ -350,6 +350,8 @@ function HomeStyles() {
         width: 100%; height: 100%;
         display: flex; flex-direction: column;
         padding: 0 16px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
       }
       @container (min-width: 720px) {
         .home { max-width: 720px; margin: 0 auto; padding: 0 24px; }
@@ -359,6 +361,7 @@ function HomeStyles() {
       .home-topbar {
         padding-top: max(56px, env(safe-area-inset-top, 56px));
         padding-bottom: 8px;
+        flex: 0 0 auto;
         display: flex; justify-content: space-between; align-items: center;
         gap: 12px;
       }
@@ -499,10 +502,13 @@ function HomeStyles() {
 
       /* Card-fan stage */
       .home-stage {
-        position: relative; flex: 1; min-height: 240px;
+        position: relative; flex: 1 1 auto; min-height: 180px;
         display: flex; flex-direction: column;
         align-items: center; justify-content: center;
         margin-top: 8px;
+      }
+      @container (min-height: 700px) {
+        .home-stage { min-height: 240px; }
       }
       .home-fan {
         position: relative;
@@ -512,7 +518,8 @@ function HomeStyles() {
 
       /* Actions */
       .home-actions {
-        padding-bottom: max(28px, env(safe-area-inset-bottom, 28px));
+        padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+        flex: 0 0 auto;
         display: flex; flex-direction: column; gap: 10px;
       }
 
