@@ -73,7 +73,28 @@ export function Login() {
           0%, 100% { filter: brightness(1) drop-shadow(0 0 12px rgba(244,208,74,.4)); }
           50%      { filter: brightness(1.15) drop-shadow(0 0 24px rgba(244,208,74,.85)); }
         }
-        .login-card { animation: float-card 8s ease-in-out infinite; }
+        @keyframes login-card-in {
+          0%   { opacity: 0; transform: translate(0,0) rotate(var(--rot)) scale(.9); }
+          100% { opacity: .85; transform: translate(0,0) rotate(var(--rot)) scale(1); }
+        }
+        /* Two animations layered:
+           - login-card-in: a one-shot fade+scale so the cards don't pop
+             from rotation:0 to their tilted base when the delay expires
+           - float-card: the gentle bob/spin loop after the intro
+           animation-fill-mode: both ensures the cards sit at keyframe-0
+           during the delay window AND retain the final state, so there's
+           no snap-rotation between the two phases.
+           will-change: transform hints the compositor to GPU-layer them
+           so the animation runs smoothly on mobile. */
+        .login-card {
+          opacity: 0;
+          will-change: transform, opacity;
+          transform: rotate(var(--rot));
+          animation:
+            login-card-in 600ms ease-out both,
+            float-card 8s ease-in-out infinite;
+          animation-delay: 0s, var(--card-delay, 0s);
+        }
         .login-glow { animation: pulse-glow 6s ease-in-out infinite; }
 
         /* The login screen scrolls instead of overflowing so the iOS
@@ -345,14 +366,17 @@ function FloatingCard(props: {
         ['--dx' as string]: dx,
         ['--dy' as string]: dy,
         ['--spin' as string]: spin,
-        animationDelay: `${props.delay}s`,
+        // --card-delay only delays the float-card loop. The fade-in
+        // animation runs immediately so the cards don't pop into
+        // visibility at staggered times.
+        ['--card-delay' as string]: `${props.delay}s`,
         borderRadius: 14,
         background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
         border: `1.5px solid ${def.glow}`,
         boxShadow: `0 16px 40px rgba(0,0,0,0.55), 0 0 30px ${def.glow}40`,
         padding: 8,
         display: 'flex', flexDirection: 'column',
-        opacity: 0.85, pointerEvents: 'none',
+        pointerEvents: 'none',
       } as React.CSSProperties}
     >
       <div style={{ fontSize: props.small ? 10 : 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
