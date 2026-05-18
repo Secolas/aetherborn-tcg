@@ -203,10 +203,13 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
           </div>
         </div>
 
-        {/* Game wordmark. Smaller and tighter than the pre-revamp huge
-            gradient so it reads as a banner rather than dominating the
-            screen. */}
+        {/* Game wordmark — transparent logo crest above the wordmark.
+            The PNG sits free on the screen with a warm drop-shadow halo
+            for depth, matching the treatment on the login screen. */}
         <div className="home-brand">
+          <div className="home-brand-crest">
+            <img src="/logo.png" alt="" />
+          </div>
           <div className="home-brand-tag">your life · in cards</div>
           <div className="home-brand-name">Memoria</div>
         </div>
@@ -429,6 +432,24 @@ function HomeStyles() {
       .home-brand {
         margin-top: 14px;
         text-align: center;
+      }
+      /* Brand crest — transparent logo with a warm drop-shadow halo
+         so it sits naturally on the warm-paper home background. No
+         frame needed since the source PNG already has its alpha
+         channel cut to the artwork. */
+      .home-brand-crest {
+        margin: 0 auto 6px;
+        line-height: 0;
+      }
+      .home-brand-crest img {
+        width: 76px; height: auto;
+        display: inline-block;
+        filter:
+          drop-shadow(0 0 12px rgba(244, 208, 74, 0.55))
+          drop-shadow(0 4px 10px rgba(0,0,0,0.25));
+      }
+      @container (min-width: 720px) {
+        .home-brand-crest img { width: 96px; }
       }
       .home-brand-tag {
         font-size: 9px; font-weight: 800;
