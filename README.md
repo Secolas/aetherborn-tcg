@@ -1,4 +1,4 @@
-# Aetherborn — Photo TCG
+# Memoria — Photo TCG
 
 > You don't earn art. You make it.
 

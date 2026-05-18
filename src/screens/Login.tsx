@@ -123,10 +123,10 @@ export function Login() {
             letterSpacing: 0.5,
             animation: 'title-shimmer 4s ease-in-out infinite',
           }}>
-            AETHERBORN
+            MEMORIA
           </h1>
           <div style={{ marginTop: 4, fontSize: 12, letterSpacing: 4, color: 'rgba(255,255,255,0.55)' }}>
-            TCG · {mode === 'signin' ? 'WELCOME BACK' : 'SUMMON A HERO'}
+            TCG · {mode === 'signin' ? 'WELCOME BACK' : 'BEGIN YOUR ALBUM'}
           </div>
         </div>
 

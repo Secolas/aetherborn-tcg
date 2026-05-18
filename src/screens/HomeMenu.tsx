@@ -203,12 +203,12 @@ export function HomeMenu({ save, dailyReadyCount = 0, onNav, onSetAvatar, onSign
           </div>
         </div>
 
-        {/* Game wordmark — refined version of the old Lifedeck title.
-            Smaller and tighter than the pre-revamp huge gradient so it
-            reads as a banner rather than dominating the screen. */}
+        {/* Game wordmark. Smaller and tighter than the pre-revamp huge
+            gradient so it reads as a banner rather than dominating the
+            screen. */}
         <div className="home-brand">
           <div className="home-brand-tag">your life · in cards</div>
-          <div className="home-brand-name">Lifedeck</div>
+          <div className="home-brand-name">Memoria</div>
         </div>
 
         {/* Quick-stats strip — three pill stats in a row. */}
@@ -422,7 +422,7 @@ function HomeStyles() {
         text-align: center;
       }
 
-      /* Game wordmark — Lifedeck title block. Smaller, tighter, and
+      /* Game wordmark — Memoria title block. Smaller, tighter, and
          centered above the stats strip. Picks up the coral→amber
          gradient text-fill from the original screen but at a size
          that doesn't dominate. */
