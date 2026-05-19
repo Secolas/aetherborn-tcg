@@ -975,6 +975,19 @@ function Game() {
           settings={settings}
           onChange={setSettings}
           onBack={() => setScreen('home')}
+          onResetAccount={() => {
+            // Wipe save back to the initial empty state, but keep
+            // tutorialCompleted = true so the player lands on the
+            // StarterPick CTA rather than re-doing the tutorial they
+            // already know how to play. Firestore sync propagates the
+            // wipe to any other device the user is signed in on.
+            setSave(() => ({ ...makeInitialSave(), tutorialCompleted: true }));
+            setActiveBoss(null);
+            setActiveCampaign(null);
+            setActiveTestTheme(null);
+            setPvpRoomId(null);
+            setScreen('home');
+          }}
         />
       )}
       {screen === 'cards' && (
