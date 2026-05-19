@@ -65,6 +65,29 @@ export async function uploadCardPhoto(
   return await getDownloadURL(objectRef);
 }
 
+/** Upload the player's avatar (data URI) to Storage and return the
+ *  download URL. Lives at `users/{uid}/avatar.jpg`; always overwritten
+ *  so picking a new avatar replaces the bytes.
+ *
+ *  This is what keeps PVP room docs under Firestore's 1 MB per-field
+ *  cap — a raw avatar data URI easily blows past that, but the
+ *  resulting download URL is ~200 bytes. Pass-through if the input is
+ *  already a URL. */
+export async function uploadPlayerAvatar(
+  uid: string,
+  dataUri: string,
+): Promise<string> {
+  if (!storage) throw new Error('Firebase Storage not configured');
+  if (!isDataUriPhoto(dataUri)) return dataUri;
+  const blob = dataUriToBlob(dataUri);
+  const objectRef = ref(storage, `users/${uid}/avatar.jpg`);
+  await uploadBytes(objectRef, blob, {
+    contentType: blob.type || 'image/jpeg',
+    cacheControl: 'public,max-age=31536000,immutable',
+  });
+  return await getDownloadURL(objectRef);
+}
+
 /** Best-effort cleanup when the player clears a card's photo (retake
  *  flow). Failures are swallowed — the next overwrite handles the
  *  bytes regardless, and orphaned objects only cost a few cents per

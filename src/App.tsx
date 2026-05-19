@@ -944,6 +944,7 @@ function Game() {
           collection={save.collection}
           playerAvatar={save.playerAvatar}
           onEnterRoom={(id) => { setPvpRoomId(id); setScreen('pvp-room'); }}
+          onAvatarMigrated={(url) => setSave(s => ({ ...s, playerAvatar: url }))}
           onBack={() => setScreen('home')}
         />
       )}

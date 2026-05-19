@@ -1,18 +1,26 @@
 import { useState } from 'react';
 import { createRoom, joinRoomByCode } from '../firebase/pvp';
+import { isDataUriPhoto, uploadPlayerAvatar } from '../firebase/photos';
 import type { CollectionCard } from '../game/types';
 import { useAuth } from '../firebase/auth';
 
 interface Props {
   collection: CollectionCard[];
-  /** Optional avatar URL for the player. Passed along so the opponent's
-   *  match view can show this player's portrait. */
+  /** Optional avatar URL (or legacy data URI) for the player. Passed
+   *  along so the opponent's match view can show this player's portrait.
+   *  If a data URI sneaks in, the lobby uploads it to Storage before
+   *  writing the room doc — Firestore caps a single field at 1 MB and a
+   *  raw avatar data URI easily exceeds that. */
   playerAvatar?: string;
   onEnterRoom: (roomId: string) => void;
   onBack: () => void;
+  /** Called when the lobby migrates a legacy data-URI avatar up to
+   *  Storage, so the parent can persist the resulting URL in save and
+   *  future joins skip the upload. */
+  onAvatarMigrated?: (url: string) => void;
 }
 
-export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack }: Props) {
+export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvatarMigrated }: Props) {
   const { user } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -23,11 +31,24 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack }: Prop
   const ready = playable.length >= 6;
   const name = user?.displayName || user?.email?.split('@')[0] || 'Player';
 
+  // Avatars are persisted in save as either a Storage download URL
+  // (small) or a legacy base64 data URI (huge — can be >1 MB). Firestore
+  // rejects a single field over ~1 MB, so any data URI must be pushed up
+  // to Storage and swapped for its URL before we write the room doc.
+  const resolveAvatarUrl = async (): Promise<string | undefined> => {
+    if (!user || !playerAvatar) return undefined;
+    if (!isDataUriPhoto(playerAvatar)) return playerAvatar;
+    const url = await uploadPlayerAvatar(user.uid, playerAvatar);
+    onAvatarMigrated?.(url);
+    return url;
+  };
+
   const onCreate = async () => {
     if (!user) return;
     setBusy(true); setErr(null);
     try {
-      const { id, code } = await createRoom(user.uid, name, collection, playerAvatar);
+      const avatarUrl = await resolveAvatarUrl();
+      const { id, code } = await createRoom(user.uid, name, collection, avatarUrl);
       setCreatedCode(code);
       onEnterRoom(id);
     } catch (e: unknown) {
@@ -42,7 +63,8 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack }: Prop
     if (!code.trim()) { setErr('Enter a room code.'); return; }
     setBusy(true); setErr(null);
     try {
-      const id = await joinRoomByCode(code, user.uid, name, collection, playerAvatar);
+      const avatarUrl = await resolveAvatarUrl();
+      const id = await joinRoomByCode(code, user.uid, name, collection, avatarUrl);
       onEnterRoom(id);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
