@@ -182,6 +182,35 @@ export interface PlayerState {
   spellLockedUntilTurn?: number;
 }
 
+/** Visible-action cue attached to a MatchState write so the opposite
+ *  PVP client can replay the same opponent reveal / attack lunge /
+ *  spell cinematic / phase banner that the single-player AI driver
+ *  produces from aiStep. Without this the remote only sees the
+ *  *consequences* (damage popups, dead bodies) — the actual swing or
+ *  spell cast resolves invisibly. `side` is the initiating Owner from
+ *  the writer's perspective; swapPerspective flips it. `seq` is a
+ *  monotonic id so a receiver can tell "new cue" vs "echo of one I've
+ *  already played." */
+export type MatchCue =
+  | { kind: 'attack'; side: Owner; seq: number;
+      attackerId: string;
+      defenderId: string | 'face';
+      damageToDef: number;
+      damageToAtk: number;
+    }
+  | { kind: 'spell'; side: Owner; seq: number;
+      cardBattleId: string;
+      target?:
+        | { kind: 'face'; owner: Owner }
+        | { kind: 'creature'; owner: Owner; battleId: string };
+    }
+  | { kind: 'creature_play'; side: Owner; seq: number;
+      cardBattleId: string;
+    }
+  | { kind: 'phase'; side: Owner; seq: number;
+      phase: 'main' | 'battle' | 'end';
+    };
+
 export interface MatchState {
   player: PlayerState;
   opponent: PlayerState;
@@ -189,6 +218,10 @@ export interface MatchState {
   turnNumber: number;
   log: string[];
   outcome: 'ongoing' | 'win' | 'loss' | 'draw';
+  /** Last visible move the writer made (PVP only). The receiving
+   *  client reads this off the incoming state to replay the matching
+   *  animation. Single-player matches leave it undefined. */
+  cue?: MatchCue;
   /** Difficulty tier this match was created at. Read by the AI to scale
       its decision-making — Normal plays the baseline heuristics, Hard
       adds threat targeting + spell efficiency + smarter lethal, Mythic

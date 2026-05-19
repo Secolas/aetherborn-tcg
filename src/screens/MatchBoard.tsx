@@ -19,7 +19,7 @@ import { ELEMENTS } from '../data/elements';
 import { BONDS } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
 import type { BossDef } from '../data/bosses';
-import type { BattleCard, CollectionCard, MatchState, Owner, PlayerState, Difficulty } from '../game/types';
+import type { BattleCard, CollectionCard, MatchCue, MatchState, Owner, PlayerState, Difficulty } from '../game/types';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
 import { useCosmetics } from '../state/cosmeticsContext';
@@ -153,13 +153,59 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const [state, setStateRaw] = useState<MatchState>(() =>
     online ? online.state : createMatch(deck, boss, difficulty)
   );
+  /** Monotonic id stamped onto every cue we emit. Initialized off
+   *  Date.now() so it stays globally unique across the two seats even
+   *  if both write within the same render tick — only one side writes
+   *  at a time in practice (turn-gated), but the wide spacing also
+   *  keeps `seq > lastSeen` strictly monotonic across a session. */
+  const cueSeqRef = useRef<number>(Date.now());
+  const nextCueSeq = () => {
+    cueSeqRef.current += 1;
+    return cueSeqRef.current;
+  };
+  /** Highest opponent-cue seq we've already replayed. Guards against
+   *  re-animating the same move when an echo of our own state push
+   *  bounces back, or when React reruns the effect for an unrelated
+   *  prop change. */
+  const lastSeenOppCueSeqRef = useRef<number>(0);
+  /** Build a cue with the local player as the initiator. The PVP
+   *  wire layer swaps `side` automatically on the round trip. The
+   *  conditional `T extends unknown` distributes Omit across each
+   *  variant of the MatchCue union — a plain Omit would collapse the
+   *  union and lose the per-variant fields. */
+  type CueInput = MatchCue extends infer U
+    ? U extends MatchCue ? Omit<U, 'side' | 'seq'> : never
+    : never;
+  const makeCue = (partial: CueInput): MatchCue =>
+    ({ ...partial, side: 'player', seq: nextCueSeq() } as MatchCue);
+  /** Attach a cue to a fresh engine state. Caller passes the engine
+   *  output (e.g. result.state from attack/playCard) and the cue
+   *  describing what just happened; we hand back the same state with
+   *  the cue mounted so a single setState push carries both. */
+  const withCue = (next: MatchState, cue: MatchCue): MatchState =>
+    ({ ...next, cue });
   // When the parent pushes a new state (opponent's move arrived via
-  // Firestore), adopt it. Skipped when the incoming state is referentially
-  // identical to what we already have — which is the common case when our
-  // own onMove echoes back through the network.
+  // Firestore), adopt it. In single-player mode the prop is absent. In
+  // PVP we ALSO inspect the cue: if the incoming state was produced by
+  // the remote player, we replay their attack/spell/play animation
+  // against the CURRENT (pre-arrival) state — same beat single-player
+  // gets from the AI driver — and only then commit `incoming`. Echoes
+  // of our own pushes (cue.side === 'player' on this seat) and
+  // cue-less state changes fall through to a direct commit.
   useEffect(() => {
     if (!online) return;
-    setStateRaw(prev => (online.state === prev ? prev : online.state));
+    const incoming = online.state;
+    const cue = incoming.cue;
+    const isNewOppCue =
+      !!cue &&
+      cue.side === 'opponent' &&
+      cue.seq > lastSeenOppCueSeqRef.current;
+    if (!isNewOppCue) {
+      setStateRaw(prev => (incoming === prev ? prev : incoming));
+      return;
+    }
+    lastSeenOppCueSeqRef.current = cue.seq;
+    replayOpponentCue(cue, incoming);
   }, [online?.state]); // eslint-disable-line react-hooks/exhaustive-deps
   /** setState wrapper. In online mode it also pushes to the parent
    *  (and from there to Firestore) so the opponent re-renders. */
@@ -1539,6 +1585,86 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setTimeout(() => setSpellFx(null), 700);
   };
 
+  // ============== Opponent cue replay (PVP) ==============
+  // The remote player's MatchState arrives via online.state with a
+  // `cue` describing the move that produced it (attack / spell /
+  // creature_play / phase). The receiver effect upstream defers
+  // committing the incoming state until this function finishes
+  // animating the matching beat — same pipeline single-player gets
+  // from the AI driver — so swings, casts, and reveals are visible
+  // instead of resolving as invisible state churn.
+  const replayOpponentCue = (cue: MatchCue, incoming: MatchState) => {
+    if (cue.kind === 'phase') {
+      // Battle / End / Main banner for the OPPONENT side. Pure UI —
+      // engine state can commit immediately, the banner overlay
+      // floats independently.
+      const text = cue.phase === 'battle' ? 'Battle Phase'
+        : cue.phase === 'end'             ? 'End Phase'
+        :                                    'Main Phase';
+      const key = Date.now();
+      setPhaseBanner({ text, side: 'opponent', key });
+      setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)),
+        cue.phase === 'end' ? 1800 : 1000);
+      setStateRaw(incoming);
+      return;
+    }
+    if (cue.kind === 'creature_play') {
+      // Card has already moved from the opponent's hand into their
+      // field in `incoming`, so we look it up there (and fall back to
+      // hand for safety, though that shouldn't happen post-engine).
+      const card = incoming.opponent.field.find(c => c.battleId === cue.cardBattleId)
+        ?? incoming.opponent.hand.find(c => c.battleId === cue.cardBattleId);
+      if (!card) { setStateRaw(incoming); return; }
+      setOpponentReveal(card);
+      sfx('summon');
+      const isImpactful = card.abilityKind === 'aoe_on_play' || card.abilityKind === 'draw_on_play';
+      const holdMs = isImpactful ? 1500 : 1200;
+      holdAnim(holdMs + 100);
+      setTimeout(() => {
+        setOpponentReveal(null);
+        setStateRaw(incoming);
+        fireLegendarySummon(card, 'opponent');
+      }, holdMs);
+      return;
+    }
+    if (cue.kind === 'spell') {
+      // Spells land in the opponent's discard once cast; that's where
+      // we find the card to render in the centered reveal.
+      const card = incoming.opponent.discard.find(c => c.battleId === cue.cardBattleId)
+        ?? incoming.opponent.hand.find(c => c.battleId === cue.cardBattleId);
+      if (!card) { setStateRaw(incoming); return; }
+      setOpponentReveal(card);
+      sfx('cardPlay');
+      const holdMs = 2000;
+      holdAnim(holdMs + 100);
+      // cue.target.owner was perspective-flipped by swapPerspective on
+      // the wire, so it reads correctly from this seat (e.g. a spell
+      // the remote aimed at us comes in with owner === 'player').
+      const target = cue.target as SpellTarget | undefined;
+      if (target) {
+        setTimeout(() => fireSpellFx(target, card.abilityKind), Math.max(0, holdMs - 600));
+      }
+      setTimeout(() => {
+        setOpponentReveal(null);
+        setStateRaw(incoming);
+      }, holdMs);
+      return;
+    }
+    // Attack — route through playAttackAnimation exactly like the
+    // single-player AI driver does. The closure here captured the
+    // pre-arrival `state`, so the attacker/defender lookups inside
+    // playAttackAnimation read from a snapshot where both creatures
+    // are still alive and at their pre-attack stats.
+    playAttackAnimation({
+      attackerId: cue.attackerId,
+      attackerOwner: 'opponent',
+      defenderId: cue.defenderId,
+      defenderOwner: 'player',
+      damageToDef: cue.damageToDef,
+      damageToAtk: cue.damageToAtk,
+    }, () => setStateRaw(incoming));
+  };
+
   // ============== Spell cast (player) ==============
   // Spells resolve invisibly without this — the card moves from hand to discard
   // and effects apply silently. We instead show the card center-screen for ~900ms
@@ -1572,7 +1698,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setTimeout(() => fireSpellFx(target, card.abilityKind), 600);
 
     setTimeout(() => {
-      setState(r.state);
+      // In PVP, attach a `spell` cue so the remote can replay the
+      // centered card reveal + spell-target burst beat we just
+      // played locally. No-op for single-player (online is null).
+      setState(online
+        ? withCue(r.state, makeCue({ kind: 'spell', cardBattleId: card.battleId, target }))
+        : r.state);
       setPlayerSpellReveal(null);
       const healed = r.state.player.hp - beforeHp;
       if (healed > 0) {
@@ -1702,7 +1833,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               setPlayerSlots(s => ({ ...s, [card.battleId]: targetSlot }));
             }
           }
-          setState(r.state);
+          setState(online
+            ? withCue(r.state, makeCue({ kind: 'creature_play', cardBattleId: card.battleId }))
+            : r.state);
           sfx('summon');
           fireLegendarySummon(card, 'player');
           onCreaturePlayed?.(card.id);
@@ -1753,7 +1886,9 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
       const r = playCard(state, 'player', card.battleId);
       if (r.ok) {
-        setState(r.state);
+        setState(online
+          ? withCue(r.state, makeCue({ kind: 'creature_play', cardBattleId: card.battleId }))
+          : r.state);
         setSelectedHandIdx(null);
         sfx('summon');
         fireLegendarySummon(card, 'player');
@@ -1794,15 +1929,29 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (target !== 'face') {
       defender = state.opponent.field.find(c => c.battleId === target.battleId) ?? null;
     }
+    const damageToDef = attacker.currentAtk;
+    const damageToAtk = defender ? defender.currentAtk : 0;
+    const defenderId: string | 'face' = target === 'face' ? 'face' : target.battleId;
     playAttackAnimation({
       attackerId: attacker.battleId,
       attackerOwner: 'player',
-      defenderId: target === 'face' ? 'face' : target.battleId,
+      defenderId,
       defenderOwner: 'opponent',
-      damageToDef: attacker.currentAtk,
-      damageToAtk: defender ? defender.currentAtk : 0,
+      damageToDef,
+      damageToAtk,
     }, () => {
-      setState(result.state);
+      // PVP: attach an attack cue so the remote replays the same
+      // attack-lunge / damage-pop / death-fly beat. Pre-attack stats
+      // captured above feed the receiver's playAttackAnimation.
+      setState(online
+        ? withCue(result.state, makeCue({
+            kind: 'attack',
+            attackerId: attacker.battleId,
+            defenderId,
+            damageToDef,
+            damageToAtk,
+          }))
+        : result.state);
       setSelectedAttacker(null);
     });
   };
@@ -1814,6 +1963,14 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     const key = Date.now() + 3333;
     setPhaseBanner({ text: 'Battle Phase', side: 'player', key });
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1000);
+    // PVP: push a cue-only state update so the remote also sees the
+    // Battle Phase banner. The engine state itself doesn't change
+    // (phase is local UI), so we just mount a fresh cue on it — the
+    // setState wrapper detects the new reference and pushes.
+    if (online) {
+      const cue = makeCue({ kind: 'phase', phase: 'battle' });
+      setState(s => ({ ...s, cue }));
+    }
   };
 
   const onMyCreatureClick = (c: BattleCard) => {
@@ -1881,7 +2038,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setPhaseBanner({ text: 'End Phase', side: 'player', key });
     setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1800);
     holdAnim(1900);
-    setState(s => endTurn(s));
+    // PVP: attach an `end` phase cue so the remote shows the matching
+    // banner before their turn banner lands.
+    const endCue = online ? makeCue({ kind: 'phase', phase: 'end' }) : null;
+    setState(s => endCue ? { ...endTurn(s), cue: endCue } : endTurn(s));
     onPlayerTurnEnd?.();
   };
 
