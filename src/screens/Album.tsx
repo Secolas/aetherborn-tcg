@@ -70,22 +70,40 @@ export function Album({ collection, discoveredBonds, onBack, embedded = false }:
           </div>
         </div>
         {tab === 'cards' && (
-          <button
-            onClick={() => setLayout(l => l === 'compact' ? 'big' : l === 'big' ? 'book' : 'compact')}
-            style={{ ...iconBtn, display: 'grid', placeItems: 'center' }}
-            aria-label={
-              layout === 'compact' ? 'Big view' :
-              layout === 'big' ? 'Book view' : 'Compact view'
-            }
-            title={
-              layout === 'compact' ? 'Big view' :
-              layout === 'big' ? 'Book view' : 'Compact view'
-            }
-          >
-            {layout === 'compact' ? <LayoutGrid size={17} />
-              : layout === 'big' ? <BookOpen size={17} />
-              : <Rows3 size={17} />}
-          </button>
+          <div style={{
+            display: 'flex', gap: 2, padding: 3,
+            background: '#f5ede2', borderRadius: 999,
+            border: `1.5px solid ${PALETTE.border}`,
+            boxShadow: '0 2px 6px rgba(58, 46, 42, .08)',
+          }}>
+            {([
+              { v: 'compact', Icon: LayoutGrid, label: 'Compact view' },
+              { v: 'big',     Icon: Rows3,     label: 'Big view' },
+              { v: 'book',    Icon: BookOpen,  label: 'Book view' },
+            ] as { v: 'compact' | 'big' | 'book'; Icon: typeof LayoutGrid; label: string }[]).map(o => {
+              const active = layout === o.v;
+              return (
+                <button
+                  key={o.v}
+                  onClick={() => setLayout(o.v)}
+                  aria-label={o.label}
+                  title={o.label}
+                  style={{
+                    width: 30, height: 30, borderRadius: '50%',
+                    background: active ? '#fff' : 'transparent',
+                    color: active ? PALETTE.text : PALETTE.textMid,
+                    border: 'none',
+                    display: 'grid', placeItems: 'center',
+                    cursor: 'pointer',
+                    boxShadow: active ? '0 2px 6px rgba(58,46,42,.10)' : 'none',
+                    transition: 'background .15s',
+                  }}
+                >
+                  <o.Icon size={16} />
+                </button>
+              );
+            })}
+          </div>
         )}
       </div>
 
