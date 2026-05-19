@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { ArrowLeft, Camera, Sparkles, LayoutGrid, Rows3, Link2, Lock, BookHeart, X } from 'lucide-react';
+import { ArrowLeft, Camera, Sparkles, LayoutGrid, Rows3, Link2, Lock, BookHeart, X, BookOpen } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { BONDS, type BondDef } from '../data/bonds';
 import { TEMPLATES } from '../data/templates';
 import { iconBtn, PALETTE } from '../components/styles';
+import { AlbumBook } from './AlbumBook';
 import type { CollectionCard, ElementId } from '../game/types';
 
 interface Props {
@@ -30,7 +31,10 @@ type Tab = 'cards' | 'bonds';
 export function Album({ collection, discoveredBonds, onBack, embedded = false }: Props) {
   const summoned = collection.filter(c => c.photo);
   const [inspect, setInspect] = useState<CollectionCard | null>(null);
-  const [layout, setLayout] = useState<'big' | 'compact'>('compact');
+  /** Three view modes: compact grid (default, dense), big grid (taller
+   *  card tiles), and book (photo-album flip view). Cycled through by
+   *  the layout toggle in the header. */
+  const [layout, setLayout] = useState<'big' | 'compact' | 'book'>('compact');
   const [tab, setTab] = useState<Tab>('cards');
 
   const byTheme = (themeId: ElementId) =>
@@ -67,12 +71,20 @@ export function Album({ collection, discoveredBonds, onBack, embedded = false }:
         </div>
         {tab === 'cards' && (
           <button
-            onClick={() => setLayout(l => l === 'big' ? 'compact' : 'big')}
+            onClick={() => setLayout(l => l === 'compact' ? 'big' : l === 'big' ? 'book' : 'compact')}
             style={{ ...iconBtn, display: 'grid', placeItems: 'center' }}
-            aria-label={layout === 'big' ? 'Compact view' : 'Big view'}
-            title={layout === 'big' ? 'Compact view' : 'Big view'}
+            aria-label={
+              layout === 'compact' ? 'Big view' :
+              layout === 'big' ? 'Book view' : 'Compact view'
+            }
+            title={
+              layout === 'compact' ? 'Big view' :
+              layout === 'big' ? 'Book view' : 'Compact view'
+            }
           >
-            {layout === 'big' ? <LayoutGrid size={17} /> : <Rows3 size={17} />}
+            {layout === 'compact' ? <LayoutGrid size={17} />
+              : layout === 'big' ? <BookOpen size={17} />
+              : <Rows3 size={17} />}
           </button>
         )}
       </div>
@@ -119,6 +131,8 @@ export function Album({ collection, discoveredBonds, onBack, embedded = false }:
         {tab === 'cards' ? (
           summoned.length === 0 ? (
             <EmptyState />
+          ) : layout === 'book' ? (
+            <AlbumBook cards={summoned} onTap={setInspect} />
           ) : (
             <>
               <ThemeSection title="Family"    cards={byTheme('family')}    layout={layout} onTap={setInspect} />
