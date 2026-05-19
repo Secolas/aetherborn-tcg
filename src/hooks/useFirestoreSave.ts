@@ -27,6 +27,15 @@ export function useFirestoreSave(
   const latest = useRef<SaveData>(save);
   const writeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const writingUid = useRef<string | null>(null);
+  // Flips true once the per-user Firestore load has resolved. Writes are
+  // gated on this: legacy-save migrations in App.tsx run synchronously
+  // on mount and fire setSave against the fresh `initial` state — if we
+  // let those persist they race the in-flight loadSave and (when the
+  // 600ms debounce fires before the network round-trip completes) full-
+  // replace the user's real save with an empty one. The visible symptom
+  // is the tutorial restarting after sign-out / sign-in: the corrupted
+  // doc no longer carries tutorialCompleted on the next load.
+  const loaded = useRef<boolean>(false);
 
   // Load on auth change.
   useEffect(() => {
@@ -34,17 +43,19 @@ export function useFirestoreSave(
       setSaveState(initial);
       latest.current = initial;
       writingUid.current = null;
+      loaded.current = true;
       setLoading(false);
       return;
     }
     let cancelled = false;
+    loaded.current = false;
     setLoading(true);
     writingUid.current = user.uid;
     (async () => {
       try {
-        const loaded = await loadSave(user.uid);
+        const remote = await loadSave(user.uid);
         if (cancelled) return;
-        const next = loaded ? { ...initial, ...loaded } : initial;
+        const next = remote ? { ...initial, ...remote } : initial;
         setSaveState(next);
         latest.current = next;
       } catch {
@@ -53,7 +64,10 @@ export function useFirestoreSave(
           latest.current = initial;
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          loaded.current = true;
+          setLoading(false);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -64,8 +78,10 @@ export function useFirestoreSave(
     setSaveState((prev) => {
       const resolved = typeof next === 'function' ? (next as (p: SaveData) => SaveData)(prev) : next;
       latest.current = resolved;
-      // Schedule a debounced write under the currently-authed uid only.
-      if (writingUid.current) {
+      // Persist only after the initial load has resolved. Before that,
+      // `prev` is still the fresh `initial` (the user's real save hasn't
+      // arrived yet), so any write here would clobber Firestore.
+      if (writingUid.current && loaded.current) {
         if (writeTimer.current) clearTimeout(writeTimer.current);
         const uid = writingUid.current;
         writeTimer.current = setTimeout(() => {
