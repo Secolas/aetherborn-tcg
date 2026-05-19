@@ -942,6 +942,7 @@ function Game() {
       {screen === 'pvp-lobby' && (
         <PvpLobby
           collection={save.collection}
+          playerAvatar={save.playerAvatar}
           onEnterRoom={(id) => { setPvpRoomId(id); setScreen('pvp-room'); }}
           onBack={() => setScreen('home')}
         />
@@ -949,6 +950,8 @@ function Game() {
       {screen === 'pvp-room' && pvpRoomId && (
         <PvpRoom
           roomId={pvpRoomId}
+          playerAvatar={save.playerAvatar}
+          settings={settings}
           onLeave={() => { setPvpRoomId(null); setScreen('pvp-lobby'); }}
         />
       )}

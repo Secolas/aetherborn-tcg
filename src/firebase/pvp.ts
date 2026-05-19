@@ -4,90 +4,63 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { CollectionCard } from '../game/types';
+import { createMatchFromDecks } from '../game/match';
+import type { CollectionCard, MatchState, Owner } from '../game/types';
 
-/** Minimal real-time PVP game state. Two players, each with a tiny
- *  deck dealt at room start, take turns playing creatures and attacking
- *  the opponent's face. State lives in one Firestore doc; both clients
- *  subscribe and write moves via authoritative-host updates.
+/**
+ * PVP networking primitives.
  *
- *  This is intentionally NOT the full single-player engine — that's
- *  ~1200 lines and not trivially serializable. Treat this as the
- *  proven netcode primitive; the full engine can be ported onto the
- *  same room doc later (replace `state` with the full MatchState
- *  and route playCard / attack / endTurn through the same write path). */
+ * A PVP room mirrors the **full** single-player match engine state in
+ * Firestore. Both clients subscribe to the room doc; whoever's turn it
+ * is runs the engine locally and pushes the resulting MatchState back.
+ *
+ * Convention: the HOST is always `'player'` in MatchState; the GUEST is
+ * always `'opponent'`. This keeps the on-wire shape stable. Clients
+ * swap the two sides at render time so each player sees themselves on
+ * the bottom of the board (their own avatar, their own hand).
+ *
+ * Photos are tiny URLs (Storage download URLs), not inline data URIs,
+ * so a full MatchState with both decks easily fits inside Firestore's
+ * 1 MB doc cap.
+ */
 
 export type PvpSeat = 'host' | 'guest';
 
-export interface PvpCardLite {
-  uid: string;
-  name: string;
-  cost: number;
-  atk: number;
-  hp: number;
-  photo: string | null;
-  el: string;
-}
-
-export interface PvpPlayer {
-  uid: string;
-  name: string;
-  hp: number;
-  mana: number;
-  maxMana: number;
-  hand: PvpCardLite[];
-  /** Cards on board with current hp + an "ready" flag (false on play turn) */
-  board: { card: PvpCardLite; hp: number; ready: boolean }[];
-  deckRemaining: number;
-}
-
-export interface PvpState {
-  host: PvpPlayer;
-  guest: PvpPlayer | null;
-  turn: PvpSeat;
-  turnNumber: number;
-  log: string[];
-  outcome: 'waiting' | 'ongoing' | 'host' | 'guest' | 'draw';
-}
+export type PvpOutcome =
+  | 'waiting'   // no guest yet
+  | 'ongoing'   // match in progress
+  | 'host_won'
+  | 'guest_won'
+  | 'draw'
+  | 'host_left'
+  | 'guest_left';
 
 export interface PvpRoom {
   id: string;
   code: string;
   hostUid: string;
   hostName: string;
+  hostAvatar?: string;
   guestUid: string | null;
   guestName: string | null;
-  state: PvpState;
+  guestAvatar?: string;
+  /** Full source decks for each side. Stored once at join time; never
+   *  mutated after. The engine's BattleCard copies live inside
+   *  `matchState` instead. */
+  hostDeck: CollectionCard[];
+  guestDeck: CollectionCard[];
+  /** The shared engine state. Null until the guest joins; otherwise
+   *  the full MatchState from game/match. The HOST is `'player'`. */
+  matchState: MatchState | null;
+  outcome: PvpOutcome;
   createdAt: unknown;
 }
+
+/* -------------------- Internal helpers -------------------- */
 
 function pvpDoc(roomId: string) {
   if (!db) throw new Error('Firestore not configured');
   return doc(db, 'pvpRooms', roomId);
-}
-
-function deckLiteFromCollection(cards: CollectionCard[]): PvpCardLite[] {
-  return cards
-    .filter(c => !!c.photo)
-    .slice(0, 12)
-    .map(c => ({
-      uid: c.uid,
-      name: c.name,
-      cost: c.cost,
-      atk: c.atk,
-      hp: c.hp,
-      photo: c.photo,
-      el: c.el,
-    }));
-}
-
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 function randomCode(): string {
@@ -97,55 +70,69 @@ function randomCode(): string {
   return s;
 }
 
-function freshState(hostUid: string, hostName: string, hostDeck: PvpCardLite[]): PvpState {
-  const shuffled = shuffle(hostDeck);
-  const hand = shuffled.slice(0, 3);
-  return {
-    host: {
-      uid: hostUid, name: hostName,
-      hp: 25, mana: 1, maxMana: 1,
-      hand,
-      board: [],
-      deckRemaining: Math.max(0, shuffled.length - 3),
-    },
-    guest: null,
-    turn: 'host',
-    turnNumber: 1,
-    log: [`${hostName} created the room.`],
-    outcome: 'waiting',
-  };
+function trimDeckForMatch(cards: CollectionCard[]): CollectionCard[] {
+  return cards.filter(c => !!c.photo).slice(0, 12);
 }
 
-/** Create a room. Returns the new room id + the share code. */
+/** Strip undefined fields from a deep object before writing to
+ *  Firestore — undefined is not allowed in Firestore field values. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(stripUndefined) as unknown as T;
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = stripUndefined(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
+/* -------------------- Public API -------------------- */
+
+/** Create a new room. The host's deck is stored but no MatchState is
+ *  created yet — that happens when the guest joins. */
 export async function createRoom(
   hostUid: string,
   hostName: string,
   hostDeck: CollectionCard[],
+  hostAvatar?: string,
 ): Promise<{ id: string; code: string }> {
   if (!db) throw new Error('Firestore not configured');
-  const deck = deckLiteFromCollection(hostDeck);
+  const deck = trimDeckForMatch(hostDeck);
   if (deck.length < 6) throw new Error('Need at least 6 photographed cards to play online.');
   const code = randomCode();
-  const ref = await addDoc(collection(db, 'pvpRooms'), {
+  const payload = stripUndefined({
     code,
     hostUid,
     hostName,
+    hostAvatar: hostAvatar ?? null,
     guestUid: null,
     guestName: null,
-    state: freshState(hostUid, hostName, deck),
+    guestAvatar: null,
     hostDeck: deck,
-    guestDeck: null,
+    guestDeck: [],
+    matchState: null,
+    outcome: 'waiting' as PvpOutcome,
     createdAt: serverTimestamp(),
   });
+  const ref = await addDoc(collection(db, 'pvpRooms'), payload);
   return { id: ref.id, code };
 }
 
-/** Join a room by short code. Returns the room id. */
+/** Join an open room by code. Creates the initial MatchState from both
+ *  decks via createMatchFromDecks — same path as the single-player
+ *  campaign, including the coin flip for who goes first. */
 export async function joinRoomByCode(
   code: string,
   guestUid: string,
   guestName: string,
   guestDeck: CollectionCard[],
+  guestAvatar?: string,
 ): Promise<string> {
   if (!db) throw new Error('Firestore not configured');
   const upper = code.trim().toUpperCase();
@@ -158,27 +145,25 @@ export async function joinRoomByCode(
   const snap = await getDocs(q);
   if (snap.empty) throw new Error('No open room with that code.');
   const docSnap = snap.docs[0];
-  const data = docSnap.data() as { state: PvpState; hostUid: string };
+  const data = docSnap.data() as { hostUid: string; hostDeck: CollectionCard[] };
   if (data.hostUid === guestUid) throw new Error("That's your own room.");
-  const deck = deckLiteFromCollection(guestDeck);
+
+  const deck = trimDeckForMatch(guestDeck);
   if (deck.length < 6) throw new Error('Need at least 6 photographed cards to play online.');
-  const shuffled = shuffle(deck);
-  const guestPlayer: PvpPlayer = {
-    uid: guestUid, name: guestName,
-    hp: 25, mana: 0, maxMana: 0,
-    hand: shuffled.slice(0, 3),
-    board: [],
-    deckRemaining: Math.max(0, shuffled.length - 3),
-  };
-  const state: PvpState = {
-    ...data.state,
-    guest: guestPlayer,
-    outcome: 'ongoing',
-    log: [...data.state.log, `${guestName} joined.`],
-  };
-  await updateDoc(docSnap.ref, {
-    guestUid, guestName, state, guestDeck: deck,
-  });
+
+  // Build the engine state from both real decks. createMatchFromDecks
+  // shuffles, deals opening hands, and runs the same coin flip the
+  // single-player campaign uses for first turn.
+  const matchState = createMatchFromDecks(data.hostDeck, deck, 'normal');
+
+  await updateDoc(docSnap.ref, stripUndefined({
+    guestUid,
+    guestName,
+    guestAvatar: guestAvatar ?? null,
+    guestDeck: deck,
+    matchState,
+    outcome: 'ongoing' as PvpOutcome,
+  }));
   return docSnap.id;
 }
 
@@ -193,10 +178,34 @@ export function subscribeRoom(
   });
 }
 
-export async function writeRoomState(roomId: string, state: PvpState): Promise<void> {
-  await updateDoc(pvpDoc(roomId), { state });
+/** Write a fresh MatchState (after a player applied one of the engine
+ *  functions). Also derives the room-level outcome from matchState.outcome. */
+export async function pushMatchState(roomId: string, state: MatchState): Promise<void> {
+  if (!db) return;
+  let outcome: PvpOutcome = 'ongoing';
+  if (state.outcome === 'win') outcome = 'host_won';
+  else if (state.outcome === 'loss') outcome = 'guest_won';
+  else if (state.outcome === 'draw') outcome = 'draw';
+  await updateDoc(pvpDoc(roomId), stripUndefined({ matchState: state, outcome }));
 }
 
+/** A player concedes mid-match. Other side wins. */
+export async function concedeMatch(roomId: string, seat: PvpSeat): Promise<void> {
+  if (!db) return;
+  const snap = await getDoc(pvpDoc(roomId));
+  if (!snap.exists()) return;
+  const data = snap.data() as PvpRoom;
+  if (!data.matchState || data.outcome !== 'ongoing') return;
+  const next: MatchState = {
+    ...data.matchState,
+    outcome: seat === 'host' ? 'loss' : 'win',
+    log: [...data.matchState.log, `${seat === 'host' ? data.hostName : data.guestName ?? 'Guest'} conceded.`],
+  };
+  const outcome: PvpOutcome = seat === 'host' ? 'guest_won' : 'host_won';
+  await updateDoc(pvpDoc(roomId), stripUndefined({ matchState: next, outcome }));
+}
+
+/** Tear down the room (host) or notify (guest). */
 export async function leaveRoom(roomId: string, asSeat: PvpSeat): Promise<void> {
   if (!db) return;
   if (asSeat === 'host') {
@@ -205,119 +214,30 @@ export async function leaveRoom(roomId: string, asSeat: PvpSeat): Promise<void> 
   }
   const snap = await getDoc(pvpDoc(roomId));
   if (!snap.exists()) return;
-  const data = snap.data() as PvpRoom & { state: PvpState };
-  const state: PvpState = {
-    ...data.state,
-    outcome: 'host',
-    log: [...data.state.log, `${data.state.guest?.name ?? 'Guest'} left.`],
+  const data = snap.data() as PvpRoom;
+  if (data.outcome !== 'ongoing' && data.outcome !== 'waiting') return;
+  await updateDoc(pvpDoc(roomId), stripUndefined({ outcome: 'guest_left' as PvpOutcome }));
+}
+
+/* -------------------- Perspective helpers -------------------- */
+
+/** From a given seat's perspective, which engine Owner is "me"? */
+export function seatToOwner(seat: PvpSeat): Owner {
+  return seat === 'host' ? 'player' : 'opponent';
+}
+
+/** Swap player/opponent in a MatchState so the guest can render
+ *  themselves on the bottom of the board. The engine on-the-wire is
+ *  always host = 'player'; this is a pure presentation flip. */
+export function swapPerspective(state: MatchState): MatchState {
+  return {
+    ...state,
+    player: state.opponent,
+    opponent: state.player,
+    turn: state.turn === 'player' ? 'opponent' : 'player',
+    // The outcome flips too — 'win' from host POV is 'loss' from guest POV.
+    outcome: state.outcome === 'win' ? 'loss'
+      : state.outcome === 'loss' ? 'win'
+      : state.outcome,
   };
-  await updateDoc(pvpDoc(roomId), { state });
-}
-
-/* -------------------- Game-logic helpers --------------------
- * Pure functions over PvpState. Either client may call these; the
- * resulting state is written back to Firestore. Both clients see it
- * via onSnapshot. There's no anti-cheat — both seats can in principle
- * write any state, so this is fine for friendly play but not for
- * ranked. For ranked, gate writes behind a Cloud Function later.
- */
-
-const HAND_LIMIT = 7;
-const MAX_TURNS = 25;
-
-function drawOne(p: PvpPlayer): PvpPlayer {
-  if (p.deckRemaining <= 0) return p;
-  if (p.hand.length >= HAND_LIMIT) return { ...p, deckRemaining: p.deckRemaining - 1 };
-  // We don't store the deck in PvpState (only its length) — the join
-  // path encoded the actual deck order into hand draws. For ongoing
-  // draws we synthesize a placeholder card so a small online demo can
-  // run end-to-end. A future pass should serialize the full deck order
-  // into the room doc and pop from it here.
-  const synth: PvpCardLite = {
-    uid: `synth_${p.uid}_${p.deckRemaining}`,
-    name: 'Draw',
-    cost: 1, atk: 1, hp: 1,
-    photo: null,
-    el: 'family',
-  };
-  return { ...p, hand: [...p.hand, synth], deckRemaining: p.deckRemaining - 1 };
-}
-
-export function playCard(state: PvpState, seat: PvpSeat, cardUid: string): PvpState {
-  if (state.outcome !== 'ongoing') return state;
-  if (state.turn !== seat) return state;
-  const me = seat === 'host' ? state.host : state.guest;
-  if (!me) return state;
-  const card = me.hand.find(c => c.uid === cardUid);
-  if (!card) return state;
-  if (card.cost > me.mana) return state;
-  const next: PvpPlayer = {
-    ...me,
-    mana: me.mana - card.cost,
-    hand: me.hand.filter(c => c.uid !== cardUid),
-    board: [...me.board, { card, hp: card.hp, ready: false }],
-  };
-  const log = [...state.log, `${me.name} played ${card.name}.`];
-  return seat === 'host'
-    ? { ...state, host: next, log }
-    : { ...state, guest: next, log };
-}
-
-export function attackFace(state: PvpState, seat: PvpSeat, attackerUid: string): PvpState {
-  if (state.outcome !== 'ongoing') return state;
-  if (state.turn !== seat) return state;
-  const me = seat === 'host' ? state.host : state.guest;
-  const opp = seat === 'host' ? state.guest : state.host;
-  if (!me || !opp) return state;
-  const idx = me.board.findIndex(b => b.card.uid === attackerUid);
-  if (idx < 0) return state;
-  const attacker = me.board[idx];
-  if (!attacker.ready) return state;
-  const updatedBoard = [...me.board];
-  updatedBoard[idx] = { ...attacker, ready: false };
-  const oppNext: PvpPlayer = { ...opp, hp: Math.max(0, opp.hp - attacker.card.atk) };
-  const meNext: PvpPlayer = { ...me, board: updatedBoard };
-  const log = [...state.log, `${me.name}'s ${attacker.card.name} hit ${opp.name} for ${attacker.card.atk}.`];
-  let next: PvpState = seat === 'host'
-    ? { ...state, host: meNext, guest: oppNext, log }
-    : { ...state, guest: meNext, host: oppNext, log };
-  if (oppNext.hp <= 0) {
-    next = { ...next, outcome: seat, log: [...next.log, `${me.name} wins!`] };
-  }
-  return next;
-}
-
-export function endTurn(state: PvpState, seat: PvpSeat): PvpState {
-  if (state.outcome !== 'ongoing') return state;
-  if (state.turn !== seat) return state;
-  const nextSeat: PvpSeat = seat === 'host' ? 'guest' : 'host';
-  const incoming = nextSeat === 'host' ? state.host : state.guest;
-  if (!incoming) return state;
-  const newMax = Math.min(10, incoming.maxMana + 1);
-  const refreshed: PvpPlayer = {
-    ...incoming,
-    maxMana: newMax,
-    mana: newMax,
-    board: incoming.board.map(b => ({ ...b, ready: true })),
-  };
-  const withDraw = drawOne(refreshed);
-  const turnNumber = state.turnNumber + 1;
-  let outcome: PvpState['outcome'] = 'ongoing';
-  let log = [...state.log, `${withDraw.name}'s turn.`];
-  if (turnNumber > MAX_TURNS) {
-    const hp = (nextSeat === 'host' ? withDraw : state.host).hp;
-    const oppHp = (nextSeat === 'host' ? state.guest! : withDraw).hp;
-    outcome = hp === oppHp ? 'draw' : (hp > oppHp ? nextSeat : seat);
-    log = [...log, `Turn limit reached.`];
-  }
-  return nextSeat === 'host'
-    ? { ...state, host: withDraw, guest: state.guest, turn: nextSeat, turnNumber, outcome, log }
-    : { ...state, host: state.host, guest: withDraw, turn: nextSeat, turnNumber, outcome, log };
-}
-
-export function concede(state: PvpState, seat: PvpSeat): PvpState {
-  if (state.outcome !== 'ongoing') return state;
-  const winner: PvpSeat = seat === 'host' ? 'guest' : 'host';
-  const meName = (seat === 'host' ? state.host : state.guest)?.name ?? 'Player';
-  return { ...state, outcome: winner, log: [...state.log, `${meName} conceded.`] };
 }
