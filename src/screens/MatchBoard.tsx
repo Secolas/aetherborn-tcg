@@ -84,6 +84,18 @@ interface Props {
    *  callers like the Tutorial dismiss any overlays they were painting
    *  on top of the board so they don't leak into the MatchEnd screen. */
   onMatchOver?: (outcome: 'win' | 'loss' | 'draw') => void;
+  /** True when this match should be merged from outside (online PVP).
+   *  When set, the AI driver is disabled and every state change is
+   *  echoed back via onMove so the parent can sync to Firestore. */
+  online?: {
+    /** Source-of-truth state, owned by the parent (synced from
+     *  Firestore). Overrides the local state whenever it changes. */
+    state: MatchState;
+    /** Called with the new MatchState every time the local player
+     *  acts. Parent uses this to push to Firestore; the opponent's
+     *  client receives the update via its `online.state` prop. */
+    onMove: (next: MatchState) => void;
+  };
   onExit: (outcome: 'win' | 'loss' | 'draw' | 'quit') => void;
 }
 
@@ -120,7 +132,7 @@ const FACE_OPP = '__face_opp__';
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
 
-export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, onMatchOver, onExit }: Props) {
+export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, online, onMatchOver, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
   // re-creating effects every render.
   const settingsRef = useRef(settings);
@@ -133,7 +145,37 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   const cosmetics = useCosmetics();
   const boardSkin = getBoardSkin(cosmetics.boardSkin);
   const victoryEmote = getEmote(cosmetics.emote);
-  const [state, setState] = useState<MatchState>(() => createMatch(deck, boss, difficulty));
+  // In online mode the parent owns the canonical state (synced from
+  // Firestore). We mirror it into local state so all of the existing
+  // animation / effect machinery keeps working unchanged, and we
+  // forward every local update back via online.onMove so the opponent
+  // sees it. Single-player initialisation still calls createMatch.
+  const [state, setStateRaw] = useState<MatchState>(() =>
+    online ? online.state : createMatch(deck, boss, difficulty)
+  );
+  // When the parent pushes a new state (opponent's move arrived via
+  // Firestore), adopt it. Skipped when the incoming state is referentially
+  // identical to what we already have — which is the common case when our
+  // own onMove echoes back through the network.
+  useEffect(() => {
+    if (!online) return;
+    setStateRaw(prev => (online.state === prev ? prev : online.state));
+  }, [online?.state]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** setState wrapper. In online mode it also pushes to the parent
+   *  (and from there to Firestore) so the opponent re-renders. */
+  const setState: typeof setStateRaw = (next) => {
+    setStateRaw(prev => {
+      const resolved = typeof next === 'function'
+        ? (next as (s: MatchState) => MatchState)(prev)
+        : next;
+      if (online && resolved !== prev) {
+        // Fire-and-forget; the Firestore round trip is async but the
+        // local UI has already updated optimistically above.
+        online.onMove(resolved);
+      }
+      return resolved;
+    });
+  };
   const [drag, setDrag] = useState<DragState | null>(null);
   /** Index of the hand card currently selected for preview/play (click-to-select). */
   const [selectedHandIdx, setSelectedHandIdx] = useState<number | null>(null);
@@ -422,6 +464,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
 
   // ============== AI driver ==============
   useEffect(() => {
+    if (online) return; // online PVP — opponent is a real player, not the AI
     if (flipping) return; // wait until the opening coin flip finishes
     if (initialDealing) return; // wait for the opening deal animation
     if (state.outcome !== 'ongoing') return;
@@ -539,7 +582,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       clearTimeout(t);
       if (busyTimer) clearTimeout(busyTimer);
     };
-  }, [state, flipping, initialDealing, bondCinematic, animTick]);
+  }, [state, flipping, initialDealing, bondCinematic, animTick, online]);
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.

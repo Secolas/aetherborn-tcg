@@ -5,11 +5,14 @@ import { useAuth } from '../firebase/auth';
 
 interface Props {
   collection: CollectionCard[];
+  /** Optional avatar URL for the player. Passed along so the opponent's
+   *  match view can show this player's portrait. */
+  playerAvatar?: string;
   onEnterRoom: (roomId: string) => void;
   onBack: () => void;
 }
 
-export function PvpLobby({ collection, onEnterRoom, onBack }: Props) {
+export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack }: Props) {
   const { user } = useAuth();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -24,7 +27,7 @@ export function PvpLobby({ collection, onEnterRoom, onBack }: Props) {
     if (!user) return;
     setBusy(true); setErr(null);
     try {
-      const { id, code } = await createRoom(user.uid, name, collection);
+      const { id, code } = await createRoom(user.uid, name, collection, playerAvatar);
       setCreatedCode(code);
       onEnterRoom(id);
     } catch (e: unknown) {
@@ -39,7 +42,7 @@ export function PvpLobby({ collection, onEnterRoom, onBack }: Props) {
     if (!code.trim()) { setErr('Enter a room code.'); return; }
     setBusy(true); setErr(null);
     try {
-      const id = await joinRoomByCode(code, user.uid, name, collection);
+      const id = await joinRoomByCode(code, user.uid, name, collection, playerAvatar);
       onEnterRoom(id);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
