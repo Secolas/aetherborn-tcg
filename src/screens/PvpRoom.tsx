@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Copy, Share2, Swords } from 'lucide-react';
+import { ArrowLeft, Clock, Copy, Share2, Swords } from 'lucide-react';
 import {
   concedeMatch, forfeitOnUnload, leaveRoom, pushMatchState, subscribeRoom, swapPerspective,
   type PvpRoom as PvpRoomT, type PvpSeat,
@@ -363,6 +363,10 @@ function WaitingScreen({
         </div>
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <TurnTimerTip />
+      </div>
+
       <button onClick={onCancel} style={{ ...ghostFull, marginTop: 14 }}>
         Cancel & close room
       </button>
@@ -425,11 +429,41 @@ function MatchmakingScreen({
         </div>
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <TurnTimerTip />
+      </div>
+
       <style>{`
         @keyframes pvpAvIn { 0% { transform: scale(.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pvpFill { 0% { width: 0%; } 100% { width: 70%; } }
       `}</style>
     </ChromeScreen>
+  );
+}
+
+function TurnTimerTip() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: BG_WARM,
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 14,
+      padding: '10px 12px',
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 10,
+        background: BRAND_LIGHT, color: '#fff',
+        display: 'grid', placeItems: 'center', flex: '0 0 auto',
+      }}>
+        <Clock size={15} strokeWidth={2.4} />
+      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.4, color: PALETTE.text }}>
+        <b style={{ color: BRAND_DEEP }}>60 seconds per turn.</b>{' '}
+        <span style={{ color: TEXT_MID }}>
+          Finish your plays before the clock runs out or your turn auto-ends.
+        </span>
+      </div>
+    </div>
   );
 }
 
