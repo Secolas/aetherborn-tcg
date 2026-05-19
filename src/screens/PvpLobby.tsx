@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { ArrowLeft, ChevronRight, Hash, Lock, Plus } from 'lucide-react';
 import { createRoom, joinRoomByCode } from '../firebase/pvp';
 import { isDataUriPhoto, uploadPlayerAvatar } from '../firebase/photos';
 import type { CollectionCard } from '../game/types';
 import { useAuth } from '../firebase/auth';
+import { iconBtn, PALETTE, btnPrimary as btnPrimaryStyle } from '../components/styles';
+import {
+  BRAND, BRAND_LIGHT, BRAND_DEEP, DAMAGE, PREMIUM, SELECTION,
+  BG_WARM, TEXT_MID,
+} from '../design/tokens';
 
 interface Props {
   collection: CollectionCard[];
@@ -20,21 +26,20 @@ interface Props {
   onAvatarMigrated?: (url: string) => void;
 }
 
+type View = 'choice' | 'join';
+
 export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvatarMigrated }: Props) {
   const { user } = useAuth();
-  const [code, setCode] = useState('');
+  const [view, setView] = useState<View>('choice');
+  const [code, setCode] = useState<string[]>(['', '', '', '', '']);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [createdCode, setCreatedCode] = useState<string | null>(null);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const playable = collection.filter(c => !!c.photo);
   const ready = playable.length >= 6;
   const name = user?.displayName || user?.email?.split('@')[0] || 'Player';
 
-  // Avatars are persisted in save as either a Storage download URL
-  // (small) or a legacy base64 data URI (huge — can be >1 MB). Firestore
-  // rejects a single field over ~1 MB, so any data URI must be pushed up
-  // to Storage and swapped for its URL before we write the room doc.
   const resolveAvatarUrl = async (): Promise<string | undefined> => {
     if (!user || !playerAvatar) return undefined;
     if (!isDataUriPhoto(playerAvatar)) return playerAvatar;
@@ -48,8 +53,7 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvat
     setBusy(true); setErr(null);
     try {
       const avatarUrl = await resolveAvatarUrl();
-      const { id, code } = await createRoom(user.uid, name, collection, avatarUrl);
-      setCreatedCode(code);
+      const { id } = await createRoom(user.uid, name, collection, avatarUrl);
       onEnterRoom(id);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -60,11 +64,12 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvat
 
   const onJoin = async () => {
     if (!user) return;
-    if (!code.trim()) { setErr('Enter a room code.'); return; }
+    const joined = code.join('');
+    if (joined.length < 5) { setErr('Enter the full 5-letter code.'); return; }
     setBusy(true); setErr(null);
     try {
       const avatarUrl = await resolveAvatarUrl();
-      const id = await joinRoomByCode(code, user.uid, name, collection, avatarUrl);
+      const id = await joinRoomByCode(joined, user.uid, name, collection, avatarUrl);
       onEnterRoom(id);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : String(e));
@@ -73,92 +78,272 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvat
     }
   };
 
-  return (
-    <div style={{
-      width: '100%', height: '100%', position: 'relative',
-      background: 'radial-gradient(ellipse at 50% 0%, #1c2244 0%, #0a0c1c 70%)',
-      color: '#fff', padding: '24px 22px',
-      display: 'flex', flexDirection: 'column', gap: 18,
-    }}>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <button onClick={onBack} style={btnGhost}>← Back</button>
-        <h2 style={{ margin: 0, fontFamily: 'Fredoka, sans-serif', fontSize: 22 }}>Play Online</h2>
-      </header>
+  const setDigit = (i: number, v: string) => {
+    const cleaned = (v || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 1);
+    setCode(c => { const n = [...c]; n[i] = cleaned; return n; });
+    if (cleaned && inputRefs.current[i + 1]) inputRefs.current[i + 1]?.focus();
+  };
+  const onKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && !code[i] && inputRefs.current[i - 1]) {
+      inputRefs.current[i - 1]?.focus();
+    }
+  };
 
-      <div style={card}>
-        <div style={sectionTitle}>Create Room</div>
-        <p style={hint}>
-          Generate a 5-letter code and share it with a friend. The first
-          player to enter the code joins the room and starts the match.
-        </p>
-        <button onClick={onCreate} disabled={!ready || busy} style={btnPrimary(!ready || busy)}>
-          {busy ? 'Creating…' : 'Create Room'}
+  const codeReady = code.every(c => !!c) && ready;
+  const headerTitle = view === 'join' ? 'Join Room' : 'Play Online';
+  const headerSub = view === 'join'
+    ? 'Enter the code your friend sent you'
+    : 'Battle a friend over the internet';
+  const handleHeaderBack = () => {
+    if (view === 'choice') onBack();
+    else { setView('choice'); setErr(null); }
+  };
+
+  return (
+    <div style={screenWrap}>
+      <div style={headerWrap}>
+        <button onClick={handleHeaderBack} style={iconBtn} aria-label="Back">
+          <ArrowLeft size={18} />
         </button>
-        {createdCode && (
-          <div style={{ marginTop: 10, fontSize: 13, color: '#f4d04a' }}>
-            Room code: <strong style={{ letterSpacing: 4 }}>{createdCode}</strong>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 22, fontWeight: 800, lineHeight: 1.1 }}>{headerTitle}</div>
+          <div style={{ fontSize: 11, color: PALETTE.textMid, marginTop: 2 }}>{headerSub}</div>
+        </div>
+      </div>
+
+      <div style={bodyWrap}>
+        {!ready && <GateBanner playable={playable.length} />}
+
+        {view === 'choice' && (
+          <>
+            <RowCard
+              label="Create Room"
+              description="Generate a 5-letter code and share it with a friend"
+              icon={<Plus size={26} strokeWidth={2.2} />}
+              hue="coral"
+              locked={!ready}
+              busy={busy}
+              onClick={onCreate}
+            />
+            <RowCard
+              label="Join Room"
+              description="Enter the code your friend just sent you"
+              icon={<Hash size={26} strokeWidth={2.2} />}
+              hue="gold"
+              locked={!ready}
+              onClick={() => { setErr(null); setView('join'); }}
+            />
+            {err && <ErrorChip message={err} />}
+          </>
+        )}
+
+        {view === 'join' && (
+          <div style={joinCard}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+              <IconTile hue="gold"><Hash size={24} strokeWidth={2.2} /></IconTile>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 17, fontWeight: 800 }}>Enter Code</div>
+                <div style={{ fontSize: 12, color: PALETTE.textMid, marginTop: 2 }}>
+                  Five letters, all caps
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginBottom: 14 }}>
+              {code.map((c, i) => (
+                <input
+                  key={i}
+                  ref={el => { inputRefs.current[i] = el; }}
+                  value={c}
+                  onChange={e => setDigit(i, e.target.value)}
+                  onKeyDown={e => onKeyDown(i, e)}
+                  maxLength={1}
+                  disabled={!ready || busy}
+                  inputMode="text"
+                  autoCapitalize="characters"
+                  aria-label={`Code letter ${i + 1}`}
+                  style={{
+                    flex: 1, aspectRatio: '1 / 1', minWidth: 0,
+                    background: BG_WARM,
+                    border: `1.5px solid ${c ? BRAND_LIGHT : PALETTE.border}`,
+                    borderRadius: 12, textAlign: 'center',
+                    fontFamily: 'inherit', fontWeight: 700, fontSize: 26,
+                    color: PALETTE.text, outline: 'none', padding: 0,
+                    transition: 'border-color .15s, background .15s',
+                  }}
+                />
+              ))}
+            </div>
+
+            <button
+              onClick={onJoin}
+              disabled={!codeReady || busy}
+              style={fullPrimary(!codeReady || busy)}
+            >
+              {busy ? 'Joining…' : 'Join Match'}
+            </button>
+
+            {err && <div style={{ marginTop: 12 }}><ErrorChip message={err} /></div>}
           </div>
         )}
       </div>
-
-      <div style={card}>
-        <div style={sectionTitle}>Join Room</div>
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="ROOM CODE"
-          maxLength={5}
-          style={{
-            width: '100%', padding: '12px 14px', marginTop: 6,
-            background: 'rgba(255,255,255,0.05)',
-            border: '1px solid rgba(255,255,255,0.18)', borderRadius: 10,
-            color: '#fff', fontSize: 22, letterSpacing: 8, textAlign: 'center',
-            fontFamily: 'Fredoka, monospace',
-          }}
-        />
-        <button onClick={onJoin} disabled={!ready || busy || !code} style={{ ...btnPrimary(!ready || busy || !code), marginTop: 10 }}>
-          {busy ? 'Joining…' : 'Join'}
-        </button>
-      </div>
-
-      {!ready && (
-        <div style={{ ...card, background: 'rgba(217, 102, 88, 0.12)', borderColor: 'rgba(217, 102, 88, 0.35)' }}>
-          You need at least 6 photographed cards to play online. You have <strong>{playable.length}</strong>.
-        </div>
-      )}
-
-      {err && (
-        <div style={{ ...card, background: 'rgba(217, 102, 88, 0.18)', borderColor: 'rgba(217, 102, 88, 0.45)' }}>
-          {err}
-        </div>
-      )}
     </div>
   );
 }
 
-const card: React.CSSProperties = {
-  background: 'rgba(255,255,255,0.04)',
-  border: '1px solid rgba(255,255,255,0.10)',
-  borderRadius: 16, padding: 16,
+/* -------------------- Sub-components -------------------- */
+
+function GateBanner({ playable }: { playable: number }) {
+  const remaining = Math.max(0, 6 - playable);
+  return (
+    <div style={{
+      background: '#fff3ec',
+      border: `1.5px solid ${BRAND_LIGHT}66`,
+      borderRadius: 16,
+      padding: '12px 14px',
+      display: 'flex', alignItems: 'center', gap: 12,
+    }}>
+      <div style={{
+        width: 32, height: 32, borderRadius: 10,
+        background: BRAND_LIGHT, color: '#fff',
+        display: 'grid', placeItems: 'center', flex: '0 0 auto',
+      }}>
+        <Lock size={16} strokeWidth={2.4} />
+      </div>
+      <div style={{ fontSize: 12.5, lineHeight: 1.4, color: PALETTE.text }}>
+        Photograph <b style={{ color: BRAND_DEEP }}>
+          {remaining} more card{remaining === 1 ? '' : 's'}
+        </b> to unlock online play.{' '}
+        <span style={{ color: TEXT_MID }}>You have {playable} of 6.</span>
+      </div>
+    </div>
+  );
+}
+
+function IconTile({ children, hue }: { children: React.ReactNode; hue: 'coral' | 'gold' | 'mint' }) {
+  const grad =
+    hue === 'coral' ? `linear-gradient(135deg, #ffa07a, ${BRAND_LIGHT})` :
+    hue === 'gold'  ? `linear-gradient(135deg, ${PREMIUM}, ${SELECTION})` :
+                      `linear-gradient(135deg, #5be3b3, #06d6a0)`;
+  return (
+    <div style={{
+      width: 52, height: 52, borderRadius: 14,
+      display: 'grid', placeItems: 'center',
+      background: grad, color: '#fff',
+      boxShadow: 'inset 0 1px 0 rgba(255,255,255,.4)',
+      flex: '0 0 auto',
+    }}>{children}</div>
+  );
+}
+
+function RowCard({
+  label, description, icon, hue, locked, busy, onClick,
+}: {
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+  hue: 'coral' | 'gold';
+  locked: boolean;
+  busy?: boolean;
+  onClick: () => void;
+}) {
+  const disabled = locked || !!busy;
+  return (
+    <button
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      style={{
+        position: 'relative',
+        display: 'flex', alignItems: 'center', gap: 14,
+        padding: '18px 18px',
+        background: '#fff',
+        border: `1.5px solid ${PALETTE.border}`,
+        borderRadius: 18,
+        boxShadow: disabled ? 'none' : '0 4px 12px rgba(58,46,42,.08)',
+        color: PALETTE.text,
+        fontFamily: 'inherit',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        textAlign: 'left',
+        opacity: disabled ? 0.55 : 1,
+        transition: 'transform .12s, box-shadow .15s',
+        width: '100%',
+      }}
+      onMouseEnter={(e) => {
+        if (disabled) return;
+        e.currentTarget.style.transform = 'translateY(-1px)';
+        e.currentTarget.style.boxShadow = '0 6px 16px rgba(58,46,42,.12)';
+      }}
+      onMouseLeave={(e) => {
+        if (disabled) return;
+        e.currentTarget.style.transform = 'translateY(0)';
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(58,46,42,.08)';
+      }}
+    >
+      <IconTile hue={hue}>{icon}</IconTile>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 17, fontWeight: 800 }}>{label}</div>
+        <div style={{ fontSize: 12, color: PALETTE.textMid, marginTop: 2 }}>{description}</div>
+      </div>
+      {locked
+        ? <Lock size={18} strokeWidth={2.4} color={PALETTE.textMid} />
+        : <ChevronRight size={20} strokeWidth={2.4} color={PALETTE.textMid} />}
+    </button>
+  );
+}
+
+function ErrorChip({ message }: { message: string }) {
+  return (
+    <div style={{
+      background: `${DAMAGE}1a`,
+      border: `1.5px solid ${DAMAGE}59`,
+      borderRadius: 12,
+      padding: '10px 12px',
+      fontSize: 12.5, color: DAMAGE, fontWeight: 600,
+    }}>{message}</div>
+  );
+}
+
+/* -------------------- Styles -------------------- */
+
+const screenWrap: React.CSSProperties = {
+  width: '100%', height: '100%',
+  display: 'flex', flexDirection: 'column',
+  background: 'linear-gradient(180deg, #fef3e8 0%, #ffe5cc 100%)',
+  color: PALETTE.text,
+  fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
+  overflow: 'hidden',
 };
-const sectionTitle: React.CSSProperties = {
-  fontSize: 13, letterSpacing: 2, color: '#f4d04a',
-  textTransform: 'uppercase', marginBottom: 6,
+
+const headerWrap: React.CSSProperties = {
+  padding: '52px 20px 8px',
+  display: 'flex', alignItems: 'center', gap: 12,
 };
-const hint: React.CSSProperties = {
-  margin: '4px 0 12px', color: 'rgba(255,255,255,0.68)', fontSize: 13, lineHeight: 1.5,
+
+const bodyWrap: React.CSSProperties = {
+  flex: 1, overflowY: 'auto',
+  padding: '8px 20px 24px',
+  display: 'flex', flexDirection: 'column', gap: 12,
 };
-const btnGhost: React.CSSProperties = {
-  padding: '6px 12px', borderRadius: 10,
-  background: 'rgba(255,255,255,0.06)', color: '#fff',
-  border: '1px solid rgba(255,255,255,0.15)', cursor: 'pointer', fontSize: 13,
+
+const joinCard: React.CSSProperties = {
+  background: '#fff',
+  border: `1.5px solid ${PALETTE.border}`,
+  borderRadius: 18,
+  padding: 16,
+  boxShadow: '0 4px 12px rgba(58,46,42,.08)',
 };
-function btnPrimary(disabled: boolean): React.CSSProperties {
+
+function fullPrimary(disabled: boolean): React.CSSProperties {
   return {
-    padding: '11px 14px', borderRadius: 12, border: 'none',
-    background: 'linear-gradient(135deg, #f4d04a, #f49a4a)',
-    color: '#2a1a06', fontWeight: 700, fontSize: 14,
+    ...btnPrimaryStyle,
+    background: disabled
+      ? '#e5d6c9'
+      : `linear-gradient(180deg, #ffa07a 0%, ${BRAND_LIGHT} 60%, ${BRAND} 100%)`,
+    boxShadow: disabled
+      ? 'none'
+      : '0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4)',
+    opacity: disabled ? 0.55 : 1,
     cursor: disabled ? 'not-allowed' : 'pointer',
-    opacity: disabled ? 0.45 : 1, width: '100%',
+    width: '100%',
   };
 }
