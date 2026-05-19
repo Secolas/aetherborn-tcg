@@ -5,7 +5,19 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import { createMatchFromDecks } from '../game/match';
-import type { CollectionCard, MatchState, Owner } from '../game/types';
+import type { CollectionCard, MatchCue, MatchState, Owner } from '../game/types';
+
+/** Flip the perspective-bound fields inside a cue so it reads the same
+ *  way from the opposite seat. Pure presentation transform — `seq` and
+ *  factual ids (battleId) carry over unchanged. */
+function swapCue(cue: MatchCue): MatchCue {
+  const flipOwner = (o: Owner): Owner => (o === 'player' ? 'opponent' : 'player');
+  const side = flipOwner(cue.side);
+  if (cue.kind === 'spell' && cue.target) {
+    return { ...cue, side, target: { ...cue.target, owner: flipOwner(cue.target.owner) } };
+  }
+  return { ...cue, side };
+}
 
 /**
  * PVP networking primitives.
@@ -265,5 +277,6 @@ export function swapPerspective(state: MatchState): MatchState {
     outcome: state.outcome === 'win' ? 'loss'
       : state.outcome === 'loss' ? 'win'
       : state.outcome,
+    cue: state.cue ? swapCue(state.cue) : state.cue,
   };
 }
