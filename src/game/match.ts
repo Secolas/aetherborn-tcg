@@ -345,6 +345,7 @@ function assembleMatch(
     difficulty,
     turnLimit,
     rngState,
+    turnStartedAt: Date.now(),
   };
 }
 
@@ -372,6 +373,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   const state = clone(prev);
   state.turn = owner;
   state.turnNumber += 1;
+  state.turnStartedAt = Date.now();
   const me = side(state, owner);
 
   // Reset per-turn bond flags (e.g. First Class Window's "draw once per turn").

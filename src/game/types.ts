@@ -241,6 +241,13 @@ export interface MatchState {
    *  has room to finish; every other match leaves it undefined and
    *  the global limit applies. */
   turnLimit?: number;
+  /** Epoch ms when the current turn started. Set by `beginTurn` (and
+   *  on initial match creation). PVP uses this to drive a shared
+   *  countdown timer — both clients derive remaining time from
+   *  `Date.now() - turnStartedAt`, so the clock stays in sync without
+   *  separate timer messages. Single-player matches set it too but
+   *  the UI ignores it. */
+  turnStartedAt?: number;
 }
 
 /** Difficulty tier for a single match. Picked by the player on the boss

@@ -131,6 +131,12 @@ const FACE_OPP = '__face_opp__';
  *  needing extra ref plumbing. */
 const GRAVE_PLAYER = '__grave_player__';
 const GRAVE_OPP = '__grave_opp__';
+/** PVP-only turn clock. Each player gets this much wall time per turn;
+ *  when it hits zero the active client auto-runs endTurn. The inactive
+ *  client also enforces after a grace period so a hung/disconnected
+ *  active client can't deadlock the match. */
+const PVP_TURN_TIMER_MS = 60_000;
+const PVP_TURN_GRACE_MS = 8_000;
 
 export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, settings = DEFAULT_SETTINGS, onBondDiscovered, onCreaturePlayed, onBondTriggered, onPlayerTurnEnd, onPlayerAttacked, onPlayerSpellCast, tutorialAllow, alreadyBeaten = false, online, onMatchOver, onExit }: Props) {
   // Stash settings in a ref so SFX closures see fresh values without
@@ -337,6 +343,13 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  banners + AI delays present it as a sequence even though the
    *  engine just calls aiStep iteratively. */
   const [playerPhase, setPlayerPhase] = useState<'main' | 'battle'>('main');
+  /** Wall-clock sample (epoch ms) used by the PVP turn countdown.
+   *  Refreshed every 500ms by the timer effect while a PVP match is
+   *  in progress; render derives remaining seconds from this minus
+   *  `state.turnStartedAt`. Kept in state (not read inline via
+   *  Date.now() during render) to satisfy the React-purity rule.
+   *  Null while not in PVP / pre-flip. */
+  const [pvpNowMs, setPvpNowMs] = useState<number | null>(null);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
@@ -629,6 +642,59 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       if (busyTimer) clearTimeout(busyTimer);
     };
   }, [state, flipping, initialDealing, bondCinematic, animTick, online]);
+
+  // ============== PVP turn timer ==============
+  // Each player has PVP_TURN_TIMER_MS of wall time per turn. The
+  // active client auto-passes when the clock hits 0; the inactive
+  // client also enforces after PVP_TURN_GRACE_MS so a hung opponent
+  // can't deadlock the match. The shared clock is derived from
+  // `state.turnStartedAt` (set by beginTurn in the engine) so both
+  // clients agree on remaining time without any extra messages.
+  useEffect(() => {
+    if (!online) return;
+    if (state.outcome !== 'ongoing') return;
+    if (flipping || initialDealing) return;
+    if (!state.turnStartedAt) return;
+
+    const tick = () => {
+      const remaining = PVP_TURN_TIMER_MS - (Date.now() - (state.turnStartedAt ?? Date.now()));
+      const myTurn = state.turn === 'player';
+
+      // Active-side auto-pass: time's up. Defer if combat is mid-flight
+      // or a bond cinematic is overlaying — the next tick will fire it
+      // once the visual queue clears.
+      if (myTurn && remaining <= 0 && !combat && !bondCinematic) {
+        // Clear any half-started spell cast so endTurn lands cleanly.
+        setPendingSpell(null);
+        setSelectedAttacker(null);
+        showMsg(`${boss.name}'s turn`);
+        const key = Date.now() + 5555;
+        setPhaseBanner({ text: 'End Phase', side: 'player', key });
+        setTimeout(() => setPhaseBanner(cur => (cur && cur.key === key ? null : cur)), 1800);
+        holdAnim(1900);
+        const endCue = makeCue({ kind: 'phase', phase: 'end' });
+        setState(s => ({ ...endTurn(s), cue: endCue }));
+        return;
+      }
+
+      // Inactive-side fallback: opponent has gone past the grace
+      // window. Push an end-turn from this side so the match continues.
+      // Same engine path; the cue lets the remote replay the banner.
+      if (!myTurn && remaining <= -PVP_TURN_GRACE_MS && !combat && !bondCinematic) {
+        const endCue = makeCue({ kind: 'phase', phase: 'end' });
+        setState(s => ({ ...endTurn(s), cue: endCue }));
+        return;
+      }
+
+      setPvpNowMs(Date.now());
+    };
+
+    // Prime the clock so the badge renders immediately at full duration
+    // instead of waiting 500ms for the first interval fire.
+    setPvpNowMs(Date.now());
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [online, state.turn, state.turnStartedAt, state.outcome, flipping, initialDealing, combat, bondCinematic]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show a sliding "YOUR TURN" / "BOSS TURN" banner whenever the active player
   // changes. Skips the very first render so the banner only fires on actual swaps.
@@ -2261,6 +2327,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         const isPlayer = state.turn === 'player';
         const inBattle = isPlayer && playerPhase === 'battle';
         const handleClick = inBattle ? onEndTurn : handleGoBattle;
+        // PVP turn countdown (shared clock). Both clients derive the
+        // remaining seconds from state.turnStartedAt so they see the
+        // same number; the value goes negative briefly when the active
+        // client is mid-animation past 0 — clamp at 0 for display.
+        const pvpRemainingSec = (online && state.outcome === 'ongoing' && !flipping && !initialDealing && state.turnStartedAt && pvpNowMs != null)
+          ? Math.max(0, Math.ceil((PVP_TURN_TIMER_MS - (pvpNowMs - state.turnStartedAt)) / 1000))
+          : null;
+        const pvpTimerColor = pvpRemainingSec == null ? null
+          : pvpRemainingSec <= 5 ? '#ef5a5a'
+          : pvpRemainingSec <= 15 ? '#f4a83b'
+          : (isPlayer ? PALETTE.text : PALETTE.textMid);
         const centerText = drag?.overField
           ? (drag.cardType === 'Creature' ? '↓ Summon ↓' : '↓ Choose target ↓')
           : pendingSpell
@@ -2353,6 +2430,28 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 display: 'grid', placeItems: 'center',
               }}>×</button>
             ) : (
+              <>
+                {pvpRemainingSec != null && (
+                  <div
+                    aria-label={`${isPlayer ? 'Your' : `${boss.name}'s`} turn timer`}
+                    style={{
+                      flexShrink: 0,
+                      minWidth: 34, height: 28,
+                      padding: '0 8px', borderRadius: 999,
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: isPlayer ? '#fff' : 'rgba(255,255,255,.55)',
+                      border: `1.5px solid ${pvpTimerColor}`,
+                      color: pvpTimerColor!,
+                      fontSize: 12, fontWeight: 800, fontFamily: 'inherit',
+                      letterSpacing: '0.04em',
+                      boxShadow: '0 2px 6px rgba(58,46,42,.08)',
+                      animation: pvpRemainingSec <= 5 ? 'spellTargetBadgePulse 1.05s ease-in-out infinite' : undefined,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}
+                  >
+                    {pvpRemainingSec}s
+                  </div>
+                )}
               <button
                 data-tut={inBattle ? 'end-turn' : 'go-battle'}
                 onClick={(e) => { e.stopPropagation(); if (isPlayer && !combat) handleClick(); }}
@@ -2373,6 +2472,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               >
                 {inBattle ? <ChevronsRight size={18} strokeWidth={2.4} /> : <Swords size={18} strokeWidth={2.2} />}
               </button>
+              </>
             )}
 
             {/* Phase / turn banner — overlaid inside the divider strip so it
