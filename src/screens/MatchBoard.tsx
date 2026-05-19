@@ -2294,8 +2294,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }
     return out;
   };
+  /** Cards on `p`'s side that should render Taunt because an active
+   *  bond grants it (today: House Pets — Cat + Dog both gain Taunt).
+   *  Mirrors the engine's effectiveTaunt() so the green ring and the
+   *  Taunt status pill show the moment the partner lands. */
+  const tauntFromBondsFor = (p: PlayerState): Set<string> => {
+    const out = new Set<string>();
+    for (const b of activeBonds(p)) {
+      if (b.effect.kind !== 'pair_taunt') continue;
+      out.add(b.cardA);
+      out.add(b.cardB);
+    }
+    return out;
+  };
   const playerBondLookup = bondLookupFor(state.player);
   const opponentBondLookup = bondLookupFor(state.opponent);
+  const playerTauntFromBonds = tauntFromBondsFor(state.player);
+  const opponentTauntFromBonds = tauntFromBondsFor(state.opponent);
   const playerActiveBonds = activeBonds(state.player);
   const opponentActiveBonds = activeBonds(state.opponent);
 
@@ -2454,6 +2469,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={opponentBondLookup}
+          tauntFromBonds={opponentTauntFromBonds}
           slotMap={opponentSlots}
           registerEl={registerEl}
           onCardClick={(c) => onOppCreatureClick(c)}
@@ -2686,6 +2702,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           selectedAttacker={selectedAttacker}
           pendingSpell={pendingSpell}
           bondLookup={playerBondLookup}
+          tauntFromBonds={playerTauntFromBonds}
           slotMap={playerSlots}
           registerEl={registerEl}
           onCardClick={(c) => {
@@ -3777,6 +3794,11 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 self-documenting. Bond info too, with the partner's name. */}
             <StatusLabels
               card={inspect}
+              bondGrantsTaunt={
+                state.player.field.some(c => c.battleId === inspect.battleId)
+                  ? playerTauntFromBonds.has(inspect.id)
+                  : opponentTauntFromBonds.has(inspect.id)
+              }
               bondInfos={(() => {
                 // Surface every bond this card participates in. With first-
                 // bond-wins, exactly one of these can be 'active'; the rest
@@ -4229,7 +4251,7 @@ function BondPillStack({
 
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
-  bondLookup, slotMap,
+  bondLookup, tauntFromBonds, slotMap,
   registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -4245,6 +4267,11 @@ function FieldRow({
   selectedAttacker: string | null;
   pendingSpell: BattleCard | null;
   bondLookup: Record<string, 'active' | 'waiting'>;
+  /** Card-ids on this side that have Taunt granted by an active bond
+   *  (House Pets). The matching BattlefieldCard reads this and toggles
+   *  the green outline + Taunt status pill so the bond-granted state
+   *  matches the engine. */
+  tauntFromBonds: Set<string>;
   slotMap: Record<string, number>;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
@@ -4356,6 +4383,7 @@ function FieldRow({
               silencedAt={silencedAt[c.battleId] ?? null}
               trigger={triggers[c.battleId] ?? null}
               bondState={bondLookup[c.id]}
+              bondGrantsTaunt={tauntFromBonds.has(c.id)}
               onClick={() => onCardClick(c)}
               onLongPress={() => onCardLongPress(c)}
             />
@@ -4377,6 +4405,7 @@ function FieldRow({
 function StatusLabels({
   card,
   bondInfos = [],
+  bondGrantsTaunt = false,
 }: {
   card: BattleCard;
   /** Every bond this card participates in. With first-bond-wins, a card
@@ -4389,6 +4418,11 @@ function StatusLabels({
     partnerName: string;
     status: 'active' | 'blocked' | 'waiting';
   }[];
+  /** Set when an active bond is currently granting this creature Taunt
+   *  (today only House Pets — Cat + Dog). The inspect sheet adds the
+   *  Taunt pill row so the bond effect reads on the long-press card,
+   *  not just the field. */
+  bondGrantsTaunt?: boolean;
 }) {
   const items: { icon: React.ReactNode; label: string; hint: string; color: string }[] = [];
   if (card.frozen) {
@@ -4403,9 +4437,13 @@ function StatusLabels({
     items.push({ icon: <ShieldHalf size={14} strokeWidth={2.6} />, color: '#7a4ea8',
       label: 'Untargetable', hint: 'Spells can’t target this creature.' });
   }
-  if (card.abilityKind === 'taunt') {
+  if (card.abilityKind === 'taunt' || bondGrantsTaunt) {
     items.push({ icon: <Target size={14} strokeWidth={2.6} />, color: '#3d8e57',
-      label: 'Taunt', hint: 'Enemies must hit this before anything else.' });
+      label: 'Taunt',
+      hint: card.abilityKind === 'taunt'
+        ? 'Enemies must hit this before anything else.'
+        : 'Bond grants Taunt — enemies must hit this before anything else.',
+    });
   }
   if (card.abilityKind === 'rush') {
     items.push({ icon: <Zap size={14} fill="#fff" strokeWidth={2.4} />, color: '#e8a93a',
