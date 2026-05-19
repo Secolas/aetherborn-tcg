@@ -257,6 +257,20 @@ export async function leaveRoom(roomId: string, asSeat: PvpSeat): Promise<void> 
   await updateDoc(pvpDoc(roomId), stripUndefined({ outcome: 'guest_left' as PvpOutcome }));
 }
 
+/** Fire-and-forget forfeit when the user closes/refreshes the tab.
+ *  Same outcome as `leaveRoom` for the guest path — sets `host_left` /
+ *  `guest_left` so the surviving client renders the "opponent left"
+ *  win screen — but skips the read + the host's deleteDoc so the
+ *  whole call collapses into a single small updateDoc that has a
+ *  better chance of completing during browser unload. Safe to call
+ *  unconditionally; if the room is already over the write is a no-op
+ *  to the surviving client's UI. */
+export async function forfeitOnUnload(roomId: string, seat: PvpSeat): Promise<void> {
+  if (!db) return;
+  const outcome: PvpOutcome = seat === 'host' ? 'host_left' : 'guest_left';
+  await updateDoc(pvpDoc(roomId), stripUndefined({ outcome }));
+}
+
 /* -------------------- Perspective helpers -------------------- */
 
 /** From a given seat's perspective, which engine Owner is "me"? */

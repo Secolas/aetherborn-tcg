@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  concedeMatch, leaveRoom, pushMatchState, subscribeRoom, swapPerspective,
+  concedeMatch, forfeitOnUnload, leaveRoom, pushMatchState, subscribeRoom, swapPerspective,
   type PvpRoom as PvpRoomT, type PvpSeat,
 } from '../firebase/pvp';
 import { useAuth } from '../firebase/auth';
@@ -46,6 +46,26 @@ export function PvpRoom({ roomId, playerAvatar, settings, onLeave }: Props) {
     : room.hostUid === user.uid ? 'host'
     : room.guestUid === user.uid ? 'guest'
     : null;
+
+  // Tab close / page refresh = forfeit. Browsers don't fire React's
+  // unmount cleanup when the user closes the tab, so without this hook
+  // a player who rage-quits by closing the window would leave the other
+  // side stuck on "waiting for opponent". We fire on both beforeunload
+  // (desktop) and pagehide (mobile / bfcache) for coverage; the write
+  // is a single small updateDoc that the browser usually lets through
+  // before tearing down the page. Only arms while a match is actually
+  // running so we don't bork rooms that are already over.
+  const armForfeit = !!seat && (room?.outcome === 'ongoing' || room?.outcome === 'waiting');
+  useEffect(() => {
+    if (!armForfeit || !seat) return;
+    const fire = () => { forfeitOnUnload(roomId, seat).catch(() => {}); };
+    window.addEventListener('beforeunload', fire);
+    window.addEventListener('pagehide', fire);
+    return () => {
+      window.removeEventListener('beforeunload', fire);
+      window.removeEventListener('pagehide', fire);
+    };
+  }, [roomId, seat, armForfeit]);
 
   // Build a "synthetic" boss representing the opponent player so the
   // existing MatchBoard chrome (portrait, name, intro banner) works
