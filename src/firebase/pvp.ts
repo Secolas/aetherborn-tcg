@@ -92,6 +92,21 @@ function stripUndefined<T>(value: T): T {
   return value;
 }
 
+/** Sanity-check that a stored deck is in the new full-CollectionCard
+ *  shape. Old demo-PVP rooms wrote a stripped "PvpCardLite" instead,
+ *  which is missing the template fields the engine needs (id,
+ *  abilityKind, type, etc.) — feeding one of those into
+ *  createMatchFromDecks crashes the engine downstream. */
+function looksLikeFullDeck(deck: unknown): deck is CollectionCard[] {
+  if (!Array.isArray(deck) || deck.length === 0) return false;
+  const first = deck[0] as Partial<CollectionCard>;
+  return (
+    typeof first?.id === 'string' &&
+    typeof first?.abilityKind === 'string' &&
+    typeof first?.type === 'string'
+  );
+}
+
 /* -------------------- Public API -------------------- */
 
 /** Create a new room. The host's deck is stored but no MatchState is
@@ -145,8 +160,19 @@ export async function joinRoomByCode(
   const snap = await getDocs(q);
   if (snap.empty) throw new Error('No open room with that code.');
   const docSnap = snap.docs[0];
-  const data = docSnap.data() as { hostUid: string; hostDeck: CollectionCard[] };
+  const data = docSnap.data() as { hostUid: string; hostDeck: unknown };
   if (data.hostUid === guestUid) throw new Error("That's your own room.");
+
+  // Legacy demo-PVP rooms stored a stripped deck shape that the real
+  // engine can't ingest. Detect those and refuse rather than crashing
+  // downstream with a cryptic "cannot read properties of undefined"
+  // error. The host needs to re-create the room on the new build.
+  if (!looksLikeFullDeck(data.hostDeck)) {
+    // Clean up the stale room so it stops showing up in the join query.
+    try { await deleteDoc(docSnap.ref); } catch { /* fine */ }
+    throw new Error('This room was created on an older build. Ask the host to create a new one.');
+  }
+  const hostDeck = data.hostDeck;
 
   const deck = trimDeckForMatch(guestDeck);
   if (deck.length < 6) throw new Error('Need at least 6 photographed cards to play online.');
@@ -154,7 +180,7 @@ export async function joinRoomByCode(
   // Build the engine state from both real decks. createMatchFromDecks
   // shuffles, deals opening hands, and runs the same coin flip the
   // single-player campaign uses for first turn.
-  const matchState = createMatchFromDecks(data.hostDeck, deck, 'normal');
+  const matchState = createMatchFromDecks(hostDeck, deck, 'normal');
 
   await updateDoc(docSnap.ref, stripUndefined({
     guestUid,
