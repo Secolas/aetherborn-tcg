@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight, Layers, Hand, UserRound } from 'lucide-react';
 import { CHAT_EMOTES, CHAT_EMOTE_ORDER, getChatEmote, type ChatEmoteId } from '../data/chatEmotes';
+import { BOSS_EMOTE_PROFILES, type EmoteTrigger } from '../data/bossEmotes';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -2109,10 +2110,10 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   };
 
   /** Long-press on the player's own portrait — open the emote picker.
-   *  Only meaningful in PVP; single-player has no one to emote at, so
-   *  we silently no-op there. */
+   *  Works in both PVP and Campaign: in PVP the cue propagates to the
+   *  remote opponent; in Campaign it's a local-only flourish so the
+   *  player can still react at the boss. */
   const onMyFaceLongPress = () => {
-    if (!online) return;
     if (state.outcome !== 'ongoing') return;
     if (pendingSpell) return;
     setEmotePickerOpen(true);
@@ -2154,6 +2155,77 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }, 2500);
     return () => window.clearTimeout(t);
   }, [oppEmote]);
+
+  // ============== Boss AI emote triggers (single-player) ==============
+  // Watches engine state diffs to make the boss feel alive: when the
+  // boss kills a creature, takes a big hit, plays a legendary, or
+  // crosses below 8 HP, roll the boss's personality table and pop an
+  // emote bubble next to their portrait. PVP skips this entirely —
+  // there's a real opponent on the other end firing their own emotes.
+  const prevStateForEmoteRef = useRef<MatchState | null>(null);
+  const bossLowHpFiredRef = useRef(false);
+  const lastBossEmoteAtRef = useRef(0);
+  useEffect(() => {
+    if (online) return;
+    const personality = boss.emotePersonality ?? 'friendly';
+    if (personality === 'silent') return;
+    const profile = BOSS_EMOTE_PROFILES[personality];
+
+    const prev = prevStateForEmoteRef.current;
+    prevStateForEmoteRef.current = state;
+    if (!prev) return;
+    if (state.outcome !== 'ongoing') return;
+    // Bond cinematic / coin flip / initial dealing: keep the boss
+    // quiet so its emote doesn't compete with bigger moments.
+    if (bondCinematic || flipping || initialDealing) return;
+
+    const fire = (trigger: EmoteTrigger) => {
+      const spec = profile[trigger];
+      if (!spec) return;
+      if (Math.random() > spec.chance) return;
+      const now = Date.now();
+      // Per-side cooldown — 6s — slightly longer than the player's
+      // 4s send cooldown so the boss doesn't dominate the bubble
+      // channel on busy combat frames.
+      if (now - lastBossEmoteAtRef.current < 6000) return;
+      lastBossEmoteAtRef.current = now;
+      setOppEmote({ id: spec.emoteId, key: now });
+    };
+
+    // Boss took a chunky hit this frame (3+ damage).
+    if (state.opponent.hp <= prev.opponent.hp - 3) {
+      fire('tookBigHit');
+    }
+
+    // Boss HP crossed below 8 — fires once per match.
+    if (!bossLowHpFiredRef.current && state.opponent.hp < 8 && prev.opponent.hp >= 8) {
+      bossLowHpFiredRef.current = true;
+      fire('ownLowHp');
+    }
+
+    // Boss attack killed one of the player's creatures. We detect it
+    // as a battleId that was on the player's field last frame but
+    // isn't now. Only count it on the boss's turn so player attacks
+    // that backfire don't read as boss kills.
+    if (state.turn === 'opponent') {
+      const currIds = new Set(state.player.field.map(c => c.battleId));
+      const killed = prev.player.field.some(c => !currIds.has(c.battleId));
+      if (killed) fire('playerCreatureKilled');
+    }
+
+    // Boss summoned a legendary creature — opp.field gained a card
+    // with rarity 'legendary' this frame.
+    const prevOppIds = new Set(prev.opponent.field.map(c => c.battleId));
+    const newOppCard = state.opponent.field.find(c => !prevOppIds.has(c.battleId));
+    if (newOppCard && newOppCard.rarity === 'legendary') {
+      fire('playedLegendary');
+    }
+
+    // Top of the boss's main phase — small chance to "think out loud".
+    if (prev.turn === 'player' && state.turn === 'opponent') {
+      fire('turnStartIdle');
+    }
+  }, [state, online, boss.emotePersonality, bondCinematic, flipping, initialDealing]);
 
   const castPendingAt = (target: SpellTarget) => {
     if (!pendingSpell) return;
