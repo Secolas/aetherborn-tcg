@@ -84,6 +84,27 @@ export function PvpRoom({ roomId, playerAvatar, settings, onLeave }: Props) {
     return <Centered><div>Loading room…</div></Centered>;
   }
 
+  // Legacy demo-PVP rooms stored their state under a different field
+  // and won't ever produce a valid matchState here. Surface a clean
+  // exit path instead of leaving the host stuck on "Starting match…".
+  const validOutcomes: PvpRoomT['outcome'][] = [
+    'waiting', 'ongoing', 'host_won', 'guest_won', 'draw', 'host_left', 'guest_left',
+  ];
+  if (!validOutcomes.includes(room.outcome)) {
+    return (
+      <Centered>
+        <Stack>
+          <div style={{ fontSize: 15, maxWidth: 280 }}>
+            This room was created on an older build. Please leave and create a new one.
+          </div>
+          <button style={btnPrimary} onClick={async () => { await leaveRoom(roomId, seat); onLeave(); }}>
+            Leave room
+          </button>
+        </Stack>
+      </Centered>
+    );
+  }
+
   // Lobby: host waiting for a guest. Shows the share code.
   if (room.outcome === 'waiting') {
     return (
