@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Copy, Share2, Swords } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { ArrowLeft, Clock, Copy, Share2, Swords } from 'lucide-react';
 import {
   concedeMatch, forfeitOnUnload, leaveRoom, pushMatchState, subscribeRoom, swapPerspective,
   type PvpRoom as PvpRoomT, type PvpSeat,
@@ -20,6 +20,15 @@ interface Props {
   playerAvatar?: string;
   settings: Settings;
   onLeave: () => void;
+  /** Called once when a PVP match reaches a terminal outcome
+   *  (host_won / guest_won / draw / host_left / guest_left). The
+   *  parent records the result into save.pvpHistory. */
+  onMatchEnded?: (entry: {
+    opponentName: string;
+    opponentAvatar?: string;
+    outcome: 'win' | 'loss' | 'draw';
+    byForfeit?: boolean;
+  }) => void;
 }
 
 /**
@@ -34,7 +43,7 @@ interface Props {
  * The guest's render flips player/opponent so both players see
  * themselves on the bottom of the board.
  */
-export function PvpRoom({ roomId, playerAvatar, settings, onLeave }: Props) {
+export function PvpRoom({ roomId, playerAvatar, settings, onLeave, onMatchEnded }: Props) {
   const { user } = useAuth();
   const [room, setRoom] = useState<PvpRoomT | null>(null);
   const [missing, setMissing] = useState(false);
@@ -72,6 +81,39 @@ export function PvpRoom({ roomId, playerAvatar, settings, onLeave }: Props) {
       window.removeEventListener('pagehide', fire);
     };
   }, [roomId, seat, armForfeit]);
+
+  // Record the result into save.pvpHistory the first time the room
+  // outcome transitions from non-terminal to terminal. Uses a ref to
+  // dedupe so re-renders / Firestore echoes don't write twice.
+  const historyWrittenRef = useRef(false);
+  useEffect(() => {
+    if (!room || !seat || !onMatchEnded) return;
+    if (historyWrittenRef.current) return;
+    const terminal: PvpRoomT['outcome'][] = ['host_won', 'guest_won', 'draw', 'host_left', 'guest_left'];
+    if (!terminal.includes(room.outcome)) return;
+    historyWrittenRef.current = true;
+
+    // Outcome from THIS seat's perspective.
+    let outcome: 'win' | 'loss' | 'draw';
+    let byForfeit = false;
+    if (room.outcome === 'draw') outcome = 'draw';
+    else if (room.outcome === 'host_won') outcome = seat === 'host' ? 'win' : 'loss';
+    else if (room.outcome === 'guest_won') outcome = seat === 'guest' ? 'win' : 'loss';
+    else {
+      // host_left / guest_left — the side that LEFT loses, the other wins.
+      const leftIsHost = room.outcome === 'host_left';
+      outcome = (leftIsHost ? seat !== 'host' : seat !== 'guest') ? 'win' : 'loss';
+      byForfeit = true;
+    }
+    const oppName = seat === 'host' ? room.guestName : room.hostName;
+    const oppAvatar = seat === 'host' ? room.guestAvatar : room.hostAvatar;
+    onMatchEnded({
+      opponentName: oppName ?? 'Opponent',
+      opponentAvatar: oppAvatar ?? undefined,
+      outcome,
+      byForfeit,
+    });
+  }, [room, seat, onMatchEnded]);
 
   // Build a "synthetic" boss representing the opponent player so the
   // existing MatchBoard chrome (portrait, name, intro banner) works
@@ -363,6 +405,10 @@ function WaitingScreen({
         </div>
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <TurnTimerTip />
+      </div>
+
       <button onClick={onCancel} style={{ ...ghostFull, marginTop: 14 }}>
         Cancel & close room
       </button>
@@ -425,11 +471,41 @@ function MatchmakingScreen({
         </div>
       </div>
 
+      <div style={{ marginTop: 14 }}>
+        <TurnTimerTip />
+      </div>
+
       <style>{`
         @keyframes pvpAvIn { 0% { transform: scale(.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
         @keyframes pvpFill { 0% { width: 0%; } 100% { width: 70%; } }
       `}</style>
     </ChromeScreen>
+  );
+}
+
+function TurnTimerTip() {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      background: BG_WARM,
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 14,
+      padding: '10px 12px',
+    }}>
+      <div style={{
+        width: 28, height: 28, borderRadius: 10,
+        background: BRAND_LIGHT, color: '#fff',
+        display: 'grid', placeItems: 'center', flex: '0 0 auto',
+      }}>
+        <Clock size={15} strokeWidth={2.4} />
+      </div>
+      <div style={{ fontSize: 12, lineHeight: 1.4, color: PALETTE.text }}>
+        <b style={{ color: BRAND_DEEP }}>60 seconds per turn.</b>{' '}
+        <span style={{ color: TEXT_MID }}>
+          Finish your plays before the clock runs out or your turn auto-ends.
+        </span>
+      </div>
+    </div>
   );
 }
 

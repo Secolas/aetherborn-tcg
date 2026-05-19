@@ -1,12 +1,12 @@
 import { useRef, useState } from 'react';
-import { ArrowLeft, ChevronRight, Hash, Lock, Plus } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Hash, Lock, Plus, History as HistoryIcon, Trophy } from 'lucide-react';
 import { createRoom, joinRoomByCode } from '../firebase/pvp';
 import { isDataUriPhoto, uploadPlayerAvatar } from '../firebase/photos';
-import type { CollectionCard } from '../game/types';
+import type { CollectionCard, PvpHistoryEntry } from '../game/types';
 import { useAuth } from '../firebase/auth';
 import { iconBtn, PALETTE, btnPrimary as btnPrimaryStyle } from '../components/styles';
 import {
-  BRAND, BRAND_LIGHT, BRAND_DEEP, DAMAGE, PREMIUM, SELECTION,
+  BRAND, BRAND_LIGHT, BRAND_DEEP, DAMAGE, OWNED, PREMIUM, SELECTION,
   BG_WARM, TEXT_MID,
 } from '../design/tokens';
 
@@ -18,6 +18,10 @@ interface Props {
    *  writing the room doc — Firestore caps a single field at 1 MB and a
    *  raw avatar data URI easily exceeds that. */
   playerAvatar?: string;
+  /** Most-recent-first PVP match history from save. Drives the
+   *  "Recent matches" panel on the choice view + the W-L summary chip
+   *  at the top. */
+  history?: PvpHistoryEntry[];
   onEnterRoom: (roomId: string) => void;
   onBack: () => void;
   /** Called when the lobby migrates a legacy data-URI avatar up to
@@ -28,7 +32,7 @@ interface Props {
 
 type View = 'choice' | 'join';
 
-export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvatarMigrated }: Props) {
+export function PvpLobby({ collection, playerAvatar, history = [], onEnterRoom, onBack, onAvatarMigrated }: Props) {
   const { user } = useAuth();
   const [view, setView] = useState<View>('choice');
   const [code, setCode] = useState<string[]>(['', '', '', '', '']);
@@ -116,6 +120,7 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvat
 
         {view === 'choice' && (
           <>
+            {history.length > 0 && <RecordSummary history={history} />}
             <RowCard
               label="Create Room"
               description="Generate a 5-letter code and share it with a friend"
@@ -134,6 +139,7 @@ export function PvpLobby({ collection, playerAvatar, onEnterRoom, onBack, onAvat
               onClick={() => { setErr(null); setView('join'); }}
             />
             {err && <ErrorChip message={err} />}
+            {history.length > 0 && <HistoryList entries={history} />}
           </>
         )}
 
@@ -289,6 +295,143 @@ function RowCard({
         : <ChevronRight size={20} strokeWidth={2.4} color={PALETTE.textMid} />}
     </button>
   );
+}
+
+function RecordSummary({ history }: { history: PvpHistoryEntry[] }) {
+  const wins = history.filter(h => h.outcome === 'win').length;
+  const losses = history.filter(h => h.outcome === 'loss').length;
+  const draws = history.filter(h => h.outcome === 'draw').length;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      background: '#fff',
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 16,
+      padding: '12px 14px',
+      boxShadow: '0 2px 6px rgba(58,46,42,.06)',
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 12,
+        background: `linear-gradient(135deg, ${PREMIUM}, ${SELECTION})`,
+        color: '#fff',
+        display: 'grid', placeItems: 'center', flex: '0 0 auto',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.4)',
+      }}>
+        <Trophy size={18} strokeWidth={2.2} />
+      </div>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'baseline', gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.18em', textTransform: 'uppercase', color: TEXT_MID }}>
+          Your record
+        </span>
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+        <RecordBadge n={wins} label="W" color={OWNED} />
+        <RecordBadge n={losses} label="L" color={DAMAGE} />
+        {draws > 0 && <RecordBadge n={draws} label="D" color={TEXT_MID} />}
+      </div>
+    </div>
+  );
+}
+
+function RecordBadge({ n, label, color }: { n: number; label: string; color: string }) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'baseline', gap: 3,
+      fontFamily: 'inherit',
+      fontVariantNumeric: 'tabular-nums',
+    }}>
+      <span style={{ fontSize: 18, fontWeight: 800, color }}>{n}</span>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.1em', color: TEXT_MID }}>{label}</span>
+    </span>
+  );
+}
+
+function HistoryList({ entries }: { entries: PvpHistoryEntry[] }) {
+  const display = entries.slice(0, 8);
+  return (
+    <div style={{
+      background: '#fff',
+      border: `1.5px solid ${PALETTE.border}`,
+      borderRadius: 16,
+      padding: 4,
+      boxShadow: '0 2px 6px rgba(58,46,42,.06)',
+      marginTop: 4,
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 8,
+        padding: '10px 12px 4px',
+      }}>
+        <HistoryIcon size={14} color={TEXT_MID} strokeWidth={2.4} />
+        <span style={{
+          fontSize: 11, fontWeight: 800, letterSpacing: '0.18em',
+          textTransform: 'uppercase', color: TEXT_MID,
+        }}>Recent matches</span>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {display.map((e, i) => (
+          <HistoryRow key={`${e.at}-${i}`} entry={e} divider={i < display.length - 1} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HistoryRow({ entry, divider }: { entry: PvpHistoryEntry; divider: boolean }) {
+  const initial = entry.opponentName.slice(0, 1).toUpperCase();
+  const isWin = entry.outcome === 'win';
+  const isLoss = entry.outcome === 'loss';
+  const tag = isWin ? 'WIN' : isLoss ? 'LOSS' : 'DRAW';
+  const tagColor = isWin ? OWNED : isLoss ? DAMAGE : TEXT_MID;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 10,
+      padding: '10px 12px',
+      borderBottom: divider ? `1px solid ${PALETTE.border}` : 'none',
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 12,
+        backgroundImage: entry.opponentAvatar
+          ? `url(${entry.opponentAvatar})`
+          : `linear-gradient(135deg, #ffa07a, ${BRAND_LIGHT})`,
+        backgroundSize: 'cover', backgroundPosition: 'center',
+        display: 'grid', placeItems: 'center',
+        color: '#fff', fontWeight: 700, fontSize: 16,
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.4)',
+        flex: '0 0 auto',
+      }}>
+        {entry.opponentAvatar ? '' : initial}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 14, fontWeight: 800, color: PALETTE.text,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{entry.opponentName}</div>
+        <div style={{ fontSize: 11, color: TEXT_MID, marginTop: 1 }}>
+          {formatRelativeTime(entry.at)}
+          {entry.byForfeit && <span style={{ marginLeft: 6 }}>· opponent left</span>}
+        </div>
+      </div>
+      <div style={{
+        flex: '0 0 auto',
+        padding: '3px 8px',
+        borderRadius: 8,
+        background: `${tagColor}1f`,
+        color: tagColor,
+        border: `1.5px solid ${tagColor}66`,
+        fontSize: 10, fontWeight: 800, letterSpacing: '0.1em',
+      }}>{tag}</div>
+    </div>
+  );
+}
+
+function formatRelativeTime(ms: number): string {
+  const diff = Date.now() - ms;
+  if (diff < 60_000) return 'just now';
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  if (diff < 7 * 86_400_000) return `${Math.floor(diff / 86_400_000)}d ago`;
+  const d = new Date(ms);
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 function ErrorChip({ message }: { message: string }) {

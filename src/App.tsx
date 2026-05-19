@@ -42,6 +42,10 @@ import { Campaign } from './screens/Campaign';
 import type { CollectionCard, SaveData, Difficulty, DeckSlot, ElementId } from './game/types';
 
 const MAX_DECKS = 5;
+/** Cap the per-save PVP history so an active player doesn't grow the
+ *  array unboundedly. ~50 entries comfortably covers a "recent matches"
+ *  list while keeping the save payload small. */
+const PVP_HISTORY_MAX = 50;
 let _deckIdCounter = 0;
 function newDeckId(): string {
   _deckIdCounter++;
@@ -943,6 +947,7 @@ function Game() {
         <PvpLobby
           collection={save.collection}
           playerAvatar={save.playerAvatar}
+          history={save.pvpHistory ?? []}
           onEnterRoom={(id) => { setPvpRoomId(id); setScreen('pvp-room'); }}
           onAvatarMigrated={(url) => setSave(s => ({ ...s, playerAvatar: url }))}
           onBack={() => setScreen('home')}
@@ -954,6 +959,15 @@ function Game() {
           playerAvatar={save.playerAvatar}
           settings={settings}
           onLeave={() => { setPvpRoomId(null); setScreen('pvp-lobby'); }}
+          onMatchEnded={(entry) => {
+            // Prepend the new result + cap to PVP_HISTORY_MAX so the
+            // list doesn't grow forever on a heavy PVP player.
+            setSave(s => {
+              const prev = s.pvpHistory ?? [];
+              const next = [{ ...entry, at: Date.now() }, ...prev].slice(0, PVP_HISTORY_MAX);
+              return { ...s, pvpHistory: next };
+            });
+          }}
         />
       )}
       {screen === 'settings' && (
@@ -961,6 +975,19 @@ function Game() {
           settings={settings}
           onChange={setSettings}
           onBack={() => setScreen('home')}
+          onResetAccount={() => {
+            // Wipe save back to the initial empty state, but keep
+            // tutorialCompleted = true so the player lands on the
+            // StarterPick CTA rather than re-doing the tutorial they
+            // already know how to play. Firestore sync propagates the
+            // wipe to any other device the user is signed in on.
+            setSave(() => ({ ...makeInitialSave(), tutorialCompleted: true }));
+            setActiveBoss(null);
+            setActiveCampaign(null);
+            setActiveTestTheme(null);
+            setPvpRoomId(null);
+            setScreen('home');
+          }}
         />
       )}
       {screen === 'cards' && (

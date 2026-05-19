@@ -355,7 +355,14 @@ function HomeStyles() {
         padding: 0 16px;
         overflow-y: auto;
         overscroll-behavior: contain;
+        /* Hide the always-on scrollbar that Windows/Linux Chrome paints
+           on a scrollable container. Scroll still works via wheel +
+           touch + keyboard — we just don't want a permanent rail on the
+           right edge of the warm home chrome. */
+        scrollbar-width: none;
+        -ms-overflow-style: none;
       }
+      .home::-webkit-scrollbar { display: none; width: 0; height: 0; }
       @container (min-width: 720px) {
         .home { max-width: 720px; margin: 0 auto; padding: 0 24px; }
       }

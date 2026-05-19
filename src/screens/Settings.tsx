@@ -1,5 +1,7 @@
-import { ArrowLeft, Volume2, VolumeX, Music } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle } from 'lucide-react';
 import { PALETTE } from '../components/styles';
+import { DAMAGE } from '../design/tokens';
 import { playSfx } from '../audio/sfx';
 import type { Settings } from '../state/settings';
 
@@ -13,9 +15,14 @@ interface Props {
   settings: Settings;
   onChange: (next: Settings) => void;
   onBack: () => void;
+  /** Wipes the player's save and routes them back through the
+   *  starter-pick flow. Skips the tutorial since they've already
+   *  done it. Called from the Danger zone confirmation dialog. */
+  onResetAccount?: () => void;
 }
 
-export function SettingsScreen({ settings, onChange, onBack }: Props) {
+export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: Props) {
+  const [resetOpen, setResetOpen] = useState(false);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     onChange({ ...settings, [key]: value });
 
@@ -68,7 +75,111 @@ export function SettingsScreen({ settings, onChange, onBack }: Props) {
             hint="Reserved for future updates"
           />
         </div>
+
+        {/* Online section */}
+        <header className="settings-sec">
+          <div className="settings-sec-l">
+            <div className="settings-sec-eyebrow">02 · Online</div>
+            <div className="settings-sec-title">PVP preferences</div>
+          </div>
+          <div className="settings-sec-r">
+            Controls behavior in real-time matches against other players.
+          </div>
+        </header>
+
+        <div className="settings-card">
+          <ToggleRow
+            icon={<Smile size={18} strokeWidth={2.2} />}
+            label="Hide opponent emotes"
+            hint="Your own emotes still send normally."
+            value={settings.hideOpponentEmotes}
+            onChange={(v) => set('hideOpponentEmotes', v)}
+          />
+        </div>
+
+        {/* Danger zone — only mounted when the parent supplies a
+            reset handler, so screens that embed Settings without
+            owning the save (none today, but easy to add) don't
+            expose the button by accident. */}
+        {onResetAccount && (
+          <>
+            <header className="settings-sec">
+              <div className="settings-sec-l">
+                <div className="settings-sec-eyebrow">03 · Danger zone</div>
+                <div className="settings-sec-title">Reset account</div>
+              </div>
+              <div className="settings-sec-r">
+                Wipes your collection, decks, cosmetics, and PVP history. Tutorial stays done.
+              </div>
+            </header>
+
+            <div className="settings-card">
+              <button
+                type="button"
+                className="danger-btn"
+                onClick={() => setResetOpen(true)}
+              >
+                <span className="danger-ico"><RotateCcw size={16} strokeWidth={2.4} /></span>
+                <span className="danger-lbl">Reset my account</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
+
+      {resetOpen && onResetAccount && (
+        <ResetConfirmDialog
+          onCancel={() => setResetOpen(false)}
+          onConfirm={() => { setResetOpen(false); onResetAccount(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function ResetConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onConfirm: () => void }) {
+  return (
+    <div className="reset-overlay" onClick={onCancel}>
+      <div className="reset-dialog" onClick={(e) => e.stopPropagation()}>
+        <div className="reset-icon"><AlertTriangle size={26} strokeWidth={2.4} /></div>
+        <div className="reset-title">Reset your account?</div>
+        <div className="reset-body">
+          This permanently deletes your collection, decks, coins, unlocked cosmetics, and PVP history.
+          You'll be sent back to pick a fresh starter pack. This can't be undone.
+        </div>
+        <div className="reset-actions">
+          <button type="button" className="reset-cancel" onClick={onCancel}>Cancel</button>
+          <button type="button" className="reset-confirm" onClick={onConfirm}>Reset everything</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ToggleRow({ icon, label, hint, value, onChange }: {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="slider-row">
+      <div className="slider-head">
+        <span className="slider-ico">{icon}</span>
+        <span className="slider-lbl">{label}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={value}
+          onClick={() => onChange(!value)}
+          className={`toggle ${value ? 'toggle-on' : ''}`}
+          aria-label={label}
+        >
+          <span className="toggle-knob" />
+        </button>
+      </div>
+      {hint && <div className="slider-hint">{hint}</div>}
     </div>
   );
 }
@@ -232,6 +343,120 @@ function SettingsStyles() {
         font-size: 11px; color: ${PALETTE.textLight};
         font-style: italic;
         padding-left: 46px;
+      }
+
+      /* Toggle switch */
+      .settings .toggle {
+        width: 44px; height: 26px;
+        border-radius: 999px;
+        background: #e5d6c9;
+        border: 1.5px solid ${PALETTE.border};
+        cursor: pointer; padding: 0;
+        position: relative;
+        flex: 0 0 auto;
+        transition: background .15s;
+      }
+      .settings .toggle.toggle-on {
+        background: ${PALETTE.accent};
+        border-color: ${PALETTE.accentDeep};
+      }
+      .settings .toggle-knob {
+        position: absolute;
+        top: 2px; left: 2px;
+        width: 18px; height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(58,46,42,.18);
+        transition: transform .18s cubic-bezier(.4,.6,.3,1.1);
+      }
+      .settings .toggle.toggle-on .toggle-knob {
+        transform: translateX(18px);
+      }
+
+      /* Danger button + reset confirm dialog */
+      .settings .danger-btn {
+        width: 100%;
+        display: flex; align-items: center; gap: 10px;
+        padding: 12px 14px;
+        background: ${DAMAGE}10;
+        border: 1.5px solid ${DAMAGE}55;
+        border-radius: 14px;
+        color: ${DAMAGE};
+        font-family: inherit;
+        font-size: 14px; font-weight: 700;
+        cursor: pointer;
+        transition: background .12s, transform .1s;
+      }
+      .settings .danger-btn:hover { background: ${DAMAGE}1a; transform: translateY(-1px); }
+      .settings .danger-ico {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: ${DAMAGE}; color: #fff;
+        display: grid; place-items: center;
+        flex: 0 0 auto;
+      }
+      .settings .danger-lbl { flex: 1; text-align: left; letter-spacing: 0.02em; }
+
+      .reset-overlay {
+        position: fixed; inset: 0;
+        background: rgba(20, 12, 8, .55);
+        backdrop-filter: blur(2px);
+        z-index: 100;
+        display: grid; place-items: center;
+        padding: 24px;
+        animation: resetOverlayIn .15s ease-out;
+      }
+      .reset-dialog {
+        background: #fff;
+        border: 1.5px solid ${PALETTE.border};
+        border-radius: 22px;
+        padding: 22px 22px 18px;
+        max-width: 380px; width: 100%;
+        text-align: center;
+        box-shadow: 0 24px 48px rgba(20,10,4,.35);
+        font-family: "Fredoka", "Inter", system-ui, sans-serif;
+        color: ${PALETTE.text};
+        animation: resetDialogIn .2s ease-out;
+      }
+      .reset-icon {
+        width: 56px; height: 56px; border-radius: 18px;
+        margin: 0 auto 12px;
+        background: ${DAMAGE}1a;
+        color: ${DAMAGE};
+        display: grid; place-items: center;
+      }
+      .reset-title { font-size: 18px; font-weight: 800; }
+      .reset-body {
+        font-size: 13px; color: ${PALETTE.textMid};
+        line-height: 1.5; margin-top: 8px;
+      }
+      .reset-actions {
+        display: flex; gap: 10px; margin-top: 18px;
+      }
+      .reset-cancel, .reset-confirm {
+        flex: 1; padding: 12px 16px;
+        border-radius: 14px;
+        font-family: inherit; font-weight: 700; font-size: 13px;
+        cursor: pointer;
+        transition: transform .1s, box-shadow .12s;
+      }
+      .reset-cancel {
+        background: #fff;
+        color: ${PALETTE.text};
+        border: 1.5px solid ${PALETTE.border};
+        box-shadow: 0 2px 6px rgba(58,46,42,.06);
+      }
+      .reset-confirm {
+        background: linear-gradient(180deg, #e57672 0%, ${DAMAGE} 60%, #a8261f 100%);
+        color: #fff;
+        border: none;
+        box-shadow: 0 6px 14px -4px ${DAMAGE}66, inset 0 1px 0 rgba(255,255,255,.3);
+      }
+      .reset-cancel:hover, .reset-confirm:hover { transform: translateY(-1px); }
+
+      @keyframes resetOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+      @keyframes resetDialogIn {
+        from { opacity: 0; transform: translateY(6px) scale(.96); }
+        to   { opacity: 1; transform: translateY(0)   scale(1); }
       }
 
       @media (prefers-reduced-motion: reduce) {

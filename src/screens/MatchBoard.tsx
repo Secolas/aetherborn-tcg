@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Flag, Heart, Coins, Skull, Snowflake, Moon, Target, ShieldHalf, Zap, Ban, Link2, ScrollText, Swords, ChevronsRight, Layers, Hand, UserRound } from 'lucide-react';
+import { CHAT_EMOTES, CHAT_EMOTE_ORDER, getChatEmote, type ChatEmoteId } from '../data/chatEmotes';
+import { BOSS_EMOTE_PROFILES, type EmoteTrigger } from '../data/bossEmotes';
 import type { BondDef } from '../data/bonds';
 import { Card } from '../components/Card';
 import { BattlefieldCard } from '../components/BattlefieldCard';
@@ -350,6 +352,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
    *  Date.now() during render) to satisfy the React-purity rule.
    *  Null while not in PVP / pre-flip. */
   const [pvpNowMs, setPvpNowMs] = useState<number | null>(null);
+  /** PVP chat emote — currently-visible bubble on each portrait. The
+   *  sender renders their own bubble locally; the receiver renders the
+   *  opponent's bubble from the incoming cue. Each bubble auto-clears
+   *  after 2.5s via a setTimeout. */
+  const [myEmote, setMyEmote] = useState<{ id: ChatEmoteId; key: number } | null>(null);
+  const [oppEmote, setOppEmote] = useState<{ id: ChatEmoteId; key: number } | null>(null);
+  /** Whether the emote picker popup is open over the player portrait. */
+  const [emotePickerOpen, setEmotePickerOpen] = useState(false);
+  /** Cooldown gate — epoch ms when the local player last sent an emote.
+   *  4-second cooldown stops spam without needing a separate state. */
+  const lastEmoteSentAtRef = useRef(0);
   /** Which graveyard pile (if any) is open in the modal. */
   const [graveyardOpen, setGraveyardOpen] = useState<Owner | null>(null);
   /** Whether the action-log history panel is open. */
@@ -1660,6 +1673,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   // from the AI driver — so swings, casts, and reveals are visible
   // instead of resolving as invisible state churn.
   const replayOpponentCue = (cue: MatchCue, incoming: MatchState) => {
+    if (cue.kind === 'emote') {
+      // Chat emote from the opponent. Pure UI — engine state commits
+      // immediately and the bubble overlay drifts on its own. Honor the
+      // local "hide opponent emotes" preference by dropping the cue
+      // without rendering the bubble (state still commits).
+      if (!settingsRef.current.hideOpponentEmotes) {
+        const def = getChatEmote(cue.emoteId);
+        if (def) setOppEmote({ id: def.id, key: Date.now() });
+      }
+      setStateRaw(incoming);
+      return;
+    }
     if (cue.kind === 'phase') {
       // Battle / End / Main banner for the OPPONENT side. Pure UI —
       // engine state can commit immediately, the banner overlay
@@ -2084,6 +2109,124 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     setInfoSide('player');
   };
 
+  /** Long-press on the player's own portrait — open the emote picker.
+   *  Works in both PVP and Campaign: in PVP the cue propagates to the
+   *  remote opponent; in Campaign it's a local-only flourish so the
+   *  player can still react at the boss. */
+  const onMyFaceLongPress = () => {
+    if (state.outcome !== 'ongoing') return;
+    if (pendingSpell) return;
+    setEmotePickerOpen(true);
+  };
+
+  /** Send a chat emote — runs the cooldown check, shows the local
+   *  bubble immediately, and pushes a cue-only state update so the
+   *  remote replays it on their side. */
+  const sendChatEmote = (id: ChatEmoteId) => {
+    setEmotePickerOpen(false);
+    const now = Date.now();
+    if (now - lastEmoteSentAtRef.current < 4000) {
+      flashMsg('Slow down — one emote at a time');
+      return;
+    }
+    lastEmoteSentAtRef.current = now;
+    setMyEmote({ id, key: now });
+    if (online) {
+      const cue = makeCue({ kind: 'emote', emoteId: id });
+      setState(s => ({ ...s, cue }));
+    }
+  };
+
+  // Auto-clear the local emote bubble 2.5s after it appears. Re-runs
+  // whenever the bubble key changes (a new send replaces the timer).
+  useEffect(() => {
+    if (!myEmote) return;
+    const t = window.setTimeout(() => {
+      setMyEmote(cur => (cur && cur.key === myEmote.key ? null : cur));
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [myEmote]);
+
+  // Same auto-clear for the opponent's bubble.
+  useEffect(() => {
+    if (!oppEmote) return;
+    const t = window.setTimeout(() => {
+      setOppEmote(cur => (cur && cur.key === oppEmote.key ? null : cur));
+    }, 2500);
+    return () => window.clearTimeout(t);
+  }, [oppEmote]);
+
+  // ============== Boss AI emote triggers (single-player) ==============
+  // Watches engine state diffs to make the boss feel alive: when the
+  // boss kills a creature, takes a big hit, plays a legendary, or
+  // crosses below 8 HP, roll the boss's personality table and pop an
+  // emote bubble next to their portrait. PVP skips this entirely —
+  // there's a real opponent on the other end firing their own emotes.
+  const prevStateForEmoteRef = useRef<MatchState | null>(null);
+  const bossLowHpFiredRef = useRef(false);
+  const lastBossEmoteAtRef = useRef(0);
+  useEffect(() => {
+    if (online) return;
+    const personality = boss.emotePersonality ?? 'friendly';
+    if (personality === 'silent') return;
+    const profile = BOSS_EMOTE_PROFILES[personality];
+
+    const prev = prevStateForEmoteRef.current;
+    prevStateForEmoteRef.current = state;
+    if (!prev) return;
+    if (state.outcome !== 'ongoing') return;
+    // Bond cinematic / coin flip / initial dealing: keep the boss
+    // quiet so its emote doesn't compete with bigger moments.
+    if (bondCinematic || flipping || initialDealing) return;
+
+    const fire = (trigger: EmoteTrigger) => {
+      const spec = profile[trigger];
+      if (!spec) return;
+      if (Math.random() > spec.chance) return;
+      const now = Date.now();
+      // Per-side cooldown — 6s — slightly longer than the player's
+      // 4s send cooldown so the boss doesn't dominate the bubble
+      // channel on busy combat frames.
+      if (now - lastBossEmoteAtRef.current < 6000) return;
+      lastBossEmoteAtRef.current = now;
+      setOppEmote({ id: spec.emoteId, key: now });
+    };
+
+    // Boss took a chunky hit this frame (3+ damage).
+    if (state.opponent.hp <= prev.opponent.hp - 3) {
+      fire('tookBigHit');
+    }
+
+    // Boss HP crossed below 8 — fires once per match.
+    if (!bossLowHpFiredRef.current && state.opponent.hp < 8 && prev.opponent.hp >= 8) {
+      bossLowHpFiredRef.current = true;
+      fire('ownLowHp');
+    }
+
+    // Boss attack killed one of the player's creatures. We detect it
+    // as a battleId that was on the player's field last frame but
+    // isn't now. Only count it on the boss's turn so player attacks
+    // that backfire don't read as boss kills.
+    if (state.turn === 'opponent') {
+      const currIds = new Set(state.player.field.map(c => c.battleId));
+      const killed = prev.player.field.some(c => !currIds.has(c.battleId));
+      if (killed) fire('playerCreatureKilled');
+    }
+
+    // Boss summoned a legendary creature — opp.field gained a card
+    // with rarity 'legendary' this frame.
+    const prevOppIds = new Set(prev.opponent.field.map(c => c.battleId));
+    const newOppCard = state.opponent.field.find(c => !prevOppIds.has(c.battleId));
+    if (newOppCard && newOppCard.rarity === 'legendary') {
+      fire('playedLegendary');
+    }
+
+    // Top of the boss's main phase — small chance to "think out loud".
+    if (prev.turn === 'player' && state.turn === 'opponent') {
+      fire('turnStartIdle');
+    }
+  }, [state, online, boss.emotePersonality, bondCinematic, flipping, initialDealing]);
+
   const castPendingAt = (target: SpellTarget) => {
     if (!pendingSpell) return;
     castSpell(pendingSpell, target);
@@ -2244,24 +2387,27 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           give-up flag moved to the divider band so it sits next to End Turn. */}
       <div ref={oppHeaderRef} style={{ flex: '0 0 auto', height: 64, padding: '8px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 5, gap: 6, position: 'relative' }}>
         <div data-tut="opp-face" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <OpponentPortrait
-            boss={boss}
-            themeColor={bossElement.color}
-            themeDeep={bossElement.deep}
-            hp={state.opponent.hp}
-            // Only highlight the opponent's portrait when the pending
-            // spell can actually hit a face (damage spells). Freeze and
-            // friendly buffs/heals can't land on opp face, so the ring
-            // would have been a false promise.
-            highlight={
-              pendingSpell?.abilityKind === 'spell_damage'
-                ? 'spell-damage'
-                : selectedAttacker ? 'attack' : null
-            }
-            onClick={onOppFaceClick}
-            damage={damages[FACE_OPP] ?? null}
-            elRef={(el) => registerEl(FACE_OPP, el)}
-          />
+          <div style={{ position: 'relative' }}>
+            <OpponentPortrait
+              boss={boss}
+              themeColor={bossElement.color}
+              themeDeep={bossElement.deep}
+              hp={state.opponent.hp}
+              // Only highlight the opponent's portrait when the pending
+              // spell can actually hit a face (damage spells). Freeze and
+              // friendly buffs/heals can't land on opp face, so the ring
+              // would have been a false promise.
+              highlight={
+                pendingSpell?.abilityKind === 'spell_damage'
+                  ? 'spell-damage'
+                  : selectedAttacker ? 'attack' : null
+              }
+              onClick={onOppFaceClick}
+              damage={damages[FACE_OPP] ?? null}
+              elRef={(el) => registerEl(FACE_OPP, el)}
+            />
+            {oppEmote && <EmoteBubble id={oppEmote.id} bubbleKey={oppEmote.key} placement="below" />}
+          </div>
           <ManaCrystals mana={state.opponent.mana} maxMana={state.opponent.maxMana} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -2572,14 +2718,24 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       {/* Player stats — HP + mana on the left, deck + graveyard on the right. */}
       <div style={{ flex: '0 0 auto', height: 56, padding: '0 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 6, zIndex: 6, position: 'relative' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <PlayerPortrait
-            hp={state.player.hp}
-            avatar={playerAvatar}
-            highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
-            onClick={onMyFaceClick}
-            damage={damages[FACE_PLAYER] ?? null}
-            elRef={(el) => registerEl(FACE_PLAYER, el)}
-          />
+          <div style={{ position: 'relative' }}>
+            <PlayerPortrait
+              hp={state.player.hp}
+              avatar={playerAvatar}
+              highlight={pendingSpell?.abilityKind === 'spell_heal' ? 'heal' : null}
+              onClick={onMyFaceClick}
+              onLongPress={onMyFaceLongPress}
+              damage={damages[FACE_PLAYER] ?? null}
+              elRef={(el) => registerEl(FACE_PLAYER, el)}
+            />
+            {myEmote && <EmoteBubble id={myEmote.id} bubbleKey={myEmote.key} placement="above" />}
+            {emotePickerOpen && (
+              <EmotePicker
+                onPick={sendChatEmote}
+                onClose={() => setEmotePickerOpen(false)}
+              />
+            )}
+          </div>
           <ManaCrystals mana={state.player.mana} maxMana={state.player.maxMana} pulseKey={manaPulse} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -4511,14 +4667,51 @@ function OpponentPortrait({ boss, themeColor, themeDeep, hp, highlight, onClick,
   );
 }
 
-function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
+function PlayerPortrait({ hp, avatar, highlight, onClick, onLongPress, damage, elRef }: {
   hp: number;
   avatar?: string;
   highlight: 'heal' | null;
   onClick: () => void;
+  /** Optional long-press handler (~500ms hold). Used by PVP to open
+   *  the chat-emote picker; falls back to no-op in single-player. */
+  onLongPress?: () => void;
   damage: number | null;
   elRef?: (el: HTMLElement | null) => void;
 }) {
+  // Long-press detection. onPointerDown starts a timer; if the player
+  // releases or drags off before 500ms the short-tap handler fires
+  // instead. After triggering, the next pointerup is treated as the
+  // end of the long-press gesture (no short-tap fires).
+  const longPressRef = useRef<{ timer: number | null; triggered: boolean }>({
+    timer: null, triggered: false,
+  });
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!onLongPress) return;
+    // Ignore secondary buttons / touches the browser is already using
+    // for something else (e.g. right-click).
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+    longPressRef.current.triggered = false;
+    longPressRef.current.timer = window.setTimeout(() => {
+      longPressRef.current.triggered = true;
+      onLongPress();
+    }, 500);
+  };
+  const cancelLongPress = () => {
+    if (longPressRef.current.timer != null) {
+      window.clearTimeout(longPressRef.current.timer);
+      longPressRef.current.timer = null;
+    }
+  };
+  const handleClick = () => {
+    // Swallow the click that follows a long-press release so we don't
+    // also pop the info panel on top of the emote picker.
+    if (longPressRef.current.triggered) {
+      longPressRef.current.triggered = false;
+      return;
+    }
+    onClick();
+  };
+
   const ring = highlight === 'heal' ? '#06d6a0' : null;
   // Heal target rings now breathe like the opponent's damage ring so
   // the player notices their own portrait is a legal heal target on a
@@ -4530,19 +4723,179 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, damage, elRef }: {
   // arbitrary character. Once the player uploads an avatar, the
   // avatarPhoto prop covers the icon entirely.
   return (
-    <Portrait
-      avatar={avatar ? '' : <UserRound size={22} strokeWidth={2.2} fill="rgba(255,255,255,.55)" />}
-      avatarPhoto={avatar}
-      avatarBg="linear-gradient(160deg, #6e1f1a, #d96658)"
-      avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
-      hp={hp}
-      ring={ring}
-      pulseRing={pulseRing}
-      hit={hit}
-      damage={damage}
-      onClick={onClick}
-      elRef={elRef}
-    />
+    <div
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelLongPress}
+      onPointerLeave={cancelLongPress}
+      onPointerCancel={cancelLongPress}
+      onContextMenu={(e) => { if (onLongPress) e.preventDefault(); }}
+      style={{
+        // Suppress mobile's text-callout overlay during long-press so
+        // the gesture doesn't pop a copy/share tray over the picker.
+        WebkitTouchCallout: 'none',
+        WebkitUserSelect: 'none',
+        userSelect: 'none',
+        touchAction: 'manipulation',
+      }}
+    >
+      <Portrait
+        avatar={avatar ? '' : <UserRound size={22} strokeWidth={2.2} fill="rgba(255,255,255,.55)" />}
+        avatarPhoto={avatar}
+        avatarBg="linear-gradient(160deg, #6e1f1a, #d96658)"
+        avatarRing="conic-gradient(from 90deg, #6e1f1a, #d96658, #6e1f1a)"
+        hp={hp}
+        ring={ring}
+        pulseRing={pulseRing}
+        hit={hit}
+        damage={damage}
+        onClick={handleClick}
+        elRef={elRef}
+      />
+    </div>
+  );
+}
+
+/* ============================================================
+ *  PVP chat emote — bubble + picker
+ * ============================================================ */
+
+function EmoteBubble({ id, bubbleKey, placement }: {
+  id: ChatEmoteId;
+  bubbleKey: number;
+  placement: 'above' | 'below';
+}) {
+  const def = CHAT_EMOTES[id];
+  if (!def) return null;
+  const { Icon, label, color } = def;
+  const isAbove = placement === 'above';
+  return (
+    <div
+      key={bubbleKey}
+      role="status"
+      aria-live="polite"
+      style={{
+        position: 'absolute',
+        left: '60%',
+        [isAbove ? 'bottom' : 'top']: 'calc(100% + 6px)',
+        transform: 'translateX(0)',
+        background: '#fff',
+        border: `1.5px solid ${color}`,
+        borderRadius: 14,
+        padding: '6px 10px',
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        fontFamily: '"Fredoka", system-ui',
+        fontSize: 12, fontWeight: 800, color: PALETTE.text,
+        whiteSpace: 'nowrap',
+        boxShadow: `0 4px 12px rgba(58,46,42,.18), 0 0 0 3px ${color}22`,
+        zIndex: 14, pointerEvents: 'none',
+        animation: `emoteBubbleIn .25s ease-out, emoteBubbleOut .35s ease-in 2.15s forwards`,
+      }}
+    >
+      <Icon size={14} color={color} strokeWidth={2.4} />
+      <span>{label}</span>
+      <style>{`
+        @keyframes emoteBubbleIn {
+          0% { opacity: 0; transform: translateY(${isAbove ? '6px' : '-6px'}) scale(.85); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes emoteBubbleOut {
+          0% { opacity: 1; transform: translateY(0) scale(1); }
+          100% { opacity: 0; transform: translateY(${isAbove ? '-4px' : '4px'}) scale(.9); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function EmotePicker({
+  onPick, onClose,
+}: { onPick: (id: ChatEmoteId) => void; onClose: () => void }) {
+  return (
+    <>
+      {/* Transparent backdrop — taps anywhere off the picker close it. */}
+      <div
+        onClick={onClose}
+        style={{
+          position: 'fixed', inset: 0,
+          zIndex: 19,
+          background: 'transparent',
+        }}
+      />
+      <div
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'absolute',
+          bottom: 'calc(100% + 10px)',
+          left: 0,
+          zIndex: 20,
+          background: '#fff',
+          border: `1.5px solid ${PALETTE.border}`,
+          borderRadius: 16,
+          padding: 8,
+          boxShadow: '0 8px 24px rgba(58,46,42,.18)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 56px)',
+          gap: 6,
+          fontFamily: '"Fredoka", system-ui',
+          animation: 'emotePickerIn .18s ease-out',
+        }}
+      >
+        {CHAT_EMOTE_ORDER.map((id) => {
+          const def = CHAT_EMOTES[id];
+          if (!def) return null;
+          const { Icon, label, color } = def;
+          return (
+            <button
+              key={id}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onPick(id); }}
+              aria-label={`Send ${label}`}
+              style={{
+                width: 56, height: 56,
+                borderRadius: 12,
+                border: `1.5px solid ${PALETTE.border}`,
+                background: '#fff',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 2,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                color: PALETTE.text,
+                padding: 0,
+                transition: 'transform .1s, box-shadow .12s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = `0 4px 10px ${color}55`;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: 10,
+                background: `${color}22`,
+                display: 'grid', placeItems: 'center',
+              }}>
+                <Icon size={16} color={color} strokeWidth={2.4} />
+              </div>
+              <span style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: '0.03em' }}>
+                {label}
+              </span>
+            </button>
+          );
+        })}
+        <style>{`
+          @keyframes emotePickerIn {
+            0% { opacity: 0; transform: translateY(6px) scale(.96); }
+            100% { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+      </div>
+    </>
   );
 }
 

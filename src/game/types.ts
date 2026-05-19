@@ -209,6 +209,13 @@ export type MatchCue =
     }
   | { kind: 'phase'; side: Owner; seq: number;
       phase: 'main' | 'battle' | 'end';
+    }
+  | { kind: 'emote'; side: Owner; seq: number;
+      /** Opaque emote id — defined in src/data/chatEmotes.ts. Kept as
+       *  a bare string here so the engine types don't depend on the UI
+       *  data module; the receiving client looks it up at render time
+       *  and silently drops the cue if the id is unknown. */
+      emoteId: string;
     };
 
 export interface MatchState {
@@ -347,4 +354,30 @@ export interface SaveData {
    *  saves boot through StarterPick -> StarterPackOpen -> Tutorial
    *  before they ever reach Home. */
   tutorialCompleted?: boolean;
+  /** Recent PVP match history. Newest first, capped at PVP_HISTORY_MAX
+   *  on write (see App.tsx). Populated whenever a real PVP room
+   *  reaches a terminal outcome (host_won / guest_won / draw /
+   *  host_left / guest_left). Used by the lobby to show the player's
+   *  W-L record + the last few opponents. */
+  pvpHistory?: PvpHistoryEntry[];
+}
+
+export interface PvpHistoryEntry {
+  /** Opponent display name at the time of the match. Snapshotted so
+   *  later name changes don't rewrite history. */
+  opponentName: string;
+  /** Optional avatar URL captured at match time. */
+  opponentAvatar?: string;
+  /** Outcome from the local player's perspective. 'forfeit' covers the
+   *  case where the opponent left the room mid-match — counted as a
+   *  win for the local player (matches what the existing
+   *  host_left/guest_left screens already show). */
+  outcome: 'win' | 'loss' | 'draw';
+  /** Whether the win/loss came from an explicit concede / room-leave
+   *  rather than HP reaching zero. Lets the UI render an "Opponent
+   *  left" tag instead of a clean victory. */
+  byForfeit?: boolean;
+  /** Epoch ms when the match ended. Used to format relative time and
+   *  to dedupe repeat writes from the same outcome flip. */
+  at: number;
 }

@@ -1,4 +1,5 @@
 import type { ElementId } from '../game/types';
+import type { EmotePersonality } from './bossEmotes';
 
 export interface BossDef {
   id: string;
@@ -94,6 +95,14 @@ export interface BossDef {
    * hand and flood its field, blocking later scripted Rush plays.
    */
   oneCreaturePerTurn?: boolean;
+  /**
+   * Optional personality for the boss's in-match chat emotes (the
+   * little bubble that pops next to the portrait during a fight).
+   * Defaults to 'friendly' when undefined so every old boss still
+   * gets some life. Set 'silent' to disable emotes entirely (the
+   * tutorial dummy is the canonical use). See data/bossEmotes.ts.
+   */
+  emotePersonality?: EmotePersonality;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -106,6 +115,7 @@ export const BOSSES: BossDef[] = [
     id: 'mom',
     name: 'Mom',
     subtitle: 'Disappointed',
+    emotePersonality: 'friendly',
     themeId: 'family',
     avatar: 'M',
     avatarPhoto: '/cards/mom.webp',                       // illustrated mom portrait
@@ -160,6 +170,7 @@ export const BOSSES: BossDef[] = [
     id: 'manager',
     name: 'The Manager',
     subtitle: 'Has thoughts',
+    emotePersonality: 'cocky',
     themeId: 'work',
     avatar: 'M',
     avatarPhoto: U('photo-1573497019940-1c28c88b4f3e'),  // dapper manager portrait
@@ -219,6 +230,7 @@ export const BOSSES: BossDef[] = [
     id: 'alpha',
     name: 'Pack Alpha',
     subtitle: "Doesn't like strangers",
+    emotePersonality: 'cocky',
     themeId: 'animals',
     avatar: 'A',
     avatarPhoto: U('photo-1516934024742-b461fba47600'),  // wolf portrait
@@ -276,6 +288,7 @@ export const BOSSES: BossDef[] = [
     id: 'drifter',
     name: 'The Drifter',
     subtitle: 'Already gone',
+    emotePersonality: 'shy',
     themeId: 'travel',
     avatar: 'D',
     avatarPhoto: U('photo-1488646953014-85cb44e25828'),  // backpacker silhouette
@@ -331,6 +344,7 @@ export const BOSSES: BossDef[] = [
     id: 'cook',
     name: 'The Cook',
     subtitle: 'Always more on the stove',
+    emotePersonality: 'friendly',
     themeId: 'food',
     avatar: 'C',
     // Chef portrait — apron, kitchen, warm light.
@@ -392,6 +406,7 @@ export const BOSSES: BossDef[] = [
     id: 'principal',
     name: 'The Principal',
     subtitle: 'Won\'t sign your slip',
+    emotePersonality: 'cocky',
     themeId: 'education',
     avatar: 'P',
     // Distinguished older man in a suit with glasses, reading lower
@@ -461,6 +476,7 @@ export const BOSSES: BossDef[] = [
     id: 'partner',
     name: 'Your Partner',
     subtitle: 'Loser does dishes for a month',
+    emotePersonality: 'friendly',
     // Themed family because most of their iconic cards live there
     // (Boyfriend/Girlfriend, Wedding Day, Anniversary). The deck
     // still pulls from food + travel + work bond enablers.
@@ -550,6 +566,7 @@ export const MINI_BOSSES: BossDef[] = [
     id: 'tutorial-dummy',
     name: 'Mom',
     subtitle: 'Showing you the ropes',
+    emotePersonality: 'silent',
     themeId: 'family',
     avatar: 'M',
     avatarPhoto: '/cards/mom.webp',
