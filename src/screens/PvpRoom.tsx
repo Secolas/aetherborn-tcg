@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, Clock, Copy, Share2, Swords } from 'lucide-react';
+import { LogoLoader } from '../components/LogoLoader';
 import {
   concedeMatch, forfeitOnUnload, leaveRoom, pushMatchState, subscribeRoom, swapPerspective,
   type PvpRoom as PvpRoomT, type PvpSeat,
@@ -152,10 +153,10 @@ export function PvpRoom({ roomId, playerAvatar, settings, onLeave, onMatchEnded 
   }
   if (!room || !user || !seat) {
     return (
-      <ChromeScreen title="Loading room…" onBack={onLeave}>
-        <CenteredCard>
-          <div style={{ fontSize: 13, color: PALETTE.textMid }}>Connecting…</div>
-        </CenteredCard>
+      <ChromeScreen title="Loading room" onBack={onLeave}>
+        <div style={{ flex: 1, minHeight: 0 }}>
+          <LogoLoader tone="light" caption="Connecting" size={120} />
+        </div>
       </ChromeScreen>
     );
   }

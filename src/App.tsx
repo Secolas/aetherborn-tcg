@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { PhoneShell } from './components/PhoneShell';
+import { LogoLoader } from './components/LogoLoader';
 import { HomeMenu } from './screens/HomeMenu';
 import { AuthProvider, useAuth } from './firebase/auth';
 import { useFirestoreSave } from './hooks/useFirestoreSave';
@@ -115,9 +116,9 @@ function AuthGate() {
   if (loading) {
     return (
       <PhoneShell>
-        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center',
-          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)', color: 'rgba(255,255,255,.7)' }}>
-          Loading…
+        <div style={{ width: '100%', height: '100%',
+          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)' }}>
+          <LogoLoader tone="dark" caption="Memoria" />
         </div>
       </PhoneShell>
     );
@@ -893,9 +894,9 @@ function Game() {
   if (saveLoading) {
     return (
       <PhoneShell>
-        <div style={{ width: '100%', height: '100%', display: 'grid', placeItems: 'center',
-          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)', color: 'rgba(255,255,255,.7)' }}>
-          Loading your collection…
+        <div style={{ width: '100%', height: '100%',
+          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)' }}>
+          <LogoLoader tone="dark" caption="Loading your collection" />
         </div>
       </PhoneShell>
     );
