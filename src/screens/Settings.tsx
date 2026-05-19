@@ -1,4 +1,4 @@
-import { ArrowLeft, Volume2, VolumeX, Music } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Music, Smile } from 'lucide-react';
 import { PALETTE } from '../components/styles';
 import { playSfx } from '../audio/sfx';
 import type { Settings } from '../state/settings';
@@ -68,7 +68,56 @@ export function SettingsScreen({ settings, onChange, onBack }: Props) {
             hint="Reserved for future updates"
           />
         </div>
+
+        {/* Online section */}
+        <header className="settings-sec">
+          <div className="settings-sec-l">
+            <div className="settings-sec-eyebrow">02 · Online</div>
+            <div className="settings-sec-title">PVP preferences</div>
+          </div>
+          <div className="settings-sec-r">
+            Controls behavior in real-time matches against other players.
+          </div>
+        </header>
+
+        <div className="settings-card">
+          <ToggleRow
+            icon={<Smile size={18} strokeWidth={2.2} />}
+            label="Hide opponent emotes"
+            hint="Your own emotes still send normally."
+            value={settings.hideOpponentEmotes}
+            onChange={(v) => set('hideOpponentEmotes', v)}
+          />
+        </div>
       </div>
+    </div>
+  );
+}
+
+function ToggleRow({ icon, label, hint, value, onChange }: {
+  icon: React.ReactNode;
+  label: string;
+  hint?: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <div className="slider-row">
+      <div className="slider-head">
+        <span className="slider-ico">{icon}</span>
+        <span className="slider-lbl">{label}</span>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={value}
+          onClick={() => onChange(!value)}
+          className={`toggle ${value ? 'toggle-on' : ''}`}
+          aria-label={label}
+        >
+          <span className="toggle-knob" />
+        </button>
+      </div>
+      {hint && <div className="slider-hint">{hint}</div>}
     </div>
   );
 }
@@ -232,6 +281,34 @@ function SettingsStyles() {
         font-size: 11px; color: ${PALETTE.textLight};
         font-style: italic;
         padding-left: 46px;
+      }
+
+      /* Toggle switch */
+      .settings .toggle {
+        width: 44px; height: 26px;
+        border-radius: 999px;
+        background: #e5d6c9;
+        border: 1.5px solid ${PALETTE.border};
+        cursor: pointer; padding: 0;
+        position: relative;
+        flex: 0 0 auto;
+        transition: background .15s;
+      }
+      .settings .toggle.toggle-on {
+        background: ${PALETTE.accent};
+        border-color: ${PALETTE.accentDeep};
+      }
+      .settings .toggle-knob {
+        position: absolute;
+        top: 2px; left: 2px;
+        width: 18px; height: 18px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 1px 3px rgba(58,46,42,.18);
+        transition: transform .18s cubic-bezier(.4,.6,.3,1.1);
+      }
+      .settings .toggle.toggle-on .toggle-knob {
+        transform: translateX(18px);
       }
 
       @media (prefers-reduced-motion: reduce) {

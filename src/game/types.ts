@@ -209,6 +209,13 @@ export type MatchCue =
     }
   | { kind: 'phase'; side: Owner; seq: number;
       phase: 'main' | 'battle' | 'end';
+    }
+  | { kind: 'emote'; side: Owner; seq: number;
+      /** Opaque emote id — defined in src/data/chatEmotes.ts. Kept as
+       *  a bare string here so the engine types don't depend on the UI
+       *  data module; the receiving client looks it up at render time
+       *  and silently drops the cue if the id is unknown. */
+      emoteId: string;
     };
 
 export interface MatchState {
