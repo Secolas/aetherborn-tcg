@@ -956,8 +956,8 @@ function Game() {
     return (
       <PhoneShell>
         <div style={{ width: '100%', height: '100%',
-          background: 'radial-gradient(ellipse at 50% 30%, #1c2244 0%, #0a0c1c 70%)' }}>
-          <LogoLoader tone="dark" caption="Loading your collection" />
+          background: 'radial-gradient(ellipse at 80% 0%, #ffe8d6 0%, #fef8f0 55%, #fef8f0 100%)' }}>
+          <LogoLoader tone="light" caption="Loading your collection" />
         </div>
       </PhoneShell>
     );
