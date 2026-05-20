@@ -74,34 +74,47 @@ export const STARTER_THEMES: StarterTheme[] = [
   {
     id: 'work',
     name: 'Work',
-    pitch: 'Hit early. Promote your best.',
-    description: 'Cheap bodies, two damage spells, a draw engine, and a +4/+4 promotion to seal it. Punishes slow decks before they stabilise.',
+    pitch: 'Spam the inbox. Close the deal.',
+    description: 'Cheap bodies, four damage spells, and Hired turning every email into bonus face damage. The 6c Boss closes when you finally have the mana for him.',
     iconCardId: 'wrk-12',
-    /* Identity: tempo / aggressive curve / direct damage.
-     * Toolkit: 1c body + 1c removal spell on turn 1, three 2c plays
-     * for turn 2 momentum (two bodies + silence), a 3c value-creature
-     * with draw and a 3c 4-dmg spell to keep pressure on, a sticky
-     * untargetable body, a +4/+4 buff finisher, a 5c full-board heal,
-     * and the 6c Boss with Taunt to close. Cheaper curve than Family
+    /* Identity: tempo / aggressive curve / spell-burn synergy.
+     * Toolkit: 1c body + 1c removal spell on turn 1, two 2c bodies
+     * for turn 2 momentum, a 3c value-creature with draw + a 3c
+     * spell-synergy creature + 2x 3c 4-dmg spells to keep pressure
+     * on, a sticky untargetable body, two Taunt closers (Custodian
+     * + The Boss). Cheaper curve than Family
      * — Work wins on tempo, not stats. 6 creatures / 6 spells keeps
      * the body count in line with the other two starters. */
     deck: [
       'wrk-01',                 // 1c 1/1  — Intern
       'wrk-02', 'wrk-02',       // 1c spell x2 — Spam Email (2 dmg)
       'wrk-03', 'wrk-03',       // 2c 2/2 x2 — Coworker
-      'wrk-13',                 // 2c spell — Performance Review (silence)
+      // Balance pass (starter parity): two swaps to close the 7 pp
+      // gap with Family/Education starters. Iteration log:
+      //   • Coworker → Hired alone: 44.8% → 44.2% (tempo loss).
+      //   • Custodian → Hired alone: 44.8% → 42.9% (Custodian was
+      //     load-bearing vs aggro).
+      //   • Promotion → Hired alone: 44.8% (net-zero — Hired's
+      //     synergy didn't compensate for losing the buff).
+      // Working theory: the deck doesn't lack synergy, it lacks
+      // burn. boss-Manager's win comes from 2x Sales Pitch + 2x
+      // Spam Email = 12 base damage from spells. The starter only
+      // had 1x Sales Pitch + 2x Spam Email = 8 burn.
+      //
+      // Two swaps:
+      //   − Performance Review (2c situational silence) and
+      //     Promotion (4c conditional buff) — both often held dead.
+      //   + Hired (3c 2/3 spell_synergy 1) — pings 1 face per
+      //     spell cast while alive. Across the deck's 5 remaining
+      //     spells that's ~5 bonus face damage per game.
+      //   + 2nd Sales Pitch (3c 4-damage burn) — same package boss
+      //     Manager runs. Doubles the deck's reliable removal/burn.
+      // Trade-off: no more silence answer to enemy Taunt/Untargetable;
+      // the deck leans harder on Sales Pitch to break through.
+      'wrk-19',                 // 3c 2/3  — Hired (spell_synergy 1)
       'wrk-05',                 // 3c 2/3  — IT Support (draw on play)
-      'wrk-06',                 // 3c spell — Sales Pitch (4 dmg)
+      'wrk-06', 'wrk-06',       // 3c spell x2 — Sales Pitch (4 dmg)
       'wrk-07',                 // 4c 3/4  — HR (untargetable)
-      'wrk-10',                 // 4c spell — Promotion (+4/+4 buff)
-      // Balance pass: replaced wrk-11 Lunch Break (5c heal 7) with
-      // Custodian. Lunch Break stabilized vs control but was dead
-      // against aggro that out-paced the single heal. Custodian
-      // gives the same 5-cost slot a 4/5 Taunt body — it blocks
-      // damage *and* swings back, so it improves the aggro matchup
-      // (the deck's worst, ~30%) without giving up the slow-game.
-      // Stacks with The Boss (also Taunt) so the late game has a
-      // second wall.
       'wrk-16',                 // 5c 4/5  — Custodian (Taunt)
       'wrk-12',                 // 6c 5/6  — The Boss (taunt, finisher)
     ],
