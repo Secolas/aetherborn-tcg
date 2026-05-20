@@ -60,6 +60,12 @@ export interface CardTemplate {
   abilityValue?: number;
   rarity: Rarity;
   suggested: string;
+  /** Internal-only curation tags used by Memory Packs to build focused
+   *  pools (e.g. 'pet' so the Pet pack draws Cat/Dog/Belly Rub/Walkies
+   *  instead of Lion/Wolf, 'relationship' so the Couple pack only pulls
+   *  the cou-* arc and the Birthday/Milestone packs can exclude exes).
+   *  NEVER rendered in the UI. */
+  tags?: string[];
 }
 
 /** A template combined with the user's photo + nickname, after summoning. */
@@ -285,6 +291,12 @@ export interface SaveData {
   activeDeckId?: string;
   coins: number;
   packsOpened: number;
+  /** Element-pack legendary pity counter. Increments on each element
+   *  pack opened without a legendary; the guaranteed slot is forced to
+   *  a legendary once this reaches PITY_THRESHOLD (then resets to 0).
+   *  Memory packs never roll legendaries, so they don't touch this
+   *  counter. Optional for legacy saves — defaults to 0 on read. */
+  legendaryPity?: number;
   matchesWon: number;
   matchesLost: number;
   bossesDefeated: string[];

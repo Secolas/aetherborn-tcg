@@ -605,12 +605,13 @@ function Game() {
     });
   };
 
-  const onPackOpened = (cards: CollectionCard[], coinsSpent: number) => {
+  const onPackOpened = (cards: CollectionCard[], coinsSpent: number, newPity: number) => {
     setSave(s => ({
       ...s,
       coins: s.coins - coinsSpent,
       collection: [...s.collection, ...cards],
       packsOpened: s.packsOpened + 1,
+      legendaryPity: newPity,
     }));
     trackEvent({ kind: 'pack_opened' });
   };
@@ -1066,6 +1067,7 @@ function Game() {
       {screen === 'pack' && (
         <PackOpening
           coins={save.coins}
+          legendaryPity={save.legendaryPity ?? 0}
           settings={settings}
           openedMemoryPacks={save.openedMemoryPacks ?? []}
           onPackOpened={onPackOpened}

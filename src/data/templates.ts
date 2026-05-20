@@ -20,7 +20,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'First to the rescue.',
     abilityKind: 'rush',
-    rarity: 'rare', suggested: 'my first puppy, my first pet, or any pet you grew up with' },
+    rarity: 'rare', tags: ['pet'], suggested: 'my first puppy, my first pet, or any pet you grew up with' },
 
   { id: 'fam-02', name: 'Cousin', el: 'family', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: '',
@@ -217,19 +217,19 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'Quick on its feet.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a rabbit, hare, or other prey animal' },
+    rarity: 'common', tags: ['pet'], suggested: 'a rabbit, hare, or other prey animal' },
 
   { id: 'ani-04', name: 'Cat', el: 'animals', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Sneaky and untouchable.',
     abilityKind: 'untargetable',
-    rarity: 'rare', suggested: 'a cat — yours, a stranger, a stray' },
+    rarity: 'rare', tags: ['pet'], suggested: 'a cat — yours, a stranger, a stray' },
 
   { id: 'ani-05', name: 'Dog', el: 'animals', cost: 3, atk: 2, hp: 4, type: 'Creature',
     ability: 'Taunt.',
     flavor: 'Stays at your side. Always.',
     abilityKind: 'taunt',
-    rarity: 'rare', suggested: 'a dog — any dog' },
+    rarity: 'rare', tags: ['pet'], suggested: 'a dog — any dog' },
 
   { id: 'ani-06', name: 'Owl', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
@@ -240,12 +240,12 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Give an Animals-type creature +3/+3.',
     flavor: 'Good boy.',
     abilityKind: 'spell_buff', abilityValue: 3,
-    rarity: 'common', suggested: 'pet food, a treat, a bowl' },
+    rarity: 'common', tags: ['pet'], suggested: 'pet food, a treat, a bowl' },
 
   { id: 'ani-08', name: 'Vet Visit', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 6 HP.',
     abilityKind: 'spell_heal', abilityValue: 6,
-    rarity: 'rare', suggested: 'a vet, a clinic, or a pet carrier' },
+    rarity: 'rare', tags: ['pet'], suggested: 'a vet, a clinic, or a pet carrier' },
 
   { id: 'ani-09', name: 'Bear Trap', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
@@ -274,7 +274,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Silence an enemy creature.',
     flavor: 'Calm down.',
     abilityKind: 'silence',
-    rarity: 'rare', suggested: 'a leash, harness, or quiet animal' },
+    rarity: 'rare', tags: ['pet'], suggested: 'a leash, harness, or quiet animal' },
 
   { id: 'ani-14', name: 'Mosquito', el: 'animals', cost: 1, atk: 1, hp: 1, type: 'Creature',
     ability: '',
@@ -292,19 +292,19 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Restore 4 HP to a friendly creature.',
     flavor: 'Right behind the ear.',
     abilityKind: 'spell_heal_friend', abilityValue: 4,
-    rarity: 'common', suggested: 'a hand on a pet, a happy dog, a cat being scratched' },
+    rarity: 'common', tags: ['pet'], suggested: 'a hand on a pet, a happy dog, a cat being scratched' },
 
   { id: 'ani-16', name: 'Good Boy', el: 'animals', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a creature +0/+2 HP.',
     flavor: 'He knew before you said it.',
     abilityKind: 'spell_nourish', abilityValue: 2,
-    rarity: 'common', suggested: 'a beaming dog, an attentive pet, a treat moment' },
+    rarity: 'common', tags: ['pet'], suggested: 'a beaming dog, an attentive pet, a treat moment' },
 
   { id: 'ani-17', name: 'Walkies', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw 2 cards.',
     flavor: 'Leash. Door. Run.',
     abilityKind: 'draw_on_play', abilityValue: 2,
-    rarity: 'rare', suggested: 'a leash by the door, a dog on a walk, paws on a sidewalk' },
+    rarity: 'rare', tags: ['pet'], suggested: 'a leash by the door, a dog on a walk, paws on a sidewalk' },
 
 
   // ============================================================
@@ -664,43 +664,43 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Heart racing. Stomach gone.',
     abilityKind: 'rush',
-    rarity: 'common', suggested: 'someone you had a crush on, an old photo of an early flame' },
+    rarity: 'common', tags: ['relationship'], suggested: 'someone you had a crush on, an old photo of an early flame' },
 
   { id: 'cou-02', name: 'Boyfriend / Girlfriend', el: 'family', cost: 2, atk: 2, hp: 3, type: 'Creature',
     ability: '',
     flavor: 'Your person. Your favourite.',
     abilityKind: 'none',
-    rarity: 'rare', suggested: 'your partner, or someone you love' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'your partner, or someone you love' },
 
   { id: 'cou-03', name: 'The Ex', el: 'family', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'On play: deal 2 damage to the enemy face.',
     flavor: 'A door you closed. A scar you kept.',
     abilityKind: 'aoe_on_play', abilityValue: 2,
-    rarity: 'rare', suggested: 'a dramatic photo, a memory, a closed door' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a dramatic photo, a memory, a closed door' },
 
   { id: 'cou-04', name: 'Couple Photo', el: 'family', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: '',
     flavor: 'Both smiling. Same year. Different reasons.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a photo of you and your partner together' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a photo of you and your partner together' },
 
   { id: 'cou-05', name: 'Movie Night', el: 'family', cost: 2, atk: 1, hp: 4, type: 'Creature',
     ability: 'Taunt.',
     flavor: 'Couch fort. One blanket, two people.',
     abilityKind: 'taunt',
-    rarity: 'common', suggested: 'couch + tv, popcorn, the living-room set-up' },
+    rarity: 'common', tags: ['relationship'], suggested: 'couch + tv, popcorn, the living-room set-up' },
 
   { id: 'cou-06', name: 'Proposal', el: 'family', cost: 5, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Family-type creature +3/+3 and Taunt.',
     flavor: 'On one knee. Heart in your throat.',
     abilityKind: 'spell_buff_taunt', abilityValue: 3,
-    rarity: 'epic', suggested: 'the ring, the moment, the question' },
+    rarity: 'epic', tags: ['relationship'], suggested: 'the ring, the moment, the question' },
 
   { id: 'cou-07', name: 'Wedding Day', el: 'family', cost: 7, atk: 5, hp: 8, type: 'Creature',
     ability: 'On play: restore 5 HP.',
     flavor: 'Two families. One day.',
     abilityKind: 'spell_heal', abilityValue: 5,
-    rarity: 'legendary', suggested: 'a wedding photo, vows, rings, the ceremony' },
+    rarity: 'legendary', tags: ['relationship'], suggested: 'a wedding photo, vows, rings, the ceremony' },
 
   { id: 'cou-08', name: 'Anniversary', el: 'family', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a friendly creature +1/+1.',
@@ -711,25 +711,25 @@ export const TEMPLATES: CardTemplate[] = [
     // counterpart to Date Night Dinner: small permanent stat bump
     // on any friendly creature regardless of theme.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'rare', suggested: 'the dated photo, a card you wrote, a small gift' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'the dated photo, a card you wrote, a small gift' },
 
   { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw a card.',
     flavor: 'Three hours. Felt like ten minutes.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', suggested: 'the restaurant, the cafe, the venue of an early date' },
+    rarity: 'common', tags: ['relationship'], suggested: 'the restaurant, the cafe, the venue of an early date' },
 
   { id: 'cou-10', name: 'Beach Day', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: heal each of your Travel-type creatures by 2.',
     flavor: 'Sand everywhere. Sunburn worth it.',
     abilityKind: 'spell_share_meal', abilityValue: 2,
-    rarity: 'rare', suggested: 'a beach trip together, the ocean, sunset on sand' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a beach trip together, the ocean, sunset on sand' },
 
   { id: 'cou-11', name: 'Honeymoon', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
     ability: 'Heal each of your Travel-type creatures by 3, then draw a card.',
     flavor: 'No phones. No emails. Just you two.',
     abilityKind: 'spell_share_meal', abilityValue: 3,
-    rarity: 'epic', suggested: 'the honeymoon trip, the resort, the boarding passes' },
+    rarity: 'epic', tags: ['relationship'], suggested: 'the honeymoon trip, the resort, the boarding passes' },
 
   { id: 'cou-12', name: 'Date Night Dinner', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a friendly creature +1/+1.',
@@ -741,37 +741,37 @@ export const TEMPLATES: CardTemplate[] = [
     // any creature so a couple deck can buff its Family or Travel
     // pieces too.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'common', suggested: 'a candle-lit meal, a restaurant table, plated food' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a candle-lit meal, a restaurant table, plated food' },
 
   { id: 'cou-13', name: 'Cooking Together', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a friendly creature +0/+3 HP.',
     flavor: 'Someone chops. Someone stirs. Both taste.',
     abilityKind: 'spell_nourish', abilityValue: 3,
-    rarity: 'rare', suggested: 'a shared kitchen, two pairs of hands, an in-progress meal' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a shared kitchen, two pairs of hands, an in-progress meal' },
 
   { id: 'cou-14', name: 'Anniversary Cake', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
     ability: 'On play: restore 3 HP.',
     flavor: 'One slice. Two forks.',
     abilityKind: 'spell_heal', abilityValue: 3,
-    rarity: 'common', suggested: 'an anniversary cake, candles, a small celebration' },
+    rarity: 'common', tags: ['relationship'], suggested: 'an anniversary cake, candles, a small celebration' },
 
   { id: 'cou-15', name: 'Cleaning Day', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 2 HP, then draw a card.',
     flavor: 'A clean apartment is a love language.',
     abilityKind: 'spell_heal', abilityValue: 2,
-    rarity: 'common', suggested: 'a tidied living room, vacuumed carpet, fresh laundry' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a tidied living room, vacuumed carpet, fresh laundry' },
 
   { id: 'cou-16', name: 'Laundry Day', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 2 HP to a friendly creature.',
     flavor: 'You folded. They put them away. Eventually.',
     abilityKind: 'spell_heal_friend', abilityValue: 2,
-    rarity: 'common', suggested: 'a laundry pile, folded clothes, the dryer' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a laundry pile, folded clothes, the dryer' },
 
   { id: 'cou-17', name: 'House Hunting', el: 'work', cost: 4, atk: 3, hp: 4, type: 'Creature',
     ability: 'On play: gain +1 mana next turn.',
     flavor: 'Every door, you wonder what your life would be.',
     abilityKind: 'mana_prep', abilityValue: 1,
-    rarity: 'rare', suggested: 'a house tour, moving boxes, an empty apartment, "For Sale" sign' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a house tour, moving boxes, an empty apartment, "For Sale" sign' },
 
   // Cheap rush body for the couple arc. The deck only had Crush at 1c
   // Rush, so if it didn't draw Crush it had no early pressure. Holding
@@ -781,7 +781,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Fingers laced. Already in step.',
     abilityKind: 'rush',
-    rarity: 'common', suggested: 'two hands clasped, fingers interlocked, a close-up' },
+    rarity: 'common', tags: ['relationship'], suggested: 'two hands clasped, fingers interlocked, a close-up' },
 
   // FOOD — mid-cost burn. Food previously only had Spicy Sauce (2 dmg)
   // for removal, which couldn't stabilize against early aggro. Stew
@@ -800,4 +800,34 @@ export function getTemplateById(id: string): CardTemplate | undefined {
 
 export function templatesByTheme(theme: ElementId): CardTemplate[] {
   return TEMPLATES.filter(t => t.el === theme);
+}
+
+/** A pool-build rule for Memory Packs. Each rule contributes a filtered
+ *  slice of the catalogue; the final pool is the de-duplicated union of
+ *  every rule's slice. All fields are AND-ed within a single rule. */
+export interface PoolRule {
+  /** Restrict to cards whose element is one of these. Omit for "any". */
+  themes?: ElementId[];
+  /** Require at least one of these tags. Omit for "no tag requirement". */
+  tags?: string[];
+  /** Drop any card carrying one of these tags. Used to keep the Birthday
+   *  / Milestone packs free of ex-partner cards while still pulling from
+   *  the broader family pool. */
+  excludeTags?: string[];
+}
+
+export function templatesByPool(rules: PoolRule[]): CardTemplate[] {
+  const seen = new Set<string>();
+  const out: CardTemplate[] = [];
+  for (const r of rules) {
+    for (const t of TEMPLATES) {
+      if (seen.has(t.id)) continue;
+      if (r.themes && !r.themes.includes(t.el)) continue;
+      if (r.tags && !(t.tags ?? []).some(tag => r.tags!.includes(tag))) continue;
+      if (r.excludeTags && (t.tags ?? []).some(tag => r.excludeTags!.includes(tag))) continue;
+      seen.add(t.id);
+      out.push(t);
+    }
+  }
+  return out;
 }

@@ -1,4 +1,4 @@
-import { TEMPLATES, templatesByTheme } from '../data/templates';
+import { TEMPLATES, templatesByTheme, templatesByPool } from '../data/templates';
 import { RARITY_WEIGHT } from '../data/elements';
 import { getMemoryPack } from '../data/memoryPacks';
 import type { CardTemplate, CollectionCard, ElementId, Rarity } from './types';
@@ -10,72 +10,126 @@ export const MATCH_WIN_REWARD = 75;
 export const MATCH_LOSS_REWARD = 20;
 export const MATCH_DRAW_REWARD = 40;
 
+/**
+ * Element-pack legendary pity threshold. After this many element packs
+ * without rolling a legendary, the next pack's guaranteed slot is
+ * forced to be a legendary. Memory packs never roll legendaries, so
+ * they neither increment nor consume pity.
+ */
+export const PITY_THRESHOLD = 25;
+
+/**
+ * Memory pack rarity weights — legendary is omitted entirely (memory
+ * packs are the "focused / mini" packs and are cheaper than element
+ * packs, so they top out at epic), and epic is sharply dialed down vs
+ * the element-pack weights so the rare-or-epic guaranteed slot stays
+ * mostly rare and the player has to grind for the epic payoff.
+ *
+ * Element packs continue to use RARITY_WEIGHT (60/28/10/2).
+ */
+const MEMORY_RARITY_WEIGHT: Record<Rarity, number> = {
+  common: 65,
+  rare: 30,
+  epic: 5,
+  legendary: 0,
+};
+
 function newUid(): string {
   return `c_${Date.now().toString(36)}_${Math.floor(Math.random() * 1e6).toString(36)}`;
 }
 
-function pickWeighted(pool: CardTemplate[]): CardTemplate {
-  const weights = pool.map(t => RARITY_WEIGHT[t.rarity]);
-  const total = weights.reduce((a, b) => a + b, 0);
+function toCollection(t: CardTemplate): CollectionCard {
+  return { ...t, uid: newUid(), photo: null };
+}
+
+function pickWeightedFrom(pool: CardTemplate[], weights: Record<Rarity, number>): CardTemplate {
+  const ws = pool.map(t => weights[t.rarity] ?? 0);
+  const total = ws.reduce((a, b) => a + b, 0);
+  if (total <= 0) return pool[Math.floor(Math.random() * pool.length)];
   let roll = Math.random() * total;
   for (let i = 0; i < pool.length; i++) {
-    roll -= weights[i];
+    roll -= ws[i];
     if (roll <= 0) return pool[i];
   }
   return pool[pool.length - 1];
 }
 
-function pickAtLeast(pool: CardTemplate[], minRarity: Rarity): CardTemplate {
+function pickWeighted(pool: CardTemplate[]): CardTemplate {
+  return pickWeightedFrom(pool, RARITY_WEIGHT as Record<Rarity, number>);
+}
+
+function pickAtLeast(pool: CardTemplate[], minRarity: Rarity, weights: Record<Rarity, number> = RARITY_WEIGHT as Record<Rarity, number>): CardTemplate {
   const order: Rarity[] = ['common', 'rare', 'epic', 'legendary'];
   const minIdx = order.indexOf(minRarity);
   const filtered = pool.filter(t => order.indexOf(t.rarity) >= minIdx);
-  return pickWeighted(filtered.length > 0 ? filtered : pool);
+  return pickWeightedFrom(filtered.length > 0 ? filtered : pool, weights);
+}
+
+export interface OpenPackResult {
+  cards: CollectionCard[];
+  /** New pity counter to persist on the save. Reset to 0 when the pack
+   *  rolled a legendary (either by pity force or natural luck), else
+   *  incremented by 1. */
+  pity: number;
 }
 
 /**
- * Open a themed pack: 3 cards from the chosen theme, all dormant.
- * One slot is guaranteed rare+ so opening always feels good.
+ * Open an element pack: 3 cards from the chosen theme, all dormant.
+ *
+ * Rarity rules:
+ *   - Slots 1 & 2: weighted pick from commons / rares / epics only.
+ *     Legendaries can only appear in slot 3 — caps the pack at one
+ *     legendary, which is what the design calls for ("only 1 legendary
+ *     for theme pack").
+ *   - Slot 3: guaranteed rare+, with a pity override — once the player
+ *     has opened PITY_THRESHOLD element packs without seeing a
+ *     legendary, this slot is forced to a uniform-random legendary
+ *     from the theme.
  */
-export function openPack(theme: ElementId): CollectionCard[] {
+export function openPack(theme: ElementId, currentPity: number = 0): OpenPackResult {
   const pool = templatesByTheme(theme);
+  const nonLegendary = pool.filter(t => t.rarity !== 'legendary');
   const cards: CollectionCard[] = [];
   for (let i = 0; i < PACK_SIZE - 1; i++) {
-    const t = pickWeighted(pool);
-    cards.push({ ...t, uid: newUid(), photo: null });
+    cards.push(toCollection(pickWeighted(nonLegendary)));
   }
-  const guaranteed = pickAtLeast(pool, 'rare');
-  cards.push({ ...guaranteed, uid: newUid(), photo: null });
-  return cards;
+  const nextPity = currentPity + 1;
+  let guaranteed: CardTemplate;
+  if (nextPity >= PITY_THRESHOLD) {
+    const legendaries = pool.filter(t => t.rarity === 'legendary');
+    guaranteed = legendaries.length > 0
+      ? legendaries[Math.floor(Math.random() * legendaries.length)]
+      : pickAtLeast(pool, 'rare');
+  } else {
+    guaranteed = pickAtLeast(pool, 'rare');
+  }
+  cards.push(toCollection(guaranteed));
+  const gotLegendary = cards.some(c => c.rarity === 'legendary');
+  return { cards, pity: gotLegendary ? 0 : nextPity };
 }
 
 /**
- * Open a Memory Pack: 3 cards drawn from the union of the pack's themes.
- * Same rare+ guarantee as element packs so opens always feel rewarding.
- * Returns an empty array if the pack id is unknown (defensive — callers
- * should validate first).
+ * Open a Memory Pack: 3 cards drawn from the pack's curated pool (see
+ * memoryPacks.ts — built from element themes + tag filters so the Pet
+ * pack is actually pets, not lions and wolves).
+ *
+ * Memory packs NEVER roll legendaries — they're the focused / cheaper
+ * "mini packs" and their pool is narrower, so making legendaries
+ * exclusive to element packs preserves the chase. The guaranteed slot
+ * is still rare+, but capped at epic via the memory-specific weights.
  */
 export function openMemoryPack(packId: string): CollectionCard[] {
   const def = getMemoryPack(packId);
   if (!def) return [];
-  // Union of templates from every contributing theme, de-duplicated by id.
-  // The combined pool preserves each card's baseline rarity weight so a
-  // food/family birthday pack doesn't artificially over-pick rares from
-  // whichever theme is smaller.
-  const seen = new Set<string>();
-  const pool: CardTemplate[] = [];
-  for (const t of def.themes.flatMap(th => templatesByTheme(th))) {
-    if (seen.has(t.id)) continue;
-    seen.add(t.id);
-    pool.push(t);
-  }
+  const pool = templatesByPool(def.pool).filter(t => t.rarity !== 'legendary');
   if (pool.length === 0) return [];
   const cards: CollectionCard[] = [];
   for (let i = 0; i < PACK_SIZE - 1; i++) {
-    const t = pickWeighted(pool);
-    cards.push({ ...t, uid: newUid(), photo: null });
+    const t = pickWeightedFrom(pool, MEMORY_RARITY_WEIGHT);
+    cards.push(toCollection(t));
   }
-  const guaranteed = pickAtLeast(pool, 'rare');
-  cards.push({ ...guaranteed, uid: newUid(), photo: null });
+  const guaranteed = pickAtLeast(pool, 'rare', MEMORY_RARITY_WEIGHT);
+  cards.push(toCollection(guaranteed));
   return cards;
 }
 
