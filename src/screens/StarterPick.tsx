@@ -237,21 +237,24 @@ function StarterPickStyles() {
           inset 0 1.5px 0 rgba(255,255,255,.18);
       }
       /* Phone-sized fan — narrower offset so the side packs stay on
-         screen and don't crash into the screen edges. */
+         screen and don't crash into the screen edges. Side packs sit
+         very slightly below centre (translateY 6 instead of 18) so
+         their bottom corners don't crash into the deck description
+         on short screens. */
       @media (max-width: 480px) {
         .sp-bp { width: 200px; }
         .sp-bp[data-focused="false"] {
           transform:
             translateX(calc(var(--offset) * 58px))
             rotate(calc(var(--offset) * 12deg))
-            translateY(18px)
+            translateY(6px)
             scale(.86);
         }
         .sp-bp[data-focused="false"]:hover {
           transform:
             translateX(calc(var(--offset) * 58px))
             rotate(calc(var(--offset) * 12deg))
-            translateY(12px)
+            translateY(0)
             scale(.90);
         }
       }
@@ -349,6 +352,8 @@ function StarterPickStyles() {
       }
 
       .sp-desc {
+        position: relative;
+        z-index: 10;
         font-size: 14px;
         font-weight: 500;
         color: ${PALETTE.text};
@@ -356,6 +361,12 @@ function StarterPickStyles() {
         text-align: center;
         max-width: 320px;
         margin: 0 auto;
+        padding: 10px 14px;
+        background: rgba(254, 248, 240, .92);
+        border-radius: 14px;
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        box-shadow: 0 4px 14px rgba(58,46,42,.08);
       }
 
       .sp-confirm {
