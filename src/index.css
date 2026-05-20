@@ -588,6 +588,13 @@ input {
   60%  { opacity: 0.3; transform: scale(1.05); filter: blur(2px); }
   100% { opacity: 0; transform: scale(1.15); filter: blur(8px); }
 }
+/* Quieter alternative used by the unbox stage — the pack just fades
+   in place after the slash cuts across it, so it doesn't drift
+   toward the camera or blur out before the wireframes settle. */
+@keyframes packArtFadeOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
 /* Each wireframe card scales into its slot. --scale carries the
    per-card depth shrink; --peek lifts back cards so their top edges
    show above the cards in front. The element is already centred via
