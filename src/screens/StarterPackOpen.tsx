@@ -128,7 +128,7 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
 
         <div className="po-actions">
           <button className="po-cta" onClick={onDone}>
-            <span>Finish — Start Campaign</span>
+            <span>Finish</span>
             <ChevronRight size={18} strokeWidth={2.4} />
           </button>
         </div>
@@ -188,7 +188,16 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
       </div>
 
       <div className="po-stage">
-        <div className="po-card-wrap" key={current.uid}>
+        {/* Legendary "boom" — gold radial burst behind the card and
+            a screen-wide flash. Mounted only when the current card
+            is legendary; their keyframes fade out under a second. */}
+        {current.rarity === 'legendary' && (
+          <>
+            <div aria-hidden key={`boom-${current.uid}`} className="po-legendary-boom" />
+            <div aria-hidden key={`flash-${current.uid}`} className="po-legendary-flash" />
+          </>
+        )}
+        <div className="po-card-wrap" key={current.uid} data-rarity={current.rarity}>
           {showHalo && (
             <div
               aria-hidden
@@ -467,6 +476,35 @@ function StarterPackOpenStyles() {
         align-items: center;
         gap: 14px;
         filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--theme-deep) 40%, transparent));
+      }
+      /* Legendary reveal — shake the whole card column after the
+         entry flight settles. Re-keys per uid via the parent's
+         React key prop so the animation re-runs every legendary card. */
+      .po-card-wrap[data-rarity="legendary"] {
+        animation: legendaryShake 0.7s ease-out 0.45s both;
+      }
+      /* Legendary "boom" — gold radial burst layered behind the
+         card. Sized large so it dominates the stage. */
+      .po-legendary-boom {
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 540px; height: 540px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fffbe0 0%, #ffd166 24%, rgba(255,170,51,.55) 50%, transparent 78%);
+        animation: legendaryBoom 0.95s cubic-bezier(.3,.7,.4,1) 0.1s both;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        z-index: 0;
+      }
+      /* Screen-wide flash to punctuate the boom. */
+      .po-legendary-flash {
+        position: fixed;
+        inset: 0;
+        background: #fff;
+        animation: legendaryFlash 0.55s ease-out 0.1s both;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        z-index: 6;
       }
       /* Epic / legendary halo — radial bloom behind the card. Lifted
          straight from PackOpening's RevealCard. */
