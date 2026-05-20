@@ -5,7 +5,7 @@ import { HomeMenu } from './screens/HomeMenu';
 import { AuthProvider, useAuth } from './firebase/auth';
 import { useFirestoreSave } from './hooks/useFirestoreSave';
 import { uploadCardPhoto, uploadPlayerAvatar, deleteCardPhoto, migrateCollectionPhotos, isDataUriPhoto } from './firebase/photos';
-import { Login } from './screens/Login';
+import { LandingPage } from './screens/LandingPage';
 import { PvpLobby } from './screens/PvpLobby';
 import { PvpRoom } from './screens/PvpRoom';
 import { Capture } from './screens/Capture';
@@ -126,7 +126,7 @@ function AuthGate() {
   if (!user) {
     return (
       <PhoneShell>
-        <Login />
+        <LandingPage />
       </PhoneShell>
     );
   }
