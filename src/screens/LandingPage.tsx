@@ -507,7 +507,7 @@ function FloatingShowcaseCard(props: {
 
 function PitchSection() {
   const steps = [
-    { n: '1', title: 'Open packs', body: 'Five cards per pack. All dormant. Stats, abilities, no picture.' },
+    { n: '1', title: 'Open packs', body: 'Three cards per pack. All dormant. Stats, abilities, no picture.' },
     { n: '2', title: 'Snap to summon', body: 'Photograph something real. Your dog. The succulent on your desk. The card wakes up.' },
     { n: '3', title: 'Battle', body: 'Build a deck of summoned cards. Fight bosses or other players online.' },
   ];
@@ -876,7 +876,7 @@ const ABILITIES: AbilityDef[] = [
     name: 'Silence',
     Icon: Ban,
     color: '#a47bff',
-    desc: 'Disables its ability. The body stays, the magic doesn’t.',
+    desc: 'Disables an ability for one turn. Taunt stops taunting, healers stop healing — the body stays.',
   },
 ];
 
@@ -1111,7 +1111,7 @@ function PackOpeningPreview() {
     <section className="landing-packopen">
       <div className="landing-section-title"><span>Open a pack</span></div>
       <p className="landing-packopen-lede">
-        Every pack lifts, glints, shakes — then bursts. Five dormant cards spill out, each waiting for a photo to wake them up.
+        Every pack lifts, glints, shakes — then bursts. Three dormant cards spill out, each waiting for a photo to wake them up.
       </p>
       <div className="landing-packopen-stage">
         <PackCinematic key={cycleKey} vibe={vibe} stage={stage} />
