@@ -542,11 +542,12 @@ const GP_SCHEDULE: { phase: GpPhase; ms: number }[] = [
 const GP_TURN_LIMIT = 12;
 
 /** Build a `BattleCard` from a template id plus a fresh `battleId`.
- *  Everything the BattlefieldCard reads (currentAtk, currentHp,
- *  tapped, frozen…) is hard-coded since there's no engine running
- *  here. `justPlayed` is true so the cardSlam summon animation plays
- *  the moment the card mounts — gives the loop's "next turn" reset a
- *  visible beat. */
+ *  Hard-coded everything BattlefieldCard reads — no engine running
+ *  here. `justPlayed: false` so neither creature renders the sleeping
+ *  moon overlay; the demo treats both as already-awake board state.
+ *  cardSlam (the summon-dust animation) fires once on first mount of
+ *  the component and never again, because we keep the BattlefieldCards
+ *  permanently mounted across loop cycles. */
 function makeDemoBattleCard(templateId: string, battleId: string): BattleCard {
   const tpl = getTemplateById(templateId)!;
   return {
@@ -557,16 +558,13 @@ function makeDemoBattleCard(templateId: string, battleId: string): BattleCard {
     currentAtk: tpl.atk,
     currentHp: tpl.hp,
     tapped: false,
-    justPlayed: true,
+    justPlayed: false,
     frozen: false,
   };
 }
 
 function GameplayPreview() {
   const [phase, setPhase] = useState<GpPhase>('rest');
-  // Increments every time the loop wraps. Used as the key on the
-  // defender so it remounts with a fresh cardSlam after a kill.
-  const [loopKey, setLoopKey] = useState(0);
   // Bumps the moment the defender takes lethal damage. Re-keys the
   // EmoteBubble so its in/out animation replays — Mom reacts "Oops…"
   // every time her creature gets killed, and the player throws back
@@ -613,7 +611,6 @@ function GameplayPreview() {
       }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
-        if (idx === 0) setLoopKey(k => k + 1);
         tick();
       }, step.ms);
     };
@@ -621,27 +618,36 @@ function GameplayPreview() {
     return () => { if (timer) clearTimeout(timer); };
   }, []);
 
-  // Build the two cards. The attacker is stable across the loop (a
-  // single ref so its mount-time cardSlam doesn't re-fire every time
-  // setPhase rerenders). The defender is keyed on loopKey so a new
-  // BattleCard instance arrives on every loop wrap, replaying the
-  // summon dust just like a freshly-summoned card would in-game.
-  // Dog (2/4 Taunt, animals) attacks Cousin (2/2 family). Dog deals
-  // 2 damage → Cousin dies cleanly in one hit. Cousin is the boss
-  // (Mom)'s thematic minion; Intern would have been off-deck for a
-  // family boss. Both photos are bundled / sample-photo URLs so the
-  // landing renders them without a Firestore round-trip.
+  // Dog (2/4, animals) attacks Cousin (2/2, family). Dog deals 2 →
+  // Cousin dies in one hit, but Cousin's 2 atk counter-hits Dog so
+  // Dog drops 4 → 2 hp. Cousin is Mom's thematic minion. Both
+  // creatures are memoized once and never re-mounted, so cardSlam
+  // only plays once (on initial scroll-into-view), not on every loop.
+  // Both creatures are mounted once and stay across every loop —
+  // keeping them stable suppresses the cardSlam summon animation on
+  // each cycle. The user reads "Cousin was already on the board"
+  // instead of "Mom just played Cousin again". The wrapper's
+  // flyToGrave animation visually clears the defender during dying,
+  // and removing that animation on the next 'rest' phase silently
+  // restores it.
   const attacker = useMemo(() => makeDemoBattleCard('ani-05', 'gp-attacker'), []);
-  const defender = useMemo(
-    () => makeDemoBattleCard('fam-02', `gp-defender-${loopKey}`),
-    [loopKey],
-  );
+  const defender = useMemo(() => makeDemoBattleCard('fam-02', 'gp-defender'), []);
 
   const isLunging = phase === 'lunge';
   const isImpact  = phase === 'impact';
   const isDying   = phase === 'dying' || phase === 'impact';
   const damage    = phase === 'impact' || phase === 'dying' ? 2 : null;
-  const showDefender = phase !== 'empty';
+
+  // Counter-damage from the trade. Dog (2/4) hits Cousin (2/2):
+  // Cousin dies to Dog's 2 atk, but Dog also takes Cousin's 2 atk
+  // back. Reflect that on the attacker — drop currentHp from 4 → 2
+  // through impact/dying/empty, and show the matching damage popup
+  // on the same beat. Loop wraps to 'rest' which restores 4/4 (next
+  // turn: Mom plays a fresh minion, Dog comes in healed).
+  const attackerDamaged = phase !== 'rest' && phase !== 'lunge';
+  const attackerHp = attackerDamaged ? 2 : 4;
+  const attackerDmg = phase === 'impact' || phase === 'dying' ? 2 : null;
+  const attackerCard: BattleCard = { ...attacker, currentHp: attackerHp };
 
   // Match the in-game OpponentPortrait wiring for the Mom boss: family
   // theme palette, photo avatar from /cards/mom.webp. The themeed
@@ -700,27 +706,30 @@ function GameplayPreview() {
               into the actual graveyard chip on the right of the
               opponent header, not a hardcoded direction. */}
           <div className="gp-field">
-            {showDefender && (
-              <div
-                ref={defenderSlotRef}
-                style={isDying ? {
-                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
-                  ['--gx' as string]: `${graveDelta.gx}px`,
-                  ['--gy' as string]: `${graveDelta.gy}px`,
-                  pointerEvents: 'none',
-                  zIndex: 8,
-                } : {}}
-              >
-                <BattlefieldCard
-                  key={defender.battleId}
-                  card={defender}
-                  impact={isImpact}
-                  dying={isDying}
-                  damage={damage}
-                  owned={false}
-                />
-              </div>
-            )}
+            <div
+              ref={defenderSlotRef}
+              style={isDying || phase === 'empty' ? {
+                // flyToGrave fill mode is `both`, so the final
+                // keyframe state (opacity 0, shrunk at the grave) is
+                // retained through the 'empty' phase. Removing the
+                // animation on the next 'rest' phase releases the
+                // element back to its base styles — Cousin silently
+                // reappears in her slot, no summon animation.
+                animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
+                ['--gx' as string]: `${graveDelta.gx}px`,
+                ['--gy' as string]: `${graveDelta.gy}px`,
+                pointerEvents: 'none',
+                zIndex: 8,
+              } : {}}
+            >
+              <BattlefieldCard
+                card={defender}
+                impact={isImpact}
+                dying={isDying}
+                damage={damage}
+                owned={false}
+              />
+            </div>
           </div>
 
           {/* Center band — same shape as the in-game divider:
@@ -738,8 +747,9 @@ function GameplayPreview() {
           <div className="gp-field">
             <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
               <BattlefieldCard
-                card={attacker}
+                card={attackerCard}
                 lunging={isLunging ? 'up' : null}
+                damage={attackerDmg}
                 owned={true}
               />
             </div>
