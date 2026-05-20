@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
+import { ElementGlyph } from '../components/ElementGlyph';
 import type { ElementId } from '../game/types';
 
 /** Animated TCG card showcase login screen. Floating sample cards drift
@@ -88,6 +89,35 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
         @keyframes login-card-in {
           0%   { opacity: 0; transform: translate(0,0) rotate(var(--rot)) scale(.9); }
           100% { opacity: .85; transform: translate(0,0) rotate(var(--rot)) scale(1); }
+        }
+        /* Prismatic rainbow flow — same animation the landing's
+           floating showcase cards carry. The two stacked
+           repeating-linear-gradients shift their background-position
+           on an infinite loop, producing the iridescent "shifts as it
+           moves" foil look. mix-blend-mode: color-dodge bakes it into
+           the themed gradient underneath. */
+        @keyframes prism-flow {
+          0%   { background-position: 0% 0%, 100% 100%; }
+          100% { background-position: 100% 100%, 0% 0%; }
+        }
+        .login-floating-prism {
+          position: absolute; inset: 0;
+          border-radius: inherit;
+          pointer-events: none;
+          mix-blend-mode: color-dodge;
+          opacity: .35;
+          background:
+            repeating-linear-gradient(115deg,
+              rgba(255, 90, 200, .35) 0%,
+              rgba(255, 220, 80, .35) 15%,
+              rgba(80, 255, 220, .35) 30%,
+              rgba(120, 120, 255, .35) 45%,
+              rgba(255, 90, 200, .35) 60%),
+            repeating-linear-gradient(-65deg,
+              rgba(255,255,255,.18) 0%,
+              rgba(255,255,255,0) 20%);
+          background-size: 200% 200%, 100% 100%;
+          animation: prism-flow 6s linear infinite;
         }
         /* Two animations layered:
            - login-card-in: a one-shot fade+scale so the cards don't pop
@@ -248,7 +278,7 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
             label="Email"
             value={email}
             onChange={setEmail}
-            placeholder="you@aether.example"
+            placeholder="you@example.com"
             type="email"
             autoComplete="email"
             required
@@ -414,21 +444,37 @@ function FloatingCard(props: {
         padding: 8,
         display: 'flex', flexDirection: 'column',
         pointerEvents: 'none',
+        overflow: 'hidden',
       } as React.CSSProperties}
     >
       <div style={{ fontSize: props.small ? 10 : 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
         {def.name}
       </div>
+      {/* Themed art window. The radial glow stays from the original
+          design but the in-game ElementGlyph icon (paw / heart /
+          briefcase / etc.) sits on top so the card reads as its
+          theme at a glance — same icons the BattlefieldCard and the
+          landing's floating showcase cards use. */}
       <div
         className="login-glow"
         style={{
           flex: 1, margin: '6px 0', borderRadius: 8,
           background: `radial-gradient(ellipse at center, ${def.glow}cc 0%, transparent 70%)`,
+          display: 'grid', placeItems: 'center',
+          color: '#fff',
         }}
-      />
+      >
+        <ElementGlyph el={props.el} size={props.small ? 32 : 44} bare />
+      </div>
       <div style={{ fontSize: props.small ? 8 : 9, color: 'rgba(255,255,255,0.78)', fontStyle: 'italic' }}>
         {def.blurb}
       </div>
+      {/* Prismatic foil overlay — the same iridescent flow the
+          landing showcase cards carry. Painted absolutely on top of
+          the gradient with mix-blend-mode: color-dodge so the
+          rainbow tints the underlying theme color instead of
+          flattening it. */}
+      <div className="login-floating-prism" aria-hidden />
     </div>
   );
 }
