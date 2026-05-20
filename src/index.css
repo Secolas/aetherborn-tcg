@@ -588,18 +588,19 @@ input {
   60%  { opacity: 0.3; transform: scale(1.05); filter: blur(2px); }
   100% { opacity: 0; transform: scale(1.15); filter: blur(8px); }
 }
-/* Each wireframe card scales/translates into its 3D slot. The
-   --tz / --ty / --rot CSS vars carry the final per-card offsets so
-   one keyframe serves the whole stack. */
+/* Each wireframe card scales into its slot. --scale carries the
+   per-card depth shrink; --peek lifts back cards so their top edges
+   show above the cards in front. The element is already centred via
+   negative margins, so transforms don't need translate(-50%,-50%). */
 @keyframes wireframeCardIn {
-  0%   { opacity: 0; transform: translate(-50%, -50%) translateZ(180px) scale(1.2); }
-  100% { opacity: 1; transform: translate(-50%, -50%) translateZ(var(--tz)) translateY(var(--ty)) rotate(var(--rot)) scale(1); }
+  0%   { opacity: 0; transform: translateY(40px) scale(calc(var(--scale) * 1.2)); }
+  100% { transform: translateY(var(--peek)) scale(var(--scale)); }
 }
-/* Collapse: each wireframe slides to z=0,y=0 and fades; the solid
-   card back fades up behind them. */
+/* Collapse: each wireframe slides to the aligned front position
+   (scale 1, peek 0) and fades as the solid card back fades up. */
 @keyframes wireframeCollapse {
-  0%   { opacity: 1; transform: translate(-50%, -50%) translateZ(var(--tz)) translateY(var(--ty)) rotate(var(--rot)); }
-  100% { opacity: 0; transform: translate(-50%, -50%) translateZ(0) translateY(0) rotate(0); }
+  0%   { transform: translateY(var(--peek)) scale(var(--scale)); }
+  100% { opacity: 0; transform: translateY(0) scale(1); }
 }
 /* The face-down card back fades up as wireframes collapse. */
 @keyframes cardBackFadeIn {
