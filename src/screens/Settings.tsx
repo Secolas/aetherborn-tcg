@@ -1,9 +1,11 @@
 import { useState } from 'react';
-import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle, ChevronDown, BookOpen, Hand, Wand2, LinkIcon as Link2, Swords, Clock } from 'lucide-react';
 import { PALETTE } from '../components/styles';
 import { DAMAGE } from '../design/tokens';
 import { playSfx } from '../audio/sfx';
+import { CardAnatomyDiagram, FieldAnatomyDiagram } from '../components/Anatomy';
 import type { Settings } from '../state/settings';
+import type { ReactNode } from 'react';
 
 /**
  * Settings — minimal screen, same chrome as Home / Daily / Cosmetics.
@@ -97,6 +99,110 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
           />
         </div>
 
+        {/* Help — rules of the game, reusing the same numbered card
+            and battlefield diagrams the tutorial uses, so a returning
+            player has one place to re-check anything they forgot. */}
+        <header className="settings-sec">
+          <div className="settings-sec-l">
+            <div className="settings-sec-eyebrow">03 · Help</div>
+            <div className="settings-sec-title">How to play</div>
+          </div>
+          <div className="settings-sec-r">
+            Rules, card anatomy and the match layout — same diagrams from the tutorial.
+          </div>
+        </header>
+
+        <div className="settings-card help-card">
+          <HelpRow
+            icon={<Clock size={18} strokeWidth={2.2} />}
+            title="Goal & turns"
+            body={
+              <>
+                <p>Drop the opponent's HP to 0 within <strong>12 turns</strong>, or have more HP when the timer runs out.</p>
+                <p>Each turn flows: <strong>Draw</strong> (gain +1 max mana, draw 1) → <strong>Main Phase</strong> (summon creatures, cast spells) → <strong>Battle Phase</strong> (attack) → <strong>End Turn</strong>.</p>
+                <p>You can only cast spells and summon creatures in the Main Phase, before you tap the swords icon to enter Battle.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Hand size={18} strokeWidth={2.2} />}
+            title="Summoning creatures"
+            body={
+              <>
+                <p>Drag a creature card onto an empty field slot and pay its mana cost. You have three slots.</p>
+                <p>A new creature <strong>sleeps</strong> the turn you summon it — it can't attack until next turn. Cards with <strong>Rush</strong> ignore this and swing the same turn.</p>
+                <p>Creatures with <strong>Taunt</strong> force the opponent to attack them before your portrait.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Wand2 size={18} strokeWidth={2.2} />}
+            title="Casting spells"
+            body={
+              <>
+                <p>Spells aren't creatures — drag them onto a target. They damage, heal, or buff once, then they're gone.</p>
+                <p>Spells must be cast in <strong>Main Phase</strong>, before you tap Battle. Damage spells can target creatures or the opponent's portrait. Heals and buffs target friendlies.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Link2 size={18} strokeWidth={2.2} />}
+            title="Abilities & Bonds"
+            body={
+              <>
+                <p>Read every card — many have <strong>on-play abilities</strong> (extra draw, damage, heal) that trigger as you summon them.</p>
+                <p>Specific pairs of cards share a <strong>Bond</strong>: while both are on your field at the same time, an extra effect fires every turn (e.g. heal +2, +1 attack to friends).</p>
+                <p>Tap any card in hand or on the field to read its full ability and Bond info.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Swords size={18} strokeWidth={2.2} />}
+            title="Attacking"
+            body={
+              <>
+                <p>Tap the <strong>swords icon</strong> to enter Battle Phase. Drag any awake creature onto an opponent target.</p>
+                <p>Attacking the opponent's portrait deals damage to their HP. Attacking a creature trades damage both ways — both take damage equal to the other's attack value.</p>
+                <p>At 0 HP a creature dies and goes to the cemetery.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<BookOpen size={18} strokeWidth={2.2} />}
+            title="Card anatomy · Creature"
+            body={
+              <div className="help-anatomy-wrap">
+                <CardAnatomyDiagram cardId="fd-01" kind="creature" theme="light" />
+              </div>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<BookOpen size={18} strokeWidth={2.2} />}
+            title="Card anatomy · Spell"
+            body={
+              <div className="help-anatomy-wrap">
+                <CardAnatomyDiagram cardId="ani-16" kind="spell" theme="light" />
+              </div>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<BookOpen size={18} strokeWidth={2.2} />}
+            title="Battle layout"
+            body={
+              <div className="help-anatomy-wrap">
+                <FieldAnatomyDiagram theme="light" />
+              </div>
+            }
+          />
+        </div>
+
         {/* Danger zone — only mounted when the parent supplies a
             reset handler, so screens that embed Settings without
             owning the save (none today, but easy to add) don't
@@ -105,7 +211,7 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
           <>
             <header className="settings-sec">
               <div className="settings-sec-l">
-                <div className="settings-sec-eyebrow">03 · Danger zone</div>
+                <div className="settings-sec-eyebrow">04 · Danger zone</div>
                 <div className="settings-sec-title">Reset account</div>
               </div>
               <div className="settings-sec-r">
@@ -152,6 +258,40 @@ function ResetConfirmDialog({ onCancel, onConfirm }: { onCancel: () => void; onC
           <button type="button" className="reset-confirm" onClick={onConfirm}>Reset everything</button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Collapsible row for the Help section. Header is always visible
+ * (icon + title + chevron); the body — paragraphs, anatomy diagrams —
+ * mounts only when open so the diagrams don't pay layout cost when
+ * the player isn't looking at them.
+ */
+function HelpRow({ icon, title, body }: {
+  icon: ReactNode;
+  title: string;
+  body: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="help-row" data-open={open}>
+      <button
+        type="button"
+        className="help-head"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        <span className="slider-ico">{icon}</span>
+        <span className="slider-lbl">{title}</span>
+        <ChevronDown
+          className="help-chev"
+          size={18}
+          strokeWidth={2.4}
+          aria-hidden="true"
+        />
+      </button>
+      {open && <div className="help-body">{body}</div>}
     </div>
   );
 }
@@ -371,6 +511,56 @@ function SettingsStyles() {
       }
       .settings .toggle.toggle-on .toggle-knob {
         transform: translateX(18px);
+      }
+
+      /* Help — collapsible rule rows. Header uses the same .slider-ico
+         + .slider-lbl tokens as the Audio rows so the visual language
+         stays consistent; body opens below with paragraph text or an
+         anatomy diagram. */
+      .settings .help-card { padding: 6px 8px; gap: 0; }
+      .settings .help-row { display: flex; flex-direction: column; }
+      .settings .help-head {
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 8px;
+        background: transparent;
+        border: 0;
+        cursor: pointer;
+        font-family: inherit;
+        color: ${PALETTE.text};
+        text-align: left;
+      }
+      .settings .help-head .slider-lbl { font-size: 14px; }
+      .settings .help-chev {
+        color: ${PALETTE.textMid};
+        flex: 0 0 auto;
+        transition: transform .18s;
+      }
+      .settings .help-row[data-open="true"] .help-chev { transform: rotate(180deg); }
+      .settings .help-body {
+        padding: 2px 8px 14px 54px;
+        font-size: 13px;
+        line-height: 1.5;
+        color: ${PALETTE.textMid};
+        animation: helpBodyIn .18s ease-out;
+      }
+      .settings .help-body p {
+        margin: 0 0 8px 0;
+      }
+      .settings .help-body p:last-child { margin-bottom: 0; }
+      .settings .help-body strong { color: ${PALETTE.text}; font-weight: 800; }
+      /* On narrow viewports drop the indent — 54px of left padding
+         eats too much room on a phone, and the diagrams want the
+         full width. */
+      @container (max-width: 480px) {
+        .settings .help-body { padding-left: 8px; }
+      }
+      .settings .help-anatomy-wrap {
+        display: flex; justify-content: center;
+        padding: 6px 0 2px;
+      }
+      @keyframes helpBodyIn {
+        from { opacity: 0; transform: translateY(-4px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
 
       /* Danger button + reset confirm dialog */
