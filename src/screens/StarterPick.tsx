@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Coins, Sparkles, ChevronRight, Camera, X } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
@@ -35,14 +35,52 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
   // see there ARE side options (the previous carousel landed on
   // Family first and read as "only one choice").
   const [focusIdx, setFocusIdx] = useState(Math.floor(themes.length / 2));
+  // Token that increments every time a pack is tapped. Used as the
+  // `key` on the focused pack's animation wrapper so React remounts
+  // it and the entrance keyframe (`spFanIn`, mirroring the Home hero
+  // fan-in) replays on every selection.
+  const [focusKey, setFocusKey] = useState(0);
+  // Confirm cinematic — when the player commits, the focused pack
+  // plays the PackOpening lift + tension animation before we hand
+  // off to onPick. Same easing as PackOpening's `lift` and `tension`
+  // stages so the StarterPick → StarterPackOpen handoff visually
+  // continues a single shake.
+  const [confirming, setConfirming] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+  }, []);
+
   const focused = themes[focusIdx];
   if (!focused) return null;
   const focusedEl = ELEMENTS[focused.id];
 
+  const pickFocus = (i: number) => {
+    if (confirming) return;
+    if (i === focusIdx) {
+      // Re-tapping the focused pack just replays its entrance —
+      // gives the same satisfying "spring forward" feel users get
+      // from tapping a side pack to bring it forward.
+      setFocusKey(k => k + 1);
+      return;
+    }
+    setFocusIdx(i);
+    setFocusKey(k => k + 1);
+  };
+
+  const onConfirm = () => {
+    if (confirming) return;
+    setConfirming(true);
+    // 620ms = packLift (600ms) + the start of packTension. We hand
+    // off to StarterPackOpen here; its own cinematic continues the
+    // shake → burst sequence.
+    confirmTimer.current = setTimeout(() => onPick(focused.id), 620);
+  };
+
   return (
-    <div className="sp-root">
+    <div className="sp-root" data-confirming={confirming}>
       <StarterPickStyles />
-      {onCancel && (
+      {onCancel && !confirming && (
         <button
           className="sp-close"
           onClick={onCancel}
@@ -75,57 +113,69 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
           // focused pack rendered on top of its neighbours.
           const offset = i - focusIdx;
           const isFocused = offset === 0;
+          // Each focus selection bumps focusKey, which re-mounts the
+          // focused pack's animation wrapper so the entrance keyframe
+          // replays — same trick as the Home hero fan.
+          const animKey = isFocused ? `${theme.id}-${focusKey}` : theme.id;
           return (
-            <button
-              key={theme.id}
-              className="bp sp-bp"
+            <div
+              key={animKey}
+              className="sp-anim"
               data-focused={isFocused}
-              data-offset={offset}
-              onClick={() => setFocusIdx(i)}
-              aria-label={`${el.name} starter deck${isFocused ? ' — focused' : ''}`}
-              style={{
-                background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
-                '--offset': offset,
-              } as React.CSSProperties}
+              data-confirming={isFocused && confirming}
             >
-              <div className="bp-tear" aria-hidden>
-                <div className="bp-tear-pattern" />
-                <div className="bp-tear-label">PULL</div>
-              </div>
-              <div className="bp-foil" aria-hidden />
-              <div className="bp-sigil" aria-hidden>
-                <ElementGlyph el={theme.id} size={56} />
-              </div>
-              <div className="bp-wordmark">
-                <div className="bp-eyebrow">Starter pack</div>
-                <div className="bp-name">{theme.name}</div>
-                <div className="bp-pitch">{theme.pitch}</div>
-              </div>
-              <div className="bp-band">
-                <div className="bp-band-l">
-                  <span>12 cards</span>
-                  <span className="bp-band-dot">·</span>
-                  <span className="bp-band-rare">Beginner</span>
+              <button
+                className="bp sp-bp"
+                data-focused={isFocused}
+                data-offset={offset}
+                disabled={confirming}
+                onClick={() => pickFocus(i)}
+                aria-label={`${el.name} starter deck${isFocused ? ' — focused' : ''}`}
+                style={{
+                  background: `linear-gradient(165deg, ${el.color} 0%, ${el.deep} 100%)`,
+                  '--offset': offset,
+                } as React.CSSProperties}
+              >
+                <div className="bp-tear" aria-hidden>
+                  <div className="bp-tear-pattern" />
+                  <div className="bp-tear-label">PULL</div>
                 </div>
-                <span className="bp-coin">
-                  <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
-                  FREE
-                </span>
-              </div>
-            </button>
+                <div className="bp-foil" aria-hidden />
+                <div className="bp-sigil" aria-hidden>
+                  <ElementGlyph el={theme.id} size={56} />
+                </div>
+                <div className="bp-wordmark">
+                  <div className="bp-eyebrow">Starter pack</div>
+                  <div className="bp-name">{theme.name}</div>
+                  <div className="bp-pitch">{theme.pitch}</div>
+                </div>
+                <div className="bp-band">
+                  <div className="bp-band-l">
+                    <span>12 cards</span>
+                    <span className="bp-band-dot">·</span>
+                    <span className="bp-band-rare">Beginner</span>
+                  </div>
+                  <span className="bp-coin">
+                    <Coins size={11} fill="#ffd166" color="#c08620" strokeWidth={2.2} />
+                    FREE
+                  </span>
+                </div>
+              </button>
+            </div>
           );
         })}
       </div>
 
       <button
         className="sp-confirm"
-        onClick={() => onPick(focused.id)}
+        onClick={onConfirm}
+        disabled={confirming}
         style={{
           '--theme-color': focusedEl.color,
           '--theme-deep': focusedEl.deep,
         } as React.CSSProperties}
       >
-        <span>Take the {focused.name} deck</span>
+        <span>{confirming ? `Opening ${focused.name}…` : `Take the ${focused.name} deck`}</span>
         <ChevronRight size={18} strokeWidth={2.4} />
       </button>
     </div>
@@ -220,6 +270,23 @@ function StarterPickStyles() {
         place-items: center;
         perspective: 900px;
       }
+      /* Per-pack animation wrapper. Holds the spFanIn entrance + the
+         spConfirmLift/Tension cinematic. Wrapping rather than putting
+         these on .sp-bp directly keeps the existing data-focused
+         transforms (rotation / translate / scale) untouched — the
+         entrance/exit animations compose on top via a separate
+         transform layer. */
+      .sp-anim {
+        display: contents;
+      }
+      .sp-anim[data-focused="true"] > .sp-bp {
+        animation: spFanIn 0.5s cubic-bezier(.22,.85,.3,1.15) both;
+      }
+      .sp-anim[data-confirming="true"] > .sp-bp {
+        animation:
+          spConfirmLift 0.6s cubic-bezier(.18,.85,.3,1.1) both,
+          spConfirmTension 0.32s ease-in-out 0.6s 1 both;
+      }
       .sp-bp {
         position: absolute;
         width: 220px;
@@ -237,6 +304,34 @@ function StarterPickStyles() {
         transform-origin: 50% 110%;
         transition: transform .35s cubic-bezier(.2,.85,.3,1), filter .25s, box-shadow .25s;
         font-family: inherit;
+      }
+      .sp-bp:disabled { cursor: default; }
+
+      /* Selection entrance — replays each time a pack becomes the
+         focused one. Mirrors the home-page hand fan-in (drops in from
+         below with a quick scale-bounce). Lands at scale 1 so it
+         layers cleanly under the data-focused="true" final transform. */
+      @keyframes spFanIn {
+        0%   { opacity: 0; transform: translateY(28px) scale(.7); }
+        45%  { opacity: 1; }
+        70%  { transform: translateY(-6px) scale(1.06); }
+        100% { opacity: 1; transform: translateY(0) scale(1); }
+      }
+
+      /* Confirm cinematic — copied beat-for-beat from PackOpening's
+         packLift + packTension so the StarterPick → StarterPackOpen
+         handoff feels like one continuous shake-and-burst rather than
+         two separate screens. */
+      @keyframes spConfirmLift {
+        0%   { transform: translateY(0) scale(1) rotate(0deg); }
+        100% { transform: translateY(-14px) scale(1.06) rotate(0deg); }
+      }
+      @keyframes spConfirmTension {
+        0%, 100% { transform: translate(0, -14px) rotate(0) scale(1.06); filter: brightness(1); }
+        20%      { transform: translate(-4px, -12px) rotate(-3deg) scale(1.07); filter: brightness(1.06); }
+        40%      { transform: translate(5px, -16px) rotate(3deg) scale(1.08); filter: brightness(1.12); }
+        60%      { transform: translate(-3px, -12px) rotate(-2deg) scale(1.07); filter: brightness(1.18); }
+        80%      { transform: translate(4px, -16px) rotate(2deg) scale(1.09); filter: brightness(1.24); }
       }
       /* Side packs: rotated outward, shrunk, slightly faded — they
          read as "available but not selected". The actual rotation
@@ -304,30 +399,39 @@ function StarterPickStyles() {
           flex-direction: row;
           justify-content: center;
           align-items: center;
-          gap: 40px;
+          gap: 28px;
           perspective: none;
         }
-        .sp-bp { width: 240px; }
+        /* Smaller pack footprint than the original 220px so the
+           header chip + bottom CTA both have breathing room on
+           desktop. ~165px wide × ~229px tall (aspect 0.72). */
+        .sp-bp { width: 165px; }
         .sp-bp[data-focused="false"],
         .sp-bp[data-focused="false"]:hover,
         .sp-bp[data-focused="true"] {
           position: relative;
         }
         .sp-bp[data-focused="false"] {
-          transform: scale(.92);
+          transform: scale(.9);
           filter: brightness(.82) saturate(.88);
         }
-        .sp-bp[data-focused="false"]:hover {
-          transform: scale(.96) translateY(-4px);
+        .sp-bp[data-focused="false"]:hover:not(:disabled) {
+          transform: scale(.94) translateY(-4px);
           filter: brightness(.94) saturate(.95);
         }
         .sp-bp[data-focused="true"] {
-          transform: scale(1.06);
+          transform: scale(1);
         }
         .sp-confirm {
           max-width: 380px;
           margin: 0 auto;
         }
+      }
+      /* Mid-tablet widths (480-720) — keep the fan look but trim the
+         pack width so the focused pack doesn't crowd the header on
+         narrow desktops. */
+      @media (min-width: 481px) and (max-width: 719px) {
+        .sp-bp { width: 180px; }
       }
 
       /* Booster pack internals — copied from PackOpening.tsx's .bp
@@ -435,9 +539,22 @@ function StarterPickStyles() {
         letter-spacing: 0.02em;
         cursor: pointer;
         box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
-        transition: transform .12s, background .25s;
+        transition: transform .12s, background .25s, filter .2s;
       }
-      .sp-confirm:hover { transform: translateY(-1px); }
+      .sp-confirm:hover:not(:disabled) { transform: translateY(-1px); }
+      .sp-confirm:disabled { cursor: default; filter: brightness(.94); }
+      /* During the confirm cinematic, dim the rest of the UI slightly
+         so the player's eye is pulled to the shaking pack instead of
+         the static surrounding chrome. */
+      .sp-root[data-confirming="true"] .sp-head,
+      .sp-root[data-confirming="true"] .sp-confirm {
+        opacity: 0.55;
+        transition: opacity .25s ease-out;
+      }
+      .sp-root[data-confirming="true"] .sp-bp[data-focused="false"] {
+        opacity: 0.25;
+        transition: opacity .25s ease-out;
+      }
     `}</style>
   );
 }
