@@ -505,65 +505,53 @@ function PitchSection() {
 }
 
 // ============================================================================
-// Gameplay preview — a looping mockup of one turn unfolding on the
-// match board. CSS-only (no real engine): mana orbs light up, a card
-// flies from hand to board, then a strike pulses the opponent's HP.
-// Built to read instantly on a glance, not to be a full match sim.
+// Gameplay preview — a tutorial-style attack loop. One creature swings
+// across the lane, slams a defender, defender flashes red and dies,
+// attacker returns to its slot, defender respawns. CSS-only, ~4.5s loop.
+// Mirrors the moment the in-game Tutorial teaches at turn 5: drag your
+// creature onto an enemy to kill it.
 // ============================================================================
 
 function GameplayPreview() {
   return (
     <section className="landing-gameplay">
-      <div className="landing-section-title"><span>Watch a turn</span></div>
+      <div className="landing-section-title"><span>Combat in motion</span></div>
       <div className="gp-frame">
-        {/* Opponent strip */}
+        {/* Opponent strip: portrait + one defender creature on the
+            board. The defender is the one taking the hit. */}
         <div className="gp-row gp-opp">
-          <div className="gp-portrait gp-portrait-opp" aria-hidden>
+          <div className="gp-portrait">
             <div className="gp-portrait-name">Vex</div>
             <div className="gp-hpbar">
-              <div className="gp-hpbar-fill gp-hpbar-fill-opp" />
-              <span className="gp-hpbar-text">18 / 24</span>
+              <div className="gp-hpbar-fill" />
+              <span className="gp-hpbar-text">24 / 24</span>
             </div>
           </div>
-          <div className="gp-board">
-            <GpBoardCard el="work" name="Intern" atk={1} hp={1} />
+          <div className="gp-board gp-board-opp">
+            <div className="gp-slot gp-slot-defender">
+              <GpBoardCard el="work" name="Intern" atk={1} hp={1} dying />
+              <div className="gp-impact" aria-hidden />
+            </div>
           </div>
         </div>
 
-        {/* Center divider — the 'attack lane' the strike crosses */}
-        <div className="gp-lane">
-          <div className="gp-attack-arrow" aria-hidden>
-            <svg width="40" height="40" viewBox="0 0 40 40">
-              <path d="M20 4 L28 20 L22 20 L22 36 L18 36 L18 20 L12 20 Z"
-                fill="#ee5a52" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" />
-            </svg>
-          </div>
-        </div>
+        {/* The attack lane between the two boards. Empty — the strike
+            visual is on the attacker itself, not a separate arrow. */}
+        <div className="gp-lane" />
 
-        {/* Player strip — board + hand + mana */}
+        {/* Player strip: one creature (the attacker) plus a tap hint
+            ring that pulses to teach the action. */}
         <div className="gp-row gp-me">
           <div className="gp-board gp-board-me">
-            <GpBoardCard el="animals" name="Dog" atk={2} hp={4} taunt />
-            <GpBoardCard el="family" name="Mom" atk={3} hp={4} entering />
-          </div>
-        </div>
-
-        <div className="gp-hand-row">
-          <div className="gp-mana">
-            {[1, 2, 3, 4].map(i => (
-              <span key={i} className={`gp-orb ${i <= 3 ? 'gp-orb-on' : ''} ${i === 3 ? 'gp-orb-spending' : ''}`} />
-            ))}
-            <span className="gp-mana-text">3 / 4</span>
-          </div>
-          <div className="gp-hand">
-            <GpHandCard el="family" name="Mom" cost={3} flying />
-            <GpHandCard el="work" name="Coffee" cost={2} />
-            <GpHandCard el="animals" name="Treats" cost={3} />
+            <div className="gp-slot gp-slot-attacker">
+              <div className="gp-tap-hint" aria-hidden />
+              <GpBoardCard el="animals" name="Dog" atk={2} hp={4} attacker />
+            </div>
           </div>
         </div>
       </div>
       <div className="gp-caption">
-        24 HP each. Mana ramps 1 → 10. Drag a card from your hand to play it; tap a creature to attack.
+        Drag your creature onto an enemy. Whoever has higher attack wins the trade — and Taunt creatures must be hit first.
       </div>
     </section>
   );
@@ -571,12 +559,17 @@ function GameplayPreview() {
 
 function GpBoardCard(props: {
   el: ElementId; name: string; atk: number; hp: number;
-  taunt?: boolean; entering?: boolean;
+  taunt?: boolean; attacker?: boolean; dying?: boolean;
 }) {
   const def = ELEMENTS[props.el];
+  const cls = [
+    'gp-bcard',
+    props.attacker ? 'gp-bcard-attacker' : '',
+    props.dying ? 'gp-bcard-dying' : '',
+  ].filter(Boolean).join(' ');
   return (
     <div
-      className={`gp-bcard ${props.entering ? 'gp-bcard-entering' : ''}`}
+      className={cls}
       style={{
         background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
         borderColor: def.glow,
@@ -590,25 +583,6 @@ function GpBoardCard(props: {
         <span className="gp-bcard-hp">{props.hp}</span>
       </div>
       {props.taunt && <div className="gp-taunt-rim" aria-hidden />}
-    </div>
-  );
-}
-
-function GpHandCard(props: { el: ElementId; name: string; cost: number; flying?: boolean }) {
-  const def = ELEMENTS[props.el];
-  return (
-    <div
-      className={`gp-hcard ${props.flying ? 'gp-hcard-flying' : ''}`}
-      style={{
-        background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
-        borderColor: def.glow,
-      }}
-    >
-      <div className="gp-hcard-cost" style={{ background: def.glow, color: def.deep }}>
-        {props.cost}
-      </div>
-      <div className="gp-hcard-icon"><ThemeIcon el={props.el} size={26} /></div>
-      <div className="gp-hcard-name">{props.name}</div>
     </div>
   );
 }
@@ -1409,43 +1383,43 @@ const LANDING_CSS = `
   }
 
   /* Gameplay preview ------------------------------------------------- */
-  /* The whole demo runs on a single 6-second loop. Mana orb 3 dims
-     just before the Mom card peels off the hand and lands on the
-     board, then the strike arrow sweeps up and the opponent HP bar
-     shudders down — order matters because real plays go in that
-     sequence in-game. */
-  @keyframes gp-fly {
-    0%, 30%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
-    50%       { transform: translate(0, -90px) scale(1.08) rotate(-2deg); opacity: 1; }
-    65%       { transform: translate(0, -150px) scale(.95) rotate(0); opacity: 0; }
-    100%      { transform: translate(0, -150px) scale(.95) rotate(0); opacity: 0; }
+  /* Tutorial-style combat loop, 4.5s. Order on the same timeline so
+     the strike, impact, and defender's death all stay in sync:
+       0–18%   rest pose, tap-hint ring pulses on the attacker
+       18–42%  attacker rears back, then lunges up across the lane
+       42–48%  impact: white flash + defender red-shake
+       48–66%  attacker returns home; defender keeps fading
+       66–88%  empty defender slot (the kill landed)
+       88–100% defender fades back in (next turn — loop reset) */
+  @keyframes gp-attack {
+    0%, 18%  { transform: translate(0, 0) rotate(0) scale(1); }
+    28%      { transform: translate(0, 8px) rotate(-3deg) scale(.96); }
+    42%      { transform: translate(0, -120px) rotate(4deg) scale(1.08); }
+    48%      { transform: translate(0, -120px) rotate(4deg) scale(1.08); }
+    66%, 100%{ transform: translate(0, 0) rotate(0) scale(1); }
   }
-  @keyframes gp-enter {
-    0%, 55%   { opacity: 0; transform: translateY(10px) scale(.9); }
-    70%       { opacity: 1; transform: translateY(-2px) scale(1.04); }
-    80%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+  @keyframes gp-defender {
+    0%, 42%   { opacity: 1; filter: none; transform: translate(0,0); }
+    44%       { opacity: 1; filter: brightness(2) saturate(1.4) drop-shadow(0 0 8px #ee5a52); transform: translateX(-3px); }
+    46%       { transform: translateX(4px); }
+    48%       { transform: translateX(-2px); }
+    58%       { opacity: 0; transform: translate(0, 10px) scale(.85); filter: none; }
+    88%       { opacity: 0; transform: translate(0, 10px) scale(.85); }
+    100%      { opacity: 1; transform: translate(0,0) scale(1); }
   }
-  @keyframes gp-strike {
-    0%, 78%   { opacity: 0; transform: translateY(20px) scale(.6); }
-    84%       { opacity: 1; transform: translateY(-30px) scale(1.2); }
-    92%       { opacity: .6; transform: translateY(-60px) scale(.9); }
-    100%      { opacity: 0; transform: translateY(-70px) scale(.7); }
+  @keyframes gp-impact {
+    0%, 40%   { opacity: 0; transform: scale(.4); }
+    44%       { opacity: 1; transform: scale(1.4); }
+    52%       { opacity: 0; transform: scale(1.8); }
+    100%      { opacity: 0; transform: scale(1.8); }
   }
-  @keyframes gp-hp-drop {
-    0%, 82%   { width: 100%; }
-    88%       { width: 75%; }
-    100%      { width: 75%; }
+  @keyframes gp-hint {
+    0%, 18%   { opacity: 1; transform: scale(1); }
+    20%, 100% { opacity: 0; transform: scale(1.4); }
   }
-  @keyframes gp-hp-shake {
-    0%, 82%   { transform: translateX(0); }
-    84%       { transform: translateX(-2px); }
-    86%       { transform: translateX(2px); }
-    88%, 100% { transform: translateX(0); }
-  }
-  @keyframes gp-orb-spend {
-    0%, 38%   { transform: scale(1); filter: brightness(1); }
-    44%       { transform: scale(1.3); filter: brightness(1.6); }
-    50%, 100% { transform: scale(1); filter: brightness(.55) saturate(.4); }
+  @keyframes gp-hint-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, .55); }
+    50%      { box-shadow: 0 0 0 10px rgba(238, 90, 82, 0); }
   }
 
   .landing-gameplay { padding: 24px 20px; position: relative; z-index: 2; }
@@ -1457,6 +1431,7 @@ const LANDING_CSS = `
     padding: 14px 12px 12px;
     box-shadow: 0 10px 28px rgba(58, 46, 42, .12), inset 0 0 0 1px rgba(255,255,255,.4);
     position: relative;
+    overflow: hidden;
   }
   .gp-row {
     display: flex; align-items: center; gap: 10px;
@@ -1485,10 +1460,6 @@ const LANDING_CSS = `
     background: linear-gradient(90deg, #06d6a0 0%, #f4d04a 70%, #ee5a52 100%);
     border-radius: 6px;
   }
-  .gp-hpbar-fill-opp {
-    animation: gp-hp-drop 6s ease-in-out infinite,
-               gp-hp-shake 6s ease-in-out infinite;
-  }
   .gp-hpbar-text {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -1500,17 +1471,25 @@ const LANDING_CSS = `
 
   .gp-board {
     flex: 1;
-    display: flex; gap: 6px; justify-content: flex-end;
-    min-height: 78px;
+    display: flex; gap: 6px; justify-content: center;
+    min-height: 86px;
   }
-  .gp-board-me {
-    justify-content: center;
+  .gp-board-opp { justify-content: flex-end; }
+  .gp-board-me  { justify-content: center; }
+
+  /* Slot — wraps a creature plus its overlays (impact burst on the
+     defender, tap-hint ring on the attacker). Positioned relatively
+     so the overlays can sit absolutely against the slot, not the
+     creature itself (the creature is what's translating). */
+  .gp-slot {
+    position: relative;
+    width: 64px; height: 78px;
   }
 
   /* Board card — mini representation of a creature on the field */
   .gp-bcard {
     position: relative;
-    width: 64px; height: 78px;
+    width: 100%; height: 100%;
     border-radius: 8px;
     border: 1.5px solid;
     padding: 4px;
@@ -1518,7 +1497,8 @@ const LANDING_CSS = `
     color: #fff;
     box-shadow: 0 4px 10px rgba(58, 46, 42, .18);
   }
-  .gp-bcard-entering { animation: gp-enter 6s ease-out infinite; }
+  .gp-bcard-attacker { animation: gp-attack 4.5s cubic-bezier(.6, .1, .4, 1) infinite; }
+  .gp-bcard-dying    { animation: gp-defender 4.5s ease-in-out infinite; }
   .gp-bcard-icon {
     width: 28px; height: 28px; border-radius: 6px;
     background: rgba(255,255,255,.12);
@@ -1538,8 +1518,6 @@ const LANDING_CSS = `
   .gp-bcard-atk { color: #ffd166; }
   .gp-bcard-sep { color: rgba(255,255,255,.6); margin: 0 1px; }
   .gp-bcard-hp  { color: #ff7e9a; }
-  /* Taunt rim — yellow halo around the Dog card. Matches the in-game
-     visual cue (taunt creatures glow). */
   .gp-taunt-rim {
     position: absolute; inset: -3px;
     border-radius: 11px;
@@ -1548,75 +1526,45 @@ const LANDING_CSS = `
     box-shadow: 0 0 12px rgba(255, 209, 102, .5);
   }
 
-  /* The 'attack lane' between the two boards. An animated arrow
-     crosses it once per loop. */
-  .gp-lane {
-    position: relative; height: 8px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  .gp-attack-arrow {
-    position: absolute;
-    animation: gp-strike 6s ease-out infinite;
+  /* Impact burst — white starburst on the defender at the moment of
+     collision. Sits at the slot's center so it survives the
+     defender's translate. */
+  .gp-impact {
+    position: absolute; inset: 50% 50% auto auto;
+    width: 56px; height: 56px;
+    transform: translate(50%, -50%) scale(.4);
+    opacity: 0;
+    background:
+      radial-gradient(circle, #fff 0%, rgba(255,255,255,.7) 30%, transparent 70%),
+      conic-gradient(from 0deg,
+        #ee5a52 0deg, transparent 30deg,
+        #ffd166 60deg, transparent 90deg,
+        #ee5a52 120deg, transparent 150deg,
+        #ffd166 180deg, transparent 210deg,
+        #ee5a52 240deg, transparent 270deg,
+        #ffd166 300deg, transparent 330deg);
+    border-radius: 50%;
+    pointer-events: none;
+    animation: gp-impact 4.5s ease-out infinite;
+    mix-blend-mode: screen;
   }
 
-  .gp-hand-row {
-    margin-top: 8px;
-    padding-top: 10px;
-    border-top: 1px dashed rgba(58, 46, 42, .15);
-    display: flex; flex-direction: column; gap: 8px;
+  /* Tap-hint ring — pulses around the attacker before the lunge so a
+     first-time viewer understands what to do. Fades out the moment
+     the attack starts. */
+  .gp-tap-hint {
+    position: absolute; inset: -6px;
+    border-radius: 12px;
+    border: 2px solid rgba(238, 90, 82, .9);
+    pointer-events: none;
+    animation:
+      gp-hint 4.5s ease-out infinite,
+      gp-hint-pulse 1.2s ease-out infinite;
   }
-  .gp-mana {
-    display: flex; align-items: center; gap: 5px;
-    padding: 0 4px;
-    font-size: 11px; color: #7a5a52; font-weight: 600;
-  }
-  .gp-orb {
-    width: 12px; height: 12px; border-radius: 50%;
-    background: rgba(58, 46, 42, .14);
-    border: 1px solid rgba(58, 46, 42, .18);
-  }
-  .gp-orb-on {
-    background: radial-gradient(circle at 35% 30%, #6cd3ff 0%, #3a8fc4 70%);
-    border-color: #2b6f9d;
-    box-shadow: 0 0 6px rgba(58, 143, 196, .6);
-  }
-  .gp-orb-spending { animation: gp-orb-spend 6s ease-in-out infinite; }
-  .gp-mana-text { margin-left: 4px; }
 
-  .gp-hand {
-    display: flex; gap: 8px; justify-content: center;
-    padding: 4px 0 2px;
-  }
-  .gp-hcard {
-    position: relative;
-    width: 60px; height: 84px;
-    border-radius: 8px;
-    border: 1.5px solid;
-    padding: 4px;
-    color: #fff;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-    box-shadow: 0 6px 12px rgba(58, 46, 42, .2);
-  }
-  .gp-hcard-flying { animation: gp-fly 6s ease-in-out infinite; }
-  .gp-hcard-cost {
-    position: absolute; top: -6px; left: -6px;
-    width: 18px; height: 18px; border-radius: 50%;
-    display: grid; place-items: center;
-    font-size: 10px; font-weight: 800;
-    box-shadow: 0 2px 4px rgba(58, 46, 42, .25);
-  }
-  .gp-hcard-icon {
-    width: 32px; height: 32px; border-radius: 6px;
-    background: rgba(255,255,255,.12);
-    display: grid; place-items: center;
-    margin-top: 8px;
-  }
-  .gp-hcard-name {
-    font-size: 9px; font-weight: 700;
-    text-shadow: 0 1px 1px rgba(0,0,0,.5);
-    text-align: center;
-    line-height: 1.1;
-  }
+  /* The attack lane between the two boards — purely visual padding so
+     the attacker has room to travel without overlap on rest. */
+  .gp-lane { height: 4px; }
 
   .gp-caption {
     margin: 14px auto 0;
