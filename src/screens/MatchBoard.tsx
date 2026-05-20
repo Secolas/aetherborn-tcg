@@ -4537,7 +4537,7 @@ function StatusLabels({
 }
 
 /** Skull-icon pill that opens the graveyard modal for one player's pile. */
-function GraveyardButton({ count, onClick, elRef, pulseKey }: {
+export function GraveyardButton({ count, onClick, elRef, pulseKey }: {
   count: number;
   onClick: () => void;
   /** Forwarded so MatchBoard can capture this button's position into
@@ -4797,7 +4797,7 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, onLongPress, damage, e
  *  PVP chat emote — bubble + picker
  * ============================================================ */
 
-function EmoteBubble({ id, bubbleKey, placement }: {
+export function EmoteBubble({ id, bubbleKey, placement }: {
   id: ChatEmoteId;
   bubbleKey: number;
   placement: 'above' | 'below';
@@ -4945,7 +4945,7 @@ function EmotePicker({
  * enough and dropping the names removes the layout asymmetry that the
  * names were creating).
  */
-function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, pulseRing, hit, damage, onClick, elRef }: {
+export function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, pulseRing, hit, damage, onClick, elRef }: {
   /** Centered fallback content shown when no avatarPhoto is set —
    *  usually a letter (for bosses) or a Lucide icon (for the player's
    *  default state). Accepts any ReactNode so callers can pass an
@@ -5059,7 +5059,7 @@ function InfoRow({ icon, label, value, tint, last }: {
  * the cap approaches: white → orange (≤5 left) → red (≤2 left), so the
  * player always knows whether they need to push for the kill or hold HP.
  */
-function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
+export function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
   return (
     <div style={{
       background: '#fff',
@@ -5077,7 +5077,7 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
   );
 }
 
-function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
+export function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
   // Circle that fills with liquid from the bottom — same shape as the card
   // cost badge so players immediately read "this number = those circles on cards".
   const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;

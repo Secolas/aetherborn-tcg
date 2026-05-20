@@ -2,7 +2,10 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
+import { UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2 } from 'lucide-react';
+import { iconBtn } from '../components/styles';
 import { BattlefieldCard } from '../components/BattlefieldCard';
+import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
 import { CosmeticsProvider } from '../state/cosmetics';
 import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
@@ -30,7 +33,10 @@ const THEME_ICON: Record<ElementId, ComponentType<{ size?: number; color?: strin
  */
 export function LandingPage() {
   const { signUp, signIn, signInWithGoogle, unconfigured } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  // Default to signup on the landing — most visitors are new users.
+  // Returning players have the "Sign in" button in the top bar (and
+  // can flip the form with the "Already have a deck?" toggle below).
+  const [mode, setMode] = useState<'signin' | 'signup'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -100,6 +106,10 @@ export function LandingPage() {
         <PitchSection />
 
         <GameplayPreview />
+
+        <AbilitiesSection />
+
+        <BondsSection />
 
         <ThemeGrid />
 
@@ -522,23 +532,30 @@ function PitchSection() {
 type GpPhase = 'rest' | 'lunge' | 'impact' | 'dying' | 'empty';
 
 /** Phase timings, in ms. Picked to line up with BattlefieldCard's
- *  internal keyframes: lungeUp is 750ms, the impact burst is 800ms,
- *  the dying slice is 850ms, so each phase gets just enough screen
- *  time to read before the next one stacks on. */
+ *  internal keyframes plus the flyToGrave overlay: lungeUp is 750ms,
+ *  the impact burst is 800ms, and the flyToGrave keyframe (the card
+ *  arcing into the graveyard) runs 1.1s. The dying phase has to
+ *  cover that flight or the wrapper unmounts mid-air. */
 const GP_SCHEDULE: { phase: GpPhase; ms: number }[] = [
   { phase: 'rest',   ms: 1400 },
   { phase: 'lunge',  ms: 750  },
   { phase: 'impact', ms: 250  },
-  { phase: 'dying',  ms: 900  },
-  { phase: 'empty',  ms: 700  },
+  { phase: 'dying',  ms: 1200 },
+  { phase: 'empty',  ms: 600  },
 ];
 
+/** Match's TURN_LIMIT — kept in lockstep with src/game/match.ts. We
+ *  don't import the constant to avoid pulling the whole engine module
+ *  into the landing chunk; 12 is the published default. */
+const GP_TURN_LIMIT = 12;
+
 /** Build a `BattleCard` from a template id plus a fresh `battleId`.
- *  Everything the BattlefieldCard reads (currentAtk, currentHp,
- *  tapped, frozen…) is hard-coded since there's no engine running
- *  here. `justPlayed` is true so the cardSlam summon animation plays
- *  the moment the card mounts — gives the loop's "next turn" reset a
- *  visible beat. */
+ *  Hard-coded everything BattlefieldCard reads — no engine running
+ *  here. `justPlayed: false` so neither creature renders the sleeping
+ *  moon overlay; the demo treats both as already-awake board state.
+ *  cardSlam (the summon-dust animation) fires once on first mount of
+ *  the component and never again, because we keep the BattlefieldCards
+ *  permanently mounted across loop cycles. */
 function makeDemoBattleCard(templateId: string, battleId: string): BattleCard {
   const tpl = getTemplateById(templateId)!;
   return {
@@ -549,16 +566,30 @@ function makeDemoBattleCard(templateId: string, battleId: string): BattleCard {
     currentAtk: tpl.atk,
     currentHp: tpl.hp,
     tapped: false,
-    justPlayed: true,
+    justPlayed: false,
     frozen: false,
   };
 }
 
 function GameplayPreview() {
   const [phase, setPhase] = useState<GpPhase>('rest');
-  // Increments every time the loop wraps. Used as the key on the
-  // defender so it remounts with a fresh cardSlam after a kill.
-  const [loopKey, setLoopKey] = useState(0);
+  // Bumps the moment the defender takes lethal damage. Re-keys the
+  // EmoteBubble so its in/out animation replays — Mom reacts "Oops…"
+  // every time her creature gets killed, and the player throws back
+  // a "Nice!" on the same beat.
+  const [oppEmoteKey, setOppEmoteKey] = useState(0);
+  const [playerEmoteKey, setPlayerEmoteKey] = useState(0);
+  // Re-keys the opponent's graveyard chip so the gravePulse animation
+  // plays each time a card lands in the bin.
+  const [graveCount, setGraveCount] = useState(0);
+  const [gravePulseKey, setGravePulseKey] = useState(0);
+  // Refs into the defender slot + opponent graveyard chip, so we can
+  // measure the delta and feed it into the flyToGrave keyframe as
+  // --gx/--gy. Without these the card would fly to (0,0) instead of
+  // arcing into the actual graveyard icon.
+  const defenderSlotRef = useRef<HTMLDivElement>(null);
+  const oppGraveRef = useRef<HTMLButtonElement>(null);
+  const [graveDelta, setGraveDelta] = useState<{ gx: number; gy: number }>({ gx: 0, gy: 0 });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -566,9 +597,28 @@ function GameplayPreview() {
     const tick = () => {
       const step = GP_SCHEDULE[idx];
       setPhase(step.phase);
+      // Trigger Mom's "Oops…" + the player's "Nice!" emote, bump the
+      // opponent graveyard count, and recompute the flyToGrave path —
+      // all on the same beat the defender takes lethal damage. The
+      // path re-measure has to happen here (not on dying) because the
+      // BattlefieldCard's internal layout shifts as the dying slice
+      // starts; latching the delta on impact gives a clean arc.
+      if (step.phase === 'impact') {
+        setOppEmoteKey(k => k + 1);
+        setPlayerEmoteKey(k => k + 1);
+        setGraveCount(c => c + 1);
+        setGravePulseKey(k => k + 1);
+        const slot = defenderSlotRef.current?.getBoundingClientRect();
+        const grave = oppGraveRef.current?.getBoundingClientRect();
+        if (slot && grave) {
+          setGraveDelta({
+            gx: (grave.left + grave.width / 2) - (slot.left + slot.width / 2),
+            gy: (grave.top + grave.height / 2) - (slot.top + slot.height / 2),
+          });
+        }
+      }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
-        if (idx === 0) setLoopKey(k => k + 1);
         tick();
       }, step.ms);
     };
@@ -576,82 +626,347 @@ function GameplayPreview() {
     return () => { if (timer) clearTimeout(timer); };
   }, []);
 
-  // Build the two cards. The attacker is stable across the loop (a
-  // single ref so its mount-time cardSlam doesn't re-fire every time
-  // setPhase rerenders). The defender is keyed on loopKey so a new
-  // BattleCard instance arrives on every loop wrap, replaying the
-  // summon dust just like a freshly-summoned card would in-game.
+  // Dog (2/4, animals) attacks Cousin (2/2, family). Dog deals 2 →
+  // Cousin dies in one hit, but Cousin's 2 atk counter-hits Dog so
+  // Dog drops 4 → 2 hp. Cousin is Mom's thematic minion. Both
+  // creatures are memoized once and never re-mounted, so cardSlam
+  // only plays once (on initial scroll-into-view), not on every loop.
+  // Both creatures are mounted once and stay across every loop —
+  // keeping them stable suppresses the cardSlam summon animation on
+  // each cycle. The user reads "Cousin was already on the board"
+  // instead of "Mom just played Cousin again". The wrapper's
+  // flyToGrave animation visually clears the defender during dying,
+  // and removing that animation on the next 'rest' phase silently
+  // restores it.
   const attacker = useMemo(() => makeDemoBattleCard('ani-05', 'gp-attacker'), []);
-  const defender = useMemo(
-    () => makeDemoBattleCard('wrk-01', `gp-defender-${loopKey}`),
-    [loopKey],
-  );
+  const defender = useMemo(() => makeDemoBattleCard('fam-02', 'gp-defender'), []);
 
   const isLunging = phase === 'lunge';
   const isImpact  = phase === 'impact';
   const isDying   = phase === 'dying' || phase === 'impact';
   const damage    = phase === 'impact' || phase === 'dying' ? 2 : null;
-  const showDefender = phase !== 'empty';
+
+  // Counter-damage from the trade. Dog (2/4) hits Cousin (2/2):
+  // Cousin dies to Dog's 2 atk, but Dog also takes Cousin's 2 atk
+  // back. Reflect that on the attacker — drop currentHp from 4 → 2
+  // through impact/dying/empty, and show the matching damage popup
+  // on the same beat. Loop wraps to 'rest' which restores 4/4 (next
+  // turn: Mom plays a fresh minion, Dog comes in healed).
+  const attackerDamaged = phase !== 'rest' && phase !== 'lunge';
+  const attackerHp = attackerDamaged ? 2 : 4;
+  const attackerDmg = phase === 'impact' || phase === 'dying' ? 2 : null;
+  const attackerCard: BattleCard = { ...attacker, currentHp: attackerHp };
+
+  // Match the in-game OpponentPortrait wiring for the Mom boss: family
+  // theme palette, photo avatar from /cards/mom.webp. The themeed
+  // gradient ring is exactly what the match header uses.
+  const fam = ELEMENTS.family;
 
   return (
     <section className="landing-gameplay">
       <div className="landing-section-title"><span>Combat in motion</span></div>
 
       {/* Daylight board skin — same warm tabletop the in-game match
-          uses by default. Wrapping in CosmeticsProvider (inMatch:
-          false) is required so BattlefieldCard's useCosmetics hook
-          has a context to read; we leave inMatch off so the demo
-          uses the unframed default chrome, which is what brand-new
-          players see anyway. */}
+          uses by default. CosmeticsProvider (inMatch: false) so
+          BattlefieldCard's useCosmetics hook has a context; leaving
+          inMatch off keeps the demo on unframed default chrome,
+          which is what a brand-new player sees. */}
       <CosmeticsProvider>
         <div className="gp-board">
-          <div className="gp-side gp-side-opp">
-            <div className="gp-portrait">
-              <div className="gp-portrait-name">Vex</div>
-              <div className="gp-hpbar">
-                <div className="gp-hpbar-fill" />
-                <span className="gp-hpbar-text">24 / 24</span>
-              </div>
+          {/* Opponent header: portrait + mana + name on the left,
+              graveyard chip on the right. The Portrait wrapper is
+              position: relative so the EmoteBubble (absolutely
+              positioned) anchors to it. The bubble re-keys whenever
+              Mom's minion is killed — same wiring the PVP code path
+              uses for live chat reactions. */}
+          <div className="gp-header">
+            <div className="gp-portrait-wrap">
+              <Portrait
+                avatar=""
+                avatarPhoto="/cards/mom.webp"
+                avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
+                avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
+                hp={20}
+                ring={null}
+                hit={false}
+                damage={null}
+                onClick={() => {}}
+              />
+              {oppEmoteKey > 0 && (
+                <EmoteBubble id="oops" bubbleKey={oppEmoteKey} placement="below" />
+              )}
             </div>
-            <div className="gp-row">
-              {showDefender && (
+            <ManaCrystals mana={3} maxMana={3} />
+            <div className="gp-header-name">Mom</div>
+            <div className="gp-header-spacer" />
+            <GraveyardButton
+              count={graveCount}
+              pulseKey={gravePulseKey}
+              onClick={() => {}}
+              elRef={(el) => { oppGraveRef.current = el; }}
+            />
+          </div>
+
+          {/* Opponent field — three slot zones, same scaffolding the
+              real FieldRow uses (64×88px, dashed border, faint white
+              tint). Empty slots stay visible as constant chrome;
+              cards render inside the center slot on top of them.
+              During the dying phase the wrapper around the live
+              defender plays flyToGrave (1.1s arc into Mom's
+              graveyard chip — --gx/--gy are measured live on
+              impact). */}
+          <div className="gp-field">
+            <div className="gp-slot" />
+            <div className="gp-slot">
+              <div
+                ref={defenderSlotRef}
+                style={isDying || phase === 'empty' ? {
+                  // flyToGrave's `both` fill mode retains the final
+                  // keyframe (opacity 0, shrunk at the grave)
+                  // through 'empty'; removing the animation on the
+                  // next 'rest' releases the element back to its
+                  // base styles, so Cousin reappears silently in her
+                  // slot — no summon animation.
+                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
+                  ['--gx' as string]: `${graveDelta.gx}px`,
+                  ['--gy' as string]: `${graveDelta.gy}px`,
+                  pointerEvents: 'none',
+                  zIndex: 8,
+                } : {}}
+              >
                 <BattlefieldCard
-                  key={defender.battleId}
                   card={defender}
                   impact={isImpact}
                   dying={isDying}
                   damage={damage}
                   owned={false}
+                  skipSummonFx
                 />
-              )}
+              </div>
             </div>
+            <div className="gp-slot" />
           </div>
 
-          <div className="gp-divider" aria-hidden />
+          {/* Center band — same shape as the in-game divider:
+              dashed border top + bottom, TurnChip + Flag (give-up)
+              on the LEFT, Swords (Battle Phase) on the right. Turn
+              held static at 4 / 12 since the demo loops on a single
+              attack beat; matches the player's 4/4 mana ramp. */}
+          <div className="gp-divider">
+            <TurnChip turnNumber={4} limit={GP_TURN_LIMIT} />
+            <button style={iconBtn} aria-label="Give up" type="button">
+              <Flag size={16} strokeWidth={2.4} />
+            </button>
+            <div className="gp-divider-spacer" />
+            <button style={iconBtn} aria-label="Go to Battle" type="button">
+              <Swords size={18} strokeWidth={2.2} />
+            </button>
+          </div>
 
-          <div className="gp-side gp-side-me">
-            <div className="gp-row">
+          {/* Player field — three slot zones, same scaffolding as
+              the opponent side. Dog sits in the center slot. The
+              idle pulse ring lives on the wrapper, not the slot, so
+              the slot chrome stays consistent. */}
+          <div className="gp-field">
+            <div className="gp-slot" />
+            <div className="gp-slot">
               <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
                 <BattlefieldCard
-                  card={attacker}
+                  card={attackerCard}
                   lunging={isLunging ? 'up' : null}
+                  damage={attackerDmg}
                   owned={true}
+                  skipSummonFx
                 />
               </div>
             </div>
-            <div className="gp-portrait">
-              <div className="gp-portrait-name">You</div>
-              <div className="gp-hpbar">
-                <div className="gp-hpbar-fill" style={{ width: '100%' }} />
-                <span className="gp-hpbar-text">24 / 24</span>
-              </div>
+            <div className="gp-slot" />
+          </div>
+
+          {/* Player footer: portrait + mana + name on the left,
+              graveyard on the right. The portrait wrapper carries
+              a "Nice!" emote that re-keys on every kill, so the
+              player throws a victory reaction on the same beat
+              Mom's "Oops…" lands. */}
+          <div className="gp-header">
+            <div className="gp-portrait-wrap">
+              <Portrait
+                avatar={<UserRound size={18} strokeWidth={2.2} />}
+                avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
+                avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
+                hp={20}
+                ring={null}
+                hit={false}
+                damage={null}
+                onClick={() => {}}
+              />
+              {playerEmoteKey > 0 && (
+                <EmoteBubble id="nice" bubbleKey={playerEmoteKey} placement="above" />
+              )}
             </div>
+            <ManaCrystals mana={4} maxMana={4} />
+            <div className="gp-header-name">You</div>
+            <div className="gp-header-spacer" />
+            <GraveyardButton count={0} onClick={() => {}} />
           </div>
         </div>
       </CosmeticsProvider>
 
       <div className="gp-caption">
         Drag your creature onto an enemy. Whoever has higher attack wins the trade — and Taunt creatures must be hit first.
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Abilities — the in-game keyword roster, colored + iconed to match
+// the actual BattlefieldCard status pills. New visitors get a one-
+// glance read on what the keywords on the showcase cards mean.
+// ============================================================================
+
+interface AbilityDef {
+  name: string;
+  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  color: string;
+  desc: string;
+}
+
+/** Same icon + color set BattlefieldCard's StatusPills use, so the
+ *  ability tile feels like a legend for what the cards on the field
+ *  are already showing. Pulled from src/components/BattlefieldCard.tsx
+ *  lines 510-513. */
+const ABILITIES: AbilityDef[] = [
+  {
+    name: 'Rush',
+    Icon: Zap,
+    color: '#ee5a52',
+    desc: 'Attacks the turn it’s summoned. No waking up — straight into the fight.',
+  },
+  {
+    name: 'Taunt',
+    Icon: Target,
+    color: '#3d8e57',
+    desc: 'Enemies must hit Taunt creatures first. Wall up your board with one.',
+  },
+  {
+    name: 'Untargetable',
+    Icon: ShieldHalf,
+    color: '#7a4ea8',
+    desc: 'Spells can’t pick this creature. The only way through is combat.',
+  },
+  {
+    name: 'Freeze',
+    Icon: Snowflake,
+    color: '#3a8fc4',
+    desc: 'Skips its next turn — can’t attack, can’t trigger end-of-turn effects.',
+  },
+  {
+    name: 'Silence',
+    Icon: Ban,
+    color: '#a47bff',
+    desc: 'Disables its ability. The body stays, the magic doesn’t.',
+  },
+];
+
+function AbilitiesSection() {
+  return (
+    <section className="landing-abilities">
+      <div className="landing-section-title"><span>Abilities</span></div>
+      <div className="landing-abilities-grid">
+        {ABILITIES.map(({ name, Icon, color, desc }) => (
+          <div key={name} className="landing-ability-card">
+            <div className="landing-ability-icon" style={{
+              background: `${color}1a`,
+              color,
+              boxShadow: `inset 0 0 0 1.5px ${color}55`,
+            }}>
+              <Icon size={18} color={color} strokeWidth={2.4} />
+            </div>
+            <div className="landing-ability-body">
+              <div className="landing-ability-name">{name}</div>
+              <div className="landing-ability-desc">{desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Bonds — pairs of cards that, when both are on your field, unlock a
+// combo effect. Pulled straight from src/data/bonds.ts so the
+// names / effects / flavor on the landing match the engine. Showcase
+// three bonds across three themes for variety.
+// ============================================================================
+
+interface BondShowcase {
+  name: string;
+  themeEl: ElementId;
+  cardA: string;
+  cardB: string;
+  effect: string;
+  flavor: string;
+}
+
+const SHOWCASE_BONDS: BondShowcase[] = [
+  {
+    name: 'Family Reunion',
+    themeEl: 'family',
+    cardA: 'Mom',
+    cardB: 'Dad',
+    effect: 'Heal +1 HP at the start of your turn.',
+    flavor: 'Everyone showed up.',
+  },
+  {
+    name: 'House Pets',
+    themeEl: 'animals',
+    cardA: 'Dog',
+    cardB: 'Cat',
+    effect: 'Both gain Taunt.',
+    flavor: 'They were both yours first.',
+  },
+  {
+    name: 'Reporting Line',
+    themeEl: 'work',
+    cardA: 'Intern',
+    cardB: 'Senior Engineer',
+    effect: 'Your spells cost 1 less mana (minimum 1).',
+    flavor: 'He never reads your messages but he’s online.',
+  },
+];
+
+function BondsSection() {
+  return (
+    <section className="landing-bonds">
+      <div className="landing-section-title"><span>Bonds</span></div>
+      <p className="landing-bonds-lede">
+        Some cards belong together. When both halves of a bond are on the field, a hidden combo wakes up — a heal, a buff, a discount. Pair them on purpose.
+      </p>
+      <div className="landing-bonds-grid">
+        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect, flavor }) => {
+          const def = ELEMENTS[themeEl];
+          return (
+            <div key={name} className="landing-bond-card">
+              <div className="landing-bond-header" style={{ color: def.color }}>
+                <Link2 size={14} strokeWidth={2.6} />
+                <span className="landing-bond-name">{name}</span>
+              </div>
+              <div className="landing-bond-pair">
+                <span className="landing-bond-pill" style={{
+                  background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
+                }}>{cardA}</span>
+                <span className="landing-bond-plus">+</span>
+                <span className="landing-bond-pill" style={{
+                  background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
+                }}>{cardB}</span>
+              </div>
+              <div className="landing-bond-effect">{effect}</div>
+              <div className="landing-bond-flavor">{flavor}</div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -666,7 +981,7 @@ function ThemeGrid() {
   return (
     <section className="landing-themes">
       <div className="landing-section-title">
-        <span>Six photo prompts</span>
+        <span>Creatures</span>
       </div>
       <div className="landing-theme-grid">
         {ids.map((id) => {
@@ -1281,6 +1596,101 @@ const LANDING_CSS = `
   .landing-pitch-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #3a2e2a; }
   .landing-pitch-body { font-size: 13px; line-height: 1.5; color: #7a5a52; }
 
+  /* Abilities --------------------------------------------------------- */
+  /* Keyword roster — same icon + color treatment the in-game
+     BattlefieldCard StatusPills use, just blown up so the keyword
+     name + description fit alongside. Card surface is paper white
+     to match the auth/pitch cards. */
+  .landing-abilities { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-abilities-grid {
+    display: grid; grid-template-columns: 1fr; gap: 10px;
+    max-width: 720px; margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .landing-abilities-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .landing-ability-card {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
+  }
+  .landing-ability-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: grid; place-items: center;
+    flex: 0 0 auto;
+  }
+  .landing-ability-name {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700; font-size: 15px;
+    color: #3a2e2a;
+  }
+  .landing-ability-desc {
+    margin-top: 2px;
+    font-size: 12px; line-height: 1.45;
+    color: #7a5a52;
+  }
+
+  /* Bonds ------------------------------------------------------------- */
+  /* Pair-of-cards combo showcase. Each card lists the bond name +
+     Link2 icon, the two cards in themed pills, the mechanical effect,
+     and the flavor line — same shape as the bond entry in bonds.ts. */
+  .landing-bonds { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-bonds-lede {
+    max-width: 540px; margin: 0 auto 18px;
+    text-align: center;
+    font-size: 13px; line-height: 1.55;
+    color: #7a5a52;
+  }
+  .landing-bonds-grid {
+    display: grid; grid-template-columns: 1fr; gap: 12px;
+    max-width: 880px; margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .landing-bonds-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .landing-bond-card {
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .landing-bond-header {
+    display: flex; align-items: center; gap: 6px;
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700;
+  }
+  .landing-bond-name { font-size: 14px; }
+  .landing-bond-pair {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .landing-bond-pill {
+    padding: 4px 10px; border-radius: 999px;
+    color: #fff;
+    font-size: 12px; font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0,0,0,.3);
+    box-shadow: 0 2px 6px rgba(58, 46, 42, .14);
+  }
+  .landing-bond-plus {
+    color: #a89580;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .landing-bond-effect {
+    font-size: 12px; line-height: 1.45;
+    color: #3a2e2a;
+    font-weight: 600;
+  }
+  .landing-bond-flavor {
+    font-size: 11px; line-height: 1.45;
+    color: #a89580;
+    font-style: italic;
+  }
+
   /* Themes ------------------------------------------------------------ */
   .landing-themes { padding: 24px 20px; position: relative; z-index: 2; }
   .landing-theme-grid {
@@ -1453,11 +1863,12 @@ const LANDING_CSS = `
   }
 
   /* Gameplay preview ------------------------------------------------- */
-  /* Wraps two real in-game BattlefieldCard renders on a daylight-skin
-     board. The component already handles every visual beat — lunge,
-     impact, damage popup, dying slice, summon dust on respawn — so
-     this stylesheet only provides the surrounding chrome (board
-     gradient, portraits, HP bars). */
+  /* Reuses the in-game Portrait, ManaCrystals, and BattlefieldCard
+     components on a daylight-skin board. The component handles every
+     visual beat (lunge, impact, damage popup, dying slice, summon
+     dust); this stylesheet only lays out the four rows: opponent
+     header, opponent field (creature centered), divider, player
+     field (creature centered), player footer. */
   @keyframes gp-attacker-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, 0); }
     50%      { box-shadow: 0 0 0 6px rgba(238, 90, 82, .12); }
@@ -1465,10 +1876,6 @@ const LANDING_CSS = `
 
   .landing-gameplay { padding: 24px 20px; position: relative; z-index: 2; }
 
-  /* Daylight board skin — same gradient stack the in-game match uses
-     by default (src/data/boardSkins.ts). Two-row split so the
-     opponent strip sits on top, divider in the middle, player at
-     the bottom — same layout the MatchBoard ships with. */
   .gp-board {
     max-width: 520px; margin: 0 auto;
     background:
@@ -1476,70 +1883,68 @@ const LANDING_CSS = `
       linear-gradient(180deg, #ffe8d6 0%, #ffd1b3 50%, #ffb89a 100%);
     border: 1.5px solid rgba(58, 46, 42, .12);
     border-radius: 18px;
-    padding: 14px 14px 16px;
+    padding: 12px 14px 14px;
     box-shadow:
       0 12px 28px rgba(58, 46, 42, .14),
       inset 0 0 0 1px rgba(255,255,255,.45);
     overflow: hidden;
   }
-  .gp-side {
-    display: flex; align-items: center; gap: 14px;
-    padding: 6px 4px;
-  }
-  .gp-side-opp .gp-row { justify-content: flex-end; }
-  .gp-side-me  .gp-row { justify-content: flex-start; }
 
-  .gp-row {
-    flex: 1;
-    display: flex; align-items: center;
-    min-height: 90px;
-    gap: 8px;
+  /* Header strip — mirrors the match's player + opp header rows:
+     portrait + mana + name on the left, graveyard chip on the right.
+     The flex spacer between the two clusters pushes the graveyard
+     to the far edge, same layout the in-game MatchBoard uses. */
+  .gp-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0;
   }
-
-  .gp-portrait {
-    flex: none;
-    width: 112px;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .gp-portrait-name {
+  .gp-header-name {
     font-family: Fredoka, system-ui, sans-serif;
     font-weight: 700; font-size: 13px;
     color: #3a2e2a;
+    margin-left: 2px;
   }
-  .gp-hpbar {
-    position: relative;
-    height: 14px; border-radius: 7px;
-    background: rgba(58, 46, 42, .14);
-    overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(58, 46, 42, .2);
-  }
-  .gp-hpbar-fill {
-    position: absolute; inset: 0 auto 0 0;
-    width: 100%;
-    background: linear-gradient(90deg, #06d6a0 0%, #f4d04a 70%, #ee5a52 100%);
-    border-radius: 7px;
-  }
-  .gp-hpbar-text {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 800;
-    color: #fff;
-    text-shadow: 0 1px 1px rgba(0,0,0,.4);
-    letter-spacing: .5px;
-  }
+  .gp-header-spacer { flex: 1; }
+  /* Position context for the EmoteBubble — the bubble positions
+     itself absolutely against the closest positioned ancestor. */
+  .gp-portrait-wrap { position: relative; }
 
-  /* Dashed divider mimics the in-game center lane between the two
-     fields. */
+  /* Center band — same shape as the in-game match divider:
+     dashed border on top + bottom, transparent white wash, TurnChip
+     + Flag (give-up) anchored on the left, Swords (Battle Phase) on
+     the right. The spacer in between is what splits the two
+     clusters apart, same as the in-game flex layout. */
   .gp-divider {
-    height: 1px;
-    border-top: 1px dashed rgba(58, 46, 42, .22);
-    margin: 4px 6px;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    border-top: 1px dashed rgba(58, 46, 42, .20);
+    border-bottom: 1px dashed rgba(58, 46, 42, .20);
+    background: rgba(255, 255, 255, .30);
+  }
+  .gp-divider-spacer { flex: 1; }
+
+  /* Field rows — three slot zones per side, centered. The slots
+     are the same 64×88 dashed scaffolding the in-game FieldRow uses;
+     when a slot is empty it shows as a constant placeholder, when
+     occupied a BattlefieldCard renders on top. */
+  .gp-field {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 96px;
+    padding: 4px 0;
+  }
+  .gp-slot {
+    width: 64px; height: 88px;
+    border-radius: 8px;
+    border: 1.5px dashed rgba(58, 46, 42, .14);
+    background: rgba(255, 255, 255, .18);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
   }
 
-  /* Soft pulse ring under the attacker on rest — same beat the
-     in-game UI gives ready creatures so the player knows they can
-     swing. We add this on the wrapper instead of touching the
-     BattlefieldCard's own classes. */
+  /* Soft red pulse around the attacker while it's idle, so the
+     viewer's eye lands on "this is the creature about to swing"
+     before the lunge actually starts. */
   .gp-attacker-wrap {
     border-radius: 12px;
     transition: box-shadow 200ms ease;
