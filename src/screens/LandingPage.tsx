@@ -524,16 +524,22 @@ function PitchSection() {
 type GpPhase = 'rest' | 'lunge' | 'impact' | 'dying' | 'empty';
 
 /** Phase timings, in ms. Picked to line up with BattlefieldCard's
- *  internal keyframes: lungeUp is 750ms, the impact burst is 800ms,
- *  the dying slice is 850ms, so each phase gets just enough screen
- *  time to read before the next one stacks on. */
+ *  internal keyframes plus the flyToGrave overlay: lungeUp is 750ms,
+ *  the impact burst is 800ms, and the flyToGrave keyframe (the card
+ *  arcing into the graveyard) runs 1.1s. The dying phase has to
+ *  cover that flight or the wrapper unmounts mid-air. */
 const GP_SCHEDULE: { phase: GpPhase; ms: number }[] = [
   { phase: 'rest',   ms: 1400 },
   { phase: 'lunge',  ms: 750  },
   { phase: 'impact', ms: 250  },
-  { phase: 'dying',  ms: 900  },
-  { phase: 'empty',  ms: 700  },
+  { phase: 'dying',  ms: 1200 },
+  { phase: 'empty',  ms: 600  },
 ];
+
+/** Match's TURN_LIMIT — kept in lockstep with src/game/match.ts. We
+ *  don't import the constant to avoid pulling the whole engine module
+ *  into the landing chunk; 12 is the published default. */
+const GP_TURN_LIMIT = 12;
 
 /** Build a `BattleCard` from a template id plus a fresh `battleId`.
  *  Everything the BattlefieldCard reads (currentAtk, currentHp,
@@ -563,16 +569,26 @@ function GameplayPreview() {
   const [loopKey, setLoopKey] = useState(0);
   // Bumps the moment the defender takes lethal damage. Re-keys the
   // EmoteBubble so its in/out animation replays — Mom reacts "Oops…"
-  // every time her creature gets killed.
+  // every time her creature gets killed, and the player throws back
+  // a "Nice!" on the same beat.
   const [oppEmoteKey, setOppEmoteKey] = useState(0);
+  const [playerEmoteKey, setPlayerEmoteKey] = useState(0);
   // Re-keys the opponent's graveyard chip so the gravePulse animation
   // plays each time a card lands in the bin.
   const [graveCount, setGraveCount] = useState(0);
   const [gravePulseKey, setGravePulseKey] = useState(0);
-  // Demo "turn counter" — ticks forward each loop. Starts at 4 (the
-  // turn Dog goes online in the actual tutorial) so the chip reads
-  // like a real mid-match shot.
-  const [turn, setTurn] = useState(4);
+  // Demo "turn counter" — ticks forward each loop. Starts at 6
+  // (mid-game) so the chip reads like an active match; wraps at the
+  // TURN_LIMIT cap so the demo can loop indefinitely without showing
+  // out-of-range numbers.
+  const [turn, setTurn] = useState(6);
+  // Refs into the defender slot + opponent graveyard chip, so we can
+  // measure the delta and feed it into the flyToGrave keyframe as
+  // --gx/--gy. Without these the card would fly to (0,0) instead of
+  // arcing into the actual graveyard icon.
+  const defenderSlotRef = useRef<HTMLDivElement>(null);
+  const oppGraveRef = useRef<HTMLButtonElement>(null);
+  const [graveDelta, setGraveDelta] = useState<{ gx: number; gy: number }>({ gx: 0, gy: 0 });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -580,19 +596,33 @@ function GameplayPreview() {
     const tick = () => {
       const step = GP_SCHEDULE[idx];
       setPhase(step.phase);
-      // Trigger Mom's "Oops…" emote + bump the opponent graveyard
-      // count the moment the defender takes lethal damage, so the
-      // emote bubble and the skull pulse arrive on the same beat.
+      // Trigger Mom's "Oops…" + the player's "Nice!" emote, bump the
+      // opponent graveyard count, and recompute the flyToGrave path —
+      // all on the same beat the defender takes lethal damage. The
+      // path re-measure has to happen here (not on dying) because the
+      // BattlefieldCard's internal layout shifts as the dying slice
+      // starts; latching the delta on impact gives a clean arc.
       if (step.phase === 'impact') {
         setOppEmoteKey(k => k + 1);
+        setPlayerEmoteKey(k => k + 1);
         setGraveCount(c => c + 1);
         setGravePulseKey(k => k + 1);
+        const slot = defenderSlotRef.current?.getBoundingClientRect();
+        const grave = oppGraveRef.current?.getBoundingClientRect();
+        if (slot && grave) {
+          setGraveDelta({
+            gx: (grave.left + grave.width / 2) - (slot.left + slot.width / 2),
+            gy: (grave.top + grave.height / 2) - (slot.top + slot.height / 2),
+          });
+        }
       }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
         if (idx === 0) {
           setLoopKey(k => k + 1);
-          setTurn(t => t + 1);
+          // Wrap at TURN_LIMIT so the chip never shows out-of-range
+          // numbers — same cap the match enforces.
+          setTurn(t => (t >= GP_TURN_LIMIT ? 1 : t + 1));
         }
         tick();
       }, step.ms);
@@ -669,29 +699,45 @@ function GameplayPreview() {
               count={graveCount}
               pulseKey={gravePulseKey}
               onClick={() => {}}
+              elRef={(el) => { oppGraveRef.current = el; }}
             />
           </div>
 
-          {/* Opponent field — defender centered. */}
+          {/* Opponent field — defender centered. During the dying
+              phase the slot wraps the BattlefieldCard in a flyToGrave
+              animation (the same 1.1s keyframe a real match uses).
+              --gx / --gy are measured live on impact so the card arcs
+              into the actual graveyard chip on the right of the
+              opponent header, not a hardcoded direction. */}
           <div className="gp-field">
             {showDefender && (
-              <BattlefieldCard
-                key={defender.battleId}
-                card={defender}
-                impact={isImpact}
-                dying={isDying}
-                damage={damage}
-                owned={false}
-              />
+              <div
+                ref={defenderSlotRef}
+                style={isDying ? {
+                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
+                  ['--gx' as string]: `${graveDelta.gx}px`,
+                  ['--gy' as string]: `${graveDelta.gy}px`,
+                  pointerEvents: 'none',
+                  zIndex: 8,
+                } : {}}
+              >
+                <BattlefieldCard
+                  key={defender.battleId}
+                  card={defender}
+                  impact={isImpact}
+                  dying={isDying}
+                  damage={damage}
+                  owned={false}
+                />
+              </div>
             )}
           </div>
 
-          {/* Center band — dashed lane separator with the TurnChip
-              hanging in the middle, same as the in-game divider. */}
+          {/* Center band — same shape as the in-game divider:
+              dashed border top + bottom, TurnChip pinned to the
+              LEFT (where the give-up flag sits in a real match). */}
           <div className="gp-divider">
-            <div className="gp-divider-line" aria-hidden />
-            <TurnChip turnNumber={turn} limit={20} />
-            <div className="gp-divider-line" aria-hidden />
+            <TurnChip turnNumber={turn} limit={GP_TURN_LIMIT} />
           </div>
 
           {/* Player field — attacker centered. */}
@@ -706,18 +752,26 @@ function GameplayPreview() {
           </div>
 
           {/* Player footer: portrait + mana + name on the left,
-              graveyard on the right. Same shape as the opp header. */}
+              graveyard on the right. The portrait wrapper carries
+              a "Nice!" emote that re-keys on every kill, so the
+              player throws a victory reaction on the same beat
+              Mom's "Oops…" lands. */}
           <div className="gp-header">
-            <Portrait
-              avatar={<UserRound size={18} strokeWidth={2.2} />}
-              avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
-              avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
-              hp={24}
-              ring={null}
-              hit={false}
-              damage={null}
-              onClick={() => {}}
-            />
+            <div className="gp-portrait-wrap">
+              <Portrait
+                avatar={<UserRound size={18} strokeWidth={2.2} />}
+                avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
+                avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
+                hp={24}
+                ring={null}
+                hit={false}
+                damage={null}
+                onClick={() => {}}
+              />
+              {playerEmoteKey > 0 && (
+                <EmoteBubble id="nice" bubbleKey={playerEmoteKey} placement="above" />
+              )}
+            </div>
             <ManaCrystals mana={4} maxMana={4} />
             <div className="gp-header-name">You</div>
             <div className="gp-header-spacer" />
@@ -1575,15 +1629,16 @@ const LANDING_CSS = `
      itself absolutely against the closest positioned ancestor. */
   .gp-portrait-wrap { position: relative; }
 
-  /* Center band — dashed lane on either side of the TurnChip, same
-     visual the in-game MatchBoard uses to mark the turn count. */
+  /* Center band — same shape as the in-game match divider:
+     dashed border on top + bottom, transparent white wash, TurnChip
+     anchored on the left (where the give-up flag sits in a real
+     match). */
   .gp-divider {
-    display: flex; align-items: center; gap: 10px;
-    padding: 4px 0;
-  }
-  .gp-divider-line {
-    flex: 1;
-    border-top: 1px dashed rgba(58, 46, 42, .22);
+    display: flex; align-items: center;
+    padding: 8px 12px;
+    border-top: 1px dashed rgba(58, 46, 42, .20);
+    border-bottom: 1px dashed rgba(58, 46, 42, .20);
+    background: rgba(255, 255, 255, .30);
   }
 
   /* Field rows — creatures are dead-center horizontally. The min-
