@@ -107,7 +107,35 @@ export function LandingPage() {
 // Hero — interactive 3D foil card + idle floating supporting cards
 // ============================================================================
 
+/** Data for the hero showcase card per theme. Click a floating card and
+ *  the corresponding entry takes the center spot with a flip animation. */
+const HERO_DATA: Record<ElementId, Omit<HoloCardProps, 'el'>> = {
+  family:    { name: 'Mom',            type: 'Creature', rarity: 'legendary', cost: 4, atk: 3, hp: 6, flavor: 'She was always the one who carried you.' },
+  animals:   { name: 'Ember Hound',    type: 'Creature', rarity: 'rare',      cost: 2, atk: 3, hp: 2, flavor: 'First to the rescue, last to leave.' },
+  work:      { name: 'The Boss',       type: 'Creature', rarity: 'legendary', cost: 5, atk: 4, hp: 5, flavor: 'Meetings could have been emails.' },
+  travel:    { name: 'Window Seat',    type: 'Spell',    rarity: 'rare',      cost: 2, atk: 0, hp: 0, flavor: 'Draw 2. The world at 30,000 feet.' },
+  food:      { name: 'Morning Coffee', type: 'Spell',    rarity: 'common',    cost: 1, atk: 0, hp: 0, flavor: 'The ritual that starts everything.' },
+  education: { name: 'Bloomshield',    type: 'Creature', rarity: 'rare',      cost: 3, atk: 2, hp: 5, flavor: 'Taunt. The lesson you never forgot.' },
+};
+
+/** Slot positions for the five non-active themes around the hero card.
+ *  Always five slots; the active theme is hidden from the floating ring
+ *  (it lives in the center). */
+const FLOATING_SLOTS: { left: string; top: string; rot: number; delay: number }[] = [
+  { left: '2%',  top: '6%',  rot: -12, delay: 0   },
+  { left: '76%', top: '12%', rot:  10, delay: 1.4 },
+  { left: '78%', top: '68%', rot:  -6, delay: 0.7 },
+  { left: '0%',  top: '62%', rot:   5, delay: 2.1 },
+  { left: '40%', top: '0%',  rot:   3, delay: 1.0 },
+];
+
+const ALL_THEMES: ElementId[] = ['family', 'animals', 'work', 'travel', 'food', 'education'];
+
 function HeroSection({ onCta }: { onCta: () => void }) {
+  const [activeEl, setActiveEl] = useState<ElementId>('family');
+  const heroData = HERO_DATA[activeEl];
+  const others = ALL_THEMES.filter(e => e !== activeEl);
+
   return (
     <section className="landing-hero">
       <div className="landing-hero-inner">
@@ -122,6 +150,9 @@ function HeroSection({ onCta }: { onCta: () => void }) {
             Summon them by photographing the real moments of your life.
             Your dog becomes an Ember Hound. Your morning coffee becomes a Bloomshield.
           </p>
+          <p className="landing-hint">
+            Tap any card to bring it forward.
+          </p>
           <div className="landing-cta-row">
             <button className="landing-cta-primary" onClick={onCta}>
               Begin your album →
@@ -133,17 +164,30 @@ function HeroSection({ onCta }: { onCta: () => void }) {
         </div>
 
         <div className="landing-hero-stage">
-          {/* Idle-floating supporting cards. Tilt is disabled — they're
-              decoration; the hero card below owns the interactive role. */}
-          <FloatingShowcaseCard el="animals" left="2%"  top="6%"  rot={-12} delay={0}   small />
-          <FloatingShowcaseCard el="food"    left="76%" top="12%" rot={10}  delay={1.4} small />
-          <FloatingShowcaseCard el="travel"  left="78%" top="68%" rot={-6}  delay={0.7} small />
-          <FloatingShowcaseCard el="education" left="0%" top="62%" rot={5}  delay={2.1} small />
+          {/* Five non-active themes ring the hero. Click swaps the
+              floating card into the center spot. */}
+          {others.map((el, i) => {
+            const slot = FLOATING_SLOTS[i];
+            return (
+              <FloatingShowcaseCard
+                key={el}
+                el={el}
+                left={slot.left}
+                top={slot.top}
+                rot={slot.rot}
+                delay={slot.delay}
+                onClick={() => setActiveEl(el)}
+              />
+            );
+          })}
 
-          {/* The interactive hero card — 3D tilt + foil sheen + prismatic
-              shiny overlay. Center stage. */}
-          <HoloCard el="family" name="Mom" type="Creature" rarity="legendary"
-            cost={4} atk={3} hp={6} flavor="She was always the one who carried you." />
+          {/* The interactive hero card — re-mounted on activeEl change
+              so the flip-in entrance animation plays for each new card. */}
+          <HoloCard
+            key={activeEl}
+            el={activeEl}
+            {...heroData}
+          />
         </div>
       </div>
     </section>
@@ -252,14 +296,29 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardPro
         {/* Flavor */}
         <div className="holo-flavor">{flavor}</div>
 
-        {/* Footer stat ribbon */}
+        {/* Footer stat ribbon. Creatures show ⚔ ATK / ♥ HP — the two
+            numbers that drive combat. Spells don't have those, so the
+            footer collapses to a single "SPELL" chip. */}
         <div className="holo-footer">
           <div className="holo-type">{type}</div>
-          <div className="holo-stats">
-            <span className="holo-atk">{atk}</span>
-            <span className="holo-sep">/</span>
-            <span className="holo-hp">{hp}</span>
-          </div>
+          {type === 'Creature' ? (
+            <div className="holo-stats">
+              <span className="holo-stat" title={`${atk} attack`}>
+                <span className="holo-stat-icon">⚔</span>
+                <span className="holo-atk">{atk}</span>
+                <span className="holo-stat-label">ATK</span>
+              </span>
+              <span className="holo-stat" title={`${hp} health`}>
+                <span className="holo-stat-icon">♥</span>
+                <span className="holo-hp">{hp}</span>
+                <span className="holo-stat-label">HP</span>
+              </span>
+            </div>
+          ) : (
+            <div className="holo-stats">
+              <span className="holo-stat-label" style={{ letterSpacing: 2 }}>SPELL</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -285,22 +344,26 @@ function cardEmoji(el: ElementId, _name: string): string {
 // ============================================================================
 
 function FloatingShowcaseCard(props: {
-  el: ElementId; top: string; left: string; rot: number; delay: number; small?: boolean;
+  el: ElementId; top: string; left: string; rot: number; delay: number;
+  onClick?: () => void;
 }) {
   const def = ELEMENTS[props.el];
-  const w = props.small ? 80 : 110;
-  const h = props.small ? 116 : 158;
+  // Per-card jitter is randomized once at mount so the float animation
+  // doesn't reset to a new path on every render.
   const { dx, dy, spin } = useMemo(() => ({
     dx: (Math.random() * 24 - 12).toFixed(1) + 'px',
     dy: (Math.random() * 24 - 12).toFixed(1) + 'px',
     spin: (Math.random() * 6 - 3).toFixed(1) + 'deg',
   }), []);
   return (
-    <div
+    <button
+      type="button"
+      onClick={props.onClick}
       className="landing-floating"
+      aria-label={`Bring ${def.name} forward`}
       style={{
         position: 'absolute', top: props.top, left: props.left,
-        width: w, height: h,
+        width: 110, height: 158,
         ['--rot' as string]: `${props.rot}deg`,
         ['--dx' as string]: dx,
         ['--dy' as string]: dy,
@@ -310,24 +373,33 @@ function FloatingShowcaseCard(props: {
         background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
         border: `1.5px solid ${def.glow}`,
         boxShadow: `0 14px 36px rgba(0,0,0,0.55), 0 0 22px ${def.glow}33`,
-        padding: 7,
+        padding: 9,
         display: 'flex', flexDirection: 'column',
-        pointerEvents: 'none',
+        cursor: 'pointer',
         overflow: 'hidden',
+        color: '#fff',
+        textAlign: 'left',
+        font: 'inherit',
       } as CSSProperties}
     >
-      <div style={{ fontSize: 10, fontWeight: 700, color: '#fff' }}>{def.name}</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,.5)' }}>
+        {def.name}
+      </div>
       <div style={{
-        flex: 1, margin: '5px 0', borderRadius: 6,
+        flex: 1, margin: '6px 0', borderRadius: 6,
         background: `radial-gradient(ellipse at center, ${def.glow}cc 0%, transparent 70%)`,
       }} />
-      <div style={{ fontSize: 8, color: 'rgba(255,255,255,.78)', fontStyle: 'italic' }}>
-        {def.blurb.slice(0, 28)}
+      <div style={{
+        fontSize: 9, lineHeight: 1.3,
+        color: 'rgba(255,255,255,.85)', fontStyle: 'italic',
+        textShadow: '0 1px 2px rgba(0,0,0,.4)',
+      }}>
+        {def.blurb}
       </div>
       {/* Subtle prismatic flow on every floating card — soft so it
           doesn't compete with the hero card's brighter shine */}
       <div className="landing-floating-prism" />
-    </div>
+    </button>
   );
 }
 
@@ -610,6 +682,14 @@ const LANDING_CSS = `
     0%, 100% { transform: translateY(0); }
     50%      { transform: translateY(-8px); }
   }
+  /* Flip-in entrance for the swapped hero card. Starts mirrored + small,
+     settles upright + full size. Combined with the existing perspective
+     on .holo-card it reads as a card flipping into the front spot. */
+  @keyframes holo-flip-in {
+    0%   { opacity: 0; transform: rotateY(-180deg) scale(.7); }
+    60%  { opacity: 1; }
+    100% { opacity: 1; transform: rotateY(0) scale(1); }
+  }
 
   .landing-scroll {
     position: absolute; inset: 0;
@@ -678,6 +758,11 @@ const LANDING_CSS = `
     font-size: 15px; line-height: 1.55;
     max-width: 520px;
   }
+  .landing-hint {
+    margin: 12px 0 0;
+    font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    color: rgba(244, 208, 74, .75);
+  }
   .landing-cta-row {
     display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
   }
@@ -714,7 +799,9 @@ const LANDING_CSS = `
     .landing-hero-stage { height: 460px; }
   }
 
-  /* Floating decorative cards */
+  /* Floating tappable cards — reset native button chrome, layer the
+     intro fade-in on top of the idle bob, and add a hover lift +
+     active press feedback so taps feel responsive. */
   .landing-floating {
     opacity: 0;
     animation:
@@ -723,6 +810,18 @@ const LANDING_CSS = `
     animation-delay: 0s, var(--card-delay, 0s);
     transform: rotate(var(--rot));
     will-change: transform, opacity;
+    transition: filter 200ms ease, box-shadow 200ms ease;
+  }
+  .landing-floating:hover {
+    filter: brightness(1.15);
+    z-index: 3;
+  }
+  .landing-floating:focus-visible {
+    outline: 2px solid #f4d04a;
+    outline-offset: 4px;
+  }
+  .landing-floating:active {
+    filter: brightness(1.25);
   }
   /* Idle prismatic ribbon on every floating card — gentler than the
      hero card's interactive shine. */
@@ -756,8 +855,14 @@ const LANDING_CSS = `
     position: relative;
     width: 220px; height: 320px;
     perspective: 1000px;
-    animation: holo-idle 5s ease-in-out infinite;
+    /* Two animations layered: the 600ms flip-in plays once on mount
+       (re-runs each time the parent swaps activeEl via key=), the
+       idle bob loops forever in the background. */
+    animation:
+      holo-flip-in 700ms cubic-bezier(.2, .9, .3, 1.1) both,
+      holo-idle 5s ease-in-out infinite 700ms;
     z-index: 2;
+    transform-style: preserve-3d;
   }
   @media (min-width: 760px) {
     .holo-wrap { width: 250px; height: 360px; }
@@ -830,10 +935,26 @@ const LANDING_CSS = `
     font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase;
     color: rgba(255,255,255,.7);
   }
-  .holo-stats { font-family: Fredoka, system-ui, sans-serif; font-size: 16px; font-weight: 700; }
+  .holo-stats {
+    display: flex; align-items: center; gap: 10px;
+    font-family: Fredoka, system-ui, sans-serif;
+  }
+  .holo-stat {
+    display: inline-flex; align-items: baseline; gap: 3px;
+    font-size: 16px; font-weight: 700;
+  }
+  .holo-stat-icon {
+    font-size: 13px;
+    text-shadow: 0 1px 2px rgba(0,0,0,.6);
+  }
+  .holo-stat-label {
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,.6);
+    margin-left: 1px;
+  }
   .holo-atk { color: #ffb86c; }
   .holo-hp  { color: #ff6c8a; }
-  .holo-sep { color: rgba(255,255,255,.4); margin: 0 4px; }
   .holo-sheen {
     position: absolute; inset: 0;
     border-radius: 16px;
