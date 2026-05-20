@@ -30,6 +30,57 @@ function dataUriToBlob(dataUri: string): Blob {
   return new Blob([arr], { type: mime });
 }
 
+/** Downscale a data-URI image so the upload payload stays small.
+ *
+ *  Phone cameras hand us 3-12 MP JPEGs that are routinely 2-4 MB each.
+ *  At the sizes Memoria actually renders cards + avatars, anything
+ *  past ~800px on the longest side is wasted bytes — they only slow
+ *  down the upload, eat the player's bandwidth, and bloat Storage.
+ *
+ *  The helper draws the source through a canvas at the requested
+ *  longest-side cap, then re-encodes as JPEG at `quality`. JPEG is
+ *  picked unconditionally even for PNG inputs because card photos and
+ *  avatars are photographic content where JPEG compresses better than
+ *  PNG for ~1/10 the bytes.
+ *
+ *  Returns the original data URI unchanged if anything goes wrong —
+ *  the upload still works, it's just larger than ideal. */
+async function downscaleDataUri(
+  dataUri: string,
+  maxEdge: number,
+  quality = 0.85,
+): Promise<string> {
+  if (!isDataUriPhoto(dataUri)) return dataUri;
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('image load failed'));
+      el.src = dataUri;
+    });
+    const longest = Math.max(img.naturalWidth, img.naturalHeight);
+    // Source already small enough? Skip the round-trip through canvas
+    // so we don't re-encode (and lose quality) for no reason.
+    if (longest <= maxEdge) return dataUri;
+    const scale = maxEdge / longest;
+    const w = Math.round(img.naturalWidth * scale);
+    const h = Math.round(img.naturalHeight * scale);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return dataUri;
+    // Higher-quality downscale than the browser default — important
+    // because the source is often 6-12x larger than the target.
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, w, h);
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch {
+    return dataUri;
+  }
+}
+
 /** True for any string that looks like a base64 data URI — used by
  *  the migration to decide whether a saved photo still needs to be
  *  pushed up to Storage. */
@@ -53,7 +104,11 @@ export async function uploadCardPhoto(
     // Already a URL (or null) — caller can use it as-is.
     return dataUri;
   }
-  const blob = dataUriToBlob(dataUri);
+  // Cards render at most ~480px wide on a desktop preview and far
+  // smaller on the field, so 800px on the longest edge keeps room
+  // for retina without paying for full-camera resolution.
+  const compressed = await downscaleDataUri(dataUri, 800, 0.85);
+  const blob = dataUriToBlob(compressed);
   const objectRef = ref(storage, `users/${uid}/photos/${cardUid}.jpg`);
   await uploadBytes(objectRef, blob, {
     contentType: blob.type || 'image/jpeg',
@@ -79,7 +134,12 @@ export async function uploadPlayerAvatar(
 ): Promise<string> {
   if (!storage) throw new Error('Firebase Storage not configured');
   if (!isDataUriPhoto(dataUri)) return dataUri;
-  const blob = dataUriToBlob(dataUri);
+  // Avatars render as a 40x40 circle on Home and 64x64 on the
+  // match portrait, so 256px on the longest edge covers every
+  // surface even on a 3x retina display. A 3MB camera JPEG drops
+  // to ~25-40 KB here.
+  const compressed = await downscaleDataUri(dataUri, 256, 0.88);
+  const blob = dataUriToBlob(compressed);
   const objectRef = ref(storage, `users/${uid}/avatar.jpg`);
   await uploadBytes(objectRef, blob, {
     contentType: blob.type || 'image/jpeg',
