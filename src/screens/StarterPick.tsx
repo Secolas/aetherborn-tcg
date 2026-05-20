@@ -349,8 +349,9 @@ function StarterPickStyles() {
       }
 
       .sp-desc {
-        font-size: 13px;
-        color: ${PALETTE.textMid};
+        font-size: 14px;
+        font-weight: 500;
+        color: ${PALETTE.text};
         line-height: 1.45;
         text-align: center;
         max-width: 320px;
