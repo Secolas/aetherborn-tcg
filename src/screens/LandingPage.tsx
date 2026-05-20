@@ -2,7 +2,8 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
-import { UserRound } from 'lucide-react';
+import { UserRound, Flag, Swords } from 'lucide-react';
+import { iconBtn } from '../components/styles';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
 import { CosmeticsProvider } from '../state/cosmetics';
@@ -699,60 +700,80 @@ function GameplayPreview() {
             />
           </div>
 
-          {/* Opponent field — defender centered. During the dying
-              phase the slot wraps the BattlefieldCard in a flyToGrave
-              animation (the same 1.1s keyframe a real match uses).
-              --gx / --gy are measured live on impact so the card arcs
-              into the actual graveyard chip on the right of the
-              opponent header, not a hardcoded direction. */}
+          {/* Opponent field — three slot zones, same scaffolding the
+              real FieldRow uses (64×88px, dashed border, faint white
+              tint). Empty slots stay visible as constant chrome;
+              cards render inside the center slot on top of them.
+              During the dying phase the wrapper around the live
+              defender plays flyToGrave (1.1s arc into Mom's
+              graveyard chip — --gx/--gy are measured live on
+              impact). */}
           <div className="gp-field">
-            <div
-              ref={defenderSlotRef}
-              style={isDying || phase === 'empty' ? {
-                // flyToGrave fill mode is `both`, so the final
-                // keyframe state (opacity 0, shrunk at the grave) is
-                // retained through the 'empty' phase. Removing the
-                // animation on the next 'rest' phase releases the
-                // element back to its base styles — Cousin silently
-                // reappears in her slot, no summon animation.
-                animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
-                ['--gx' as string]: `${graveDelta.gx}px`,
-                ['--gy' as string]: `${graveDelta.gy}px`,
-                pointerEvents: 'none',
-                zIndex: 8,
-              } : {}}
-            >
-              <BattlefieldCard
-                card={defender}
-                impact={isImpact}
-                dying={isDying}
-                damage={damage}
-                owned={false}
-              />
+            <div className="gp-slot" />
+            <div className="gp-slot">
+              <div
+                ref={defenderSlotRef}
+                style={isDying || phase === 'empty' ? {
+                  // flyToGrave's `both` fill mode retains the final
+                  // keyframe (opacity 0, shrunk at the grave)
+                  // through 'empty'; removing the animation on the
+                  // next 'rest' releases the element back to its
+                  // base styles, so Cousin reappears silently in her
+                  // slot — no summon animation.
+                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
+                  ['--gx' as string]: `${graveDelta.gx}px`,
+                  ['--gy' as string]: `${graveDelta.gy}px`,
+                  pointerEvents: 'none',
+                  zIndex: 8,
+                } : {}}
+              >
+                <BattlefieldCard
+                  card={defender}
+                  impact={isImpact}
+                  dying={isDying}
+                  damage={damage}
+                  owned={false}
+                  skipSummonFx
+                />
+              </div>
             </div>
+            <div className="gp-slot" />
           </div>
 
           {/* Center band — same shape as the in-game divider:
-              dashed border top + bottom, TurnChip pinned to the
-              LEFT (where the give-up flag sits in a real match).
-              Turn 4 / 12 — held static because the demo loops on a
-              single attack beat, not a full alternating-turn cycle.
-              Player's mana is 4/4 (mana ramps 1 per turn), so the
-              chip stays in lockstep with the displayed mana ramp. */}
+              dashed border top + bottom, TurnChip + Flag (give-up)
+              on the LEFT, Swords (Battle Phase) on the right. Turn
+              held static at 4 / 12 since the demo loops on a single
+              attack beat; matches the player's 4/4 mana ramp. */}
           <div className="gp-divider">
             <TurnChip turnNumber={4} limit={GP_TURN_LIMIT} />
+            <button style={iconBtn} aria-label="Give up" type="button">
+              <Flag size={16} strokeWidth={2.4} />
+            </button>
+            <div className="gp-divider-spacer" />
+            <button style={iconBtn} aria-label="Go to Battle" type="button">
+              <Swords size={18} strokeWidth={2.2} />
+            </button>
           </div>
 
-          {/* Player field — attacker centered. */}
+          {/* Player field — three slot zones, same scaffolding as
+              the opponent side. Dog sits in the center slot. The
+              idle pulse ring lives on the wrapper, not the slot, so
+              the slot chrome stays consistent. */}
           <div className="gp-field">
-            <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
-              <BattlefieldCard
-                card={attackerCard}
-                lunging={isLunging ? 'up' : null}
-                damage={attackerDmg}
-                owned={true}
-              />
+            <div className="gp-slot" />
+            <div className="gp-slot">
+              <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
+                <BattlefieldCard
+                  card={attackerCard}
+                  lunging={isLunging ? 'up' : null}
+                  damage={attackerDmg}
+                  owned={true}
+                  skipSummonFx
+                />
+              </div>
             </div>
+            <div className="gp-slot" />
           </div>
 
           {/* Player footer: portrait + mana + name on the left,
@@ -1635,23 +1656,35 @@ const LANDING_CSS = `
 
   /* Center band — same shape as the in-game match divider:
      dashed border on top + bottom, transparent white wash, TurnChip
-     anchored on the left (where the give-up flag sits in a real
-     match). */
+     + Flag (give-up) anchored on the left, Swords (Battle Phase) on
+     the right. The spacer in between is what splits the two
+     clusters apart, same as the in-game flex layout. */
   .gp-divider {
-    display: flex; align-items: center;
+    display: flex; align-items: center; gap: 8px;
     padding: 8px 12px;
     border-top: 1px dashed rgba(58, 46, 42, .20);
     border-bottom: 1px dashed rgba(58, 46, 42, .20);
     background: rgba(255, 255, 255, .30);
   }
+  .gp-divider-spacer { flex: 1; }
 
-  /* Field rows — creatures are dead-center horizontally. The min-
-     height carves out enough room for the BattlefieldCard's 56×76px
-     box plus a little breathing room for the lunge animation. */
+  /* Field rows — three slot zones per side, centered. The slots
+     are the same 64×88 dashed scaffolding the in-game FieldRow uses;
+     when a slot is empty it shows as a constant placeholder, when
+     occupied a BattlefieldCard renders on top. */
   .gp-field {
-    display: flex; align-items: center; justify-content: center;
-    min-height: 92px;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 96px;
     padding: 4px 0;
+  }
+  .gp-slot {
+    width: 64px; height: 88px;
+    border-radius: 8px;
+    border: 1.5px dashed rgba(58, 46, 42, .14);
+    background: rgba(255, 255, 255, .18);
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    flex: 0 0 auto;
   }
 
   /* Soft red pulse around the attacker while it's idle, so the

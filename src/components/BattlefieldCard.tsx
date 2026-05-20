@@ -57,6 +57,11 @@ interface Props {
    *  the equipped cosmetic frame applies — boss creatures stay in
    *  their baseline chrome (same rule as the full Card component). */
   owned?: boolean;
+  /** Suppress the cardSlam summon animation + summon dust that
+   *  normally fire on first mount. Used by non-live contexts (the
+   *  landing-page demo, anatomy preview) where the card is meant to
+   *  read as already-on-board, not freshly-summoned. */
+  skipSummonFx?: boolean;
   onClick?: () => void;
   onLongPress?: () => void;
 }
@@ -65,7 +70,7 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, displayStats, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, trigger, bondState, bondGrantsTaunt, highlight, owned = false,
+  buff, trigger, bondState, bondGrantsTaunt, highlight, owned = false, skipSummonFx,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -84,12 +89,15 @@ export function BattlefieldCard({
   // the BattlefieldCard appears on the field — including for Rush creatures
   // (whose `card.justPlayed` is set false in the engine, since they aren't
   // sleeping). Without this Rush summons landed silently.
-  const [justMounted, setJustMounted] = useState(true);
+  // `skipSummonFx` short-circuits the first-mount cardSlam — landing
+  // page demos read better when the cards are already on the board.
+  const [justMounted, setJustMounted] = useState(!skipSummonFx);
   useEffect(() => {
+    if (skipSummonFx) return;
     const t = setTimeout(() => setJustMounted(false), 600);
     return () => clearTimeout(t);
-  }, []);
-  const showSummonFx = card.justPlayed || justMounted;
+  }, [skipSummonFx]);
+  const showSummonFx = !skipSummonFx && (card.justPlayed || justMounted);
   // Ring colors are kept to four well-defined states so the card chrome
   // stays standardised — anything outside these reads as "default":
   //   selected            : yellow (you tapped this creature)
