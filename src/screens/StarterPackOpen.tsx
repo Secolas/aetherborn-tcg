@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Camera, Check, ChevronRight, Sparkles, SkipForward, Upload } from 'lucide-react';
-import { ELEMENTS } from '../data/elements';
+import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import { PALETTE } from '../components/styles';
 import { Card } from '../components/Card';
 import type { CollectionCard } from '../game/types';
@@ -46,7 +46,15 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
   const total = cards.length;
   const themeColor = ELEMENTS[theme.id].color;
   const themeDeep = ELEMENTS[theme.id].deep;
+  const themeGlow = ELEMENTS[theme.id].glow;
   const photoSet = !!current?.photo;
+  // Match the shop pack reveal: epic + legendary cards get a radial
+  // halo behind the card; rare + above get a holographic sheen sweep.
+  // Legendaries get a warm gold halo instead of the theme tint so
+  // their reveal feels distinct from epic.
+  const showHalo = current?.rarity === 'epic' || current?.rarity === 'legendary';
+  const showSheen = current?.rarity !== 'common' && current?.rarity !== undefined;
+  const haloColor = current?.rarity === 'legendary' ? '#ffd166' : themeGlow;
 
   const next = () => {
     if (idx >= total - 1) onDone();
@@ -91,7 +99,34 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
 
       <div className="po-stage">
         <div className="po-card-wrap" key={current.uid}>
-          <Card card={current} scale={0.95} />
+          {showHalo && (
+            <div
+              aria-hidden
+              className="po-card-halo"
+              style={{
+                background: `radial-gradient(circle, ${haloColor} 0%, transparent 60%)`,
+              }}
+            />
+          )}
+          <div className="po-card-flight">
+            <Card card={current} scale={0.95} />
+            {showSheen && (
+              <div aria-hidden className="po-card-sheen">
+                <div className="po-card-sheen-bar" />
+              </div>
+            )}
+          </div>
+          <div
+            className="po-rarity-label"
+            style={{
+              color: RARITY_COLOR[current.rarity],
+              textShadow: current.rarity === 'legendary'
+                ? '0 0 12px rgba(255, 209, 102, .6)'
+                : 'none',
+            }}
+          >
+            {current.rarity}
+          </div>
         </div>
         {!photoSet && (
           <div className="po-hint">
@@ -209,13 +244,63 @@ function StarterPackOpenStyles() {
         align-items: center; justify-content: center;
         gap: 14px;
       }
+      /* Wrapper provides the drop-shadow + stacking context for the
+         halo (behind), the card (mid), and the sheen overlay (front).
+         The flight animation lives on .po-card-flight so the halo's
+         own rarityHalo pulse can fire in parallel without one tampering
+         with the other's transform. */
       .po-card-wrap {
-        animation: poEnter .35s cubic-bezier(.2,.85,.3,1);
+        position: relative;
+        display: inline-flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
         filter: drop-shadow(0 10px 24px color-mix(in srgb, var(--theme-deep) 40%, transparent));
       }
-      @keyframes poEnter {
-        from { transform: translateY(20px) scale(.92) rotate(-2deg); opacity: 0; }
-        to   { transform: translateY(0) scale(1) rotate(0); opacity: 1; }
+      /* Epic / legendary halo — radial bloom behind the card. Lifted
+         straight from PackOpening's RevealCard. */
+      .po-card-halo {
+        position: absolute;
+        left: 50%; top: 50%;
+        width: 360px; height: 360px;
+        border-radius: 50%;
+        transform: translate(-50%, -50%) scale(0.3);
+        animation: rarityHalo 1.4s ease-out both;
+        pointer-events: none;
+        mix-blend-mode: screen;
+        z-index: 0;
+      }
+      /* Card flight container — same beat as PackOpening's
+         cardRevealFlight (drop-in from below, small bounce, settle). */
+      .po-card-flight {
+        position: relative;
+        z-index: 1;
+        animation: cardRevealFlight 0.8s cubic-bezier(.18,.85,.3,1.1) both;
+        will-change: transform, opacity;
+      }
+      /* Holo sheen sweep for rare + cards — overlay clipped to the
+         card footprint then a 110-deg gradient bar wipes left-to-right. */
+      .po-card-sheen {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        border-radius: 18px;
+        pointer-events: none;
+        mix-blend-mode: screen;
+      }
+      .po-card-sheen-bar {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%);
+        animation: cardHoloSheen 1.1s ease-out 0.45s both;
+      }
+      .po-rarity-label {
+        font-size: 11px;
+        letter-spacing: 0.25em;
+        text-transform: uppercase;
+        font-weight: 800;
+        position: relative;
+        z-index: 2;
       }
       .po-hint {
         font-size: 13px; color: ${PALETTE.textMid};
