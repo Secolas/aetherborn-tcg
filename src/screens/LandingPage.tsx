@@ -67,11 +67,15 @@ export function LandingPage() {
   return (
     <div style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
-      background: 'radial-gradient(ellipse at 30% 10%, #2a1b4a 0%, #0a0c1c 55%, #050816 100%)',
-      color: '#fff',
+      // Match the in-game palette — same cream paper (#fef8f0) the
+      // HomeMenu sits on, with a soft peach radial in the top-right
+      // for a touch of depth. Dark text (#3a2e2a) is set per-element
+      // because the floating dark TCG cards still need white text.
+      background: 'radial-gradient(ellipse at 80% 0%, #ffe8d6 0%, #fef8f0 55%, #fef8f0 100%)',
+      color: '#3a2e2a',
     }}>
       <LandingStyles />
-      <Starfield />
+      <WarmDecor />
 
       {/* Sticky top bar — always reachable Sign In */}
       <div className="landing-topbar">
@@ -307,7 +311,9 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor, ability }: Ho
           transition: tilt.active ? 'transform 80ms ease-out' : 'transform 600ms cubic-bezier(.2,1,.3,1)',
           background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
           borderColor: def.glow,
-          boxShadow: `0 30px 70px rgba(0,0,0,0.6), 0 0 40px ${def.glow}66`,
+          // Warm-tinted drop shadow so the hero card lifts off the
+          // cream page without leaving a harsh inky silhouette.
+          boxShadow: `0 28px 56px rgba(58, 46, 42, .28), 0 0 40px ${def.glow}66`,
         }}
       >
         {/* Top bar: cost gem + element name + rarity chip.
@@ -431,7 +437,9 @@ function FloatingShowcaseCard(props: {
         borderRadius: 12,
         background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
         border: `1.5px solid ${def.glow}`,
-        boxShadow: `0 14px 36px rgba(0,0,0,0.55), 0 0 22px ${def.glow}33`,
+        // Softer shadow now that the page is cream — a dark
+        // saturated drop shadow would look harsh against paper.
+        boxShadow: `0 14px 28px rgba(58, 46, 42, .22), 0 0 22px ${def.glow}44`,
         padding: 9,
         display: 'flex', flexDirection: 'column',
         cursor: 'pointer',
@@ -512,7 +520,7 @@ function ThemeGrid() {
             <div key={id} className="landing-theme-tile" style={{
               background: `linear-gradient(155deg, ${def.color} 0%, ${def.deep} 100%)`,
               borderColor: def.glow + '55',
-              boxShadow: `0 10px 24px rgba(0,0,0,.45), inset 0 0 30px ${def.glow}22`,
+              boxShadow: `0 8px 18px rgba(58, 46, 42, .18), inset 0 0 30px ${def.glow}22`,
             }}>
               <div className="landing-theme-name">{def.name}</div>
               <div className="landing-theme-blurb">{def.blurb}</div>
@@ -587,7 +595,7 @@ function AuthPanel(props: {
       <div className="landing-auth-card">
         <div className="landing-auth-brand">
           <img src="/logo.png" alt="" width={64} height={64}
-            style={{ filter: 'drop-shadow(0 0 14px rgba(244,208,74,.45))' }} />
+            style={{ filter: 'drop-shadow(0 0 14px rgba(255, 159, 28, .45))' }} />
           <h2 className="landing-auth-title">
             {mode === 'signin' ? 'Welcome back' : 'Begin your album'}
           </h2>
@@ -675,21 +683,22 @@ function GoogleGlyph() {
 }
 
 // ============================================================================
-// Background starfield
+// Background decor — soft warm dots in the page tint, mimicking the
+// drifting starfield's energy without breaking the paper aesthetic.
 // ============================================================================
 
-function Starfield() {
+function WarmDecor() {
   return (
     <div className="landing-starfield" aria-hidden style={{
       position: 'absolute', inset: 0,
-      background: `radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.6) 0%, transparent 50%),
-                   radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.5) 0%, transparent 50%),
-                   radial-gradient(2px 2px at 40% 80%, rgba(255,255,255,.4) 0%, transparent 50%),
-                   radial-gradient(1px 1px at 85% 25%, rgba(255,255,255,.7) 0%, transparent 50%),
-                   radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,.5) 0%, transparent 50%)`,
+      background: `radial-gradient(2px 2px at 22% 28%, rgba(255, 159, 28, .22) 0%, transparent 50%),
+                   radial-gradient(1px 1px at 72% 62%, rgba(238, 90, 82, .18) 0%, transparent 50%),
+                   radial-gradient(2px 2px at 42% 82%, rgba(255, 159, 28, .15) 0%, transparent 50%),
+                   radial-gradient(1px 1px at 86% 24%, rgba(238, 90, 82, .2) 0%, transparent 50%),
+                   radial-gradient(1px 1px at 12% 72%, rgba(255, 159, 28, .18) 0%, transparent 50%)`,
       backgroundSize: '600px 600px',
       animation: 'drift-bg 60s linear infinite',
-      opacity: 0.7,
+      opacity: 0.6,
       pointerEvents: 'none',
     }} />
   );
@@ -717,8 +726,8 @@ function LandingStyles() {
 const LANDING_CSS = `
   @keyframes drift-bg { 0% { background-position: 0% 0%; } 100% { background-position: 100% 100%; } }
   @keyframes title-shimmer {
-    0%, 100% { filter: brightness(1) drop-shadow(0 0 12px rgba(244,208,74,.4)); }
-    50%      { filter: brightness(1.15) drop-shadow(0 0 24px rgba(244,208,74,.85)); }
+    0%, 100% { filter: brightness(1) drop-shadow(0 0 12px rgba(255, 159, 28, .35)); }
+    50%      { filter: brightness(1.08) drop-shadow(0 0 22px rgba(238, 90, 82, .55)); }
   }
   @keyframes float-card {
     0%   { transform: translate(0,0) rotate(var(--rot)); }
@@ -738,8 +747,8 @@ const LANDING_CSS = `
     100% { transform: translateX(-50%); }
   }
   @keyframes ticker-dot-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(244, 102, 88, .55); }
-    50%      { box-shadow: 0 0 0 6px rgba(244, 102, 88, 0); }
+    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, .55); }
+    50%      { box-shadow: 0 0 0 6px rgba(238, 90, 82, 0); }
   }
   @keyframes holo-idle {
     0%, 100% { transform: translateY(0); }
@@ -766,25 +775,27 @@ const LANDING_CSS = `
     position: absolute; top: 0; left: 0; right: 0; z-index: 20;
     height: 56px; padding: 0 16px;
     display: flex; align-items: center; justify-content: space-between;
-    background: linear-gradient(180deg, rgba(5,8,22,.85) 0%, rgba(5,8,22,.55) 70%, rgba(5,8,22,0) 100%);
+    background: linear-gradient(180deg, rgba(254,248,240,.92) 0%, rgba(254,248,240,.7) 70%, rgba(254,248,240,0) 100%);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
   }
   .landing-topbar-brand {
     display: flex; align-items: center; gap: 8px;
     font-family: Fredoka, system-ui, sans-serif; font-weight: 700;
-    letter-spacing: 3px; font-size: 13px; color: #f4d04a;
+    letter-spacing: 3px; font-size: 13px;
+    color: #ee5a52;
   }
   .landing-topbar-btn {
     padding: 7px 14px;
     border-radius: 999px;
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(244,208,74,.35);
-    color: #f4d04a;
-    font-weight: 600; font-size: 13px;
+    background: #fff;
+    border: 1.5px solid rgba(238, 90, 82, .35);
+    color: #ee5a52;
+    font-weight: 700; font-size: 13px;
     cursor: pointer;
+    box-shadow: 0 2px 6px rgba(238, 90, 82, .12);
   }
-  .landing-topbar-btn:hover { background: rgba(244,208,74,.12); }
+  .landing-topbar-btn:hover { background: #fff5ec; border-color: #ee5a52; }
 
   /* Hero -------------------------------------------------------------- */
   .landing-hero {
@@ -799,53 +810,58 @@ const LANDING_CSS = `
     align-items: center;
   }
   .landing-eyebrow {
-    font-size: 11px; letter-spacing: 4px; color: rgba(244,208,74,.85);
+    font-size: 11px; letter-spacing: 4px;
+    color: #ee5a52;
     font-weight: 700; margin-bottom: 8px;
   }
   .landing-h1 {
     margin: 0;
     font-family: Fredoka, system-ui, sans-serif;
     font-size: 38px; line-height: 1.05; font-weight: 700;
-    color: #fff;
-    text-shadow: 0 4px 18px rgba(0,0,0,.55);
+    color: #3a2e2a;
   }
+  /* Same orange-to-coral gradient HomeMenu uses on the player name. */
   .landing-h1-accent {
-    background: linear-gradient(135deg, #f4d04a 0%, #f49a4a 60%, #d96658 100%);
+    background: linear-gradient(135deg, #ff9f1c 0%, #ff7e5f 60%, #ee5a52 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
     animation: title-shimmer 4s ease-in-out infinite;
   }
   .landing-lede {
     margin: 14px 0 0;
-    color: rgba(255,255,255,.78);
+    color: #7a5a52;
     font-size: 15px; line-height: 1.55;
     max-width: 520px;
   }
   .landing-hint {
     margin: 12px 0 0;
     font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
-    color: rgba(244, 208, 74, .75);
+    color: #ee5a52;
+    font-weight: 600;
   }
   .landing-cta-row {
     display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;
   }
+  /* Same gradient stack the in-game btnPrimary uses, so the landing
+     CTA feels like the orange button players see throughout the app. */
   .landing-cta-primary {
-    padding: 13px 22px; border-radius: 12px; border: none;
-    background: linear-gradient(135deg, #f4d04a 0%, #f49a4a 100%);
-    color: #2a1a06; font-weight: 700; font-size: 15px;
+    padding: 13px 22px; border-radius: 22px; border: none;
+    background: linear-gradient(180deg, #ffa07a 0%, #ff7e5f 60%, #ee5a52 100%);
+    color: #fff; font-weight: 700; font-size: 15px;
     letter-spacing: 0.4px;
-    box-shadow: 0 10px 28px rgba(244,154,74,.4);
+    box-shadow: 0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4);
     cursor: pointer;
+    font-family: Fredoka, system-ui, sans-serif;
   }
   .landing-cta-primary:hover { transform: translateY(-1px); }
   .landing-cta-ghost {
-    padding: 13px 22px; border-radius: 12px;
-    background: rgba(255,255,255,.05);
-    border: 1px solid rgba(255,255,255,.18);
-    color: #fff; font-weight: 600; font-size: 14px;
+    padding: 13px 22px; border-radius: 22px;
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, 0.14);
+    color: #3a2e2a; font-weight: 600; font-size: 14px;
     cursor: pointer;
   }
-  .landing-cta-ghost:hover { background: rgba(255,255,255,.1); }
+  .landing-cta-ghost:hover { background: #fff5ec; border-color: rgba(238,90,82,.4); }
 
   .landing-hero-stage {
     position: relative;
@@ -882,7 +898,7 @@ const LANDING_CSS = `
   }
   .landing-floating:hover { filter: brightness(1.15); }
   .landing-floating:focus-visible {
-    outline: 2px solid #f4d04a;
+    outline: 2px solid #ee5a52;
     outline-offset: 4px;
   }
   .landing-floating:active { filter: brightness(1.25); }
@@ -1067,8 +1083,9 @@ const LANDING_CSS = `
   .landing-pitch { padding: 24px 20px; position: relative; z-index: 2; }
   .landing-section-title {
     text-align: center; margin-bottom: 18px;
-    color: rgba(255,255,255,.55);
+    color: #a89580;
     font-size: 11px; letter-spacing: 4px; text-transform: uppercase;
+    font-weight: 600;
   }
   .landing-section-title span {
     padding: 0 12px; position: relative;
@@ -1076,7 +1093,7 @@ const LANDING_CSS = `
   .landing-section-title span::before,
   .landing-section-title span::after {
     content: ''; position: absolute; top: 50%; width: 36px; height: 1px;
-    background: rgba(255,255,255,.18);
+    background: rgba(58, 46, 42, .15);
   }
   .landing-section-title span::before { right: 100%; }
   .landing-section-title span::after  { left: 100%; }
@@ -1087,21 +1104,22 @@ const LANDING_CSS = `
   }
   @media (min-width: 720px) { .landing-pitch-grid { grid-template-columns: repeat(3, 1fr); } }
   .landing-pitch-card {
-    background: rgba(8, 10, 24, 0.6);
-    border: 1px solid rgba(255,255,255,.08);
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
     border-radius: 16px;
     padding: 18px 16px;
-    backdrop-filter: blur(8px);
+    box-shadow: 0 6px 18px rgba(58, 46, 42, .06);
   }
   .landing-pitch-num {
     width: 28px; height: 28px; border-radius: 50%;
     display: inline-flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, #f4d04a 0%, #f49a4a 100%);
-    color: #2a1a06; font-weight: 800; font-size: 14px;
+    background: linear-gradient(135deg, #ff9f1c 0%, #ee5a52 100%);
+    color: #fff; font-weight: 800; font-size: 14px;
     margin-bottom: 10px;
+    box-shadow: 0 4px 10px rgba(238, 90, 82, .3);
   }
-  .landing-pitch-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #fff; }
-  .landing-pitch-body { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,.7); }
+  .landing-pitch-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #3a2e2a; }
+  .landing-pitch-body { font-size: 13px; line-height: 1.5; color: #7a5a52; }
 
   /* Themes ------------------------------------------------------------ */
   .landing-themes { padding: 24px 20px; position: relative; z-index: 2; }
@@ -1131,21 +1149,21 @@ const LANDING_CSS = `
   /* Ticker ------------------------------------------------------------ */
   .landing-ticker-section {
     padding: 22px 0;
-    border-top: 1px solid rgba(255,255,255,.08);
-    border-bottom: 1px solid rgba(255,255,255,.08);
-    background: rgba(8, 10, 24, 0.45);
+    border-top: 1px solid rgba(58, 46, 42, .08);
+    border-bottom: 1px solid rgba(58, 46, 42, .08);
+    background: #ffe8d6;
     position: relative; z-index: 2;
   }
   .landing-ticker-label {
     display: flex; align-items: center; gap: 8px;
     padding: 0 20px 12px;
     font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
-    color: rgba(255,255,255,.65);
-    font-weight: 600;
+    color: #7a5a52;
+    font-weight: 700;
   }
   .landing-ticker-dot {
     width: 8px; height: 8px; border-radius: 50%;
-    background: #f46658;
+    background: #ee5a52;
     animation: ticker-dot-pulse 1.6s ease-out infinite;
   }
   .landing-ticker-track-wrap {
@@ -1163,21 +1181,22 @@ const LANDING_CSS = `
   .landing-ticker-chip {
     display: flex; align-items: center; gap: 8px;
     padding: 8px 14px;
-    background: rgba(255,255,255,.05);
-    border: 1px solid rgba(255,255,255,.1);
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .1);
     border-radius: 999px;
     font-size: 13px;
     white-space: nowrap;
-    color: rgba(255,255,255,.88);
+    color: #3a2e2a;
+    box-shadow: 0 2px 6px rgba(58, 46, 42, .05);
   }
   .landing-ticker-rarity { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-  .landing-ticker-rarity.rar-common    { background: #9a958c; }
-  .landing-ticker-rarity.rar-rare      { background: #6db4e8; box-shadow: 0 0 8px #6db4e8aa; }
-  .landing-ticker-rarity.rar-legendary { background: #f4d04a; box-shadow: 0 0 10px #f4d04acc; }
-  .landing-ticker-who { color: #f4d04a; font-weight: 600; }
-  .landing-ticker-what { color: rgba(255,255,255,.78); }
+  .landing-ticker-rarity.rar-common    { background: #a89580; }
+  .landing-ticker-rarity.rar-rare      { background: #3a8fc4; box-shadow: 0 0 8px #3a8fc4aa; }
+  .landing-ticker-rarity.rar-legendary { background: #ffd166; box-shadow: 0 0 10px #ffd166cc; }
+  .landing-ticker-who  { color: #ee5a52; font-weight: 700; }
+  .landing-ticker-what { color: #7a5a52; }
 
-  /* Auth panel -------------------------------------------------------- */
+  /* Auth panel — same paper-on-cream surface as the rest of the app -- */
   .landing-auth {
     padding: 36px 20px 24px;
     display: flex; justify-content: center;
@@ -1185,83 +1204,91 @@ const LANDING_CSS = `
   }
   .landing-auth-card {
     width: min(440px, 100%);
-    background: rgba(8, 10, 24, 0.82);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(244,208,74,.22);
+    background: #ffffff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
     border-radius: 22px;
     padding: 26px 22px 22px;
-    box-shadow: 0 30px 80px rgba(0,0,0,.55), 0 0 60px rgba(244,208,74,.12) inset;
+    box-shadow: 0 18px 48px rgba(58, 46, 42, .12);
   }
   .landing-auth-brand { text-align: center; margin-bottom: 18px; }
   .landing-auth-title {
     margin: 8px 0 4px;
     font-family: Fredoka, system-ui, sans-serif;
     font-size: 24px; font-weight: 700;
-    background: linear-gradient(135deg, #f4d04a 0%, #f49a4a 60%, #d96658 100%);
+    background: linear-gradient(135deg, #ff9f1c 0%, #ff7e5f 60%, #ee5a52 100%);
     -webkit-background-clip: text; background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: .4px;
   }
   .landing-auth-sub {
-    font-size: 12px; letter-spacing: 2px; color: rgba(255,255,255,.55);
-    text-transform: uppercase;
+    font-size: 12px; letter-spacing: 2px; color: #a89580;
+    text-transform: uppercase; font-weight: 600;
   }
   .landing-auth-form { display: flex; flex-direction: column; gap: 10px; }
   .landing-field { display: flex; flex-direction: column; gap: 4px; }
   .landing-field-label {
     font-size: 11px; letter-spacing: 1.5px;
-    color: rgba(255,255,255,.55); text-transform: uppercase;
+    color: #7a5a52; text-transform: uppercase; font-weight: 600;
   }
   .landing-field-input {
     padding: 11px 12px; border-radius: 10px;
-    border: 1px solid rgba(255,255,255,.14);
-    background: rgba(255,255,255,.04);
-    color: #fff; font-size: 14px; outline: none;
+    border: 1.5px solid rgba(58, 46, 42, .12);
+    background: #fef8f0;
+    color: #3a2e2a; font-size: 14px; outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
   }
-  .landing-field-input:focus { border-color: rgba(244,208,74,.55); }
+  .landing-field-input::placeholder { color: #a89580; }
+  .landing-field-input:focus {
+    border-color: #ee5a52;
+    box-shadow: 0 0 0 3px rgba(238, 90, 82, .12);
+    background: #fff;
+  }
   .landing-auth-err {
-    font-size: 12px; color: #ffb4a8;
-    background: rgba(217,102,88,.18);
-    border: 1px solid rgba(217,102,88,.4);
+    font-size: 12px; color: #c8362e;
+    background: rgba(238, 90, 82, .08);
+    border: 1px solid rgba(238, 90, 82, .3);
     border-radius: 10px; padding: 8px 10px;
   }
+  /* Mirrors btnPrimary — same gradient + shadow stack the in-game CTAs use */
   .landing-auth-submit {
-    margin-top: 6px; padding: 12px 16px; border-radius: 12px; border: none;
+    margin-top: 6px; padding: 14px 16px; border-radius: 22px; border: none;
     cursor: pointer;
-    background: linear-gradient(135deg, #f4d04a 0%, #f49a4a 100%);
-    color: #2a1a06; font-weight: 700; font-size: 15px; letter-spacing: .5px;
-    box-shadow: 0 8px 24px rgba(244,154,74,.4);
+    background: linear-gradient(180deg, #ffa07a 0%, #ff7e5f 60%, #ee5a52 100%);
+    color: #fff; font-weight: 700; font-size: 15px; letter-spacing: .5px;
+    box-shadow: 0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4);
+    font-family: Fredoka, system-ui, sans-serif;
   }
   .landing-auth-submit:disabled { opacity: .6; cursor: wait; }
   .landing-auth-or {
     display: flex; align-items: center; gap: 8px; margin: 4px 0;
-    color: rgba(255,255,255,.4); font-size: 11px;
+    color: #a89580; font-size: 11px;
   }
-  .landing-auth-or span { flex: 1; height: 1px; background: rgba(255,255,255,.12); }
+  .landing-auth-or span { flex: 1; height: 1px; background: rgba(58, 46, 42, .12); }
   .landing-auth-google {
-    padding: 10px 14px; border-radius: 12px;
-    border: 1px solid rgba(255,255,255,.18);
-    background: rgba(255,255,255,.06); color: #fff;
+    padding: 11px 14px; border-radius: 22px;
+    border: 1.5px solid rgba(58, 46, 42, .14);
+    background: #fff; color: #3a2e2a;
     font-weight: 600; font-size: 14px; cursor: pointer;
     display: flex; align-items: center; justify-content: center; gap: 10px;
   }
+  .landing-auth-google:hover { background: #fef8f0; border-color: rgba(58, 46, 42, .25); }
   .landing-auth-google:disabled { opacity: .6; cursor: wait; }
   .landing-auth-switch {
     margin-top: 8px; padding: 6px; background: none; border: none;
-    color: rgba(255,255,255,.7); font-size: 13px; cursor: pointer;
+    color: #ee5a52; font-size: 13px; font-weight: 600; cursor: pointer;
   }
+  .landing-auth-switch:hover { text-decoration: underline; }
   .landing-auth-hint {
     margin-top: 14px; font-size: 11px; line-height: 1.5;
-    color: rgba(255,255,255,.55); text-align: center;
-    border-top: 1px solid rgba(255,255,255,.08); padding-top: 12px;
+    color: #7a5a52; text-align: center;
+    border-top: 1px solid rgba(58, 46, 42, .08); padding-top: 12px;
   }
-  .landing-auth-hint code { color: #f4d04a; }
+  .landing-auth-hint code { color: #ee5a52; background: #ffe8d6; padding: 1px 4px; border-radius: 4px; }
 
   .landing-footer {
     text-align: center;
     padding: 20px;
     font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
-    color: rgba(255,255,255,.35);
+    color: #a89580;
   }
 `;
