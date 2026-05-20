@@ -4,7 +4,7 @@ import { LogoLoader } from './components/LogoLoader';
 import { HomeMenu } from './screens/HomeMenu';
 import { AuthProvider, useAuth } from './firebase/auth';
 import { useFirestoreSave } from './hooks/useFirestoreSave';
-import { uploadCardPhoto, deleteCardPhoto, migrateCollectionPhotos, isDataUriPhoto } from './firebase/photos';
+import { uploadCardPhoto, uploadPlayerAvatar, deleteCardPhoto, migrateCollectionPhotos, isDataUriPhoto } from './firebase/photos';
 import { Login } from './screens/Login';
 import { PvpLobby } from './screens/PvpLobby';
 import { PvpRoom } from './screens/PvpRoom';
@@ -255,15 +255,26 @@ function Game() {
   useEffect(() => {
     if (!user || saveLoading || photoMigrationRanRef.current) return;
     const hasInlinePhotos = (save.collection ?? []).some(c => isDataUriPhoto(c.photo));
-    if (!hasInlinePhotos) {
+    const hasInlineAvatar = isDataUriPhoto(save.playerAvatar);
+    if (!hasInlinePhotos && !hasInlineAvatar) {
       photoMigrationRanRef.current = true;
       return;
     }
     photoMigrationRanRef.current = true;
     (async () => {
-      const { collection, migrated } = await migrateCollectionPhotos(user.uid, save.collection);
-      if (migrated > 0) {
-        setSave(s => ({ ...s, collection }));
+      if (hasInlinePhotos) {
+        const { collection, migrated } = await migrateCollectionPhotos(user.uid, save.collection);
+        if (migrated > 0) {
+          setSave(s => ({ ...s, collection }));
+        }
+      }
+      // Legacy data-URI avatars from old builds — push to Storage so
+      // the next Firestore write actually persists them.
+      if (hasInlineAvatar && save.playerAvatar) {
+        try {
+          const url = await uploadPlayerAvatar(user.uid, save.playerAvatar);
+          setSave(s => ({ ...s, playerAvatar: url }));
+        } catch { /* retry on next boot */ }
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -936,7 +947,23 @@ function Game() {
           dailyReadyCount={dailyReadyCount}
           playerName={user?.displayName || user?.email?.split('@')[0]}
           onSignOut={() => { signOutUser(); }}
-          onSetAvatar={(dataUrl) => setSave(s => ({ ...s, playerAvatar: dataUrl }))}
+          onSetAvatar={(dataUrl) => {
+            // Optimistic local set so the player sees the avatar
+            // immediately — but if it's a raw data URI, kick off a
+            // background upload to Firebase Storage and swap the
+            // field to the resulting URL once it lands. Without this
+            // the data URI either fails the Firestore 1MB per-field
+            // cap (camera photos are often 2-3MB) and the avatar
+            // vanishes on the next refresh, or it persists in the
+            // save doc but eats most of the available document
+            // budget.
+            setSave(s => ({ ...s, playerAvatar: dataUrl }));
+            if (user && dataUrl && isDataUriPhoto(dataUrl)) {
+              uploadPlayerAvatar(user.uid, dataUrl)
+                .then((url) => setSave(s => ({ ...s, playerAvatar: url })))
+                .catch(() => { /* keep the data URI locally; next change retries */ });
+            }
+          }}
           onNav={(s) => {
             if (s === 'play') setScreen('boss-picker');
             else if (s === 'cards') goCards('collection');
