@@ -191,7 +191,7 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
           '--theme-deep': focusedEl.deep,
         } as React.CSSProperties}
       >
-        <span>{confirming ? `Opening ${focused.name}…` : `Take the ${focused.name} deck`}</span>
+        <span>{confirming ? `Opening ${focused.name}…` : 'Select Starter Deck'}</span>
         <ChevronRight size={18} strokeWidth={2.4} />
       </button>
     </div>
