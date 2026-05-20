@@ -3708,10 +3708,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             willChange: 'opacity',
           }}
         >
-          {/* Rotating ray fan — sits behind the card. */}
+          {/* Rotating ray fan — sits behind the card. Clipped to a
+              circle (borderRadius + radial mask) so the conic gradient
+              doesn't render as a visible yellow square — the box was
+              showing because `mixBlendMode: screen` lights every pixel
+              of the 480×480 element on top of the dark overlay. */}
           <div style={{
             position: 'absolute', left: '50%', top: '50%',
             width: 480, height: 480,
+            borderRadius: '50%',
             background: `conic-gradient(
               from 0deg,
               transparent 0deg,
@@ -3728,6 +3733,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               rgba(255,209,102,.5) 340deg,
               transparent 360deg
             )`,
+            WebkitMaskImage: 'radial-gradient(circle, #000 45%, transparent 75%)',
+            maskImage: 'radial-gradient(circle, #000 45%, transparent 75%)',
             transformOrigin: 'center',
             animation: 'legendaryRayRotate 1.4s ease-out both',
             mixBlendMode: 'screen',
