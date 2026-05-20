@@ -4945,7 +4945,7 @@ function EmotePicker({
  * enough and dropping the names removes the layout asymmetry that the
  * names were creating).
  */
-function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, pulseRing, hit, damage, onClick, elRef }: {
+export function Portrait({ avatar, avatarPhoto, avatarBg, avatarRing, hp, ring, pulseRing, hit, damage, onClick, elRef }: {
   /** Centered fallback content shown when no avatarPhoto is set —
    *  usually a letter (for bosses) or a Lucide icon (for the player's
    *  default state). Accepts any ReactNode so callers can pass an
@@ -5077,7 +5077,7 @@ function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) 
   );
 }
 
-function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
+export function ManaCrystals({ mana, maxMana, pulseKey }: { mana: number; maxMana: number; pulseKey?: number }) {
   // Circle that fills with liquid from the bottom — same shape as the card
   // cost badge so players immediately read "this number = those circles on cards".
   const fillPct = maxMana > 0 ? Math.max(0, Math.min(1, mana / maxMana)) : 0;

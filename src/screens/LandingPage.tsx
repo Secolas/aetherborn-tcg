@@ -2,7 +2,9 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
+import { UserRound } from 'lucide-react';
 import { BattlefieldCard } from '../components/BattlefieldCard';
+import { Portrait, ManaCrystals } from './MatchBoard';
 import { CosmeticsProvider } from '../state/cosmetics';
 import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
@@ -581,9 +583,14 @@ function GameplayPreview() {
   // setPhase rerenders). The defender is keyed on loopKey so a new
   // BattleCard instance arrives on every loop wrap, replaying the
   // summon dust just like a freshly-summoned card would in-game.
+  // Dog (2/4 Taunt, animals) attacks Cousin (2/2 family). Dog deals
+  // 2 damage → Cousin dies cleanly in one hit. Cousin is the boss
+  // (Mom)'s thematic minion; Intern would have been off-deck for a
+  // family boss. Both photos are bundled / sample-photo URLs so the
+  // landing renders them without a Firestore round-trip.
   const attacker = useMemo(() => makeDemoBattleCard('ani-05', 'gp-attacker'), []);
   const defender = useMemo(
-    () => makeDemoBattleCard('wrk-01', `gp-defender-${loopKey}`),
+    () => makeDemoBattleCard('fam-02', `gp-defender-${loopKey}`),
     [loopKey],
   );
 
@@ -593,59 +600,82 @@ function GameplayPreview() {
   const damage    = phase === 'impact' || phase === 'dying' ? 2 : null;
   const showDefender = phase !== 'empty';
 
+  // Match the in-game OpponentPortrait wiring for the Mom boss: family
+  // theme palette, photo avatar from /cards/mom.webp. The themeed
+  // gradient ring is exactly what the match header uses.
+  const fam = ELEMENTS.family;
+
   return (
     <section className="landing-gameplay">
       <div className="landing-section-title"><span>Combat in motion</span></div>
 
       {/* Daylight board skin — same warm tabletop the in-game match
-          uses by default. Wrapping in CosmeticsProvider (inMatch:
-          false) is required so BattlefieldCard's useCosmetics hook
-          has a context to read; we leave inMatch off so the demo
-          uses the unframed default chrome, which is what brand-new
-          players see anyway. */}
+          uses by default. CosmeticsProvider (inMatch: false) so
+          BattlefieldCard's useCosmetics hook has a context; leaving
+          inMatch off keeps the demo on unframed default chrome,
+          which is what a brand-new player sees. */}
       <CosmeticsProvider>
         <div className="gp-board">
-          <div className="gp-side gp-side-opp">
-            <div className="gp-portrait">
-              <div className="gp-portrait-name">Vex</div>
-              <div className="gp-hpbar">
-                <div className="gp-hpbar-fill" />
-                <span className="gp-hpbar-text">24 / 24</span>
-              </div>
-            </div>
-            <div className="gp-row">
-              {showDefender && (
-                <BattlefieldCard
-                  key={defender.battleId}
-                  card={defender}
-                  impact={isImpact}
-                  dying={isDying}
-                  damage={damage}
-                  owned={false}
-                />
-              )}
-            </div>
+          {/* Opponent header: portrait + mana on the left, same as
+              the in-game OpponentPortrait + ManaCrystals row. */}
+          <div className="gp-header">
+            <Portrait
+              avatar=""
+              avatarPhoto="/cards/mom.webp"
+              avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
+              avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
+              hp={24}
+              ring={null}
+              hit={false}
+              damage={null}
+              onClick={() => {}}
+            />
+            <ManaCrystals mana={3} maxMana={3} />
+            <div className="gp-header-name">Mom</div>
+          </div>
+
+          {/* Opponent field — defender centered. */}
+          <div className="gp-field">
+            {showDefender && (
+              <BattlefieldCard
+                key={defender.battleId}
+                card={defender}
+                impact={isImpact}
+                dying={isDying}
+                damage={damage}
+                owned={false}
+              />
+            )}
           </div>
 
           <div className="gp-divider" aria-hidden />
 
-          <div className="gp-side gp-side-me">
-            <div className="gp-row">
-              <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
-                <BattlefieldCard
-                  card={attacker}
-                  lunging={isLunging ? 'up' : null}
-                  owned={true}
-                />
-              </div>
+          {/* Player field — attacker centered. */}
+          <div className="gp-field">
+            <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
+              <BattlefieldCard
+                card={attacker}
+                lunging={isLunging ? 'up' : null}
+                owned={true}
+              />
             </div>
-            <div className="gp-portrait">
-              <div className="gp-portrait-name">You</div>
-              <div className="gp-hpbar">
-                <div className="gp-hpbar-fill" style={{ width: '100%' }} />
-                <span className="gp-hpbar-text">24 / 24</span>
-              </div>
-            </div>
+          </div>
+
+          {/* Player footer: portrait + mana on the left, same shape
+              as the opponent header. */}
+          <div className="gp-header">
+            <Portrait
+              avatar={<UserRound size={18} strokeWidth={2.2} />}
+              avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
+              avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
+              hp={24}
+              ring={null}
+              hit={false}
+              damage={null}
+              onClick={() => {}}
+            />
+            <ManaCrystals mana={4} maxMana={4} />
+            <div className="gp-header-name">You</div>
           </div>
         </div>
       </CosmeticsProvider>
@@ -1453,11 +1483,12 @@ const LANDING_CSS = `
   }
 
   /* Gameplay preview ------------------------------------------------- */
-  /* Wraps two real in-game BattlefieldCard renders on a daylight-skin
-     board. The component already handles every visual beat — lunge,
-     impact, damage popup, dying slice, summon dust on respawn — so
-     this stylesheet only provides the surrounding chrome (board
-     gradient, portraits, HP bars). */
+  /* Reuses the in-game Portrait, ManaCrystals, and BattlefieldCard
+     components on a daylight-skin board. The component handles every
+     visual beat (lunge, impact, damage popup, dying slice, summon
+     dust); this stylesheet only lays out the four rows: opponent
+     header, opponent field (creature centered), divider, player
+     field (creature centered), player footer. */
   @keyframes gp-attacker-pulse {
     0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, 0); }
     50%      { box-shadow: 0 0 0 6px rgba(238, 90, 82, .12); }
@@ -1465,10 +1496,6 @@ const LANDING_CSS = `
 
   .landing-gameplay { padding: 24px 20px; position: relative; z-index: 2; }
 
-  /* Daylight board skin — same gradient stack the in-game match uses
-     by default (src/data/boardSkins.ts). Two-row split so the
-     opponent strip sits on top, divider in the middle, player at
-     the bottom — same layout the MatchBoard ships with. */
   .gp-board {
     max-width: 520px; margin: 0 auto;
     background:
@@ -1476,70 +1503,46 @@ const LANDING_CSS = `
       linear-gradient(180deg, #ffe8d6 0%, #ffd1b3 50%, #ffb89a 100%);
     border: 1.5px solid rgba(58, 46, 42, .12);
     border-radius: 18px;
-    padding: 14px 14px 16px;
+    padding: 12px 14px 14px;
     box-shadow:
       0 12px 28px rgba(58, 46, 42, .14),
       inset 0 0 0 1px rgba(255,255,255,.45);
     overflow: hidden;
   }
-  .gp-side {
-    display: flex; align-items: center; gap: 14px;
-    padding: 6px 4px;
-  }
-  .gp-side-opp .gp-row { justify-content: flex-end; }
-  .gp-side-me  .gp-row { justify-content: flex-start; }
 
-  .gp-row {
-    flex: 1;
-    display: flex; align-items: center;
-    min-height: 90px;
-    gap: 8px;
+  /* Header strip — left-aligned, mirrors the match's player + opp
+     header rows: portrait + mana + name. */
+  .gp-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
   }
-
-  .gp-portrait {
-    flex: none;
-    width: 112px;
-    display: flex; flex-direction: column; gap: 4px;
-  }
-  .gp-portrait-name {
+  .gp-header-name {
     font-family: Fredoka, system-ui, sans-serif;
     font-weight: 700; font-size: 13px;
     color: #3a2e2a;
-  }
-  .gp-hpbar {
-    position: relative;
-    height: 14px; border-radius: 7px;
-    background: rgba(58, 46, 42, .14);
-    overflow: hidden;
-    box-shadow: inset 0 1px 2px rgba(58, 46, 42, .2);
-  }
-  .gp-hpbar-fill {
-    position: absolute; inset: 0 auto 0 0;
-    width: 100%;
-    background: linear-gradient(90deg, #06d6a0 0%, #f4d04a 70%, #ee5a52 100%);
-    border-radius: 7px;
-  }
-  .gp-hpbar-text {
-    position: absolute; inset: 0;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 10px; font-weight: 800;
-    color: #fff;
-    text-shadow: 0 1px 1px rgba(0,0,0,.4);
-    letter-spacing: .5px;
+    margin-left: 4px;
   }
 
-  /* Dashed divider mimics the in-game center lane between the two
-     fields. */
+  /* Field rows — creatures are dead-center horizontally. The min-
+     height carves out enough room for the BattlefieldCard's 56×76px
+     box plus a little breathing room for the lunge animation. */
+  .gp-field {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 92px;
+    padding: 4px 0;
+  }
+
+  /* Dashed divider — same lane separator the in-game MatchBoard
+     draws between opponent and player fields. */
   .gp-divider {
     height: 1px;
     border-top: 1px dashed rgba(58, 46, 42, .22);
     margin: 4px 6px;
   }
 
-  /* Soft pulse ring under the attacker on rest — same beat the
-     in-game UI gives ready creatures so the player knows they can
-     swing. We add this on the wrapper instead of touching the
-     BattlefieldCard's own classes. */
+  /* Soft red pulse around the attacker while it's idle, so the
+     viewer's eye lands on "this is the creature about to swing"
+     before the lunge actually starts. */
   .gp-attacker-wrap {
     border-radius: 12px;
     transition: box-shadow 200ms ease;
