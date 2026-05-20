@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Coins, Sparkles, Lock, Star, Cake, Sun, Heart, PawPrint, ChevronUp } from 'lucide-react';
 import { Card } from '../components/Card';
+import { CardBack } from '../components/CardBack';
 import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
@@ -1226,7 +1227,7 @@ function StackStage({
         {teaseRarity && (
           <RarityAura rarity={firstRarity!} vibe={vibe} />
         )}
-        <CardBack vibe={vibe} />
+        <CardBack scale={1} side="player" />
       </div>
     </SwipeUpStage>
   );
@@ -1322,7 +1323,7 @@ function RevealStack({
           {(cards[idx + 1].rarity === 'epic' || cards[idx + 1].rarity === 'legendary') && (
             <RarityAura rarity={cards[idx + 1].rarity} vibe={vibe} />
           )}
-          <CardBack vibe={vibe} />
+          <CardBack scale={1} side="player" />
         </div>
       )}
 
@@ -1354,7 +1355,7 @@ function RevealStack({
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
           }}>
-            <CardBack vibe={vibe} />
+            <CardBack scale={1} side="player" />
           </div>
           {/* FRONT face — rotated 180 so it shows when parent flips. */}
           <div style={{
@@ -1443,13 +1444,16 @@ function SwipeUpStage({
         drag={enabled ? 'y' : false}
         dragConstraints={{ top: -120, bottom: 40 }}
         dragElastic={0.25}
+        dragSnapToOrigin
         onDragEnd={(_, info) => {
           if (enabled && isUpSwipe(info.offset.y, info.velocity.y)) onSwipe();
         }}
+        onClick={() => { if (enabled) onSwipe(); }}
         style={{
           position: 'absolute', inset: 0,
           display: 'grid', placeItems: 'center',
           touchAction: 'pan-x',
+          cursor: enabled ? 'pointer' : 'default',
         }}
       >
         {children}
@@ -1478,8 +1482,10 @@ function SwipeUpStage({
   );
 }
 
-/** Local swipe target — the card itself moves with the drag.
- *  Snaps back to zero if the swipe doesn't clear the threshold. */
+/** Local swipe target — the card itself moves with the drag and
+ *  snaps back if the swipe doesn't clear the threshold. Tap also
+ *  triggers the swipe action, so desktop / accessibility users
+ *  don't have to drag. */
 function SwipeableCard({
   enabled, onSwipe, children, style,
 }: {
@@ -1497,8 +1503,8 @@ function SwipeableCard({
       onDragEnd={(_, info) => {
         if (enabled && isUpSwipe(info.offset.y, info.velocity.y)) onSwipe();
       }}
-      style={{ touchAction: 'pan-x', cursor: enabled ? 'grab' : 'default', ...style }}
-      whileDrag={{ cursor: 'grabbing' }}
+      onClick={() => { if (enabled) onSwipe(); }}
+      style={{ touchAction: 'pan-x', cursor: enabled ? 'pointer' : 'default', ...style }}
     >
       {children}
     </motion.div>
@@ -1508,46 +1514,52 @@ function SwipeableCard({
 // =================================================================
 // WIREFRAME STACK + CARD BACK + RARITY AURA — shared visuals.
 // =================================================================
-/** Five (or `count`) translucent wireframe cards arranged in a 3D
- *  perspective. `mode="in"` cascades them into place; `mode="collapse"`
- *  collapses them to z=0 and fades them out. */
+/** Translucent wireframe cards arranged as a clean stacked deck.
+ *  Cards recede in depth (smaller + slightly higher peek so the player
+ *  sees each top edge), no horizontal fan and no rotation — that's what
+ *  was reading as "skewed" before.
+ *  `mode="in"` cascades them into place; `mode="collapse"` slides them
+ *  down to a single aligned stack and fades them out as the solid back
+ *  card takes over. */
 function WireframeStack({
   vibe, count, mode,
 }: { vibe: PackVibe; count: number; mode: 'in' | 'collapse' }) {
-  // Cap the visible stack at 5 wireframes regardless of actual pack
-  // size — past that the depth reads as visual noise.
+  // Cap the visible stack at 5 wireframes — past that the depth reads
+  // as visual noise.
   const visible = Math.min(count, 5);
   return (
     <div style={{
       position: 'absolute', inset: 0,
       display: 'grid', placeItems: 'center',
-      transformStyle: 'preserve-3d',
       pointerEvents: 'none',
       zIndex: 3,
     }}>
       {Array.from({ length: visible }).map((_, i) => {
-        const depth = i / Math.max(1, visible - 1);   // 0..1 from top to back
-        const tz = -depth * 140;                       // pushes back
-        const ty = depth * 36;                         // and down
-        const rot = (i - (visible - 1) / 2) * 1.5;     // slight fan
+        // depth = 0 (front) .. 1 (back)
+        const depth = i / Math.max(1, visible - 1);
+        // Back cards slightly smaller AND shifted slightly UP so each
+        // top edge peeks above the card in front — gives the read of
+        // "stack of cards" without skewing or fanning.
+        const scale = 1 - depth * 0.06;
+        const peek = -depth * 10;
         const delay = mode === 'in' ? (visible - 1 - i) * 0.06 : i * 0.04;
         const anim = mode === 'in'
-          ? `wireframeCardIn 0.5s cubic-bezier(.2,.8,.3,1.05) ${delay}s both`
-          : `wireframeCollapse 0.5s cubic-bezier(.4,.1,.2,1) ${delay}s both`;
+          ? `wireframeCardIn 0.45s cubic-bezier(.2,.8,.3,1.05) ${delay}s both`
+          : `wireframeCollapse 0.45s cubic-bezier(.4,.1,.2,1) ${delay}s both`;
         return (
           <div
             key={i}
             style={{
-              position: 'absolute', left: '50%', top: '50%',
-              width: 200, height: 280,
-              borderRadius: 16,
+              position: 'absolute',
+              top: '50%', left: '50%',
+              width: 220, height: 320,
+              marginTop: -160, marginLeft: -110, // center the card on (50%, 50%)
+              borderRadius: 18,
               border: `1.5px solid ${vibe.glow}`,
-              background: `linear-gradient(135deg, ${vibe.glow}18 0%, ${vibe.glow}06 100%)`,
               boxShadow: `0 0 24px ${vibe.glow}55, inset 0 0 18px ${vibe.glow}33`,
-              ['--tz' as string]: `${tz}px`,
-              ['--ty' as string]: `${ty}px`,
-              ['--rot' as string]: `${rot}deg`,
-              transformStyle: 'preserve-3d',
+              opacity: 1 - depth * 0.25,
+              ['--scale' as string]: String(scale),
+              ['--peek' as string]: `${peek}px`,
               animation: anim,
               // Cross-hatch wireframe pattern.
               backgroundImage: `
@@ -1560,60 +1572,6 @@ function WireframeStack({
           />
         );
       })}
-    </div>
-  );
-}
-
-/** Solid card back — used in stack stage and as the back face during
- *  the per-card flip. Matches the pack vibe palette so it feels like
- *  the pack art collapsed inward rather than a generic back. */
-function CardBack({ vibe }: { vibe: PackVibe }) {
-  return (
-    <div style={{
-      width: 220, height: 320,
-      borderRadius: 18,
-      background: `
-        radial-gradient(circle at 50% 35%, ${vibe.glow}66 0%, transparent 60%),
-        linear-gradient(155deg, ${vibe.deep} 0%, ${vibe.color} 55%, ${vibe.deep} 100%)
-      `,
-      boxShadow: `
-        0 22px 50px rgba(0,0,0,.45),
-        inset 0 0 0 3px ${vibe.glow},
-        inset 0 0 28px ${vibe.glow}55,
-        0 0 50px ${vibe.glow}55
-      `,
-      display: 'grid', placeItems: 'center',
-      position: 'relative',
-      overflow: 'hidden',
-    }}>
-      <div style={{
-        fontFamily: '"Cinzel", Georgia, serif',
-        fontSize: 22, fontWeight: 700,
-        letterSpacing: '0.3em',
-        color: '#fff',
-        textShadow: `0 0 18px ${vibe.glow}`,
-        textTransform: 'uppercase',
-        opacity: 0.95,
-      }}>
-        Memoria
-      </div>
-      {/* Decorative concentric rings. */}
-      <div aria-hidden style={{
-        position: 'absolute', left: '50%', top: '50%',
-        width: 280, height: 280,
-        transform: 'translate(-50%, -50%)',
-        borderRadius: '50%',
-        border: `1px solid ${vibe.glow}55`,
-        opacity: 0.6,
-      }} />
-      <div aria-hidden style={{
-        position: 'absolute', left: '50%', top: '50%',
-        width: 180, height: 180,
-        transform: 'translate(-50%, -50%)',
-        borderRadius: '50%',
-        border: `1px solid ${vibe.glow}88`,
-        opacity: 0.5,
-      }} />
     </div>
   );
 }
