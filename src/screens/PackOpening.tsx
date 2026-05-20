@@ -17,16 +17,16 @@ import type { CollectionCard, ElementId, Rarity } from '../game/types';
  *  pick    — booster grid
  *  lift    — pack animates into the centre
  *  tension — pack rattles
- *  unbox   — white slash beam sweeps; pack art dissolves into a
- *            translucent wireframe stack of cards. User swipes up to advance.
- *  stack   — wireframes collapse into a single face-down card back.
- *            User swipes up on the back to begin revealing.
+ *  emerge  — slash + cards burst out from inside the pack (auto, ~1.4s).
+ *            Replaces the old swipe-gated unbox + stack stages — players
+ *            were swiping twice before they saw a card to flip.
  *  revealing — per-card Y-flip + slide-off-top while the next card
  *              slides in from the bottom. Rare+ cards get a pulse glow
- *              tease before the flip.
+ *              tease before the flip. First swipe flips, second swipe
+ *              advances — fully user-driven.
  *  done    — pack summary grid.
  */
-type Stage = 'pick' | 'lift' | 'tension' | 'unbox' | 'stack' | 'revealing' | 'done';
+type Stage = 'pick' | 'lift' | 'tension' | 'emerge' | 'revealing' | 'done';
 
 const THEMES: ElementId[] = ['family', 'work', 'animals', 'travel', 'food', 'education'];
 
@@ -71,11 +71,16 @@ interface Props {
   onStartTutorial?: () => void;
 }
 
-/** Only the auto-advancing stages have durations. `unbox`, `stack`,
- *  `revealing`, and `done` are driven by user swipes. */
-const STAGE_DURATIONS: Record<'lift' | 'tension', number> = {
+/** Only the auto-advancing stages have durations. `revealing` and
+ *  `done` are driven by user swipes — players want to control the
+ *  pace of every reveal. */
+const STAGE_DURATIONS: Record<'lift' | 'tension' | 'emerge', number> = {
   lift: 600,
   tension: 900,
+  // emerge plays slash → flash → card-bursts-out from the pack and
+  // settles into the face-down position the revealing stage uses.
+  // Tuned so it ends right when the card is at rest.
+  emerge: 1400,
 };
 
 export function PackOpening({
@@ -199,16 +204,19 @@ export function PackOpening({
   const canBuyTheme = coins >= PACK_COST;
 
   useEffect(() => {
-    if (stage !== 'lift' && stage !== 'tension') return;
+    if (stage !== 'lift' && stage !== 'tension' && stage !== 'emerge') return;
     const dur = STAGE_DURATIONS[stage];
-    const next: Stage = stage === 'lift' ? 'tension' : 'unbox';
+    const next: Stage =
+      stage === 'lift' ? 'tension'
+      : stage === 'tension' ? 'emerge'
+      : 'revealing';
     const t = setTimeout(() => setStage(next), dur);
     return () => clearTimeout(t);
   }, [stage]);
 
   useEffect(() => {
     if (stage === 'tension') sfx('packRip');
-    if (stage === 'unbox') sfx('packBurst');
+    if (stage === 'emerge') sfx('packBurst');
     // Rarity cues fire on flip from inside RevealStack (onSfx), so we
     // intentionally don't ping rarity here — that would double-play
     // for the first card.
@@ -422,23 +430,12 @@ export function PackOpening({
           </div>
         )}
 
-        {pick && stage === 'unbox' && (
+        {pick && stage === 'emerge' && (
           <div style={{ display: 'grid', placeItems: 'center', flex: 1, minHeight: 0 }}>
-            <UnboxStage
-              vibe={pick.vibe}
-              count={pack.length}
-              onAdvance={() => setStage('stack')}
-            />
-          </div>
-        )}
-
-        {pick && stage === 'stack' && (
-          <div style={{ display: 'grid', placeItems: 'center', flex: 1, minHeight: 0 }}>
-            <StackStage
+            <EmergeStage
               vibe={pick.vibe}
               count={pack.length}
               firstRarity={pack[0]?.rarity}
-              onAdvance={() => setStage('revealing')}
             />
           </div>
         )}
@@ -1183,93 +1180,99 @@ function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tensi
 }
 
 // =================================================================
-// UNBOX — slash beam + wireframe-card cascade. User swipes up to advance.
+// EMERGE — auto-advancing pack-burst cinematic. The pack splits at
+// the top, a brief flash washes the screen, and the cards burst OUT
+// from inside the pack, settling into a face-down stack that the
+// revealing stage takes over. ~1400ms; transitions automatically
+// once the cards are at rest. No swipe gate — players were
+// complaining about needing two swipes before they saw a card to
+// flip.
 // =================================================================
-function UnboxStage({
-  vibe, count, onAdvance,
-}: { vibe: PackVibe; count: number; onAdvance: () => void }) {
-  const [ready, setReady] = useState(false);
-  // Hold off accepting swipes until the slash + cascade have finished
-  // landing — feels jankier if the user can yank cards through the
-  // intro animation.
-  useEffect(() => {
-    const t = setTimeout(() => setReady(true), 750);
-    return () => clearTimeout(t);
-  }, []);
+function EmergeStage({
+  vibe, count, firstRarity,
+}: { vibe: PackVibe; count: number; firstRarity?: Rarity }) {
+  // Cap the visible emerging cards at 3 — past that the burst reads
+  // as a blob. The remaining cards are conceptually "in" the stack
+  // but not animated individually.
+  const visible = Math.min(count, 3);
+  const teaseRarity = firstRarity === 'epic' || firstRarity === 'legendary';
 
   return (
-    <SwipeUpStage
-      enabled={ready}
-      promptText={ready ? 'SWIPE TO REVEAL' : undefined}
-      onSwipe={onAdvance}
-    >
-      {/* Pack art + slash beam grouped so the beam sits over the top
-          of the pack regardless of viewport size. The beam slides
-          across the pack's TOP edge (around y = -120px from centre,
-          i.e. just under the foil-pull strip), so the "cut" feels
-          like a real tear strip ripping off. */}
+    <div style={{
+      position: 'relative',
+      width: '100%', height: '100%',
+      display: 'grid', placeItems: 'center',
+    }}>
+      {/* Pack art at centre, gets sliced and then fades. */}
       <div style={{
         position: 'absolute', left: '50%', top: '50%',
         transform: 'translate(-50%, -50%)',
-        animation: 'packArtFadeOut 0.45s ease-out 0.25s both',
-        zIndex: 2,
+        animation: 'packArtFadeOut 0.45s ease-out 0.35s both',
+        zIndex: 1,
       }}>
         <PackArt vibe={vibe} />
+        {/* Slash beam — short, contained sweep across the TOP of
+            the pack (right at the foil-pull strip), so the "cut"
+            lines up with the perforation instead of floating
+            mid-screen. */}
         <div aria-hidden style={{
           position: 'absolute', left: '50%', top: 14,
-          width: 360, height: 6,
+          width: 320, height: 6,
           background: 'linear-gradient(90deg, transparent 0%, #fff 50%, transparent 100%)',
           boxShadow: '0 0 24px 6px rgba(255,255,255,.9)',
           transform: 'translate(-50%, -50%)',
-          animation: 'packSlashBeam 0.55s cubic-bezier(.4,.1,.2,1) both',
+          animation: 'packSlashBeam 0.45s cubic-bezier(.4,.1,.2,1) both',
           pointerEvents: 'none',
           mixBlendMode: 'screen',
         }} />
       </div>
-      {/* Wireframe stack cascades in. */}
-      <WireframeStack count={count} mode="in" />
-    </SwipeUpStage>
-  );
-}
 
-// =================================================================
-// STACK — wireframes collapse into a solid back-of-card. User swipes
-//         up on the back to begin revealing.
-// =================================================================
-function StackStage({
-  vibe, count, firstRarity, onAdvance,
-}: { vibe: PackVibe; count: number; firstRarity?: Rarity; onAdvance: () => void }) {
-  // Phase 1: wireframes collapse + back card fades up.
-  // Phase 2: back card is stable, prompt fades in, swipe enabled.
-  const [collapsed, setCollapsed] = useState(false);
-  useEffect(() => {
-    const t = setTimeout(() => setCollapsed(true), 520);
-    return () => clearTimeout(t);
-  }, []);
+      {/* Brief light bloom radiating from inside the pack as it
+          opens — sells the "something is escaping" feel. */}
+      <div aria-hidden style={{
+        position: 'absolute', left: '50%', top: '50%',
+        width: 220, height: 220, borderRadius: '50%',
+        background: `radial-gradient(circle, ${vibe.glow} 0%, transparent 65%)`,
+        transform: 'translate(-50%, -50%) scale(0.4)',
+        animation: 'packEmergeFlash 0.7s cubic-bezier(.18,.85,.3,1.1) 0.35s both',
+        pointerEvents: 'none',
+        mixBlendMode: 'screen',
+        zIndex: 1,
+      }} />
 
-  const teaseRarity = firstRarity === 'epic' || firstRarity === 'legendary';
-
-  return (
-    <SwipeUpStage
-      enabled={collapsed}
-      promptText={collapsed ? 'SWIPE UP TO COLLECT' : undefined}
-      onSwipe={onAdvance}
-    >
-      {!collapsed && <WireframeStack count={count} mode="collapse" />}
-      <div style={{
-        position: 'absolute',
-        left: '50%', top: '50%',
-        width: 220, height: 320,
-        marginLeft: -110, marginTop: -160,
-        animation: 'cardBackFadeIn 0.55s cubic-bezier(.2,.8,.3,1.05) 0.2s both',
-        zIndex: 3,
-      }}>
-        {teaseRarity && (
-          <RarityAura rarity={firstRarity!} vibe={vibe} />
-        )}
-        <CardBack scale={1} side="player" />
-      </div>
-    </SwipeUpStage>
+      {/* Cards burst OUT from inside the pack — start at the pack's
+          centre with scale 0, fly upward, then settle into the
+          final face-down stack position. Multiple cards stagger so
+          the eye sees more than one piece of paper. */}
+      {Array.from({ length: visible }).map((_, i) => {
+        // Back cards in the stack sit slightly higher + smaller so
+        // each top edge peeks. Final position matches the revealing
+        // stage's first card so the handoff is seamless.
+        const depth = i / Math.max(1, visible - 1);
+        const finalScale = 1 - depth * 0.05;
+        const finalPeek = -depth * 8;
+        const delay = 0.45 + i * 0.08;
+        return (
+          <div
+            key={i}
+            style={{
+              position: 'absolute', left: '50%', top: '50%',
+              width: 220, height: 320,
+              marginLeft: -110, marginTop: -160,
+              ['--final-scale' as string]: String(finalScale),
+              ['--final-peek' as string]: `${finalPeek}px`,
+              animation: `packCardBurst 0.85s cubic-bezier(.18,.7,.3,1.1) ${delay}s both`,
+              zIndex: 3 - i,
+            }}
+          >
+            {i === 0 && teaseRarity && (
+              <RarityAura rarity={firstRarity!} vibe={vibe} />
+            )}
+            <CardBack scale={1} side="player" />
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -1510,20 +1513,10 @@ function RevealStack({
         </div>
       )}
 
-      {phase === 'face' && (
-        <div style={{
-          position: 'absolute', bottom: 76, left: 0, right: 0,
-          textAlign: 'center', pointerEvents: 'none',
-          fontSize: 11, letterSpacing: '0.25em',
-          textTransform: 'uppercase',
-          color: RARITY_COLOR[card.rarity],
-          fontWeight: 800,
-          textShadow: card.rarity === 'legendary' ? '0 0 12px rgba(255, 209, 102, .6)' : 'none',
-          animation: 'fadeIn 0.35s ease-out both',
-        }}>
-          {card.rarity}
-        </div>
-      )}
+      {/* Rarity-name label removed — the card chrome already shows
+          the rarity colour on the card itself, and the gold halo +
+          holo sheen do the heavy lifting for epic / legendary. The
+          all-caps "common" tag at the bottom read as noise. */}
     </div>
   );
 }
@@ -1571,57 +1564,10 @@ function useSwipeUp(enabled: boolean, onSwipe: () => void) {
   return { onPointerDown, onPointerUp, onPointerCancel };
 }
 
-/** Full-stage swipe area: any upward gesture / tap inside the
- *  container counts. Used for the unbox + stack stages. */
-function SwipeUpStage({
-  enabled, promptText, onSwipe, children,
-}: {
-  enabled: boolean;
-  promptText?: string;
-  onSwipe: () => void;
-  children: React.ReactNode;
-}) {
-  const handlers = useSwipeUp(enabled, onSwipe);
-  return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
-      <div
-        {...handlers}
-        style={{
-          position: 'absolute', inset: 0,
-          display: 'grid', placeItems: 'center',
-          // touchAction: 'none' so the browser doesn't try to scroll
-          // the page when the player drags up on a card — the gesture
-          // is ours to consume.
-          touchAction: 'none',
-          cursor: enabled ? 'pointer' : 'default',
-          userSelect: 'none',
-        }}
-      >
-        {children}
-      </div>
-      {promptText && (
-        <div style={{
-          position: 'absolute', bottom: 24, left: 0, right: 0,
-          textAlign: 'center', pointerEvents: 'none',
-          color: PALETTE.text,
-          zIndex: 5,
-          animation: 'fadeIn 0.4s ease-out both',
-        }}>
-          <ChevronUp size={22} strokeWidth={2.4} style={{
-            animation: 'swipeHintNudge 1.4s ease-in-out infinite',
-          }} />
-          <div style={{
-            fontSize: 11, letterSpacing: '0.3em',
-            textTransform: 'uppercase', fontWeight: 700,
-            opacity: 0.7, marginTop: 4,
-          }}>
-            {promptText}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+/* SwipeUpStage removed — the unbox + stack stages it powered are
+ * gone, replaced by the auto-advancing EmergeStage. SwipeableCard
+ * (the per-card swipe target inside RevealStack) is still defined
+ * below and still uses useSwipeUp directly. */
 
 /** Local swipe / tap target. The card stays put — no drag visual —
  *  so the flip animation isn't fighting a drag snap-back transform
@@ -1651,59 +1597,11 @@ function SwipeableCard({
 }
 
 // =================================================================
-// WIREFRAME STACK + CARD BACK + RARITY AURA — shared visuals.
+// CARD BACK + RARITY AURA — shared visuals. (WireframeStack removed
+// when unbox + stack stages were collapsed into the auto-advancing
+// EmergeStage; that stage now renders its own per-card burst using
+// CardBack directly.)
 // =================================================================
-/** Stacked deck of the player's equipped card back, used as the
- *  "wireframe stack" in the unbox stage. The original wireframe lines
- *  read as empty/invisible to players — using the real back template
- *  makes it obvious the pack is full of cards.
- *  Cards recede in depth (smaller + slightly higher peek so the player
- *  sees each top edge). `mode="in"` cascades them into place;
- *  `mode="collapse"` slides them down to a single aligned stack as the
- *  single solid card back fades up over them. */
-function WireframeStack({
-  count, mode,
-}: { count: number; mode: 'in' | 'collapse' }) {
-  // Cap the visible stack at 5 — past that the depth reads as noise.
-  const visible = Math.min(count, 5);
-  return (
-    <div style={{
-      position: 'absolute', inset: 0,
-      pointerEvents: 'none',
-      zIndex: 3,
-    }}>
-      {Array.from({ length: visible }).map((_, i) => {
-        // depth = 0 (front) .. 1 (back). Back cards slightly smaller
-        // and lifted up so their top edges show above the card in
-        // front — gives the read of "stack of cards".
-        const depth = i / Math.max(1, visible - 1);
-        const scale = 1 - depth * 0.06;
-        const peek = -depth * 12;
-        const delay = mode === 'in' ? (visible - 1 - i) * 0.06 : i * 0.04;
-        const anim = mode === 'in'
-          ? `wireframeCardIn 0.45s cubic-bezier(.2,.8,.3,1.05) ${delay}s both`
-          : `wireframeCollapse 0.45s cubic-bezier(.4,.1,.2,1) ${delay}s both`;
-        return (
-          <div
-            key={i}
-            style={{
-              position: 'absolute',
-              top: '50%', left: '50%',
-              width: 220, height: 320,
-              marginTop: -160, marginLeft: -110,
-              opacity: 1 - depth * 0.18,
-              ['--scale' as string]: String(scale),
-              ['--peek' as string]: `${peek}px`,
-              animation: anim,
-            }}
-          >
-            <CardBack scale={1} side="player" />
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 /**
  * Inspect modal for the "done" stage of the pack shop. Reuses the
