@@ -240,8 +240,19 @@ export function PvpRoom({ roomId, playerAvatar, settings, onLeave, onMatchEnded 
   };
 
   const onExit = async (outcome: 'win' | 'loss' | 'draw' | 'quit') => {
-    if (outcome === 'quit' && room.outcome === 'ongoing') {
-      await concedeMatch(roomId, seat).catch(() => {});
+    if (outcome === 'quit') {
+      // Player tapped Give Up. Concede in Firestore — that flips
+      // matchState.outcome to a terminal value, and the subscription
+      // (line 53) pushes the new state down so MatchBoard re-renders
+      // the MatchEnd cinematic. We deliberately DON'T call onLeave
+      // here; otherwise the lobby pops in immediately and the player
+      // never sees their loss screen. The MatchEnd's own exit
+      // button hits this same onExit with the resolved outcome
+      // ('loss') and falls through to onLeave below.
+      if (room?.outcome === 'ongoing') {
+        await concedeMatch(roomId, seat).catch(() => {});
+      }
+      return;
     }
     onLeave();
   };
