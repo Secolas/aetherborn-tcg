@@ -2334,19 +2334,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       onDragStart={(e) => e.preventDefault()}
       style={{
         width: '100%', height: '100%',
-        // Two layers: the player's equipped board skin paints the bedrock
-        // gradient, and a themed radial tint sits on top to keep each
-        // fight ambient-coloured. In solo matches the tint borrows the
-        // boss's element color; in online PVP there's no boss element
-        // to lean on, so we paint the board with the in-game RESOURCE
-        // blue (#3a8fc4) — same hex the mana orb / online indicators
-        // use — so PVP reads as a distinct surface the moment you load
-        // into it. The inset blue ring (boxShadow) reinforces the cue
-        // around the edges.
-        background: `
-          radial-gradient(ellipse at 50% 50%, transparent 0%, ${online ? '#3a8fc4' : bossElement.color}26 60%, ${online ? '#1c5478' : bossElement.deep}33 100%),
-          ${boardSkin.background}
-        `,
+        // PVP gets its own cosmetic surface — deep-space gradient
+        // replacing the player's equipped board skin, with the
+        // drifting universe overlay rendered as a separate layer
+        // below. The blue ambient radial still sits on top in both
+        // modes; in PVP the inset blue ring around the edges
+        // reinforces "you're in an online room".
+        background: online
+          ? `radial-gradient(ellipse at 50% 50%, transparent 0%, #3a8fc426 60%, #1c547833 100%),
+             linear-gradient(180deg, #0a1430 0%, #131e3d 55%, #1c2a52 100%)`
+          : `radial-gradient(ellipse at 50% 50%, transparent 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
+             ${boardSkin.background}`,
         boxShadow: online ? 'inset 0 0 0 3px rgba(58, 143, 196, .45), inset 0 0 40px rgba(58, 143, 196, .18)' : undefined,
         position: 'relative', overflow: 'hidden',
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
@@ -2360,6 +2358,50 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         display: 'flex', flexDirection: 'column',
       }}
     >
+      {/* PVP universe — two stacked cosmetic layers only mounted in
+          online matches. A pair of counter-rotating nebula clouds
+          drifts behind a multi-layered starfield panning very slowly
+          across the surface. Pure CSS, GPU-friendly (animates
+          background-position + transform), gated on `online` so solo
+          matches keep their board-skin surface untouched. zIndex 0
+          so the duel-mat texture + every gameplay layer above stays
+          on top. */}
+      {online && (
+        <>
+          <div aria-hidden style={{
+            position: 'absolute', inset: '-20%',
+            background: `
+              radial-gradient(ellipse 50% 40% at 30% 35%, rgba(122, 78, 168, .28) 0%, transparent 65%),
+              radial-gradient(ellipse 45% 35% at 75% 70%, rgba(58, 143, 196, .25) 0%, transparent 65%)
+            `,
+            animation: 'pvpNebulaSpin 240s linear infinite',
+            pointerEvents: 'none',
+            zIndex: 0,
+          }} />
+          <div aria-hidden style={{
+            position: 'absolute', inset: 0,
+            background: `
+              radial-gradient(2px 2px at 12% 18%, rgba(255,255,255,.75) 0%, transparent 50%),
+              radial-gradient(1px 1px at 32% 64%, rgba(255,255,255,.55) 0%, transparent 50%),
+              radial-gradient(2px 2px at 56% 22%, rgba(255,255,255,.7) 0%, transparent 50%),
+              radial-gradient(1px 1px at 78% 78%, rgba(255,255,255,.55) 0%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 88% 40%, rgba(255,255,255,.65) 0%, transparent 50%),
+              radial-gradient(1px 1px at 8% 78%, rgba(255,255,255,.6) 0%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 44% 90%, rgba(255,255,255,.55) 0%, transparent 50%),
+              radial-gradient(2px 2px at 70% 10%, rgba(255,255,255,.75) 0%, transparent 50%),
+              radial-gradient(1px 1px at 22% 48%, rgba(255,255,255,.5) 0%, transparent 50%),
+              radial-gradient(1.5px 1.5px at 62% 56%, rgba(255,255,255,.6) 0%, transparent 50%)
+            `,
+            backgroundSize: '800px 800px',
+            animation: 'pvpUniverseDrift 120s linear infinite',
+            opacity: 0.85,
+            pointerEvents: 'none',
+            zIndex: 0,
+            willChange: 'background-position',
+          }} />
+        </>
+      )}
+
       {/* Themed boss backdrop removed — the blurred photo behind the
           field competed with the player's own card photos and made the
           board feel busy. The equipped board skin + the boss element

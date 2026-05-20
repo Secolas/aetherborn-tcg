@@ -886,3 +886,20 @@ input {
   0%, 100% { opacity: 0.9; }
   50%       { opacity: 0.35; }
 }
+
+/* PVP universe drift — slowly pans a multi-layered starfield across
+   the match surface so an online match feels like the room is
+   floating in space. Only mounted by MatchBoard when `online` is set
+   (cosmetic exclusive to PVP). 120s loop is intentionally glacial —
+   the field shouldn't pull focus from the cards. */
+@keyframes pvpUniverseDrift {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
+}
+/* Slow counter-rotating nebula clouds — sits underneath the
+   starfield, gives the surface a sense of cosmic depth. */
+@keyframes pvpNebulaSpin {
+  0%   { transform: rotate(0deg) scale(1.1); }
+  50%  { transform: rotate(180deg) scale(1.18); }
+  100% { transform: rotate(360deg) scale(1.1); }
+}

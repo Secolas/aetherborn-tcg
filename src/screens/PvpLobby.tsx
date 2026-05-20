@@ -83,7 +83,12 @@ export function PvpLobby({ collection, playerAvatar, history = [], onEnterRoom, 
   };
 
   const setDigit = (i: number, v: string) => {
-    const cleaned = (v || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 1);
+    // Room codes are drawn from ABCDEFGHJKLMNPQRSTUVWXYZ23456789 in
+    // firebase/pvp.ts (skipping the confusable 0/1/I/O). Allow any
+    // alphanumeric character through so mobile users can type the
+    // 2-9 digits — the previous /[^A-Z]/ regex silently stripped
+    // them. Invalid codes still get rejected on join.
+    const cleaned = (v || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 1);
     setCode(c => { const n = [...c]; n[i] = cleaned; return n; });
     if (cleaned && inputRefs.current[i + 1]) inputRefs.current[i + 1]?.focus();
   };
@@ -150,7 +155,7 @@ export function PvpLobby({ collection, playerAvatar, history = [], onEnterRoom, 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 17, fontWeight: 800 }}>Enter Code</div>
                 <div style={{ fontSize: 12, color: PALETTE.textMid, marginTop: 2 }}>
-                  Five letters, all caps
+                  Five characters — letters and digits
                 </div>
               </div>
             </div>
