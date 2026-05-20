@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
-import { UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban } from 'lucide-react';
+import { UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2 } from 'lucide-react';
 import { iconBtn } from '../components/styles';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
@@ -108,6 +108,8 @@ export function LandingPage() {
         <GameplayPreview />
 
         <AbilitiesSection />
+
+        <BondsSection />
 
         <ThemeGrid />
 
@@ -863,7 +865,7 @@ const ABILITIES: AbilityDef[] = [
     name: 'Silence',
     Icon: Ban,
     color: '#a47bff',
-    desc: 'Loses its ability. The body stays, the magic doesn’t.',
+    desc: 'Disables its ability. The body stays, the magic doesn’t.',
   },
 ];
 
@@ -887,6 +889,84 @@ function AbilitiesSection() {
             </div>
           </div>
         ))}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Bonds — pairs of cards that, when both are on your field, unlock a
+// combo effect. Pulled straight from src/data/bonds.ts so the
+// names / effects / flavor on the landing match the engine. Showcase
+// three bonds across three themes for variety.
+// ============================================================================
+
+interface BondShowcase {
+  name: string;
+  themeEl: ElementId;
+  cardA: string;
+  cardB: string;
+  effect: string;
+  flavor: string;
+}
+
+const SHOWCASE_BONDS: BondShowcase[] = [
+  {
+    name: 'Family Reunion',
+    themeEl: 'family',
+    cardA: 'Mom',
+    cardB: 'Dad',
+    effect: 'Heal +1 HP at the start of your turn.',
+    flavor: 'Everyone showed up.',
+  },
+  {
+    name: 'House Pets',
+    themeEl: 'animals',
+    cardA: 'Dog',
+    cardB: 'Cat',
+    effect: 'Both gain Taunt.',
+    flavor: 'They were both yours first.',
+  },
+  {
+    name: 'Reporting Line',
+    themeEl: 'work',
+    cardA: 'Intern',
+    cardB: 'Senior Engineer',
+    effect: 'Your spells cost 1 less mana (minimum 1).',
+    flavor: 'He never reads your messages but he’s online.',
+  },
+];
+
+function BondsSection() {
+  return (
+    <section className="landing-bonds">
+      <div className="landing-section-title"><span>Bonds</span></div>
+      <p className="landing-bonds-lede">
+        Some cards belong together. When both halves of a bond are on the field, a hidden combo wakes up — a heal, a buff, a discount. Pair them on purpose.
+      </p>
+      <div className="landing-bonds-grid">
+        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect, flavor }) => {
+          const def = ELEMENTS[themeEl];
+          return (
+            <div key={name} className="landing-bond-card">
+              <div className="landing-bond-header" style={{ color: def.color }}>
+                <Link2 size={14} strokeWidth={2.6} />
+                <span className="landing-bond-name">{name}</span>
+              </div>
+              <div className="landing-bond-pair">
+                <span className="landing-bond-pill" style={{
+                  background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
+                }}>{cardA}</span>
+                <span className="landing-bond-plus">+</span>
+                <span className="landing-bond-pill" style={{
+                  background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
+                }}>{cardB}</span>
+              </div>
+              <div className="landing-bond-effect">{effect}</div>
+              <div className="landing-bond-flavor">{flavor}</div>
+            </div>
+          );
+        })}
       </div>
     </section>
   );
@@ -1551,6 +1631,64 @@ const LANDING_CSS = `
     margin-top: 2px;
     font-size: 12px; line-height: 1.45;
     color: #7a5a52;
+  }
+
+  /* Bonds ------------------------------------------------------------- */
+  /* Pair-of-cards combo showcase. Each card lists the bond name +
+     Link2 icon, the two cards in themed pills, the mechanical effect,
+     and the flavor line — same shape as the bond entry in bonds.ts. */
+  .landing-bonds { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-bonds-lede {
+    max-width: 540px; margin: 0 auto 18px;
+    text-align: center;
+    font-size: 13px; line-height: 1.55;
+    color: #7a5a52;
+  }
+  .landing-bonds-grid {
+    display: grid; grid-template-columns: 1fr; gap: 12px;
+    max-width: 880px; margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .landing-bonds-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .landing-bond-card {
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .landing-bond-header {
+    display: flex; align-items: center; gap: 6px;
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700;
+  }
+  .landing-bond-name { font-size: 14px; }
+  .landing-bond-pair {
+    display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  }
+  .landing-bond-pill {
+    padding: 4px 10px; border-radius: 999px;
+    color: #fff;
+    font-size: 12px; font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0,0,0,.3);
+    box-shadow: 0 2px 6px rgba(58, 46, 42, .14);
+  }
+  .landing-bond-plus {
+    color: #a89580;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .landing-bond-effect {
+    font-size: 12px; line-height: 1.45;
+    color: #3a2e2a;
+    font-weight: 600;
+  }
+  .landing-bond-flavor {
+    font-size: 11px; line-height: 1.45;
+    color: #a89580;
+    font-style: italic;
   }
 
   /* Themes ------------------------------------------------------------ */
