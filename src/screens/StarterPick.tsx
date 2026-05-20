@@ -41,14 +41,23 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
   // fan-in) replays on every selection.
   const [focusKey, setFocusKey] = useState(0);
   // Confirm cinematic — when the player commits, the focused pack
-  // plays the PackOpening lift + tension animation before we hand
-  // off to onPick. Same easing as PackOpening's `lift` and `tension`
-  // stages so the StarterPick → StarterPackOpen handoff visually
-  // continues a single shake.
-  const [confirming, setConfirming] = useState(false);
-  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // plays the full PackOpening lift → tension → burst sequence
+  // before we hand off to onPick. Same easing/durations as the shop's
+  // PackOpening so the StarterPick → StarterPackOpen transition reads
+  // as one continuous shake → burst → reveal.
+  //
+  // Phases:
+  //   shake  — lift (600ms) + tension shake (320ms). Pack rattles.
+  //   burst  — pack explodes outward + screen-wide flash overlay.
+  //            Handoff to onPick lands at the peak of the white flash
+  //            so StarterPackOpen takes over visually unbroken.
+  const [confirmPhase, setConfirmPhase] = useState<'idle' | 'shake' | 'burst'>('idle');
+  const confirming = confirmPhase !== 'idle';
+  const burstTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => {
-    if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    if (burstTimer.current) clearTimeout(burstTimer.current);
+    if (pickTimer.current) clearTimeout(pickTimer.current);
   }, []);
 
   const focused = themes[focusIdx];
@@ -70,16 +79,22 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
 
   const onConfirm = () => {
     if (confirming) return;
-    setConfirming(true);
-    // 620ms = packLift (600ms) + the start of packTension. We hand
-    // off to StarterPackOpen here; its own cinematic continues the
-    // shake → burst sequence.
-    confirmTimer.current = setTimeout(() => onPick(focused.id), 620);
+    setConfirmPhase('shake');
+    // Shake lasts 920ms (600 lift + 320 tension); then we kick over
+    // to 'burst' which both plays packExplode on the pack itself and
+    // renders the full-screen flash/shockring overlay. Handoff to
+    // onPick at 1180ms — that's the peak of the screen-white flash,
+    // so the new screen is masked by white at the moment of swap.
+    burstTimer.current = setTimeout(() => setConfirmPhase('burst'), 920);
+    pickTimer.current = setTimeout(() => onPick(focused.id), 1180);
   };
 
   return (
-    <div className="sp-root" data-confirming={confirming}>
+    <div className="sp-root" data-confirming={confirming} data-phase={confirmPhase}>
       <StarterPickStyles />
+      {confirmPhase === 'burst' && (
+        <BurstOverlay glow={focusedEl.glow} />
+      )}
       {onCancel && !confirming && (
         <button
           className="sp-close"
@@ -123,6 +138,7 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
               className="sp-anim"
               data-focused={isFocused}
               data-confirming={isFocused && confirming}
+              data-phase={isFocused ? confirmPhase : 'idle'}
             >
               <button
                 className="bp sp-bp"
@@ -178,6 +194,66 @@ export function StarterPick({ themes, onPick, onCancel }: Props) {
         <span>{confirming ? `Opening ${focused.name}…` : `Take the ${focused.name} deck`}</span>
         <ChevronRight size={18} strokeWidth={2.4} />
       </button>
+    </div>
+  );
+}
+
+/**
+ * Full-screen burst overlay rendered during confirmPhase === 'burst'.
+ * Mirrors the shop PackOpening's burst stage — radial shockring +
+ * 8 light streaks fanning out from the pack centre + screen-wide
+ * white flash. Pulls colour from the focused theme's `glow` so the
+ * Family burst feels warm, the Work burst feels blue, etc.
+ *
+ * Reuses keyframes already defined in src/index.css for the shop:
+ *   packShockRing, packLightStreak, screenWhiteFlash, packBurst.
+ */
+function BurstOverlay({ glow }: { glow: string }) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute', inset: 0,
+        pointerEvents: 'none',
+        zIndex: 50,
+        display: 'grid', placeItems: 'center',
+      }}
+    >
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        width: 260, height: 260, borderRadius: '50%',
+        border: `4px solid ${glow}`,
+        animation: 'packShockRing 0.7s ease-out both',
+      }} />
+      <div style={{
+        position: 'absolute', left: '50%', top: '50%',
+        width: 200, height: 200, borderRadius: '50%',
+        background: `radial-gradient(circle, #fff 0%, ${glow} 35%, transparent 75%)`,
+        transform: 'translate(-50%,-50%) scale(0.5)',
+        animation: 'packBurst 0.7s ease-out both',
+        mixBlendMode: 'screen',
+      }} />
+      {Array.from({ length: 8 }).map((_, i) => {
+        const angle = (i * 360 / 8) + 12;
+        return (
+          <div key={i} style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 6, height: 100,
+            background: `linear-gradient(180deg, ${glow}, transparent)`,
+            borderRadius: 3,
+            transformOrigin: 'center bottom',
+            ['--r' as string]: `${angle}deg`,
+            animation: 'packLightStreak 0.7s ease-out both',
+            mixBlendMode: 'screen',
+          }} />
+        );
+      })}
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: '#fff',
+        animation: 'screenWhiteFlash 0.55s ease-out both',
+        mixBlendMode: 'screen',
+      }} />
     </div>
   );
 }
@@ -282,10 +358,19 @@ function StarterPickStyles() {
       .sp-anim[data-focused="true"] > .sp-bp {
         animation: spFanIn 0.5s cubic-bezier(.22,.85,.3,1.15) both;
       }
-      .sp-anim[data-confirming="true"] > .sp-bp {
+      .sp-anim[data-phase="shake"] > .sp-bp {
         animation:
           spConfirmLift 0.6s cubic-bezier(.18,.85,.3,1.1) both,
           spConfirmTension 0.32s ease-in-out 0.6s 1 both;
+      }
+      /* Burst stage — lift + tension complete, then packExplode
+         scales the pack out + fades it as the shockring/flash
+         overlay paints over the screen. */
+      .sp-anim[data-phase="burst"] > .sp-bp {
+        animation:
+          spConfirmLift 0.6s cubic-bezier(.18,.85,.3,1.1) both,
+          spConfirmTension 0.32s ease-in-out 0.6s 1 both,
+          spConfirmExplode 0.7s cubic-bezier(.4,.1,.6,1) 0.92s both;
       }
       .sp-bp {
         position: absolute;
@@ -332,6 +417,13 @@ function StarterPickStyles() {
         40%      { transform: translate(5px, -16px) rotate(3deg) scale(1.08); filter: brightness(1.12); }
         60%      { transform: translate(-3px, -12px) rotate(-2deg) scale(1.07); filter: brightness(1.18); }
         80%      { transform: translate(4px, -16px) rotate(2deg) scale(1.09); filter: brightness(1.24); }
+      }
+      /* Final scale-up + fade as the seal breaks — mirrors
+         PackOpening's @keyframes packExplode beat-for-beat. */
+      @keyframes spConfirmExplode {
+        0%   { transform: translateY(-14px) scale(1.07); opacity: 1; filter: brightness(1.3); }
+        35%  { transform: translateY(-32px) scale(1.4); opacity: 1; filter: brightness(2.2) blur(1px); }
+        100% { transform: translateY(-60px) scale(2.6); opacity: 0; filter: brightness(2.5) blur(8px); }
       }
       /* Side packs: rotated outward, shrunk, slightly faded — they
          read as "available but not selected". The actual rotation
@@ -399,13 +491,14 @@ function StarterPickStyles() {
           flex-direction: row;
           justify-content: center;
           align-items: center;
-          gap: 28px;
+          gap: 32px;
           perspective: none;
         }
-        /* Smaller pack footprint than the original 220px so the
-           header chip + bottom CTA both have breathing room on
-           desktop. ~165px wide × ~229px tall (aspect 0.72). */
-        .sp-bp { width: 165px; }
+        /* Bumped from 165px → 200px so the packs read clearly without
+           dominating the screen. Focused stays at scale 1.0; side packs
+           use brightness/saturation rather than scale to feel "unselected"
+           so the three packs are visually balanced. */
+        .sp-bp { width: 200px; }
         .sp-bp[data-focused="false"],
         .sp-bp[data-focused="false"]:hover,
         .sp-bp[data-focused="true"] {
@@ -431,7 +524,7 @@ function StarterPickStyles() {
          pack width so the focused pack doesn't crowd the header on
          narrow desktops. */
       @media (min-width: 481px) and (max-width: 719px) {
-        .sp-bp { width: 180px; }
+        .sp-bp { width: 195px; }
       }
 
       /* Booster pack internals — copied from PackOpening.tsx's .bp
