@@ -537,7 +537,10 @@ function StarterPackOpenStyles() {
         width: 100%;
         display: inline-flex; align-items: center; justify-content: center; gap: 10px;
         padding: 14px 18px;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--theme-color) 88%, #fff) 0%, var(--theme-color) 100%);
+        /* Standard brand coral — same across every theme so the
+           primary CTA reads as "this is the game's action", not
+           "this matches your pack". */
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%);
         color: #fff;
         border: 0;
         border-radius: 999px;
@@ -545,7 +548,7 @@ function StarterPackOpenStyles() {
         font-size: 14px; font-weight: 800;
         letter-spacing: 0.02em;
         cursor: pointer;
-        box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
+        box-shadow: 0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4);
         transition: transform .12s;
       }
       .po-cta:hover { transform: translateY(-1px); }
@@ -658,11 +661,16 @@ function StarterPackOpenStyles() {
       .po-modal-scrim {
         position: absolute; inset: 0;
         background: rgba(8,4,12,.74);
-        display: grid; place-items: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
         z-index: 220;
         padding: 16px;
         animation: poModalFade .2s ease-out both;
-        overflow-y: auto;
+        /* overflow:hidden — the halo extends past the card and the
+           old overflow-y:auto caused a scrollbar to pop on desktop
+           the moment the modal opened. */
+        overflow: hidden;
       }
       @keyframes poModalFade {
         from { opacity: 0; }
@@ -692,6 +700,10 @@ function StarterPackOpenStyles() {
         flex-direction: column;
         align-items: center;
         gap: 14px;
+        /* Clamp to viewport so a narrow phone doesn't push the card
+           off the left edge. The actions row inside is already
+           max-width:320, which controls the wide case. */
+        max-width: calc(100vw - 32px);
         animation: poModalIn .3s cubic-bezier(.2,.8,.3,1) both;
       }
       @keyframes poModalIn {
@@ -712,6 +724,10 @@ function StarterPackOpenStyles() {
       .po-modal-card {
         position: relative;
         z-index: 1;
+        /* Stop the browser from interpreting a finger-drag on the
+           card as a scroll — lets pointer-move events drive the
+           holo/tilt the same way mouse hover does on desktop. */
+        touch-action: none;
       }
       .po-modal-sheen {
         position: absolute;
