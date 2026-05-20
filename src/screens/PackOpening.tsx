@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, Coins, Sparkles, Lock, Star, Cake, Sun, Heart, PawPrint, ChevronUp } from 'lucide-react';
 import { Card } from '../components/Card';
 import { CardBack } from '../components/CardBack';
@@ -1142,17 +1141,6 @@ function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tensi
 // =================================================================
 // UNBOX — slash beam + wireframe-card cascade. User swipes up to advance.
 // =================================================================
-/** Threshold for accepting an upward swipe (px or px/s). */
-const SWIPE_THRESHOLD_PX = 60;
-const SWIPE_THRESHOLD_V = 350;
-
-/** Returns true if the drag-end gesture counts as a deliberate
- *  upward swipe. Matches the same threshold across all three swipe
- *  stages so the gesture feels consistent. */
-function isUpSwipe(offset: number, velocity: number) {
-  return offset < -SWIPE_THRESHOLD_PX || velocity < -SWIPE_THRESHOLD_V;
-}
-
 function UnboxStage({
   vibe, count, onAdvance,
 }: { vibe: PackVibe; count: number; onAdvance: () => void }) {
@@ -1193,7 +1181,7 @@ function UnboxStage({
         <PackArt vibe={vibe} />
       </div>
       {/* Wireframe stack cascades in. */}
-      <WireframeStack vibe={vibe} count={count} mode="in" />
+      <WireframeStack count={count} mode="in" />
     </SwipeUpStage>
   );
 }
@@ -1221,7 +1209,7 @@ function StackStage({
       promptText={collapsed ? 'SWIPE UP TO COLLECT' : undefined}
       onSwipe={onAdvance}
     >
-      {!collapsed && <WireframeStack vibe={vibe} count={count} mode="collapse" />}
+      {!collapsed && <WireframeStack count={count} mode="collapse" />}
       <div style={{
         position: 'absolute',
         left: '50%', top: '50%',
@@ -1344,35 +1332,48 @@ function RevealStack({
           animation: phase === 'exiting' ? 'cardSlideOffTop 0.48s cubic-bezier(.5,0,.7,.4) both' : undefined,
         }}
       >
-        {/* Flip container. Y-rotates 180deg on flip; the back is shown
-            at 0deg and the face at 180deg via backface-visibility. */}
+        {/* Pulsing rare/epic/legendary aura — outside the flip so it
+            doesn't rotate with the card and read as "the card is
+            reversed". Only shown pre-flip, as a tease. */}
+        {showHalo && phase === 'back' && (
+          <RarityAura rarity={card.rarity} vibe={vibe} pulsing />
+        )}
+        {/* Local perspective wrapper — gives the flip a clean 3D
+            context so the back-face stays reliably hidden on browsers
+            that otherwise flatten without an immediate ancestor
+            having both perspective and preserve-3d. */}
         <div style={{
-          position: 'relative',
           width: 220, height: 320,
-          transformStyle: 'preserve-3d',
-          transition: 'transform 0.55s cubic-bezier(.4,.1,.2,1)',
-          transform: phase === 'back' ? 'rotateY(0deg)' : 'rotateY(180deg)',
+          perspective: 1200,
         }}>
-          {/* Pulsing rare/epic/legendary aura — only shown pre-flip, as a tease. */}
-          {showHalo && phase === 'back' && (
-            <RarityAura rarity={card.rarity} vibe={vibe} pulsing />
-          )}
-          {/* BACK face */}
+          {/* Flip container. Y-rotates 180deg on flip; back face is
+              shown at 0deg and the face at 180deg via backface-visibility. */}
           <div style={{
-            position: 'absolute', inset: 0,
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
+            position: 'relative',
+            width: '100%', height: '100%',
+            transformStyle: 'preserve-3d',
+            transition: 'transform 0.55s cubic-bezier(.4,.1,.2,1)',
+            transform: phase === 'back' ? 'rotateY(0deg)' : 'rotateY(180deg)',
           }}>
-            <CardBack scale={1} side="player" />
-          </div>
-          {/* FRONT face — rotated 180 so it shows when parent flips. */}
-          <div style={{
-            position: 'absolute', inset: 0,
-            transform: 'rotateY(180deg)',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
-            display: 'grid', placeItems: 'center',
-          }}>
+            {/* BACK face — slight Z offset breaks face tie-breaking
+                on browsers (Chromium especially) that otherwise let
+                the back leak through during the flip's midpoint. */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              transform: 'translateZ(0.01px)',
+            }}>
+              <CardBack scale={1} side="player" />
+            </div>
+            {/* FRONT face — rotated 180 so it shows when parent flips. */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              transform: 'rotateY(180deg) translateZ(0.01px)',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              display: 'grid', placeItems: 'center',
+            }}>
             <TiltCard maxTilt={phase === 'face' ? 12 : 0} hoverScale={1.04} shine={showSheen}>
               <Card card={card} hovered />
               {showSheen && phase === 'face' && (
@@ -1391,6 +1392,7 @@ function RevealStack({
                 </div>
               )}
             </TiltCard>
+          </div>
           </div>
         </div>
       </SwipeableCard>
@@ -1435,9 +1437,36 @@ function RevealStack({
 // =================================================================
 // SWIPE GESTURE — shared between unbox / stack / per-card reveal.
 // =================================================================
-/** Full-stage swipe area: any upward drag inside the container counts.
- *  Used for the unbox + stack stages, where the whole screen is the
- *  swipe target rather than the card itself. */
+/** Detects an upward swipe (or a tap) via pointer events. Pointer
+ *  events cover mouse, touch, and pen in one handler. Returns the
+ *  three handlers; consumers spread them onto the element they want
+ *  to receive the gesture.
+ *  A tap (no significant movement) is also treated as a swipe so
+ *  desktop users don't have to drag. */
+function useSwipeUp(enabled: boolean, onSwipe: () => void) {
+  const startY = useRef<number | null>(null);
+  const startT = useRef<number>(0);
+  const onPointerDown: React.PointerEventHandler = (e) => {
+    if (!enabled) return;
+    startY.current = e.clientY;
+    startT.current = performance.now();
+  };
+  const onPointerUp: React.PointerEventHandler = (e) => {
+    if (!enabled || startY.current === null) return;
+    const dy = e.clientY - startY.current;
+    const dt = performance.now() - startT.current;
+    const vUp = dt > 0 ? -dy / dt * 1000 : 0; // px/s upward
+    startY.current = null;
+    // Treat any of: clean upward delta, fast upward flick,
+    // near-stationary press (tap), as a swipe.
+    if (dy < -50 || vUp > 400 || Math.abs(dy) < 6) onSwipe();
+  };
+  const onPointerCancel: React.PointerEventHandler = () => { startY.current = null; };
+  return { onPointerDown, onPointerUp, onPointerCancel };
+}
+
+/** Full-stage swipe area: any upward gesture / tap inside the
+ *  container counts. Used for the unbox + stack stages. */
 function SwipeUpStage({
   enabled, promptText, onSwipe, children,
 }: {
@@ -1446,26 +1475,21 @@ function SwipeUpStage({
   onSwipe: () => void;
   children: React.ReactNode;
 }) {
+  const handlers = useSwipeUp(enabled, onSwipe);
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'grid', placeItems: 'center', perspective: 1400 }}>
-      <motion.div
-        drag={enabled ? 'y' : false}
-        dragConstraints={{ top: -120, bottom: 40 }}
-        dragElastic={0.25}
-        dragSnapToOrigin
-        onDragEnd={(_, info) => {
-          if (enabled && isUpSwipe(info.offset.y, info.velocity.y)) onSwipe();
-        }}
-        onClick={() => { if (enabled) onSwipe(); }}
+    <div style={{ position: 'relative', width: '100%', height: '100%', display: 'grid', placeItems: 'center' }}>
+      <div
+        {...handlers}
         style={{
           position: 'absolute', inset: 0,
           display: 'grid', placeItems: 'center',
           touchAction: 'pan-x',
           cursor: enabled ? 'pointer' : 'default',
+          userSelect: 'none',
         }}
       >
         {children}
-      </motion.div>
+      </div>
       {promptText && (
         <div style={{
           position: 'absolute', bottom: 24, left: 0, right: 0,
@@ -1490,10 +1514,9 @@ function SwipeUpStage({
   );
 }
 
-/** Local swipe target — the card itself moves with the drag and
- *  snaps back if the swipe doesn't clear the threshold. Tap also
- *  triggers the swipe action, so desktop / accessibility users
- *  don't have to drag. */
+/** Local swipe / tap target. The card stays put — no drag visual —
+ *  so the flip animation isn't fighting a drag snap-back transform
+ *  on the same element. */
 function SwipeableCard({
   enabled, onSwipe, children, style,
 }: {
@@ -1502,54 +1525,51 @@ function SwipeableCard({
   children: React.ReactNode;
   style?: React.CSSProperties;
 }) {
+  const handlers = useSwipeUp(enabled, onSwipe);
   return (
-    <motion.div
-      drag={enabled ? 'y' : false}
-      dragConstraints={{ top: -100, bottom: 30 }}
-      dragElastic={0.3}
-      dragSnapToOrigin
-      onDragEnd={(_, info) => {
-        if (enabled && isUpSwipe(info.offset.y, info.velocity.y)) onSwipe();
+    <div
+      {...handlers}
+      style={{
+        touchAction: 'pan-x',
+        cursor: enabled ? 'pointer' : 'default',
+        userSelect: 'none',
+        ...style,
       }}
-      onClick={() => { if (enabled) onSwipe(); }}
-      style={{ touchAction: 'pan-x', cursor: enabled ? 'pointer' : 'default', ...style }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }
 
 // =================================================================
 // WIREFRAME STACK + CARD BACK + RARITY AURA — shared visuals.
 // =================================================================
-/** Translucent wireframe cards arranged as a clean stacked deck.
+/** Stacked deck of the player's equipped card back, used as the
+ *  "wireframe stack" in the unbox stage. The original wireframe lines
+ *  read as empty/invisible to players — using the real back template
+ *  makes it obvious the pack is full of cards.
  *  Cards recede in depth (smaller + slightly higher peek so the player
- *  sees each top edge), no horizontal fan and no rotation — that's what
- *  was reading as "skewed" before.
- *  `mode="in"` cascades them into place; `mode="collapse"` slides them
- *  down to a single aligned stack and fades them out as the solid back
- *  card takes over. */
+ *  sees each top edge). `mode="in"` cascades them into place;
+ *  `mode="collapse"` slides them down to a single aligned stack as the
+ *  single solid card back fades up over them. */
 function WireframeStack({
-  vibe, count, mode,
-}: { vibe: PackVibe; count: number; mode: 'in' | 'collapse' }) {
-  // Cap the visible stack at 5 wireframes — past that the depth reads
-  // as visual noise.
+  count, mode,
+}: { count: number; mode: 'in' | 'collapse' }) {
+  // Cap the visible stack at 5 — past that the depth reads as noise.
   const visible = Math.min(count, 5);
   return (
     <div style={{
       position: 'absolute', inset: 0,
-      display: 'grid', placeItems: 'center',
       pointerEvents: 'none',
       zIndex: 3,
     }}>
       {Array.from({ length: visible }).map((_, i) => {
-        // depth = 0 (front) .. 1 (back)
+        // depth = 0 (front) .. 1 (back). Back cards slightly smaller
+        // and lifted up so their top edges show above the card in
+        // front — gives the read of "stack of cards".
         const depth = i / Math.max(1, visible - 1);
-        // Back cards slightly smaller AND shifted slightly UP so each
-        // top edge peeks above the card in front — gives the read of
-        // "stack of cards" without skewing or fanning.
         const scale = 1 - depth * 0.06;
-        const peek = -depth * 10;
+        const peek = -depth * 12;
         const delay = mode === 'in' ? (visible - 1 - i) * 0.06 : i * 0.04;
         const anim = mode === 'in'
           ? `wireframeCardIn 0.45s cubic-bezier(.2,.8,.3,1.05) ${delay}s both`
@@ -1561,23 +1581,15 @@ function WireframeStack({
               position: 'absolute',
               top: '50%', left: '50%',
               width: 220, height: 320,
-              marginTop: -160, marginLeft: -110, // center the card on (50%, 50%)
-              borderRadius: 18,
-              border: `1.5px solid ${vibe.glow}`,
-              boxShadow: `0 0 24px ${vibe.glow}55, inset 0 0 18px ${vibe.glow}33`,
-              opacity: 1 - depth * 0.25,
+              marginTop: -160, marginLeft: -110,
+              opacity: 1 - depth * 0.18,
               ['--scale' as string]: String(scale),
               ['--peek' as string]: `${peek}px`,
               animation: anim,
-              // Cross-hatch wireframe pattern.
-              backgroundImage: `
-                linear-gradient(135deg, ${vibe.glow}18 0%, ${vibe.glow}06 100%),
-                linear-gradient(0deg,   ${vibe.glow}44 1px, transparent 1px),
-                linear-gradient(90deg,  ${vibe.glow}44 1px, transparent 1px)
-              `,
-              backgroundSize: '100% 100%, 100% 28px, 28px 100%',
             }}
-          />
+          >
+            <CardBack scale={1} side="player" />
+          </div>
         );
       })}
     </div>
