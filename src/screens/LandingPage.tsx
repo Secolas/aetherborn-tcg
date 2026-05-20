@@ -120,15 +120,53 @@ export function LandingPage() {
 // Hero — interactive 3D foil card + idle floating supporting cards
 // ============================================================================
 
-/** Data for the hero showcase card per theme. Click a floating card and
- *  the corresponding entry takes the center spot with a flip animation. */
+/** Showcase card per theme — one signature card pulled directly from
+ *  templates.ts so the landing page tells the truth about stats /
+ *  rarity / ability. Picked for iconic-ness:
+ *    family    → Mom            (fam-05, rare, vanilla)
+ *    animals   → Lion           (ani-12, legendary, AoE on play)
+ *    work      → The Boss       (wrk-12, legendary, Taunt)
+ *    travel    → Mountain Summit (trv-12, legendary, Rush)
+ *    food      → The Cook       (fd-11,  epic,      heal all friendlies)
+ *    education → Graduation Day (edu-12, legendary, theme-buff on play)
+ */
 const HERO_DATA: Record<ElementId, Omit<HoloCardProps, 'el'>> = {
-  family:    { name: 'Mom',            type: 'Creature', rarity: 'legendary', cost: 4, atk: 3, hp: 6, flavor: 'She was always the one who carried you.' },
-  animals:   { name: 'Ember Hound',    type: 'Creature', rarity: 'rare',      cost: 2, atk: 3, hp: 2, flavor: 'First to the rescue, last to leave.' },
-  work:      { name: 'The Boss',       type: 'Creature', rarity: 'legendary', cost: 5, atk: 4, hp: 5, flavor: 'Meetings could have been emails.' },
-  travel:    { name: 'Window Seat',    type: 'Spell',    rarity: 'rare',      cost: 2, atk: 0, hp: 0, flavor: 'Draw 2. The world at 30,000 feet.' },
-  food:      { name: 'Morning Coffee', type: 'Spell',    rarity: 'common',    cost: 1, atk: 0, hp: 0, flavor: 'The ritual that starts everything.' },
-  education: { name: 'Bloomshield',    type: 'Creature', rarity: 'rare',      cost: 3, atk: 2, hp: 5, flavor: 'Taunt. The lesson you never forgot.' },
+  family: {
+    name: 'Mom', type: 'Creature', rarity: 'rare',
+    cost: 3, atk: 3, hp: 4,
+    ability: '',
+    flavor: 'She just shows up when you need her.',
+  },
+  animals: {
+    name: 'Lion', type: 'Creature', rarity: 'legendary',
+    cost: 6, atk: 6, hp: 6,
+    ability: 'On play: deal 1 to all enemy creatures.',
+    flavor: 'Apex predator.',
+  },
+  work: {
+    name: 'The Boss', type: 'Creature', rarity: 'legendary',
+    cost: 6, atk: 5, hp: 6,
+    ability: 'Taunt.',
+    flavor: 'Everyone has to deal with the Boss first.',
+  },
+  travel: {
+    name: 'Mountain Summit', type: 'Creature', rarity: 'legendary',
+    cost: 6, atk: 6, hp: 5,
+    ability: 'Rush.',
+    flavor: 'You made it to the top.',
+  },
+  food: {
+    name: 'The Cook', type: 'Creature', rarity: 'epic',
+    cost: 4, atk: 3, hp: 4,
+    ability: 'On play: heal each of your creatures +1 HP.',
+    flavor: 'They taste-tested every plate.',
+  },
+  education: {
+    name: 'Graduation Day', type: 'Creature', rarity: 'legendary',
+    cost: 6, atk: 4, hp: 5,
+    ability: 'On play: give each of your Education-type creatures +1/+1.',
+    flavor: 'You made it. Now what?',
+  },
 };
 
 /** Slot positions for the floating theme cards around the hero. Only
@@ -218,14 +256,15 @@ interface HoloCardProps {
   el: ElementId;
   name: string;
   type: 'Creature' | 'Spell';
-  rarity: 'common' | 'rare' | 'legendary';
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
   cost: number;
   atk: number;
   hp: number;
   flavor: string;
+  ability?: string;
 }
 
-function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardProps) {
+function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor, ability }: HoloCardProps) {
   const def = ELEMENTS[el];
   const ref = useRef<HTMLDivElement>(null);
   const [tilt, setTilt] = useState<{ rx: number; ry: number; px: number; py: number; active: boolean }>({
@@ -271,11 +310,14 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardPro
           boxShadow: `0 30px 70px rgba(0,0,0,0.6), 0 0 40px ${def.glow}66`,
         }}
       >
-        {/* Top bar: cost gem + element name */}
+        {/* Top bar: cost gem + element name + rarity chip.
+            Rarity color comes from the in-game palette range so a
+            "legendary" card on the landing reads the same as one in
+            the collection. */}
         <div className="holo-toprow">
           <div className="holo-cost" style={{ background: def.glow, color: def.deep }}>{cost}</div>
           <div className="holo-element">{def.name}</div>
-          <div className="holo-rarity">{rarity}</div>
+          <div className={`holo-rarity rar-${rarity}`}>{rarity}</div>
         </div>
 
         {/* Art window — themed photo placeholder. The lucide icon
@@ -311,6 +353,10 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardPro
 
         {/* Name banner */}
         <div className="holo-name">{name}</div>
+
+        {/* Ability line (mechanical text) — only rendered if the card
+            actually has one. Vanilla creatures (e.g. Mom) skip it. */}
+        {ability && <div className="holo-ability">{ability}</div>}
 
         {/* Flavor */}
         <div className="holo-flavor">{flavor}</div>
@@ -910,7 +956,15 @@ const LANDING_CSS = `
     box-shadow: 0 2px 6px rgba(0,0,0,.4);
   }
   .holo-element { letter-spacing: 1.5px; text-transform: uppercase; opacity: .85; }
-  .holo-rarity { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; opacity: .8; }
+  .holo-rarity {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    padding: 2px 6px; border-radius: 999px;
+    border: 1px solid currentColor;
+  }
+  .holo-rarity.rar-common    { color: rgba(255,255,255,.75); }
+  .holo-rarity.rar-rare      { color: #6db4e8; text-shadow: 0 0 8px rgba(109,180,232,.5); }
+  .holo-rarity.rar-epic      { color: #c084fc; text-shadow: 0 0 8px rgba(192,132,252,.6); }
+  .holo-rarity.rar-legendary { color: #f4d04a; text-shadow: 0 0 10px rgba(244,208,74,.7); }
   .holo-art {
     flex: 1; position: relative;
     margin: 8px 0;
@@ -934,6 +988,14 @@ const LANDING_CSS = `
     color: #fff;
     text-shadow: 0 2px 6px rgba(0,0,0,.6);
     margin-top: 2px;
+  }
+  .holo-ability {
+    text-align: center;
+    font-size: 11px; font-weight: 600;
+    color: #fff;
+    margin: 6px 6px 0;
+    line-height: 1.35;
+    text-shadow: 0 1px 2px rgba(0,0,0,.5);
   }
   .holo-flavor {
     text-align: center;
