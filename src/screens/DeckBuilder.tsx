@@ -10,6 +10,10 @@ import { MemoryPanel } from '../components/MemoryPanel';
 import { ELEMENTS } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import { useViewport } from '../hooks/useViewport';
+import {
+  countCopiesInDeck,
+  maxCopiesForRarity,
+} from '../game/deckRules';
 import type { CollectionCard, DeckSlot, ElementId } from '../game/types';
 
 type Filter =
@@ -126,10 +130,26 @@ export function DeckBuilder({
     if (!activeDeck) return;
     if (deckUids.includes(uid)) {
       onChange(activeDeck.id, deckUids.filter(x => x !== uid));
-    } else if (deckUids.length < DECK_SIZE) {
-      onChange(activeDeck.id, [...deckUids, uid]);
+      return;
     }
+    if (deckUids.length >= DECK_SIZE) return;
+    const card = collection.find(x => x.uid === uid);
+    if (!card) return;
+    const cap = maxCopiesForRarity(card.rarity);
+    if (countCopiesInDeck(deckUids, collection, card.id) >= cap) return;
+    onChange(activeDeck.id, [...deckUids, uid]);
   };
+
+  // Per-template count in the active deck — drives "MAX" badges in the
+  // library and the disabled state on the inspect modal's add button.
+  const deckTemplateCount = useMemo(() => {
+    const m: Record<string, number> = {};
+    for (const uid of deckUids) {
+      const c = collection.find(x => x.uid === uid);
+      if (c) m[c.id] = (m[c.id] ?? 0) + 1;
+    }
+    return m;
+  }, [deckUids, collection]);
 
   // Pre-compute deck-health stats so both the sidebar panel and the
   // mobile collapsible read from the same source of truth.
@@ -248,6 +268,7 @@ export function DeckBuilder({
             cards={filtered}
             layout={layout}
             deckUids={deckUids}
+            deckTemplateCount={deckTemplateCount}
             onInspect={setInspectActive}
             isMobile={isMobile}
             collectionEmpty={collection.length === 0}
@@ -288,21 +309,34 @@ export function DeckBuilder({
         );
       })()}
 
-      {inspectActive && (
-        <CardInspectModal
-          card={inspectActive}
-          inDeck={deckUids.includes(inspectActive.uid)}
-          onClose={() => setInspectActive(null)}
-          onToggle={() => {
-            toggle(inspectActive.uid);
-            setInspectActive(null);
-          }}
-          onUpdateMemory={onUpdateMemory ? (text) => {
-            onUpdateMemory(inspectActive.uid, text);
-            setInspectActive({ ...inspectActive, memory: text.trim() || undefined });
-          } : undefined}
-        />
-      )}
+      {inspectActive && (() => {
+        const inDeck = deckUids.includes(inspectActive.uid);
+        const copiesInDeck = deckTemplateCount[inspectActive.id] ?? 0;
+        const cap = maxCopiesForRarity(inspectActive.rarity);
+        // Cap blocks adding only when this specific card isn't already
+        // counted (i.e. it's currently OUT of the deck). Removing an
+        // in-deck card is always allowed.
+        const atCap = !inDeck && copiesInDeck >= cap;
+        const deckFull = !inDeck && deckUids.length >= DECK_SIZE;
+        return (
+          <CardInspectModal
+            card={inspectActive}
+            inDeck={inDeck}
+            atCap={atCap}
+            deckFull={deckFull}
+            cap={cap}
+            onClose={() => setInspectActive(null)}
+            onToggle={() => {
+              toggle(inspectActive.uid);
+              setInspectActive(null);
+            }}
+            onUpdateMemory={onUpdateMemory ? (text) => {
+              onUpdateMemory(inspectActive.uid, text);
+              setInspectActive({ ...inspectActive, memory: text.trim() || undefined });
+            } : undefined}
+          />
+        );
+      })()}
     </div>
   );
 }
@@ -854,11 +888,12 @@ function SearchAndFilters({
 // LIBRARY GRID
 // =================================================================
 function LibraryGrid({
-  cards, layout, deckUids, onInspect, isMobile, collectionEmpty,
+  cards, layout, deckUids, deckTemplateCount, onInspect, isMobile, collectionEmpty,
 }: {
   cards: CollectionCard[];
   layout: 'big' | 'compact';
   deckUids: string[];
+  deckTemplateCount: Record<string, number>;
   onInspect: (c: CollectionCard) => void;
   isMobile: boolean;
   collectionEmpty: boolean;
@@ -897,11 +932,16 @@ function LibraryGrid({
         {cards.map(card => {
           const inDeck = deckUids.includes(card.uid);
           const playable = !!card.photo;
+          // Cap badge: another copy of this template is in the deck at
+          // its rarity limit, so the player can't add this specific
+          // instance. Doesn't apply when this card IS the one in deck.
+          const copies = deckTemplateCount[card.id] ?? 0;
+          const atCap = !inDeck && copies >= maxCopiesForRarity(card.rarity);
           return (
             <motion.div key={card.uid}
               layout
               initial={{ opacity: 0, scale: 0.85 }}
-              animate={{ opacity: playable ? 1 : 0.6, scale: inDeck ? 0.95 : 1 }}
+              animate={{ opacity: playable ? (atCap ? 0.55 : 1) : 0.6, scale: inDeck ? 0.95 : 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: 'spring', stiffness: 480, damping: 32 }}
               onClick={() => playable && onInspect(card)}
@@ -922,6 +962,19 @@ function LibraryGrid({
                   boxShadow: '0 0 0 2px #fef3e8, 0 4px 8px rgba(255,126,95,.4)',
                 }}>
                   <Check size={inDeckIcon} strokeWidth={3.5} />
+                </div>
+              )}
+              {atCap && playable && (
+                <div style={{
+                  position: 'absolute', top: -4, right: -4,
+                  padding: '2px 6px',
+                  borderRadius: 8,
+                  background: '#3a2e2a', color: '#fff',
+                  fontSize: layout === 'compact' && isMobile ? 8 : 10,
+                  fontWeight: 800, letterSpacing: '0.06em',
+                  boxShadow: '0 0 0 2px #fef3e8, 0 4px 8px rgba(58,46,42,.4)',
+                }}>
+                  MAX
                 </div>
               )}
               {!playable && (
@@ -1027,14 +1080,23 @@ function ManageDeckModal({
 }
 
 function CardInspectModal({
-  card, inDeck, onClose, onToggle, onUpdateMemory,
+  card, inDeck, atCap, deckFull, cap, onClose, onToggle, onUpdateMemory,
 }: {
   card: CollectionCard;
   inDeck: boolean;
+  atCap: boolean;
+  deckFull: boolean;
+  cap: number;
   onClose: () => void;
   onToggle: () => void;
   onUpdateMemory?: (text: string) => void;
 }) {
+  const blocked = !inDeck && (atCap || deckFull);
+  const blockedReason = atCap
+    ? `Only ${cap}× ${card.rarity} allowed per deck`
+    : deckFull
+      ? `Deck is full (${DECK_SIZE} cards)`
+      : null;
   return (
     <div
       onClick={onClose}
@@ -1079,24 +1141,32 @@ function CardInspectModal({
             }}
           >Close</button>
           <button
-            onClick={onToggle}
+            onClick={blocked ? undefined : onToggle}
+            disabled={blocked}
+            aria-disabled={blocked}
+            title={blockedReason ?? undefined}
             style={{
-              background: inDeck
-                ? 'linear-gradient(180deg, #ee5a52, #c8362e)'
-                : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
+              background: blocked
+                ? 'rgba(255,255,255,.18)'
+                : inDeck
+                  ? 'linear-gradient(180deg, #ee5a52, #c8362e)'
+                  : 'linear-gradient(180deg, #ffa07a, #ee5a52)',
               color: '#fff',
-              border: 'none',
+              border: blocked ? '1.5px solid rgba(255,255,255,.3)' : 'none',
               borderRadius: 18, padding: '11px 24px',
               minHeight: 44,
               fontSize: 13, fontWeight: 800,
               letterSpacing: '0.04em',
-              cursor: 'pointer',
+              cursor: blocked ? 'not-allowed' : 'pointer',
+              opacity: blocked ? 0.7 : 1,
               fontFamily: 'inherit',
-              boxShadow: inDeck
-                ? '0 4px 14px rgba(200,54,46,.4)'
-                : '0 4px 14px rgba(238,90,82,.4)',
+              boxShadow: blocked
+                ? 'none'
+                : inDeck
+                  ? '0 4px 14px rgba(200,54,46,.4)'
+                  : '0 4px 14px rgba(238,90,82,.4)',
             }}
-          >{inDeck ? 'Remove from deck' : 'Add to deck'}</button>
+          >{inDeck ? 'Remove from deck' : blockedReason ?? 'Add to deck'}</button>
         </div>
       </div>
     </div>
