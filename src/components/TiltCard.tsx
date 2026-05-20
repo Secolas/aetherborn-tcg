@@ -102,6 +102,14 @@ export function TiltCard({
         willChange: 'transform',
         cursor: onClick ? 'pointer' : 'default',
         position: 'relative',
+        // When shine is on (immersive inspect contexts), suppress the
+        // browser's default touch gestures so a finger-drag on the
+        // card drives pointer-move events the same way mouse hover
+        // does on desktop. Without this, the browser hijacks the
+        // gesture as a scroll and the holo never tracks the finger.
+        // When shine is off we leave touch-action alone so TiltCards
+        // embedded inside scrollable lists still pan correctly.
+        touchAction: shine ? 'none' : undefined,
         ...style,
       }}
     >
