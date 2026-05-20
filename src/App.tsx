@@ -925,6 +925,7 @@ function Game() {
         <StarterPick
           themes={PICKABLE_STARTER_THEMES}
           onPick={(themeId) => onStarterPick(themeId)}
+          onCancel={() => setScreen('home')}
         />
       )}
       {screen === 'starter-open' && save.starterThemeId && save.starterThemeId !== 'legacy' && (

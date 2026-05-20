@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Coins, Sparkles, ChevronRight, Camera } from 'lucide-react';
+import { Coins, Sparkles, ChevronRight, Camera, X } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { PALETTE } from '../components/styles';
@@ -9,6 +9,12 @@ import type { ElementId } from '../game/types';
 interface Props {
   themes: StarterTheme[];
   onPick: (themeId: ElementId) => void;
+  /** Optional close handler. Renders an X in the top-right that takes
+   *  the player back to wherever they came from (typically Home). The
+   *  starter-pick screen is one of the few places a brand-new player
+   *  can be without having picked a deck yet — when nav routes here
+   *  from a Home CTA, this lets them back out instead of being trapped. */
+  onCancel?: () => void;
 }
 
 /**
@@ -24,7 +30,7 @@ interface Props {
  * booster shop (.bp class) — tear strip, sigil disc, wordmark,
  * frosted bottom band.
  */
-export function StarterPick({ themes, onPick }: Props) {
+export function StarterPick({ themes, onPick, onCancel }: Props) {
   // Default focus = middle of the array so the player can clearly
   // see there ARE side options (the previous carousel landed on
   // Family first and read as "only one choice").
@@ -36,6 +42,16 @@ export function StarterPick({ themes, onPick }: Props) {
   return (
     <div className="sp-root">
       <StarterPickStyles />
+      {onCancel && (
+        <button
+          className="sp-close"
+          onClick={onCancel}
+          aria-label="Close starter pick"
+          title="Close"
+        >
+          <X size={18} strokeWidth={2.4} />
+        </button>
+      )}
       <div className="sp-head">
         <div className="sp-eyebrow">
           <Sparkles size={12} strokeWidth={2.4} color={PALETTE.accent} />
@@ -131,6 +147,25 @@ function StarterPickStyles() {
         padding: max(24px, env(safe-area-inset-top, 24px)) 16px max(20px, env(safe-area-inset-bottom, 20px)) 16px;
         gap: 14px;
       }
+
+      .sp-close {
+        position: absolute;
+        top: max(16px, env(safe-area-inset-top, 16px));
+        right: 16px;
+        z-index: 10;
+        width: 36px; height: 36px;
+        display: grid; place-items: center;
+        border-radius: 50%;
+        background: rgba(255,255,255,.85);
+        border: 1.5px solid rgba(58,46,42,.18);
+        color: ${PALETTE.text};
+        cursor: pointer;
+        font-family: inherit;
+        box-shadow: 0 2px 8px rgba(58,46,42,.12);
+        transition: transform .12s, background .15s;
+      }
+      .sp-close:hover { background: #fff; transform: scale(1.05); }
+      .sp-close:active { transform: scale(.96); }
 
       .sp-head { text-align: center; }
       .sp-eyebrow {
@@ -254,6 +289,44 @@ function StarterPickStyles() {
             rotate(calc(var(--offset) * 12deg))
             translateY(0)
             scale(.90);
+        }
+      }
+
+      /* Desktop / wide layout — there's enough horizontal room for
+         the three packs to sit side-by-side without overlap. Drop
+         the absolute positioning and the rotation, lay them out as
+         a flex row, and keep a subtle scale difference so the focused
+         pack still reads as "selected". The confirm button gets a
+         max-width too so it doesn't sprawl across the full shell. */
+      @media (min-width: 720px) {
+        .sp-fan {
+          display: flex;
+          flex-direction: row;
+          justify-content: center;
+          align-items: center;
+          gap: 40px;
+          perspective: none;
+        }
+        .sp-bp { width: 240px; }
+        .sp-bp[data-focused="false"],
+        .sp-bp[data-focused="false"]:hover,
+        .sp-bp[data-focused="true"] {
+          position: relative;
+        }
+        .sp-bp[data-focused="false"] {
+          transform: scale(.92);
+          filter: brightness(.82) saturate(.88);
+        }
+        .sp-bp[data-focused="false"]:hover {
+          transform: scale(.96) translateY(-4px);
+          filter: brightness(.94) saturate(.95);
+        }
+        .sp-bp[data-focused="true"] {
+          transform: scale(1.06);
+        }
+        .sp-confirm {
+          max-width: 380px;
+          margin: 0 auto;
         }
       }
 
