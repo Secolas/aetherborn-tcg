@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Heart, Flag, Skull, Moon, ChevronsRight, ShieldHalf, Zap } from 'lucide-react';
+import { Sparkles, X, Hand, Swords, Clock, Trophy, Wand2, HeartPulse, LinkIcon as Link2, BookOpen, ChevronRight, Moon, ChevronsRight, ShieldHalf, Zap } from 'lucide-react';
 import { MatchBoard } from './MatchBoard';
-import { Card } from '../components/Card';
+import { CardAnatomyDiagram, FieldAnatomyDiagram } from '../components/Anatomy';
 import { getBoss } from '../data/bosses';
 import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
@@ -539,7 +539,7 @@ export function Tutorial({
  * advances the script.
  */
 function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: () => void }) {
-  const kind = step.anatomy?.kind;
+  const anatomy = step.anatomy;
   return (
     <div className="tu-overlay">
       <div className="tu-dim" style={{ background: 'rgba(28,24,20,0.86)' }} />
@@ -550,179 +550,16 @@ function TutorialAnatomy({ step, onAdvance }: { step: TutorialStep; onAdvance: (
         </div>
         <div className="tu-anatomy-blurb">{renderHintText(step.text)}</div>
 
-        {kind === 'field'
-          ? <FieldAnatomyDiagram />
-          : <CardAnatomyDiagram step={step} />
+        {anatomy?.kind === 'field'
+          ? <FieldAnatomyDiagram theme="dark" />
+          : anatomy && (anatomy.kind === 'creature' || anatomy.kind === 'spell') &&
+            <CardAnatomyDiagram cardId={anatomy.cardId} kind={anatomy.kind} theme="dark" />
         }
 
         <button className="tu-anatomy-cta" onClick={onAdvance}>
           <span>Got it</span>
           <ChevronRight size={16} strokeWidth={2.4} />
         </button>
-      </div>
-    </div>
-  );
-}
-
-/** Card anatomy — numbered chips overlaid on the card, paired with a
- *  legend below. Matches the field-anatomy pattern so the player
- *  learns one system that works for both diagrams. Creature gets 7
- *  callouts (Mana / Name / Type / Rarity / Ability / Attack / HP),
- *  Spell gets 5 (no atk/hp). */
-function CardAnatomyDiagram({ step }: { step: TutorialStep }) {
-  const tpl = step.anatomy ? getTemplateById(step.anatomy.cardId) : null;
-  if (!tpl) return null;
-  const card: CollectionCard = {
-    ...tpl,
-    uid: `tut_anatomy_${tpl.id}`,
-    photo: aiPhoto(tpl.id),
-    isPlaceholder: true,
-  };
-  const isCreature = step.anatomy?.kind === 'creature';
-  type Row = { n: number; pos: string; title: string; body: string };
-  const rows: Row[] = [
-    { n: 1, pos: 'cost',    title: 'Mana cost',                              body: 'What you pay to play it' },
-    { n: 2, pos: 'name',    title: 'Card name',                              body: 'And its art below' },
-    { n: 3, pos: 'type',    title: isCreature ? 'Type · Creature' : 'Type · Spell',
-                            body: isCreature ? 'Stays on the field, attacks each turn' : 'Fires before Battle, then is gone' },
-    { n: 4, pos: 'rarity',  title: 'Rarity',                                 body: 'Common · Rare · Epic · Legendary — bumps in packs' },
-    { n: 5, pos: 'ability', title: 'Ability',                                body: 'e.g. Rush · Taunt · Heal · Buff' },
-  ];
-  if (isCreature) {
-    rows.push({ n: 6, pos: 'atk', title: 'Attack', body: 'Damage when it swings' });
-    rows.push({ n: 7, pos: 'hp',  title: 'HP',     body: 'The creature dies at 0' });
-  }
-  return (
-    <div className="tu-field-stage">
-      {/* Card sits in a positioning anchor; numbered chips overlay at
-          the section coordinates. Numbers are deliberately positioned
-          just OUTSIDE the cost/atk/hp orbs (not on top of them) so
-          they don't overlap the card's own numeric badges. */}
-      <div className="tu-card-anchor">
-        <Card card={card} scale={1.0} />
-        {rows.map(r => (
-          <span key={r.n} className="tu-card-num" data-pos={r.pos}>{r.n}</span>
-        ))}
-      </div>
-
-      {/* Legend — same numbered-row layout as the field anatomy. */}
-      <div className="tu-field-legend">
-        {rows.map(r => (
-          <div key={r.n} className="tu-field-legend-row">
-            <span className="tu-field-num">{r.n}</span>
-            <div><strong>{r.title}</strong><em>{r.body}</em></div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Field anatomy — mocked match-board mini-diagram with callouts at
- *  the corners pointing at every region the player will see in a
- *  real match: turn counter, phases button, HP/mana, hand, deck,
- *  cemetery, give up, field zones. Doesn't mount MatchBoard — this
- *  is a static teaching diagram. */
-function FieldAnatomyDiagram() {
-  return (
-    <div className="tu-field-stage">
-      {/* Mock board mirrors the real match layout at a fixed small
-          scale so the player gets a spatial sense. Each region is
-          numbered (1-7); the legend below repeats those numbers
-          with a one-line explanation. Replaces the earlier
-          callout-around-the-mock approach where labels overlapped
-          the board and clipped on narrow phones. */}
-      <div className="tu-field-mock">
-        {/* Opponent header — avatar circle + heart HP + mana count
-            on the left, cemetery icon on the right. Mirrors the
-            actual MatchBoard top bar (deck icon dropped per player
-            feedback — that data lives behind the avatar tap). */}
-        <div className="tu-field-row">
-          <span className="tu-field-num">1</span>
-          <div className="tu-field-avatar" data-side="opp" />
-          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 6</div>
-          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
-          <div className="tu-field-spacer" />
-          <span className="tu-field-num">2</span>
-          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
-        </div>
-
-        <div className="tu-field-zone">
-          <span>SLOT</span><span>SLOT</span><span>SLOT</span>
-        </div>
-
-        {/* Divider — turn counter, give up, phase button. Matches the
-            actual MatchBoard divider strip. */}
-        <div className="tu-field-divider">
-          <span className="tu-field-pill"><span className="tu-field-num">3</span> 1 / 12</span>
-          <div className="tu-field-icon-btn"><Flag size={11} strokeWidth={2.2} /></div>
-          <span className="tu-field-num">5</span>
-          <div className="tu-field-spacer" />
-          <span className="tu-field-num">4</span>
-          <div className="tu-field-icon-btn tu-field-icon-btn-phase"><Swords size={11} strokeWidth={2.2} /></div>
-        </div>
-
-        <div className="tu-field-zone tu-field-zone-player">
-          <span><span className="tu-field-num tu-field-num-slot">8</span>SLOT</span><span>SLOT</span><span>SLOT</span>
-        </div>
-
-        {/* Player header — same layout as opp, mirrored. */}
-        <div className="tu-field-row">
-          <span className="tu-field-num">6</span>
-          <div className="tu-field-avatar" data-side="player" />
-          <div className="tu-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 20</div>
-          <div className="tu-field-mana-pill"><span className="tu-field-mana-dot" /> 1/1</div>
-          <div className="tu-field-spacer" />
-          <div className="tu-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>
-        </div>
-
-        {/* Hand — three placeholder cards. */}
-        <div className="tu-field-hand">
-          <span className="tu-field-num tu-field-num-hand">7</span>
-          <div className="tu-field-card" /><div className="tu-field-card" /><div className="tu-field-card" />
-        </div>
-      </div>
-
-      {/* Legend — numbered rows pair with the small chips above.
-          Bottom-row "tip" replaces the dedicated deck chip: in a
-          real match, tapping any avatar opens a peek modal showing
-          that player's hand size, remaining deck and cemetery. */}
-      <div className="tu-field-legend">
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">1</span>
-          <div><strong>Opponent</strong><em>Their HP and mana</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">2</span>
-          <div><strong>Cemetery</strong><em>Tap to peek at their dead</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">3</span>
-          <div><strong>Turn counter</strong><em>Match ends at turn 12</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">4</span>
-          <div><strong>Phase button</strong><em>Main → Battle → End</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">5</span>
-          <div><strong>Give up</strong><em>Concede the match</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">6</span>
-          <div><strong>Your HP &amp; mana</strong><em>0 = you lose</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">7</span>
-          <div><strong>Your hand</strong><em>Drag cards to summon or cast</em></div>
-        </div>
-        <div className="tu-field-legend-row">
-          <span className="tu-field-num">8</span>
-          <div><strong>Summon zone</strong><em>Three slots — drag creatures here to play them</em></div>
-        </div>
-      </div>
-      <div className="tu-field-tip">
-        Tap any avatar mid-match for hand size, deck count and cemetery details.
       </div>
     </div>
   );
