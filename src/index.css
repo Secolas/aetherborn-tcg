@@ -588,33 +588,52 @@ input {
   60%  { opacity: 0.3; transform: scale(1.05); filter: blur(2px); }
   100% { opacity: 0; transform: scale(1.15); filter: blur(8px); }
 }
-/* Quieter alternative used by the unbox stage — the pack just fades
-   in place after the slash cuts across it, so it doesn't drift
-   toward the camera or blur out before the wireframes settle. */
+/* Quieter alternative used by the emerge stage — the pack just
+   fades in place after the slash cuts across it, so it doesn't drift
+   toward the camera or blur out before the cards finish bursting. */
 @keyframes packArtFadeOut {
   0%   { opacity: 1; }
   100% { opacity: 0; }
 }
-/* Each wireframe card scales into its slot. --scale carries the
-   per-card depth shrink; --peek lifts back cards so their top edges
-   show above the cards in front. The element is already centred via
-   negative margins, so transforms don't need translate(-50%,-50%). */
-@keyframes wireframeCardIn {
-  0%   { opacity: 0; transform: translateY(40px) scale(calc(var(--scale) * 1.2)); }
-  100% { transform: translateY(var(--peek)) scale(var(--scale)); }
+/* Brief radial bloom from inside the pack as it splits — sells the
+   "something is escaping" beat between the slash and the cards
+   bursting out. Theme glow colour applied inline. */
+@keyframes packEmergeFlash {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  35%  { opacity: 0.9; transform: translate(-50%, -50%) scale(1.4); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2); }
 }
-/* Collapse: each wireframe slides to the aligned front position
-   (scale 1, peek 0) and fades as the solid card back fades up. */
-@keyframes wireframeCollapse {
-  0%   { transform: translateY(var(--peek)) scale(var(--scale)); }
-  100% { opacity: 0; transform: translateY(0) scale(1); }
+/* Each card-back bursts OUT from inside the pack: starts at the
+   pack's centre with scale 0 (i.e. "inside"), shoots upward + grows,
+   then settles into the final face-down stack position the revealing
+   stage uses. --final-scale + --final-peek are inline so the stack
+   depth (back cards smaller / lifted up) reads. */
+@keyframes packCardBurst {
+  0%   {
+    opacity: 0;
+    transform: translateY(40px) scale(0.15);
+    filter: brightness(1.6);
+  }
+  25%  {
+    opacity: 1;
+    transform: translateY(-90px) scale(0.6);
+    filter: brightness(1.4);
+  }
+  65%  {
+    transform: translateY(-22px) scale(calc(var(--final-scale) * 1.08));
+    filter: brightness(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(var(--final-peek, 0)) scale(var(--final-scale, 1));
+    filter: brightness(1);
+  }
 }
-/* The face-down card back fades up as wireframes collapse. */
-@keyframes cardBackFadeIn {
-  0%   { opacity: 0; transform: scale(0.7); }
-  60%  { opacity: 1; transform: scale(1.04); }
-  100% { opacity: 1; transform: scale(1); }
-}
+/* wireframeCardIn / wireframeCollapse / cardBackFadeIn removed when
+   the unbox + stack stages were collapsed into the auto-advancing
+   EmergeStage; the new packCardBurst keyframe above handles the
+   "cards burst out of the pack" beat in a single step. */
+
 /* Y-axis flip from back to face. */
 @keyframes cardFlipReveal {
   0%   { transform: rotateY(0deg); }
