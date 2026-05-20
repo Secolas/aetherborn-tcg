@@ -7,9 +7,21 @@ import type { ElementId } from '../game/types';
  *  behind a centered auth form. The cards aren't real game state —
  *  they're decoration sized + colored from the existing element palette
  *  so the screen feels native to the rest of the app. */
-export function Login() {
+interface LoginProps {
+  /** Which form the screen mounts in. Landing-page CTAs pre-select
+   *  'signup' (for "Begin your album") or 'signin' (for the "Sign in"
+   *  button). Defaults to 'signin' for the cold-load "returning user"
+   *  flow. */
+  initialMode?: 'signin' | 'signup';
+  /** When set, renders a small "← Back" chip in the top-left that
+   *  takes the user back to the marketing landing page. Omitted when
+   *  Login is the cold-load entry (no landing to go back to). */
+  onBackToLanding?: () => void;
+}
+
+export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = {}) {
   const { signUp, signIn, signInWithGoogle, unconfigured } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  const [mode, setMode] = useState<'signin' | 'signup'>(initialMode);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -147,6 +159,31 @@ export function Login() {
       <FloatingCard el="travel"   top="72%" left="74%"  rot={-10} delay={0.8} />
       <FloatingCard el="food"     top="42%" left="86%"  rot={-6}  delay={3.0} small />
       <FloatingCard el="education" top="48%" left="4%"  rot={4}   delay={1.7} small />
+
+      {/* Back-to-landing chip — only rendered when this Login screen
+          was opened from the marketing landing page. Lets the user
+          retreat to the marketing copy if they got here by mistake
+          or want to re-read the pitch before signing up. */}
+      {onBackToLanding && (
+        <button
+          type="button"
+          onClick={onBackToLanding}
+          aria-label="Back to landing page"
+          style={{
+            position: 'absolute', top: 14, left: 14, zIndex: 5,
+            padding: '6px 12px', borderRadius: 999,
+            background: 'rgba(255,255,255,0.08)',
+            border: '1px solid rgba(255,255,255,0.18)',
+            color: 'rgba(255,255,255,0.78)',
+            fontSize: 12, fontWeight: 600,
+            cursor: 'pointer',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+          }}
+        >
+          ← Back
+        </button>
+      )}
 
       {/* Scroll wrapper — lets the form move with the iOS keyboard
           instead of getting clipped behind it. */}
