@@ -870,7 +870,7 @@ const ABILITIES: AbilityDef[] = [
 function AbilitiesSection() {
   return (
     <section className="landing-abilities">
-      <div className="landing-section-title"><span>Keywords</span></div>
+      <div className="landing-section-title"><span>Abilities</span></div>
       <div className="landing-abilities-grid">
         {ABILITIES.map(({ name, Icon, color, desc }) => (
           <div key={name} className="landing-ability-card">
@@ -901,7 +901,7 @@ function ThemeGrid() {
   return (
     <section className="landing-themes">
       <div className="landing-section-title">
-        <span>Six photo prompts</span>
+        <span>Creatures</span>
       </div>
       <div className="landing-theme-grid">
         {ids.map((id) => {
