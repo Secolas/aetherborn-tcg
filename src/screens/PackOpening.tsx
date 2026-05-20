@@ -53,7 +53,11 @@ type ConfirmPick =
 
 interface Props {
   coins: number;
-  onPackOpened: (cards: CollectionCard[], coinsSpent: number) => void;
+  /** Current element-pack legendary pity counter from the save. Passed
+   *  into openPack so the guaranteed slot can force a legendary once
+   *  the threshold is reached. */
+  legendaryPity?: number;
+  onPackOpened: (cards: CollectionCard[], coinsSpent: number, newPity: number) => void;
   onMemoryPackOpened?: (packId: string, cards: CollectionCard[], cost: number) => void;
   openedMemoryPacks?: string[];
   onBack: () => void;
@@ -76,7 +80,7 @@ const STAGE_DURATIONS: Record<'lift' | 'tension', number> = {
 };
 
 export function PackOpening({
-  coins, onPackOpened, onMemoryPackOpened, openedMemoryPacks = [],
+  coins, legendaryPity = 0, onPackOpened, onMemoryPackOpened, openedMemoryPacks = [],
   onBack, settings = DEFAULT_SETTINGS,
   unlocked = true, onStartTutorial,
 }: Props) {
@@ -208,7 +212,7 @@ export function PackOpening({
 
   const buyTheme = (theme: ElementId) => {
     if (!canBuyTheme) return;
-    const cards = openPack(theme);
+    const { cards, pity } = openPack(theme, legendaryPity);
     const e = ELEMENTS[theme];
     const vibe: PackVibe = {
       deep: e.deep, color: e.color, glow: e.glow, title: e.name,
@@ -216,7 +220,7 @@ export function PackOpening({
     };
     setPick({ kind: 'theme', theme, vibe });
     setPack(cards);
-    onPackOpened(cards, PACK_COST);
+    onPackOpened(cards, PACK_COST, pity);
     setStage('lift');
   };
 
