@@ -980,9 +980,15 @@ function Game() {
             // Wipe save back to the initial empty state, but keep
             // tutorialCompleted = true so the player lands on the
             // StarterPick CTA rather than re-doing the tutorial they
-            // already know how to play. Firestore sync propagates the
-            // wipe to any other device the user is signed in on.
-            setSave(() => ({ ...makeInitialSave(), tutorialCompleted: true }));
+            // already know how to play. Also seed `daily` immediately:
+            // the once-per-mount advanceDaily effect doesn't re-fire on
+            // reset, so without this the Daily screen mounts against
+            // an undefined value and renders blank.
+            setSave(() => ({
+              ...makeInitialSave(),
+              tutorialCompleted: true,
+              daily: advanceDaily(undefined),
+            }));
             setActiveBoss(null);
             setActiveCampaign(null);
             setActiveTestTheme(null);

@@ -45,6 +45,13 @@ interface Props {
    *  is also on the field right now. Drives the persistent corner heart
    *  icon: gold/glowing when active, dim when waiting for the partner. */
   bondState?: 'active' | 'waiting';
+  /** True when an active bond grants this creature Taunt (today only
+   *  the House Pets bond does this — both Cat and Dog gain Taunt while
+   *  both are on the field). Drives the same visual indicators as
+   *  intrinsic Taunt: green status pill at the bottom + green outline
+   *  ring around the card. The engine treats bond-Taunt identically
+   *  for attack redirection; this prop just keeps the UI in sync. */
+  bondGrantsTaunt?: boolean;
   highlight?: 'attack' | 'spell' | 'spell-damage' | 'spell-heal' | 'spell-freeze' | null;
   /** True when the tile belongs to the player's side. Drives whether
    *  the equipped cosmetic frame applies — boss creatures stay in
@@ -58,7 +65,7 @@ const LONG_PRESS_MS = 450;
 
 export function BattlefieldCard({
   card, displayStats, selected, attackable, shaking, lunging, damage, impact, dying, dimWhenExhausted,
-  buff, trigger, bondState, highlight, owned = false,
+  buff, trigger, bondState, bondGrantsTaunt, highlight, owned = false,
   onClick, onLongPress,
 }: Props) {
   const tp = TYPE_PALETTE.Creature;
@@ -72,7 +79,7 @@ export function BattlefieldCard({
   const frameOuter = frame.outer?.boxShadow as string | undefined;
   const frameInner = frame.inner?.boxShadow as string | undefined;
   const exhausted = card.tapped && !card.justPlayed;
-  const isTaunt = card.abilityKind === 'taunt' && !card.frozen;
+  const isTaunt = (card.abilityKind === 'taunt' || !!bondGrantsTaunt) && !card.frozen;
   // Track first-mount so the cardSlam keyframe + summon dust fire whenever
   // the BattlefieldCard appears on the field — including for Rush creatures
   // (whose `card.justPlayed` is set false in the engine, since they aren't
