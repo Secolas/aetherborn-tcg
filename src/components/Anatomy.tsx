@@ -102,7 +102,7 @@ export function FieldAnatomyDiagram({ theme = 'dark' }: { theme?: Theme }) {
         <div className="anat-field-row">
           <span className="anat-num">6</span>
           <div className="anat-field-avatar" data-side="player" />
-          <div className="anat-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 20</div>
+          <div className="anat-field-hp"><Heart size={9} fill="#ef5a5a" color="#ef5a5a" strokeWidth={2} /> 18</div>
           <div className="anat-field-mana-pill"><span className="anat-field-mana-dot" /> 1/1</div>
           <div className="anat-field-spacer" />
           <div className="anat-field-icon-btn"><Skull size={11} strokeWidth={2.2} /></div>

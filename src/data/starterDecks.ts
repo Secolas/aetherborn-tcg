@@ -94,7 +94,15 @@ export const STARTER_THEMES: StarterTheme[] = [
       'wrk-06',                 // 3c spell — Sales Pitch (4 dmg)
       'wrk-07',                 // 4c 3/4  — HR (untargetable)
       'wrk-10',                 // 4c spell — Promotion (+4/+4 buff)
-      'wrk-11',                 // 5c spell — Lunch Break (heal 7)
+      // Balance pass: replaced wrk-11 Lunch Break (5c heal 7) with
+      // Custodian. Lunch Break stabilized vs control but was dead
+      // against aggro that out-paced the single heal. Custodian
+      // gives the same 5-cost slot a 4/5 Taunt body — it blocks
+      // damage *and* swings back, so it improves the aggro matchup
+      // (the deck's worst, ~30%) without giving up the slow-game.
+      // Stacks with The Boss (also Taunt) so the late game has a
+      // second wall.
+      'wrk-16',                 // 5c 4/5  — Custodian (Taunt)
       'wrk-12',                 // 6c 5/6  — The Boss (taunt, finisher)
     ],
   },

@@ -189,10 +189,27 @@ export const BOSSES: BossDef[] = [
     rewardCoins: 150,
     // Normal: no legendary. The Boss (wrk-12) is the Mythic-tier
     // exclusive. Hard uses this same deck under smarter AI.
+    //
+    // Balance pass (was 38% across the field — bottom of every
+    // matchup table). Swaps:
+    //   − wrk-14 Stand-up Meeting (cheap both-draw cycle): gave the
+    //     opponent a free card too, anti-synergy for a tempo deck
+    //     that wants to chip its opponent down, not even card parity.
+    //   − wrk-11 Lunch Break (5c heal 7): off-theme stabilizer; the
+    //     data showed Manager wasn't dying to face damage in 92% of
+    //     games — it was losing on HP attrition at the turn cap.
+    //     A one-shot heal didn't move the long-game outcome.
+    //   + wrk-03 Coworker (2c 2/2): fixes a missing turn-2 play. The
+    //     old curve had no creature on T2 — opponent always got first
+    //     to the board.
+    //   + wrk-16 Custodian (5c 4/5 Taunt): common-rarity closer. The
+    //     deck had no real finisher at Normal tier (Colleagues is
+    //     epic but only 3/4); Custodian shields HR + Senior Engineer
+    //     through the late game and forces lethal trades.
     deck: [
       'wrk-01',          // Intern
       'wrk-02',          // Spam Email (1c chip damage)
-      'wrk-14',          // Stand-up Meeting (cheap both-draw cycle)
+      'wrk-03',          // Coworker — 2c 2/2 tempo body
       'wrk-05',          // IT Support
       'wrk-06', 'wrk-06',// Sales Pitch x2 — removal (4 dmg, kills creatures)
       'wrk-18',          // All-Hands Meeting — anti-heal spell lock.
@@ -206,7 +223,7 @@ export const BOSSES: BossDef[] = [
       'wrk-15',          // Payroll — board buff
       'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
                          // to every Work creature. Real finisher.
-      'wrk-11',          // Lunch Break — 7 face heal stabilizer
+      'wrk-16',          // Custodian — 5c 4/5 Taunt closer (common)
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo

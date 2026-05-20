@@ -27,7 +27,7 @@ const DIFFICULTY_PROFILE: Record<Difficulty, {
 
 export function difficultyProfile(d: Difficulty) { return DIFFICULTY_PROFILE[d]; }
 
-export const STARTING_HP = 20;
+export const STARTING_HP = 18;
 export const STARTING_HAND = 4;
 export const MAX_MANA = 7;
 export const MAX_FIELD = 3;
