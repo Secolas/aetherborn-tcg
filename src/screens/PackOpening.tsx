@@ -6,7 +6,7 @@ import { TiltCard } from '../components/TiltCard';
 import { ElementGlyph } from '../components/ElementGlyph';
 import { btnPrimary, btnSecondary, iconBtn, PALETTE } from '../components/styles';
 import { openPack, openMemoryPack, PACK_COST, PACK_SIZE } from '../game/pack';
-import { ELEMENTS, RARITY_COLOR } from '../data/elements';
+import { ELEMENTS } from '../data/elements';
 import { MEMORY_PACKS, type MemoryPackDef } from '../data/memoryPacks';
 import { playSfx } from '../audio/sfx';
 import { DEFAULT_SETTINGS, type Settings } from '../state/settings';
@@ -1669,20 +1669,10 @@ function PackInspectModal({
             )}
           </TiltCard>
         </div>
-        <div style={{
-          fontSize: 12,
-          letterSpacing: '0.28em',
-          textTransform: 'uppercase',
-          fontWeight: 800,
-          position: 'relative',
-          zIndex: 2,
-          color: RARITY_COLOR[card.rarity],
-          textShadow: card.rarity === 'legendary'
-            ? '0 0 12px rgba(255, 209, 102, .6)'
-            : 'none',
-        }}>
-          {card.rarity}
-        </div>
+        {/* Rarity-name label removed for consistency with the
+            reveal phase and the starter inspect modal — the card
+            chrome already carries the rarity colour and the gold
+            halo / holo sheen do the rest for epic + legendary. */}
       </div>
     </div>
   );
