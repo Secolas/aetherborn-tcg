@@ -85,12 +85,39 @@ export function useFirestoreSave(
         if (writeTimer.current) clearTimeout(writeTimer.current);
         const uid = writingUid.current;
         writeTimer.current = setTimeout(() => {
+          writeTimer.current = null;
           writeSave(uid, latest.current).catch(() => { /* swallow — retry on next change */ });
         }, 600);
       }
       return resolved;
     });
   };
+
+  // Flush any pending debounced write when the tab is about to close
+  // or refresh. Without this, anything saved in the last 600ms (avatar
+  // upload, last move, coin claim) silently dies with the page — the
+  // setTimeout never fires, the writeSave never goes out.
+  //
+  // beforeunload (desktop refresh / tab close) + pagehide (mobile +
+  // bfcache) covers every unload path browsers expose. The Firestore
+  // SDK's pending REST write usually completes during unload because
+  // browsers keep small in-flight requests alive past the handler.
+  useEffect(() => {
+    const flush = () => {
+      if (!writeTimer.current) return;
+      clearTimeout(writeTimer.current);
+      writeTimer.current = null;
+      const uid = writingUid.current;
+      if (!uid || !loaded.current) return;
+      writeSave(uid, latest.current).catch(() => { /* unload — best effort */ });
+    };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, []);
 
   return { save, setSave, loading };
 }
