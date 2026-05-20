@@ -205,7 +205,7 @@ function HeroSection({ onCta }: { onCta: () => void }) {
           <p className="landing-lede">
             Every card arrives dormant — stats only, no picture.
             Summon them by photographing the real moments of your life.
-            Your dog becomes an Ember Hound. Your morning coffee becomes a Bloomshield.
+            Your dog wakes up as a 2/4 Taunt. Your morning coffee becomes a +2/+2 buff for the team. The photo of your grandma? A 2/6 Abuela who refuses to fall.
           </p>
           <p className="landing-hint">
             Tap any card to bring it forward.
@@ -536,17 +536,22 @@ function ThemeGrid() {
 // Live ticker — infinite marquee of recent "captures"
 // ============================================================================
 
+/** Live-ticker stunt feed — every card and rarity here is real, pulled
+ *  from templates.ts. Keeps the landing page from advertising cards
+ *  that don't exist in the game. */
 const TICKER_ITEMS: { who: string; what: string; rarity: 'common' | 'rare' | 'legendary' }[] = [
-  { who: 'maya',     what: 'summoned Ember Hound',   rarity: 'rare' },
-  { who: 'kenji',    what: 'photographed Mom',       rarity: 'legendary' },
-  { who: 'leon',     what: 'caught a Bloomshield',   rarity: 'rare' },
-  { who: 'priya',    what: 'snapped Morning Coffee', rarity: 'common' },
-  { who: 'sasha',    what: 'pulled a Mythic pack',   rarity: 'legendary' },
-  { who: 'alex',     what: 'opened Family pack',     rarity: 'common' },
-  { who: 'devon',    what: 'awoke The Boss',         rarity: 'legendary' },
-  { who: 'noor',     what: 'summoned Cousin',        rarity: 'common' },
-  { who: 'jules',    what: 'beat Vex on Mythic',     rarity: 'rare' },
-  { who: 'ren',      what: 'photographed Abuela',    rarity: 'rare' },
+  { who: 'maya',     what: 'summoned Dog',              rarity: 'rare' },
+  { who: 'kenji',    what: 'photographed Mom',          rarity: 'rare' },
+  { who: 'leon',     what: 'awoke Lion',                rarity: 'legendary' },
+  { who: 'priya',    what: 'snapped Coffee',            rarity: 'common' },
+  { who: 'sasha',    what: 'pulled The Boss',           rarity: 'legendary' },
+  { who: 'alex',     what: 'opened Family pack',        rarity: 'common' },
+  { who: 'devon',    what: 'reached Mountain Summit',   rarity: 'legendary' },
+  { who: 'noor',     what: 'summoned Cousin',           rarity: 'common' },
+  { who: 'jules',    what: 'beat Vex on Mythic',        rarity: 'rare' },
+  { who: 'ren',      what: 'photographed Abuela',       rarity: 'rare' },
+  { who: 'tomas',    what: 'captured Family Pet',       rarity: 'rare' },
+  { who: 'iris',     what: 'summoned Graduation Day',   rarity: 'legendary' },
 ];
 
 function LiveTicker() {
