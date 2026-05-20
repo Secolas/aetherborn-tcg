@@ -577,11 +577,6 @@ function GameplayPreview() {
   // plays each time a card lands in the bin.
   const [graveCount, setGraveCount] = useState(0);
   const [gravePulseKey, setGravePulseKey] = useState(0);
-  // Demo "turn counter" — ticks forward each loop. Starts at 6
-  // (mid-game) so the chip reads like an active match; wraps at the
-  // TURN_LIMIT cap so the demo can loop indefinitely without showing
-  // out-of-range numbers.
-  const [turn, setTurn] = useState(6);
   // Refs into the defender slot + opponent graveyard chip, so we can
   // measure the delta and feed it into the flyToGrave keyframe as
   // --gx/--gy. Without these the card would fly to (0,0) instead of
@@ -618,12 +613,7 @@ function GameplayPreview() {
       }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
-        if (idx === 0) {
-          setLoopKey(k => k + 1);
-          // Wrap at TURN_LIMIT so the chip never shows out-of-range
-          // numbers — same cap the match enforces.
-          setTurn(t => (t >= GP_TURN_LIMIT ? 1 : t + 1));
-        }
+        if (idx === 0) setLoopKey(k => k + 1);
         tick();
       }, step.ms);
     };
@@ -682,7 +672,7 @@ function GameplayPreview() {
                 avatarPhoto="/cards/mom.webp"
                 avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
                 avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
-                hp={24}
+                hp={20}
                 ring={null}
                 hit={false}
                 damage={null}
@@ -735,9 +725,13 @@ function GameplayPreview() {
 
           {/* Center band — same shape as the in-game divider:
               dashed border top + bottom, TurnChip pinned to the
-              LEFT (where the give-up flag sits in a real match). */}
+              LEFT (where the give-up flag sits in a real match).
+              Turn 4 / 12 — held static because the demo loops on a
+              single attack beat, not a full alternating-turn cycle.
+              Player's mana is 4/4 (mana ramps 1 per turn), so the
+              chip stays in lockstep with the displayed mana ramp. */}
           <div className="gp-divider">
-            <TurnChip turnNumber={turn} limit={GP_TURN_LIMIT} />
+            <TurnChip turnNumber={4} limit={GP_TURN_LIMIT} />
           </div>
 
           {/* Player field — attacker centered. */}
@@ -762,7 +756,7 @@ function GameplayPreview() {
                 avatar={<UserRound size={18} strokeWidth={2.2} />}
                 avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
                 avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
-                hp={24}
+                hp={20}
                 ring={null}
                 hit={false}
                 damage={null}
