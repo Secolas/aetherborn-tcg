@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Camera, Check, ChevronRight, Sparkles, SkipForward, Upload, X, Image as ImageIcon } from 'lucide-react';
-import { ELEMENTS, RARITY_COLOR } from '../data/elements';
+import { ELEMENTS } from '../data/elements';
 import { PALETTE } from '../components/styles';
 import { Card } from '../components/Card';
 import { TiltCard } from '../components/TiltCard';
@@ -206,17 +206,9 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
               </div>
             )}
           </div>
-          <div
-            className="po-rarity-label"
-            style={{
-              color: RARITY_COLOR[current.rarity],
-              textShadow: current.rarity === 'legendary'
-                ? '0 0 12px rgba(255, 209, 102, .6)'
-                : 'none',
-            }}
-          >
-            {current.rarity}
-          </div>
+          {/* Rarity-name label removed for consistency with the
+              inspect modal — the card chrome carries the colour and
+              the halo / sheen do the rest. */}
         </div>
         {!photoSet && (
           <div className="po-hint">
@@ -379,17 +371,10 @@ function InspectModal({
             )}
           </TiltCard>
         </div>
-        <div
-          className="po-modal-rarity"
-          style={{
-            color: RARITY_COLOR[card.rarity],
-            textShadow: card.rarity === 'legendary'
-              ? '0 0 12px rgba(255, 209, 102, .6)'
-              : 'none',
-          }}
-        >
-          {card.rarity}
-        </div>
+        {/* Rarity-name label removed — the card chrome already shows
+            the rarity colour on the card itself, and the gold halo +
+            holo sheen carry the epic / legendary signal. The all-caps
+            "COMMON" tag at the bottom read as noise. */}
         {dormant && (
           <div className="po-modal-actions">
             <button className="po-cta po-cta-camera" onClick={onTakePhoto}>
