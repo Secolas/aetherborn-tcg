@@ -1203,26 +1203,28 @@ function UnboxStage({
       promptText={ready ? 'SWIPE TO REVEAL' : undefined}
       onSwipe={onAdvance}
     >
-      {/* White slash beam — single horizontal sweep across the upper third. */}
-      <div aria-hidden style={{
-        position: 'absolute', left: '50%', top: '34%',
-        width: 'min(140vw, 700px)', height: 6,
-        background: 'linear-gradient(90deg, transparent 0%, #fff 50%, transparent 100%)',
-        boxShadow: '0 0 24px 6px rgba(255,255,255,.9)',
-        transform: 'translate(-50%, -50%)',
-        animation: 'packSlashBeam 0.6s cubic-bezier(.4,.1,.2,1) both',
-        pointerEvents: 'none',
-        zIndex: 4,
-        mixBlendMode: 'screen',
-      }} />
-      {/* Pack art dissolves out. */}
+      {/* Pack art + slash beam grouped so the beam sits over the top
+          of the pack regardless of viewport size. The beam slides
+          across the pack's TOP edge (around y = -120px from centre,
+          i.e. just under the foil-pull strip), so the "cut" feels
+          like a real tear strip ripping off. */}
       <div style={{
         position: 'absolute', left: '50%', top: '50%',
         transform: 'translate(-50%, -50%)',
-        animation: 'packArtDissolve 0.55s ease-out 0.15s both',
+        animation: 'packArtFadeOut 0.45s ease-out 0.25s both',
         zIndex: 2,
       }}>
         <PackArt vibe={vibe} />
+        <div aria-hidden style={{
+          position: 'absolute', left: '50%', top: 14,
+          width: 360, height: 6,
+          background: 'linear-gradient(90deg, transparent 0%, #fff 50%, transparent 100%)',
+          boxShadow: '0 0 24px 6px rgba(255,255,255,.9)',
+          transform: 'translate(-50%, -50%)',
+          animation: 'packSlashBeam 0.55s cubic-bezier(.4,.1,.2,1) both',
+          pointerEvents: 'none',
+          mixBlendMode: 'screen',
+        }} />
       </div>
       {/* Wireframe stack cascades in. */}
       <WireframeStack count={count} mode="in" />
@@ -1282,13 +1284,6 @@ function StackStage({
  */
 type RevealPhase = 'back' | 'face' | 'exiting';
 
-const FACE_PAUSE_MS_BY_RARITY: Record<Rarity, number> = {
-  common: 850,
-  rare: 1000,
-  epic: 1300,
-  legendary: 1600,
-};
-
 function RevealStack({
   cards, vibe, idx, onNext, onSfx,
 }: {
@@ -1305,26 +1300,27 @@ function RevealStack({
   // handles it.
   const [phase, setPhase] = useState<RevealPhase>('back');
 
-  // After flip, hold the face up for a beat, then trigger the exit
-  // transition. Length scales with rarity so legendaries get a moment.
-  useEffect(() => {
-    if (phase !== 'face') return;
-    const ms = FACE_PAUSE_MS_BY_RARITY[card.rarity];
-    const t = setTimeout(() => setPhase('exiting'), ms);
-    return () => clearTimeout(t);
-  }, [phase, card.rarity]);
-
-  // Once the slide-off finishes, advance to the next card.
+  // Once the slide-off finishes, advance to the next card. The slide
+  // is a CSS animation, so we still need a timer to know when it's
+  // done — but the trigger (`setPhase('exiting')`) is user-driven, not
+  // automatic.
   useEffect(() => {
     if (phase !== 'exiting') return;
     const t = setTimeout(onNext, 480);
     return () => clearTimeout(t);
   }, [phase, onNext]);
 
-  const handleFlip = () => {
-    if (phase !== 'back') return;
-    onSfx(card.rarity);
-    setPhase('face');
+  const handleSwipe = () => {
+    if (phase === 'back') {
+      // First swipe: flip the card.
+      onSfx(card.rarity);
+      setPhase('face');
+    } else if (phase === 'face') {
+      // Second swipe: dismiss + advance. No auto-advance — the
+      // player decides when to move on, so legendaries can be
+      // savoured for as long as they want.
+      setPhase('exiting');
+    }
   };
 
   const showHalo = card.rarity === 'epic' || card.rarity === 'legendary';
@@ -1368,8 +1364,8 @@ function RevealStack({
       )}
 
       <SwipeableCard
-        enabled={phase === 'back'}
-        onSwipe={handleFlip}
+        enabled={phase === 'back' || phase === 'face'}
+        onSwipe={handleSwipe}
         style={{
           position: 'relative',
           zIndex: 2,
@@ -1462,7 +1458,28 @@ function RevealStack({
 
       {phase === 'face' && (
         <div style={{
-          position: 'absolute', bottom: 28, left: 0, right: 0,
+          position: 'absolute', bottom: 22, left: 0, right: 0,
+          textAlign: 'center', pointerEvents: 'none',
+          color: PALETTE.text,
+          animation: 'fadeIn 0.4s ease-out 0.55s both',
+        }}>
+          <ChevronUp size={20} strokeWidth={2.4} style={{
+            animation: 'swipeHintNudge 1.4s ease-in-out infinite',
+            opacity: 0.7,
+          }} />
+          <div style={{
+            fontSize: 10, letterSpacing: '0.3em',
+            textTransform: 'uppercase', fontWeight: 700,
+            opacity: 0.6, marginTop: 2,
+          }}>
+            {idx + 1 < total ? 'Swipe up for next' : 'Swipe up to finish'}
+          </div>
+        </div>
+      )}
+
+      {phase === 'face' && (
+        <div style={{
+          position: 'absolute', bottom: 76, left: 0, right: 0,
           textAlign: 'center', pointerEvents: 'none',
           fontSize: 11, letterSpacing: '0.25em',
           textTransform: 'uppercase',
@@ -1490,10 +1507,16 @@ function RevealStack({
 function useSwipeUp(enabled: boolean, onSwipe: () => void) {
   const startY = useRef<number | null>(null);
   const startT = useRef<number>(0);
+  const pointerType = useRef<string>('');
   const onPointerDown: React.PointerEventHandler = (e) => {
     if (!enabled) return;
     startY.current = e.clientY;
     startT.current = performance.now();
+    pointerType.current = e.pointerType;
+    // Capture the pointer so we keep receiving move / up events even
+    // if the finger drifts outside the original element bounds — a
+    // common cause of "swipe doesn't fire" on mobile.
+    try { (e.target as Element).setPointerCapture?.(e.pointerId); } catch { /* not supported */ }
   };
   const onPointerUp: React.PointerEventHandler = (e) => {
     if (!enabled || startY.current === null) return;
@@ -1501,9 +1524,15 @@ function useSwipeUp(enabled: boolean, onSwipe: () => void) {
     const dt = performance.now() - startT.current;
     const vUp = dt > 0 ? -dy / dt * 1000 : 0; // px/s upward
     startY.current = null;
-    // Treat any of: clean upward delta, fast upward flick,
-    // near-stationary press (tap), as a swipe.
-    if (dy < -50 || vUp > 400 || Math.abs(dy) < 6) onSwipe();
+    try { (e.target as Element).releasePointerCapture?.(e.pointerId); } catch { /* not supported */ }
+    // Real upward motion fires for everyone. Mouse users additionally
+    // get tap-as-advance because dragging a mouse on a non-draggable
+    // element is awkward. On touch we deliberately don't treat taps
+    // as swipes — that was firing on every accidental tap while
+    // players tried to "feel" the holo, and read as the cards
+    // auto-advancing.
+    if (dy < -40 || vUp > 350) onSwipe();
+    else if (pointerType.current === 'mouse' && Math.abs(dy) < 6) onSwipe();
   };
   const onPointerCancel: React.PointerEventHandler = () => { startY.current = null; };
   return { onPointerDown, onPointerUp, onPointerCancel };
@@ -1527,7 +1556,10 @@ function SwipeUpStage({
         style={{
           position: 'absolute', inset: 0,
           display: 'grid', placeItems: 'center',
-          touchAction: 'pan-x',
+          // touchAction: 'none' so the browser doesn't try to scroll
+          // the page when the player drags up on a card — the gesture
+          // is ours to consume.
+          touchAction: 'none',
           cursor: enabled ? 'pointer' : 'default',
           userSelect: 'none',
         }}
@@ -1657,10 +1689,14 @@ function PackInspectModal({
       aria-label={`${card.name} preview`}
       onClick={onClose}
       style={{
-        position: 'absolute', inset: 0,
-        background: 'rgba(8,4,12,.74)',
+        // fixed (not absolute) so the scrim covers the entire phone
+        // shell — including the header row above the body. Otherwise
+        // the header stays at its lighter tint and the page looks
+        // like it's split into two background colours.
+        position: 'fixed', inset: 0,
+        background: 'rgba(8,4,12,.82)',
         display: 'grid', placeItems: 'center',
-        zIndex: 220,
+        zIndex: 999,
         padding: 16,
         animation: 'fadeIn .2s ease-out both',
         overflowY: 'auto',

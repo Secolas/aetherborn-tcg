@@ -83,12 +83,24 @@ export function TiltCard({
     setHovered(false);
   };
 
+  // On touchstart, set hovered AND seed the tilt so the holo lights
+  // up immediately — without this, mobile taps see no tilt until the
+  // finger moves. We deliberately DON'T call setPointerCapture here
+  // because a parent SwipeableCard relies on bubbling to detect
+  // swipes, and capturing the pointer in this child would starve it.
+  const handlePointerDown: React.PointerEventHandler<HTMLDivElement> = (ev) => {
+    setHovered(true);
+    update(ev.clientX, ev.clientY);
+  };
+
   return (
     <div
       ref={ref}
       onPointerEnter={() => setHovered(true)}
+      onPointerDown={handlePointerDown}
       onPointerMove={ev => update(ev.clientX, ev.clientY)}
       onPointerLeave={reset}
+      onPointerUp={reset}
       onPointerCancel={reset}
       onClick={onClick}
       style={{
