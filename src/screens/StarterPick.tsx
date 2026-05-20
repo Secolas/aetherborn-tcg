@@ -101,8 +101,6 @@ export function StarterPick({ themes, onPick }: Props) {
         })}
       </div>
 
-      <div className="sp-desc">{focused.description}</div>
-
       <button
         className="sp-confirm"
         onClick={() => onPick(focused.id)}
@@ -349,24 +347,6 @@ function StarterPickStyles() {
         border-radius: 999px;
         font-weight: 800; font-size: 11px;
         color: #ffd96b;
-      }
-
-      .sp-desc {
-        position: relative;
-        z-index: 10;
-        font-size: 14px;
-        font-weight: 500;
-        color: ${PALETTE.text};
-        line-height: 1.45;
-        text-align: center;
-        max-width: 320px;
-        margin: 0 auto;
-        padding: 10px 14px;
-        background: rgba(254, 248, 240, .92);
-        border-radius: 14px;
-        backdrop-filter: blur(6px);
-        -webkit-backdrop-filter: blur(6px);
-        box-shadow: 0 4px 14px rgba(58,46,42,.08);
       }
 
       .sp-confirm {
