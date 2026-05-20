@@ -1,7 +1,20 @@
-import { useMemo, useRef, useState, useEffect, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, useEffect, type CSSProperties, type ComponentType } from 'react';
+import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
 import type { ElementId } from '../game/types';
+
+/** Per-theme art glyph. Matches the in-game ElementGlyph icon set so the
+ *  landing page reads as native to the rest of the app — paws for
+ *  Animals, briefcase for Work, heart for Family, etc. */
+const THEME_ICON: Record<ElementId, ComponentType<{ size?: number; color?: string; strokeWidth?: number; fill?: string }>> = {
+  family:    Heart,
+  work:      Briefcase,
+  animals:   PawPrint,
+  travel:    Plane,
+  food:      UtensilsCrossed,
+  education: GraduationCap,
+};
 
 /** Marketing landing page for Memoria. Scrollable, mobile-first, with a
  *  Balantix-style tactile feel:
@@ -118,15 +131,17 @@ const HERO_DATA: Record<ElementId, Omit<HoloCardProps, 'el'>> = {
   education: { name: 'Bloomshield',    type: 'Creature', rarity: 'rare',      cost: 3, atk: 2, hp: 5, flavor: 'Taunt. The lesson you never forgot.' },
 };
 
-/** Slot positions for the five non-active themes around the hero card.
- *  Always five slots; the active theme is hidden from the floating ring
- *  (it lives in the center). */
+/** Slot positions for the floating theme cards around the hero. Only
+ *  the four corner slots are used — a fifth top-center slot tested
+ *  earlier sat directly behind the hero card and crashed into it on
+ *  hover. With six themes total and one active in the center, this
+ *  means one theme rotates out of view at any given time; clicking
+ *  another card cycles it back in. */
 const FLOATING_SLOTS: { left: string; top: string; rot: number; delay: number }[] = [
   { left: '2%',  top: '6%',  rot: -12, delay: 0   },
   { left: '76%', top: '12%', rot:  10, delay: 1.4 },
   { left: '78%', top: '68%', rot:  -6, delay: 0.7 },
   { left: '0%',  top: '62%', rot:   5, delay: 2.1 },
-  { left: '40%', top: '0%',  rot:   3, delay: 1.0 },
 ];
 
 const ALL_THEMES: ElementId[] = ['family', 'animals', 'work', 'travel', 'food', 'education'];
@@ -164,9 +179,10 @@ function HeroSection({ onCta }: { onCta: () => void }) {
         </div>
 
         <div className="landing-hero-stage">
-          {/* Five non-active themes ring the hero. Click swaps the
-              floating card into the center spot. */}
-          {others.map((el, i) => {
+          {/* Four corner slots ring the hero. With 6 themes and 1
+              active, one theme is always off-screen until the player
+              cycles to it by tapping a visible card. */}
+          {others.slice(0, FLOATING_SLOTS.length).map((el, i) => {
             const slot = FLOATING_SLOTS[i];
             return (
               <FloatingShowcaseCard
@@ -262,13 +278,16 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardPro
           <div className="holo-rarity">{rarity}</div>
         </div>
 
-        {/* Art window — a stylized photo placeholder.
-            Sits inside its own border so the foil layers above clip cleanly. */}
+        {/* Art window — themed photo placeholder. The lucide icon
+            matches the in-game ElementGlyph so a Family card carries
+            a heart, Animals carries paws, Work a briefcase, etc. */}
         <div className="holo-art">
           <div className="holo-art-bg" style={{
             background: `radial-gradient(ellipse at 50% 35%, ${def.glow}cc 0%, ${def.deep} 70%)`,
           }} />
-          <div className="holo-art-icon">{cardEmoji(el, name)}</div>
+          <div className="holo-art-icon">
+            <ThemeIcon el={el} size={96} />
+          </div>
         </div>
 
         {/* Foil sheen — pointer-tracked radial highlight. Sits above the
@@ -325,18 +344,12 @@ function HoloCard({ el, name, type, rarity, cost, atk, hp, flavor }: HoloCardPro
   );
 }
 
-/** Tiny inline glyph stand-in for the photo art — keeps the landing
- *  page self-contained without bundling sample images. */
-function cardEmoji(el: ElementId, _name: string): string {
-  switch (el) {
-    case 'family': return '♥';
-    case 'work': return '⚙';
-    case 'animals': return '★';
-    case 'travel': return '✈';
-    case 'food': return '◉';
-    case 'education': return '✦';
-    default: return '✦';
-  }
+/** Themed art icon for the hero card's photo window. Uses the same
+ *  lucide-react icons the in-game ElementGlyph uses, so the landing
+ *  page art reads as native to the rest of the app. */
+function ThemeIcon({ el, size = 88 }: { el: ElementId; size?: number }) {
+  const Icon = THEME_ICON[el];
+  return <Icon size={size} color="#fff" strokeWidth={1.6} fill="rgba(255,255,255,.9)" />;
 }
 
 // ============================================================================
@@ -388,7 +401,11 @@ function FloatingShowcaseCard(props: {
       <div style={{
         flex: 1, margin: '6px 0', borderRadius: 6,
         background: `radial-gradient(ellipse at center, ${def.glow}cc 0%, transparent 70%)`,
-      }} />
+        display: 'grid', placeItems: 'center',
+        color: '#fff',
+      }}>
+        <ThemeIcon el={props.el} size={42} />
+      </div>
       <div style={{
         fontSize: 9, lineHeight: 1.3,
         color: 'rgba(255,255,255,.85)', fontStyle: 'italic',
@@ -801,7 +818,11 @@ const LANDING_CSS = `
 
   /* Floating tappable cards — reset native button chrome, layer the
      intro fade-in on top of the idle bob, and add a hover lift +
-     active press feedback so taps feel responsive. */
+     active press feedback so taps feel responsive.
+
+     Note z-index: 1 (and never higher) — the hero card sits at z 5,
+     so even when a floating card is hovered or scaled it stays behind
+     and never crashes into the front card. */
   .landing-floating {
     opacity: 0;
     animation:
@@ -811,18 +832,14 @@ const LANDING_CSS = `
     transform: rotate(var(--rot));
     will-change: transform, opacity;
     transition: filter 200ms ease, box-shadow 200ms ease;
+    z-index: 1;
   }
-  .landing-floating:hover {
-    filter: brightness(1.15);
-    z-index: 3;
-  }
+  .landing-floating:hover { filter: brightness(1.15); }
   .landing-floating:focus-visible {
     outline: 2px solid #f4d04a;
     outline-offset: 4px;
   }
-  .landing-floating:active {
-    filter: brightness(1.25);
-  }
+  .landing-floating:active { filter: brightness(1.25); }
   /* Idle prismatic ribbon on every floating card — gentler than the
      hero card's interactive shine. */
   .landing-floating-prism {
@@ -861,7 +878,7 @@ const LANDING_CSS = `
     animation:
       holo-flip-in 700ms cubic-bezier(.2, .9, .3, 1.1) both,
       holo-idle 5s ease-in-out infinite 700ms;
-    z-index: 2;
+    z-index: 5;
     transform-style: preserve-3d;
   }
   @media (min-width: 760px) {
