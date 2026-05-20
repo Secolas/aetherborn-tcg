@@ -206,9 +206,20 @@ export const BOSSES: BossDef[] = [
     //     deck had no real finisher at Normal tier (Colleagues is
     //     epic but only 3/4); Custodian shields HR + Senior Engineer
     //     through the late game and forces lethal trades.
+    // Balance pass: 2nd Spam Email replaces Custodian. Custodian
+    // was defensive when Manager's actual loss pattern is failing
+    // to close — he wasn't dying, he was running out of damage
+    // before the turn cap. The 2nd Spam Email delivers on the
+    // "pings with spam" line in the playstyle blurb (the original
+    // deck only had one), AND every Spam Email cast triggers
+    // Hired's spell_synergy for a free +1 face damage — so each
+    // 1-cost spam is effectively 3 damage when Hired is on board.
+    // Earlier attempt with wrk-10 Promotion regressed Manager
+    // (42.8% → 40.3%): Promotion is a two-card combo (creature +
+    // buff) and the AI often had nothing live to buff.
     deck: [
       'wrk-01',          // Intern
-      'wrk-02',          // Spam Email (1c chip damage)
+      'wrk-02', 'wrk-02',// Spam Email x2 — 1c chip damage; pairs with Hired
       'wrk-03',          // Coworker — 2c 2/2 tempo body
       'wrk-05',          // IT Support
       'wrk-06', 'wrk-06',// Sales Pitch x2 — removal (4 dmg, kills creatures)
@@ -223,12 +234,11 @@ export const BOSSES: BossDef[] = [
                          // Replaces Senior Engineer (4c 4/4 vanilla): the
                          // 4-mana slot already has HR (epic) and Payroll
                          // (board buff). Hired comes down a turn earlier
-                         // and converts Manager's 5 spell casts into ~5
+                         // and converts Manager's 6 spell casts into ~6
                          // bonus face damage — the missing closer.
       'wrk-15',          // Payroll — board buff
       'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
                          // to every Work creature. Real finisher.
-      'wrk-16',          // Custodian — 5c 4/5 Taunt closer (common)
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo
