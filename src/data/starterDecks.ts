@@ -49,7 +49,7 @@ export const STARTER_THEMES: StarterTheme[] = [
     id: 'family',
     name: 'Family',
     pitch: 'Heal. Defend. Outlast.',
-    description: 'Tanky bodies, multiple heals, and a 4/6 Dad to close it out. Hard to die, easy to grind down a faster deck.',
+    description: 'Tanky bodies, multiple heals, and the 2/6 Abuela holding the line. Hard to die, easy to grind down a faster deck.',
     iconCardId: 'fam-11',
     /* Identity: control / sustain / late-game tank.
      * Toolkit: 2 heals (Hug, Niece passive), 2 card draw (Chat, Tio),
@@ -57,94 +57,121 @@ export const STARTER_THEMES: StarterTheme[] = [
      * (Cousin x2 + Older Sibling = "The Kids"), finisher (Dad). The
      * heaviest mana curve of the three — Family trades tempo for
      * raw stats and inevitability. */
+    // Entry-tier deck: no epics or legendaries. Players unlock the
+    // premium finishers (Dad, Sunday Dinner, Generations bond) later
+    // by opening Memory Packs. The starter teaches the heal/Taunt/
+    // bond identity but caps out below boss tier so progression
+    // matters. Previous balance pass had Dad in here (epic 5c 4/6
+    // Taunt) and the deck sat at #2 overall, ahead of every boss —
+    // that's backwards for TCG progression.
     deck: [
-      'fam-14',                 // 1c spell — Hug, heal +3 friend
+      'fam-14', 'fam-14',       // 1c spell x2 — Hug (heal +3 friend)
+                                //   2nd copy replaces 4c Abuela (rare
+                                //   2/6 Taunt — unlocked via packs)
       'fam-16',                 // 1c 1/2  — Niece (heal +1/turn)
       'fam-15',                 // 2c spell — Family Chat (draw 1)
       'fam-02', 'fam-02',       // 2c 2/2  — Cousin x2 (bond piece)
-      'fam-13',                 // 2c spell — Tough Love (silence)
       'fam-04',                 // 3c 2/3  — Tio (draw on play)
       'fam-05',                 // 3c 3/4  — Mom
       'fam-06',                 // 3c spell — The Look (freeze)
       'fam-07',                 // 4c 4/4  — Older Sibling (bond)
-      'fam-08',                 // 4c 2/6  — Abuela (big tank)
-      'fam-11',                 // 5c 4/6  — Dad (finisher)
+      'fam-09',                 // 4c spell — Birthday Cake (heal 5)
+                                //   replaces 5c Dad (epic finisher)
+      'fam-13',                 // 2c spell — Tough Love (silence)
     ],
   },
   {
     id: 'work',
     name: 'Work',
     pitch: 'Spam the inbox. Close the deal.',
-    description: 'Cheap bodies, four damage spells, and Hired turning every email into bonus face damage. The 6c Boss closes when you finally have the mana for him.',
-    iconCardId: 'wrk-12',
+    description: 'Cheap bodies, four damage spells, and Hired turning every email into bonus face damage. The 4/5 Custodian shuts the door once the inbox is empty.',
+    iconCardId: 'wrk-16',
     /* Identity: tempo / aggressive curve / spell-burn synergy.
-     * Toolkit: 1c body + 1c removal spell on turn 1, two 2c bodies
-     * for turn 2 momentum, a 3c value-creature with draw + a 3c
-     * spell-synergy creature + 2x 3c 4-dmg spells to keep pressure
-     * on, a sticky untargetable body, two Taunt closers (Custodian
-     * + The Boss). Cheaper curve than Family
+     * Entry-tier deck: no legendary. The Boss (6c 5/6 Taunt
+     * legendary finisher) is unlocked later via Memory Packs —
+     * Custodian (5c 4/5 Taunt common) holds the closer slot here
+     * so the deck teaches the same Taunt-wall pattern at common
+     * rarity. Toolkit: 1c body + 1c removal spell on turn 1, two
+     * 2c bodies for turn 2 momentum, a 3c value-creature with
+     * draw + a 3c spell-synergy creature + 2x 3c 4-dmg spells, a
+     * sticky untargetable body, Senior Engineer as the 4c beater,
+     * and Custodian to close. Cheaper curve than Family
      * — Work wins on tempo, not stats. 6 creatures / 6 spells keeps
      * the body count in line with the other two starters. */
+    // Entry-tier composition: no epics, no legendaries, no premium
+    // synergy engine. Players unlock HR (epic untargetable), The
+    // Boss (legendary closer), Hired (spell-synergy), and Senior
+    // Engineer (4/4 vanilla — surprisingly OP in starter density)
+    // later via Memory Packs. The starter keeps the burn identity
+    // (Spam Email + Sales Pitch) but at lower density and without
+    // the multiplier. 2nd Intern as chump filler.
     deck: [
-      'wrk-01',                 // 1c 1/1  — Intern
+      'wrk-01', 'wrk-01',       // 1c 1/1 x2 — Intern (chump bodies
+                                //   fill the slots vacated by Boss/HR/
+                                //   Senior Engineer)
       'wrk-02', 'wrk-02',       // 1c spell x2 — Spam Email (2 dmg)
       'wrk-03', 'wrk-03',       // 2c 2/2 x2 — Coworker
-      // Balance pass (starter parity): two swaps to close the 7 pp
-      // gap with Family/Education starters. Iteration log:
-      //   • Coworker → Hired alone: 44.8% → 44.2% (tempo loss).
-      //   • Custodian → Hired alone: 44.8% → 42.9% (Custodian was
-      //     load-bearing vs aggro).
-      //   • Promotion → Hired alone: 44.8% (net-zero — Hired's
-      //     synergy didn't compensate for losing the buff).
-      // Working theory: the deck doesn't lack synergy, it lacks
-      // burn. boss-Manager's win comes from 2x Sales Pitch + 2x
-      // Spam Email = 12 base damage from spells. The starter only
-      // had 1x Sales Pitch + 2x Spam Email = 8 burn.
-      //
-      // Two swaps:
-      //   − Performance Review (2c situational silence) and
-      //     Promotion (4c conditional buff) — both often held dead.
-      //   + Hired (3c 2/3 spell_synergy 1) — pings 1 face per
-      //     spell cast while alive. Across the deck's 5 remaining
-      //     spells that's ~5 bonus face damage per game.
-      //   + 2nd Sales Pitch (3c 4-damage burn) — same package boss
-      //     Manager runs. Doubles the deck's reliable removal/burn.
-      // Trade-off: no more silence answer to enemy Taunt/Untargetable;
-      // the deck leans harder on Sales Pitch to break through.
-      'wrk-19',                 // 3c 2/3  — Hired (spell_synergy 1)
+      'wrk-13',                 // 2c spell — Performance Review (silence)
       'wrk-05',                 // 3c 2/3  — IT Support (draw on play)
-      'wrk-06', 'wrk-06',       // 3c spell x2 — Sales Pitch (4 dmg)
-      'wrk-07',                 // 4c 3/4  — HR (untargetable)
-      'wrk-16',                 // 5c 4/5  — Custodian (Taunt)
-      'wrk-12',                 // 6c 5/6  — The Boss (taunt, finisher)
+      'wrk-06',                 // 3c spell — Sales Pitch (4 dmg).
+                                //   Single copy at entry tier; 2nd copy
+                                //   pushed the starter to 52% (above
+                                //   every boss). Reserved for pack
+                                //   unlocks.
+      'wrk-13',                 // 2c spell — Performance Review (silence)
+      'wrk-10',                 // 4c spell — Promotion (+4/+4 rare buff)
+      'wrk-16',                 // 5c 4/5  — Custodian (Taunt closer)
     ],
   },
   {
     id: 'education',
     name: 'Education',
-    pitch: 'Study. Level up. Graduate.',
-    description: 'Level-up creatures grow stronger each turn, draw engines keep your hand full, and Graduation Day buffs your whole team to close.',
-    iconCardId: 'edu-12',
-    /* Identity: scaling / ramp / wide-board payoff.
+    pitch: 'Study. Level up.',
+    description: 'Level-up creatures grow stronger each turn, draw engines keep your hand full, and Senior Year graduates into a permanent threat. Slow to start, scary by turn 5.',
+    iconCardId: 'edu-11',
+    /* Identity: scaling / ramp / level-up payoff. Entry-tier deck:
+     * no legendary. Graduation Day (the wide-board legendary finisher)
+     * is unlocked later via Memory Packs — the starter teaches the
+     * level_up + graduate mechanics with Senior Year as the cap.
      * Toolkit: 1c body + 1c draw spell + duplicate draw spell to
      * dig fast, two 2c level_up bodies that grow over time, a 2c
      * freeze and a 2c discard-2/draw-2 cycle, a 3c rush creature
      * and a 3c 4/2 pressure body, a 4c heal-each-turn tank, a 4c
-     * graduating creature (Senior Year), and a 6c Graduation Day
-     * buff-all finisher. Slowest of the three — Education wants
-     * to survive into turn 5+ where the level_up math takes over. */
+     * graduating creature (Senior Year), and a duplicate Physical
+     * Ed Class to keep Rush pressure flowing. Slowest of the three
+     * — Education wants to survive into turn 5+ where the level_up
+     * math takes over. */
     deck: [
       'edu-01',                 // 1c 1/1  — Pencil
       'edu-02', 'edu-02',       // 1c spell x2 — Backpack (draw)
-      'edu-03',                 // 2c 1/3  — Math Teacher (level_up)
+      'edu-15',                 // 2c 2/2  — Classmate (common vanilla).
+                                //   Replaces 2c Math Teacher (rare
+                                //   level_up). Math Teacher's scaling
+                                //   was the engine keeping Education at
+                                //   52% above every boss — the deck
+                                //   teaches level_up via the remaining
+                                //   Physics Class, and Classmate fills
+                                //   the 2-cost slot at common rarity.
       'edu-04',                 // 2c spell — Bathroom Break (freeze)
       'edu-07',                 // 2c spell — Pop Quiz (discard 1, draw 2)
-      'edu-13',                 // 3c 3/3  — Physical Ed Class (rush)
-      'edu-06',                 // 3c 2/4  — Physics Class (level_up)
-      'edu-08',                 // 3c 4/2  — The Bully
+                                //   Restored after the Classmate-for-Math
+                                //   Teacher swap dropped Education to 40%
+                                //   (Underpowered). Pop Quiz alone keeps
+                                //   the deck playable at ~43% without
+                                //   pushing it back above the boss tier.
+      'edu-13',                 // 3c 3/3 — Physical Ed Class (rush)
+      'edu-06', 'edu-06',       // 3c 2/4 x2 — Physics Class (level_up).
+                                //   2nd copy restores enough scaling
+                                //   to lift Education out of
+                                //   Underpowered (40%) after dropping
+                                //   Math Teacher for Classmate. The
+                                //   deck teaches level_up via this
+                                //   duplicate; players unlock Math
+                                //   Teacher + Senior Year via packs.
+      'edu-08',                 // 3c 4/2 — The Bully (common)
       'edu-09',                 // 4c 1/6  — Library (heal each turn)
-      'edu-11',                 // 4c 2/3  — Senior Year (graduate)
-      'edu-12',                 // 6c 4/5  — Graduation Day (buff_all on play)
+      'edu-14',                 // 1c 1/2 — Notebook (draw on play, common)
+                                //   replaces 6c Graduation Day (legendary)
     ],
   },
 
