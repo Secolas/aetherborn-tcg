@@ -2335,13 +2335,19 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       style={{
         width: '100%', height: '100%',
         // Two layers: the player's equipped board skin paints the bedrock
-        // gradient, and the boss's element tint sits on top to keep each
-        // fight ambient-coloured. Order matters — boss tint must follow so
-        // semi-transparent stops layer on top of the chosen skin.
+        // gradient, and a themed radial tint sits on top to keep each
+        // fight ambient-coloured. In solo matches the tint borrows the
+        // boss's element color; in online PVP there's no boss element
+        // to lean on, so we paint the board with the in-game RESOURCE
+        // blue (#3a8fc4) — same hex the mana orb / online indicators
+        // use — so PVP reads as a distinct surface the moment you load
+        // into it. The inset blue ring (boxShadow) reinforces the cue
+        // around the edges.
         background: `
-          radial-gradient(ellipse at 50% 50%, transparent 0%, ${bossElement.color}26 60%, ${bossElement.deep}33 100%),
+          radial-gradient(ellipse at 50% 50%, transparent 0%, ${online ? '#3a8fc4' : bossElement.color}26 60%, ${online ? '#1c5478' : bossElement.deep}33 100%),
           ${boardSkin.background}
         `,
+        boxShadow: online ? 'inset 0 0 0 3px rgba(58, 143, 196, .45), inset 0 0 40px rgba(58, 143, 196, .18)' : undefined,
         position: 'relative', overflow: 'hidden',
         fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
         color: PALETTE.text,
