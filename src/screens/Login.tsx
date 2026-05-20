@@ -65,8 +65,12 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
   return (
     <div className="login-root" style={{
       width: '100%', height: '100%', position: 'relative', overflow: 'hidden',
-      background: 'radial-gradient(ellipse at 30% 20%, #2a1b4a 0%, #0a0c1c 60%, #050816 100%)',
-      color: '#fff',
+      // Match the in-app palette — same cream paper (#fef8f0) the
+      // HomeMenu and the landing page sit on. The dark floating TCG
+      // cards stay dark by design (they're TCG cards) and now pop
+      // against the cream instead of competing on a dark backdrop.
+      background: 'radial-gradient(ellipse at 80% 0%, #ffe8d6 0%, #fef8f0 55%, #fef8f0 100%)',
+      color: '#3a2e2a',
     }}>
       <style>{`
         @keyframes float-card {
@@ -83,8 +87,8 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
           100% { background-position: 100% 100%; }
         }
         @keyframes title-shimmer {
-          0%, 100% { filter: brightness(1) drop-shadow(0 0 12px rgba(244,208,74,.4)); }
-          50%      { filter: brightness(1.15) drop-shadow(0 0 24px rgba(244,208,74,.85)); }
+          0%, 100% { filter: brightness(1) drop-shadow(0 0 12px rgba(255, 159, 28, .35)); }
+          50%      { filter: brightness(1.08) drop-shadow(0 0 22px rgba(238, 90, 82, .55)); }
         }
         @keyframes login-card-in {
           0%   { opacity: 0; transform: translate(0,0) rotate(var(--rot)) scale(.9); }
@@ -167,17 +171,21 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
         }
       `}</style>
 
-      {/* Drifting starfield */}
+      {/* Drifting warm-dot decor — same warm-coral / warm-orange dot
+          drift the landing's WarmDecor uses. The starfield is gone
+          since white dots on cream wouldn't read; these soft brand
+          dots give the page motion without breaking the paper
+          aesthetic. */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: `radial-gradient(2px 2px at 20% 30%, rgba(255,255,255,.6) 0%, transparent 50%),
-                     radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,.5) 0%, transparent 50%),
-                     radial-gradient(2px 2px at 40% 80%, rgba(255,255,255,.4) 0%, transparent 50%),
-                     radial-gradient(1px 1px at 85% 25%, rgba(255,255,255,.7) 0%, transparent 50%),
-                     radial-gradient(1px 1px at 10% 70%, rgba(255,255,255,.5) 0%, transparent 50%)`,
+        background: `radial-gradient(2px 2px at 22% 28%, rgba(255, 159, 28, .22) 0%, transparent 50%),
+                     radial-gradient(1px 1px at 72% 62%, rgba(238, 90, 82, .18) 0%, transparent 50%),
+                     radial-gradient(2px 2px at 42% 82%, rgba(255, 159, 28, .15) 0%, transparent 50%),
+                     radial-gradient(1px 1px at 86% 24%, rgba(238, 90, 82, .2) 0%, transparent 50%),
+                     radial-gradient(1px 1px at 12% 72%, rgba(255, 159, 28, .18) 0%, transparent 50%)`,
         backgroundSize: '600px 600px',
         animation: 'drift-bg 60s linear infinite',
-        opacity: 0.7,
+        opacity: 0.6,
         pointerEvents: 'none',
       }} />
 
@@ -201,14 +209,13 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
           aria-label="Back to landing page"
           style={{
             position: 'absolute', top: 14, left: 14, zIndex: 5,
-            padding: '6px 12px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.08)',
-            border: '1px solid rgba(255,255,255,0.18)',
-            color: 'rgba(255,255,255,0.78)',
-            fontSize: 12, fontWeight: 600,
+            padding: '7px 13px', borderRadius: 999,
+            background: '#fff',
+            border: '1.5px solid rgba(238, 90, 82, .3)',
+            color: '#ee5a52',
+            fontSize: 12, fontWeight: 700,
             cursor: 'pointer',
-            backdropFilter: 'blur(6px)',
-            WebkitBackdropFilter: 'blur(6px)',
+            boxShadow: '0 2px 6px rgba(238, 90, 82, .12)',
           }}
         >
           ← Back
@@ -219,30 +226,30 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
           instead of getting clipped behind it. */}
       <div className="login-scroll">
 
-      {/* Center auth panel */}
+      {/* Center auth panel — white paper card matching the in-game
+          surface (HomeMenu, Cosmetics, etc.). Warm shadow gives it
+          a soft lift off the cream backdrop. */}
       <div style={{
         position: 'relative', zIndex: 2,
         width: 'min(420px, 100%)',
-        background: 'rgba(8, 10, 24, 0.78)',
-        backdropFilter: 'blur(18px)',
-        WebkitBackdropFilter: 'blur(18px)',
-        border: '1px solid rgba(244, 208, 74, 0.22)',
+        background: '#ffffff',
+        border: '1.5px solid rgba(58, 46, 42, .08)',
         borderRadius: 22,
         padding: '24px 22px 22px',
-        boxShadow: '0 30px 80px rgba(0,0,0,0.55), 0 0 60px rgba(244, 208, 74, 0.12) inset',
+        boxShadow: '0 18px 48px rgba(58, 46, 42, .12)',
       }}>
         <div className="login-brand" style={{ textAlign: 'center', marginBottom: 18 }}>
           {/* App brand mark — transparent PNG of the ornate "M in a
-              starlit spellbook" logo. Sits free on the dark backdrop
-              with a warm golden halo behind it for depth. The pulse
-              animation matches the title shimmer below. */}
+              starlit spellbook" logo. Coral halo replaces the gold
+              now that the surface is white paper, matching the
+              landing page's logo treatment. */}
           <img
             src="/logo.png"
             alt="Memoria"
             style={{
               display: 'block', margin: '0 auto 6px',
               width: 130, height: 'auto',
-              filter: 'drop-shadow(0 0 18px rgba(244, 208, 74, 0.45)) drop-shadow(0 8px 18px rgba(0,0,0,0.55))',
+              filter: 'drop-shadow(0 0 18px rgba(255, 159, 28, .45)) drop-shadow(0 8px 18px rgba(58, 46, 42, .25))',
               animation: 'title-shimmer 4s ease-in-out infinite',
               pointerEvents: 'none',
             }}
@@ -251,7 +258,7 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
             margin: 0,
             fontFamily: 'Fredoka, system-ui, sans-serif',
             fontSize: 30, fontWeight: 700,
-            background: 'linear-gradient(135deg, #f4d04a 0%, #f49a4a 60%, #d96658 100%)',
+            background: 'linear-gradient(135deg, #ff9f1c 0%, #ff7e5f 60%, #ee5a52 100%)',
             WebkitBackgroundClip: 'text', backgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             letterSpacing: 0.5,
@@ -259,7 +266,7 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
           }}>
             MEMORIA
           </h1>
-          <div style={{ marginTop: 4, fontSize: 12, letterSpacing: 4, color: 'rgba(255,255,255,0.55)' }}>
+          <div style={{ marginTop: 4, fontSize: 12, letterSpacing: 4, color: '#a89580', fontWeight: 600 }}>
             TCG · {mode === 'signin' ? 'WELCOME BACK' : 'BEGIN YOUR ALBUM'}
           </div>
         </div>
@@ -295,38 +302,41 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
 
           {err && (
             <div style={{
-              fontSize: 12, color: '#ffb4a8',
-              background: 'rgba(217, 102, 88, 0.18)',
-              border: '1px solid rgba(217, 102, 88, 0.4)',
+              fontSize: 12, color: '#c8362e',
+              background: 'rgba(238, 90, 82, .08)',
+              border: '1px solid rgba(238, 90, 82, .3)',
               borderRadius: 10, padding: '8px 10px',
             }}>{err}</div>
           )}
 
+          {/* Mirrors the in-game btnPrimary — same coral gradient +
+              shadow stack the rest of the app's CTAs use. */}
           <button
             type="submit"
             disabled={busy}
             style={{
               marginTop: 6,
-              padding: '12px 16px',
-              borderRadius: 12,
+              padding: '14px 16px',
+              borderRadius: 22,
               border: 'none',
               cursor: busy ? 'wait' : 'pointer',
-              background: 'linear-gradient(135deg, #f4d04a 0%, #f49a4a 100%)',
-              color: '#2a1a06',
+              background: 'linear-gradient(180deg, #ffa07a 0%, #ff7e5f 60%, #ee5a52 100%)',
+              color: '#fff',
+              fontFamily: '"Fredoka", system-ui, sans-serif',
               fontWeight: 700,
               fontSize: 15,
               letterSpacing: 0.5,
-              boxShadow: '0 8px 24px rgba(244, 154, 74, 0.4)',
+              boxShadow: '0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4)',
               opacity: busy ? 0.6 : 1,
             }}
           >
             {busy ? 'Summoning...' : (mode === 'signin' ? 'Enter the Arena' : 'Create Account')}
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0', color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.12)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0', color: '#a89580', fontSize: 11 }}>
+            <div style={{ flex: 1, height: 1, background: 'rgba(58, 46, 42, .12)' }} />
             OR
-            <div style={{ flex: 1, height: 1, background: 'rgba(255,255,255,0.12)' }} />
+            <div style={{ flex: 1, height: 1, background: 'rgba(58, 46, 42, .12)' }} />
           </div>
 
           <button
@@ -334,11 +344,11 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
             onClick={onGoogle}
             disabled={busy}
             style={{
-              padding: '10px 14px',
-              borderRadius: 12,
-              border: '1px solid rgba(255,255,255,0.18)',
-              background: 'rgba(255,255,255,0.06)',
-              color: '#fff', fontWeight: 600, fontSize: 14,
+              padding: '11px 14px',
+              borderRadius: 22,
+              border: '1.5px solid rgba(58, 46, 42, .14)',
+              background: '#fff',
+              color: '#3a2e2a', fontWeight: 600, fontSize: 14,
               cursor: busy ? 'wait' : 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
               opacity: busy ? 0.6 : 1,
@@ -353,7 +363,7 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
             onClick={() => { setErr(null); setMode(mode === 'signin' ? 'signup' : 'signin'); }}
             style={{
               marginTop: 8, padding: 6, background: 'none', border: 'none',
-              color: 'rgba(255,255,255,0.7)', fontSize: 13, cursor: 'pointer',
+              color: '#ee5a52', fontSize: 13, fontWeight: 600, cursor: 'pointer',
             }}
           >
             {mode === 'signin'
@@ -365,11 +375,11 @@ export function Login({ initialMode = 'signin', onBackToLanding }: LoginProps = 
         {unconfigured && (
           <div style={{
             marginTop: 14, fontSize: 11, lineHeight: 1.5,
-            color: 'rgba(255,255,255,0.55)',
+            color: '#7a5a52',
             textAlign: 'center',
-            borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 12,
+            borderTop: '1px solid rgba(58, 46, 42, .08)', paddingTop: 12,
           }}>
-            Firebase keys missing. Copy <code style={{ color: '#f4d04a' }}>.env.example</code> to <code style={{ color: '#f4d04a' }}>.env.local</code> and fill in your Firebase web app config.
+            Firebase keys missing. Copy <code style={{ color: '#ee5a52', background: '#ffe8d6', padding: '1px 4px', borderRadius: 4 }}>.env.example</code> to <code style={{ color: '#ee5a52', background: '#ffe8d6', padding: '1px 4px', borderRadius: 4 }}>.env.local</code> and fill in your Firebase web app config.
           </div>
         )}
       </div>
@@ -384,7 +394,7 @@ function Field(props: {
 }) {
   return (
     <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <span style={{ fontSize: 11, letterSpacing: 1.5, color: 'rgba(255,255,255,0.55)', textTransform: 'uppercase' }}>
+      <span style={{ fontSize: 11, letterSpacing: 1.5, color: '#7a5a52', textTransform: 'uppercase', fontWeight: 600 }}>
         {props.label}
       </span>
       <input
@@ -397,14 +407,23 @@ function Field(props: {
         style={{
           padding: '11px 12px',
           borderRadius: 10,
-          border: '1px solid rgba(255,255,255,0.14)',
-          background: 'rgba(255,255,255,0.04)',
-          color: '#fff',
+          border: '1.5px solid rgba(58, 46, 42, .12)',
+          background: '#fef8f0',
+          color: '#3a2e2a',
           fontSize: 14,
           outline: 'none',
+          transition: 'border-color .15s ease, box-shadow .15s ease, background .15s ease',
         }}
-        onFocus={(e) => e.currentTarget.style.borderColor = 'rgba(244, 208, 74, 0.55)'}
-        onBlur={(e) => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'}
+        onFocus={(e) => {
+          e.currentTarget.style.borderColor = '#ee5a52';
+          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(238, 90, 82, .12)';
+          e.currentTarget.style.background = '#fff';
+        }}
+        onBlur={(e) => {
+          e.currentTarget.style.borderColor = 'rgba(58, 46, 42, .12)';
+          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.background = '#fef8f0';
+        }}
       />
     </label>
   );
@@ -440,7 +459,9 @@ function FloatingCard(props: {
         borderRadius: 14,
         background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
         border: `1.5px solid ${def.glow}`,
-        boxShadow: `0 16px 40px rgba(0,0,0,0.55), 0 0 30px ${def.glow}40`,
+        // Warm-tinted drop shadow on cream — saturated black would
+        // leave a harsh silhouette on the paper backdrop.
+        boxShadow: `0 14px 28px rgba(58, 46, 42, .22), 0 0 22px ${def.glow}44`,
         padding: 8,
         display: 'flex', flexDirection: 'column',
         pointerEvents: 'none',
