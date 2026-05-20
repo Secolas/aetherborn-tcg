@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Coins, Sparkles, Lock, Star, Cake, Sun, Heart, PawPrint, ChevronUp } from 'lucide-react';
+import { ArrowLeft, Coins, Sparkles, Lock, Star, Cake, Sun, Heart, PawPrint, ChevronUp, X } from 'lucide-react';
 import { Card } from '../components/Card';
 import { CardBack } from '../components/CardBack';
 import { TiltCard } from '../components/TiltCard';
@@ -183,6 +183,12 @@ export function PackOpening({
   const [pick, setPick] = useState<PackPick | null>(null);
   const [pack, setPack] = useState<CollectionCard[]>([]);
   const [revealedIdx, setRevealedIdx] = useState(0);
+  // Index of the card currently being inspected on the final grid.
+  // Null = no modal open. Tapping any card in the "X new dormant
+  // cards" grid opens the holo inspect modal (TiltCard + halo +
+  // sheen) so the player can see what they got, same as the starter
+  // review grid.
+  const [inspectIdx, setInspectIdx] = useState<number | null>(null);
   /** Pack queued in the confirm bottom sheet. Lets the player review
    *  cost / contents / bonus filter before committing the coins. */
   const [confirming, setConfirming] = useState<ConfirmPick | null>(null);
@@ -469,15 +475,30 @@ export function PackOpening({
                 {pack.length} new dormant cards
               </div>
 
-              {/* Responsive summary grid — wraps card count to viewport. */}
+              {/* Responsive summary grid — wraps card count to viewport.
+                  Tapping any card opens the holo inspect modal (same
+                  pattern as the starter-open review grid). */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                 gap: 12, marginBottom: 18,
                 justifyItems: 'center',
               }}>
-                {pack.map(c => (
-                  <Card key={c.uid} card={c} scale={isMobile ? 0.5 : 0.6} />
+                {pack.map((c, i) => (
+                  <button
+                    key={c.uid}
+                    onClick={() => setInspectIdx(i)}
+                    aria-label={`Preview ${c.name}`}
+                    className="ps-done-cell"
+                    style={{
+                      background: 'transparent', border: 0, padding: 0,
+                      cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'grid', placeItems: 'center',
+                      animation: `psDoneCellIn .4s cubic-bezier(.2,.85,.3,1) ${i * 0.08}s both`,
+                    }}
+                  >
+                    <Card card={c} scale={isMobile ? 0.5 : 0.6} />
+                  </button>
                 ))}
               </div>
 
@@ -496,6 +517,19 @@ export function PackOpening({
               </div>
             </div>
           </div>
+        )}
+
+        {/* Holo inspect modal — opens when a card in the final
+            "X new dormant cards" grid is tapped. Mirrors the starter
+            review grid's modal (TiltCard tilt + shine, rarity halo,
+            holo sheen sweep) so opening a shop pack ends with the
+            same satisfying "look what I got" beat. */}
+        {inspectIdx != null && pack[inspectIdx] && pick && (
+          <PackInspectModal
+            card={pack[inspectIdx]}
+            themeGlow={pick.vibe.glow}
+            onClose={() => setInspectIdx(null)}
+          />
         )}
       </div>
     </div>
@@ -1098,6 +1132,16 @@ function PackShopStyles() {
         from { transform: translateY(20px); opacity: 0; }
         to { transform: translateY(0); opacity: 1; }
       }
+      /* Each card in the post-open summary pops in with a staggered
+         scale so the row reads as "look what you got" rather than a
+         silent grid. Inline delays are applied per-cell via style. */
+      @keyframes psDoneCellIn {
+        from { opacity: 0; transform: translateY(10px) scale(.92); }
+        to   { opacity: 1; transform: translateY(0) scale(1); }
+      }
+      .ps-done-cell { transition: transform .12s ease-out, filter .15s; }
+      .ps-done-cell:hover { transform: translateY(-3px) scale(1.04); filter: brightness(1.05); }
+      .ps-done-cell:active { transform: scale(.98); }
 
       @media (prefers-reduced-motion: reduce) {
         .bp, .bp:hover, .bp:active,
@@ -1580,6 +1624,120 @@ function WireframeStack({
           />
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Inspect modal for the "done" stage of the pack shop. Reuses the
+ * same effects as RevealCard so the player can re-see any card from
+ * their pack with the full holo treatment.
+ */
+function PackInspectModal({
+  card, themeGlow, onClose,
+}: { card: CollectionCard; themeGlow: string; onClose: () => void }) {
+  const showHalo = card.rarity === 'epic' || card.rarity === 'legendary';
+  const showSheen = card.rarity !== 'common';
+  const haloColor = card.rarity === 'legendary' ? '#ffd166' : themeGlow;
+  return (
+    <div
+      role="dialog"
+      aria-label={`${card.name} preview`}
+      onClick={onClose}
+      style={{
+        position: 'absolute', inset: 0,
+        background: 'rgba(8,4,12,.74)',
+        display: 'grid', placeItems: 'center',
+        zIndex: 220,
+        padding: 16,
+        animation: 'fadeIn .2s ease-out both',
+        overflowY: 'auto',
+      }}
+    >
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        aria-label="Close preview"
+        title="Close"
+        style={{
+          position: 'absolute',
+          top: 'max(16px, env(safe-area-inset-top, 16px))',
+          right: 16,
+          zIndex: 2,
+          width: 36, height: 36,
+          display: 'grid', placeItems: 'center',
+          borderRadius: '50%',
+          background: 'rgba(255,255,255,.92)',
+          border: '1.5px solid rgba(58,46,42,.18)',
+          color: PALETTE.text,
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          boxShadow: '0 2px 8px rgba(0,0,0,.32)',
+        }}
+      >
+        <X size={18} strokeWidth={2.4} />
+      </button>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: 'relative',
+          display: 'inline-flex', flexDirection: 'column',
+          alignItems: 'center', gap: 14,
+          animation: 'psSlideUp .3s cubic-bezier(.2,.7,.2,1)',
+        }}
+      >
+        {showHalo && (
+          <div
+            aria-hidden
+            style={{
+              position: 'absolute', left: '50%', top: '50%',
+              width: 420, height: 420, borderRadius: '50%',
+              background: `radial-gradient(circle, ${haloColor} 0%, transparent 60%)`,
+              transform: 'translate(-50%, -50%) scale(0.3)',
+              animation: 'rarityHalo 1.4s ease-out both',
+              pointerEvents: 'none',
+              mixBlendMode: 'screen',
+              zIndex: 0,
+            }}
+          />
+        )}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <TiltCard maxTilt={14} hoverScale={1.04} shine={showSheen}>
+            <Card card={card} hovered />
+            {showSheen && (
+              <div
+                aria-hidden
+                style={{
+                  position: 'absolute', inset: 0,
+                  overflow: 'hidden',
+                  borderRadius: 18,
+                  pointerEvents: 'none',
+                  mixBlendMode: 'screen',
+                }}
+              >
+                <div style={{
+                  position: 'absolute', inset: 0,
+                  background: 'linear-gradient(110deg, transparent 30%, rgba(255,255,255,.85) 50%, transparent 70%)',
+                  animation: 'cardHoloSheen 1.1s ease-out 0.25s both',
+                }} />
+              </div>
+            )}
+          </TiltCard>
+        </div>
+        <div style={{
+          fontSize: 12,
+          letterSpacing: '0.28em',
+          textTransform: 'uppercase',
+          fontWeight: 800,
+          position: 'relative',
+          zIndex: 2,
+          color: RARITY_COLOR[card.rarity],
+          textShadow: card.rarity === 'legendary'
+            ? '0 0 12px rgba(255, 209, 102, .6)'
+            : 'none',
+        }}>
+          {card.rarity}
+        </div>
+      </div>
     </div>
   );
 }
