@@ -2,7 +2,11 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
-import type { ElementId } from '../game/types';
+import { BattlefieldCard } from '../components/BattlefieldCard';
+import { CosmeticsProvider } from '../state/cosmetics';
+import { getTemplateById } from '../data/templates';
+import { aiPhoto } from '../data/samplePhotos';
+import type { BattleCard, ElementId } from '../game/types';
 
 /** Per-theme art glyph. Matches the in-game ElementGlyph icon set so the
  *  landing page reads as native to the rest of the app — paws for
@@ -505,85 +509,151 @@ function PitchSection() {
 }
 
 // ============================================================================
-// Gameplay preview — a tutorial-style attack loop. One creature swings
-// across the lane, slams a defender, defender flashes red and dies,
-// attacker returns to its slot, defender respawns. CSS-only, ~4.5s loop.
-// Mirrors the moment the in-game Tutorial teaches at turn 5: drag your
-// creature onto an enemy to kill it.
+// Gameplay preview — reuses the actual in-game BattlefieldCard component
+// so the demo is pixel-identical to a real match. A state machine cycles
+// through the same lunge → impact → damage popup → dying sequence the
+// engine triggers when one creature attacks another. No engine code is
+// shipped to the landing — we just toggle the visual props the
+// BattlefieldCard already exposes (`lunging`, `impact`, `damage`,
+// `dying`). After the defender dies it's remounted with a fresh key so
+// the cardSlam summon animation plays on the next loop.
 // ============================================================================
 
+type GpPhase = 'rest' | 'lunge' | 'impact' | 'dying' | 'empty';
+
+/** Phase timings, in ms. Picked to line up with BattlefieldCard's
+ *  internal keyframes: lungeUp is 750ms, the impact burst is 800ms,
+ *  the dying slice is 850ms, so each phase gets just enough screen
+ *  time to read before the next one stacks on. */
+const GP_SCHEDULE: { phase: GpPhase; ms: number }[] = [
+  { phase: 'rest',   ms: 1400 },
+  { phase: 'lunge',  ms: 750  },
+  { phase: 'impact', ms: 250  },
+  { phase: 'dying',  ms: 900  },
+  { phase: 'empty',  ms: 700  },
+];
+
+/** Build a `BattleCard` from a template id plus a fresh `battleId`.
+ *  Everything the BattlefieldCard reads (currentAtk, currentHp,
+ *  tapped, frozen…) is hard-coded since there's no engine running
+ *  here. `justPlayed` is true so the cardSlam summon animation plays
+ *  the moment the card mounts — gives the loop's "next turn" reset a
+ *  visible beat. */
+function makeDemoBattleCard(templateId: string, battleId: string): BattleCard {
+  const tpl = getTemplateById(templateId)!;
+  return {
+    ...tpl,
+    uid: battleId,
+    photo: aiPhoto(templateId),
+    battleId,
+    currentAtk: tpl.atk,
+    currentHp: tpl.hp,
+    tapped: false,
+    justPlayed: true,
+    frozen: false,
+  };
+}
+
 function GameplayPreview() {
+  const [phase, setPhase] = useState<GpPhase>('rest');
+  // Increments every time the loop wraps. Used as the key on the
+  // defender so it remounts with a fresh cardSlam after a kill.
+  const [loopKey, setLoopKey] = useState(0);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let idx = 0;
+    const tick = () => {
+      const step = GP_SCHEDULE[idx];
+      setPhase(step.phase);
+      timer = setTimeout(() => {
+        idx = (idx + 1) % GP_SCHEDULE.length;
+        if (idx === 0) setLoopKey(k => k + 1);
+        tick();
+      }, step.ms);
+    };
+    tick();
+    return () => { if (timer) clearTimeout(timer); };
+  }, []);
+
+  // Build the two cards. The attacker is stable across the loop (a
+  // single ref so its mount-time cardSlam doesn't re-fire every time
+  // setPhase rerenders). The defender is keyed on loopKey so a new
+  // BattleCard instance arrives on every loop wrap, replaying the
+  // summon dust just like a freshly-summoned card would in-game.
+  const attacker = useMemo(() => makeDemoBattleCard('ani-05', 'gp-attacker'), []);
+  const defender = useMemo(
+    () => makeDemoBattleCard('wrk-01', `gp-defender-${loopKey}`),
+    [loopKey],
+  );
+
+  const isLunging = phase === 'lunge';
+  const isImpact  = phase === 'impact';
+  const isDying   = phase === 'dying' || phase === 'impact';
+  const damage    = phase === 'impact' || phase === 'dying' ? 2 : null;
+  const showDefender = phase !== 'empty';
+
   return (
     <section className="landing-gameplay">
       <div className="landing-section-title"><span>Combat in motion</span></div>
-      <div className="gp-frame">
-        {/* Opponent strip: portrait + one defender creature on the
-            board. The defender is the one taking the hit. */}
-        <div className="gp-row gp-opp">
-          <div className="gp-portrait">
-            <div className="gp-portrait-name">Vex</div>
-            <div className="gp-hpbar">
-              <div className="gp-hpbar-fill" />
-              <span className="gp-hpbar-text">24 / 24</span>
+
+      {/* Daylight board skin — same warm tabletop the in-game match
+          uses by default. Wrapping in CosmeticsProvider (inMatch:
+          false) is required so BattlefieldCard's useCosmetics hook
+          has a context to read; we leave inMatch off so the demo
+          uses the unframed default chrome, which is what brand-new
+          players see anyway. */}
+      <CosmeticsProvider>
+        <div className="gp-board">
+          <div className="gp-side gp-side-opp">
+            <div className="gp-portrait">
+              <div className="gp-portrait-name">Vex</div>
+              <div className="gp-hpbar">
+                <div className="gp-hpbar-fill" />
+                <span className="gp-hpbar-text">24 / 24</span>
+              </div>
+            </div>
+            <div className="gp-row">
+              {showDefender && (
+                <BattlefieldCard
+                  key={defender.battleId}
+                  card={defender}
+                  impact={isImpact}
+                  dying={isDying}
+                  damage={damage}
+                  owned={false}
+                />
+              )}
             </div>
           </div>
-          <div className="gp-board gp-board-opp">
-            <div className="gp-slot gp-slot-defender">
-              <GpBoardCard el="work" name="Intern" atk={1} hp={1} dying />
-              <div className="gp-impact" aria-hidden />
+
+          <div className="gp-divider" aria-hidden />
+
+          <div className="gp-side gp-side-me">
+            <div className="gp-row">
+              <div className={`gp-attacker-wrap ${phase === 'rest' ? 'gp-attacker-rest' : ''}`}>
+                <BattlefieldCard
+                  card={attacker}
+                  lunging={isLunging ? 'up' : null}
+                  owned={true}
+                />
+              </div>
+            </div>
+            <div className="gp-portrait">
+              <div className="gp-portrait-name">You</div>
+              <div className="gp-hpbar">
+                <div className="gp-hpbar-fill" style={{ width: '100%' }} />
+                <span className="gp-hpbar-text">24 / 24</span>
+              </div>
             </div>
           </div>
         </div>
+      </CosmeticsProvider>
 
-        {/* The attack lane between the two boards. Empty — the strike
-            visual is on the attacker itself, not a separate arrow. */}
-        <div className="gp-lane" />
-
-        {/* Player strip: one creature (the attacker) plus a tap hint
-            ring that pulses to teach the action. */}
-        <div className="gp-row gp-me">
-          <div className="gp-board gp-board-me">
-            <div className="gp-slot gp-slot-attacker">
-              <div className="gp-tap-hint" aria-hidden />
-              <GpBoardCard el="animals" name="Dog" atk={2} hp={4} attacker />
-            </div>
-          </div>
-        </div>
-      </div>
       <div className="gp-caption">
         Drag your creature onto an enemy. Whoever has higher attack wins the trade — and Taunt creatures must be hit first.
       </div>
     </section>
-  );
-}
-
-function GpBoardCard(props: {
-  el: ElementId; name: string; atk: number; hp: number;
-  taunt?: boolean; attacker?: boolean; dying?: boolean;
-}) {
-  const def = ELEMENTS[props.el];
-  const cls = [
-    'gp-bcard',
-    props.attacker ? 'gp-bcard-attacker' : '',
-    props.dying ? 'gp-bcard-dying' : '',
-  ].filter(Boolean).join(' ');
-  return (
-    <div
-      className={cls}
-      style={{
-        background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
-        borderColor: def.glow,
-      }}
-    >
-      <div className="gp-bcard-icon"><ThemeIcon el={props.el} size={22} /></div>
-      <div className="gp-bcard-name">{props.name}</div>
-      <div className="gp-bcard-stats">
-        <span className="gp-bcard-atk">{props.atk}</span>
-        <span className="gp-bcard-sep">/</span>
-        <span className="gp-bcard-hp">{props.hp}</span>
-      </div>
-      {props.taunt && <div className="gp-taunt-rim" aria-hidden />}
-    </div>
   );
 }
 
@@ -1383,188 +1453,100 @@ const LANDING_CSS = `
   }
 
   /* Gameplay preview ------------------------------------------------- */
-  /* Tutorial-style combat loop, 4.5s. Order on the same timeline so
-     the strike, impact, and defender's death all stay in sync:
-       0–18%   rest pose, tap-hint ring pulses on the attacker
-       18–42%  attacker rears back, then lunges up across the lane
-       42–48%  impact: white flash + defender red-shake
-       48–66%  attacker returns home; defender keeps fading
-       66–88%  empty defender slot (the kill landed)
-       88–100% defender fades back in (next turn — loop reset) */
-  @keyframes gp-attack {
-    0%, 18%  { transform: translate(0, 0) rotate(0) scale(1); }
-    28%      { transform: translate(0, 8px) rotate(-3deg) scale(.96); }
-    42%      { transform: translate(0, -120px) rotate(4deg) scale(1.08); }
-    48%      { transform: translate(0, -120px) rotate(4deg) scale(1.08); }
-    66%, 100%{ transform: translate(0, 0) rotate(0) scale(1); }
-  }
-  @keyframes gp-defender {
-    0%, 42%   { opacity: 1; filter: none; transform: translate(0,0); }
-    44%       { opacity: 1; filter: brightness(2) saturate(1.4) drop-shadow(0 0 8px #ee5a52); transform: translateX(-3px); }
-    46%       { transform: translateX(4px); }
-    48%       { transform: translateX(-2px); }
-    58%       { opacity: 0; transform: translate(0, 10px) scale(.85); filter: none; }
-    88%       { opacity: 0; transform: translate(0, 10px) scale(.85); }
-    100%      { opacity: 1; transform: translate(0,0) scale(1); }
-  }
-  @keyframes gp-impact {
-    0%, 40%   { opacity: 0; transform: scale(.4); }
-    44%       { opacity: 1; transform: scale(1.4); }
-    52%       { opacity: 0; transform: scale(1.8); }
-    100%      { opacity: 0; transform: scale(1.8); }
-  }
-  @keyframes gp-hint {
-    0%, 18%   { opacity: 1; transform: scale(1); }
-    20%, 100% { opacity: 0; transform: scale(1.4); }
-  }
-  @keyframes gp-hint-pulse {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, .55); }
-    50%      { box-shadow: 0 0 0 10px rgba(238, 90, 82, 0); }
+  /* Wraps two real in-game BattlefieldCard renders on a daylight-skin
+     board. The component already handles every visual beat — lunge,
+     impact, damage popup, dying slice, summon dust on respawn — so
+     this stylesheet only provides the surrounding chrome (board
+     gradient, portraits, HP bars). */
+  @keyframes gp-attacker-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(238, 90, 82, 0); }
+    50%      { box-shadow: 0 0 0 6px rgba(238, 90, 82, .12); }
   }
 
   .landing-gameplay { padding: 24px 20px; position: relative; z-index: 2; }
-  .gp-frame {
+
+  /* Daylight board skin — same gradient stack the in-game match uses
+     by default (src/data/boardSkins.ts). Two-row split so the
+     opponent strip sits on top, divider in the middle, player at
+     the bottom — same layout the MatchBoard ships with. */
+  .gp-board {
     max-width: 520px; margin: 0 auto;
-    background: linear-gradient(180deg, #fef8f0 0%, #ffe8d6 100%);
-    border: 1.5px solid rgba(58, 46, 42, .1);
+    background:
+      radial-gradient(ellipse 120% 80% at 50% 0%, #fff4e6 0%, transparent 70%),
+      linear-gradient(180deg, #ffe8d6 0%, #ffd1b3 50%, #ffb89a 100%);
+    border: 1.5px solid rgba(58, 46, 42, .12);
     border-radius: 18px;
-    padding: 14px 12px 12px;
-    box-shadow: 0 10px 28px rgba(58, 46, 42, .12), inset 0 0 0 1px rgba(255,255,255,.4);
-    position: relative;
+    padding: 14px 14px 16px;
+    box-shadow:
+      0 12px 28px rgba(58, 46, 42, .14),
+      inset 0 0 0 1px rgba(255,255,255,.45);
     overflow: hidden;
   }
-  .gp-row {
-    display: flex; align-items: center; gap: 10px;
+  .gp-side {
+    display: flex; align-items: center; gap: 14px;
     padding: 6px 4px;
   }
-  .gp-opp { justify-content: space-between; }
-  .gp-me  { justify-content: center; }
+  .gp-side-opp .gp-row { justify-content: flex-end; }
+  .gp-side-me  .gp-row { justify-content: flex-start; }
+
+  .gp-row {
+    flex: 1;
+    display: flex; align-items: center;
+    min-height: 90px;
+    gap: 8px;
+  }
 
   .gp-portrait {
+    flex: none;
+    width: 112px;
     display: flex; flex-direction: column; gap: 4px;
-    width: 110px;
   }
   .gp-portrait-name {
     font-family: Fredoka, system-ui, sans-serif;
-    font-weight: 700; font-size: 13px; color: #3a2e2a;
+    font-weight: 700; font-size: 13px;
+    color: #3a2e2a;
   }
   .gp-hpbar {
     position: relative;
-    height: 12px; border-radius: 6px;
-    background: rgba(58, 46, 42, .12);
+    height: 14px; border-radius: 7px;
+    background: rgba(58, 46, 42, .14);
     overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(58, 46, 42, .2);
   }
   .gp-hpbar-fill {
     position: absolute; inset: 0 auto 0 0;
     width: 100%;
     background: linear-gradient(90deg, #06d6a0 0%, #f4d04a 70%, #ee5a52 100%);
-    border-radius: 6px;
+    border-radius: 7px;
   }
   .gp-hpbar-text {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: 9px; font-weight: 700;
+    font-size: 10px; font-weight: 800;
     color: #fff;
     text-shadow: 0 1px 1px rgba(0,0,0,.4);
     letter-spacing: .5px;
   }
 
-  .gp-board {
-    flex: 1;
-    display: flex; gap: 6px; justify-content: center;
-    min-height: 86px;
-  }
-  .gp-board-opp { justify-content: flex-end; }
-  .gp-board-me  { justify-content: center; }
-
-  /* Slot — wraps a creature plus its overlays (impact burst on the
-     defender, tap-hint ring on the attacker). Positioned relatively
-     so the overlays can sit absolutely against the slot, not the
-     creature itself (the creature is what's translating). */
-  .gp-slot {
-    position: relative;
-    width: 64px; height: 78px;
+  /* Dashed divider mimics the in-game center lane between the two
+     fields. */
+  .gp-divider {
+    height: 1px;
+    border-top: 1px dashed rgba(58, 46, 42, .22);
+    margin: 4px 6px;
   }
 
-  /* Board card — mini representation of a creature on the field */
-  .gp-bcard {
-    position: relative;
-    width: 100%; height: 100%;
-    border-radius: 8px;
-    border: 1.5px solid;
-    padding: 4px;
-    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
-    color: #fff;
-    box-shadow: 0 4px 10px rgba(58, 46, 42, .18);
-  }
-  .gp-bcard-attacker { animation: gp-attack 4.5s cubic-bezier(.6, .1, .4, 1) infinite; }
-  .gp-bcard-dying    { animation: gp-defender 4.5s ease-in-out infinite; }
-  .gp-bcard-icon {
-    width: 28px; height: 28px; border-radius: 6px;
-    background: rgba(255,255,255,.12);
-    display: grid; place-items: center;
-    margin-top: 2px;
-  }
-  .gp-bcard-name {
-    font-size: 9px; font-weight: 700;
-    text-shadow: 0 1px 1px rgba(0,0,0,.5);
-    text-align: center;
-  }
-  .gp-bcard-stats {
-    font-family: Fredoka, system-ui, sans-serif;
-    font-size: 11px; font-weight: 700;
-    display: flex; align-items: center; gap: 1px;
-  }
-  .gp-bcard-atk { color: #ffd166; }
-  .gp-bcard-sep { color: rgba(255,255,255,.6); margin: 0 1px; }
-  .gp-bcard-hp  { color: #ff7e9a; }
-  .gp-taunt-rim {
-    position: absolute; inset: -3px;
-    border-radius: 11px;
-    border: 2px solid rgba(255, 209, 102, .7);
-    pointer-events: none;
-    box-shadow: 0 0 12px rgba(255, 209, 102, .5);
-  }
-
-  /* Impact burst — white starburst on the defender at the moment of
-     collision. Sits at the slot's center so it survives the
-     defender's translate. */
-  .gp-impact {
-    position: absolute; inset: 50% 50% auto auto;
-    width: 56px; height: 56px;
-    transform: translate(50%, -50%) scale(.4);
-    opacity: 0;
-    background:
-      radial-gradient(circle, #fff 0%, rgba(255,255,255,.7) 30%, transparent 70%),
-      conic-gradient(from 0deg,
-        #ee5a52 0deg, transparent 30deg,
-        #ffd166 60deg, transparent 90deg,
-        #ee5a52 120deg, transparent 150deg,
-        #ffd166 180deg, transparent 210deg,
-        #ee5a52 240deg, transparent 270deg,
-        #ffd166 300deg, transparent 330deg);
-    border-radius: 50%;
-    pointer-events: none;
-    animation: gp-impact 4.5s ease-out infinite;
-    mix-blend-mode: screen;
-  }
-
-  /* Tap-hint ring — pulses around the attacker before the lunge so a
-     first-time viewer understands what to do. Fades out the moment
-     the attack starts. */
-  .gp-tap-hint {
-    position: absolute; inset: -6px;
+  /* Soft pulse ring under the attacker on rest — same beat the
+     in-game UI gives ready creatures so the player knows they can
+     swing. We add this on the wrapper instead of touching the
+     BattlefieldCard's own classes. */
+  .gp-attacker-wrap {
     border-radius: 12px;
-    border: 2px solid rgba(238, 90, 82, .9);
-    pointer-events: none;
-    animation:
-      gp-hint 4.5s ease-out infinite,
-      gp-hint-pulse 1.2s ease-out infinite;
+    transition: box-shadow 200ms ease;
   }
-
-  /* The attack lane between the two boards — purely visual padding so
-     the attacker has room to travel without overlap on rest. */
-  .gp-lane { height: 4px; }
+  .gp-attacker-rest {
+    animation: gp-attacker-pulse 1.8s ease-out infinite;
+  }
 
   .gp-caption {
     margin: 14px auto 0;
