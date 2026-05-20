@@ -103,6 +103,14 @@ export interface BossDef {
    * tutorial dummy is the canonical use). See data/bossEmotes.ts.
    */
   emotePersonality?: EmotePersonality;
+  /**
+   * Escape hatch from the rarity copy caps defined in
+   * src/game/deckRules.ts. Set true ONLY for bosses whose deck is
+   * deliberately rule-breaking by design (the tutorial dummy is
+   * 10x Mouse so the scripted lesson has a predictable stream of
+   * 1/1 bodies). All other bosses MUST satisfy the caps.
+   */
+  ignoreDeckRules?: boolean;
 }
 
 const U = (id: string) => `https://images.unsplash.com/${id}?w=400&q=80`;
@@ -154,9 +162,11 @@ export const BOSSES: BossDef[] = [
       'fam-04',         // Tio (draw engine)
       'fam-05',         // Mom card
       'fam-06',         // The Look
+      'fam-07',         // Older Sibling — common 4/4 mid-curve body
+                        // (replaces 2nd Dad to satisfy epic copy cap)
       'fam-08', 'fam-08',// Abuela x2 — Generations enabler
       'fam-10',         // Family Photo (epic buff)
-      'fam-11', 'fam-11',// Dad x2 — Sunday Dinner enabler
+      'fam-11',         // Dad — Sunday Dinner enabler (epic cap = 1)
       'fam-12',         // Sunday Dinner finisher heal
       'fam-14',         // Hug
       'fam-15',         // Family Chat draw engine
@@ -214,10 +224,12 @@ export const BOSSES: BossDef[] = [
       'wrk-02',          // Spam Email
       'wrk-04',          // Coffee buff
       'wrk-06',          // Sales Pitch (spell removal)
+      'wrk-07',          // HR — epic untargetable 3/4
+                         //   (replaces 2nd Boss to satisfy legendary cap)
       'wrk-08', 'wrk-08',// Senior Engineer x2
       'wrk-09',          // Meeting freeze
       'wrk-10',          // Promotion buff
-      'wrk-12', 'wrk-12',// The Boss x2 — bond + body
+      'wrk-12',          // The Boss — Top Brass enabler (legendary cap = 1)
       'wrk-14',          // Stand-up Meeting
       'wrk-15',          // Payroll +1/+1 all
     ],
@@ -272,8 +284,10 @@ export const BOSSES: BossDef[] = [
       'ani-05',          // Dog
       'ani-06',          // Owl (untargetable)
       'ani-09',          // Bear Trap freeze
+      'ani-10',          // Horse — epic 3/3 Rush mid-curve aggression
+                         //   (replaces 2nd Lion to satisfy legendary cap)
       'ani-11', 'ani-11',// Wolf x2
-      'ani-12', 'ani-12',// Lion x2
+      'ani-12',          // Lion — The Pack enabler (legendary cap = 1)
       'ani-13',          // Muzzle silence
       'ani-14',          // Mosquito
     ],
@@ -322,6 +336,8 @@ export const BOSSES: BossDef[] = [
     // (Carry-On, Layover) with a Ticket Stub for early cycling.
     mythicDeck: [
       'trv-01',          // Boarding Pass (1m rush)
+      'trv-02',          // Carry-On — rare untargetable 2/2 sticky body
+                         //   (replaces 2nd Summit to satisfy legendary cap)
       'trv-03',          // Suitcase draw 2
       'trv-04',          // Lost Luggage silence
       'trv-05', 'trv-05',// Window Seat x2 — First Class Window enabler
@@ -329,7 +345,7 @@ export const BOSSES: BossDef[] = [
       'trv-07',          // Roadmap damage
       'trv-10',          // Beach heal
       'trv-11',          // First Class buff
-      'trv-12', 'trv-12',// Mountain Summit x2 — finisher
+      'trv-12',          // Mountain Summit — Rush finisher (legendary cap = 1)
       'trv-13',          // Ticket Stub draw
     ],
   },
@@ -458,8 +474,10 @@ export const BOSSES: BossDef[] = [
       'edu-07',          // Pop Quiz
       'edu-09',          // Library
       'edu-10',          // Final Exam
-      'edu-11', 'edu-11',// Senior Year x2
+      'edu-11',          // Senior Year — graduate threat (epic cap = 1)
       'edu-12',          // Graduation Day legendary
+      'edu-13',          // Physical Ed Class — rare 3/3 Rush mid-curve aggression
+                         //   (replaces 2nd Senior Year to satisfy epic cap)
       'edu-08',          // The Bully (one early threat)
     ],
   },
@@ -567,6 +585,10 @@ export const MINI_BOSSES: BossDef[] = [
     name: 'Mom',
     subtitle: 'Showing you the ropes',
     emotePersonality: 'silent',
+    // Scripted lesson — deck contains 10x Mouse to feed the AI a
+    // predictable stream of 1/1 bodies for the timing-based hints.
+    // Exempt from the per-rarity copy caps in src/game/deckRules.ts.
+    ignoreDeckRules: true,
     themeId: 'family',
     avatar: 'M',
     avatarPhoto: '/cards/mom.webp',
@@ -671,7 +693,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: "Set the table. We'll talk after.",
     playstyle: "Mid-game family pressure. Tío draws, Dad anchors, Family Photo turns a creature into a finisher.",
     rewardCoins: 100,
-    deck: ['fam-11','fam-11','fam-04','fam-04','fam-08','fam-03','fam-10','fam-09','fam-06','fam-15','fam-02','fam-14'],
+    // Dad (epic) capped at 1; second Dad swapped for Mom (rare 3/4)
+    // so Sunday Dinner / Generations bond enablers stay close to
+    // firing for this mid-arc encounter.
+    deck: ['fam-11','fam-05','fam-04','fam-04','fam-08','fam-03','fam-10','fam-09','fam-06','fam-15','fam-02','fam-14'],
     backdrop: U('photo-1414235077428-338989a2e8c0'),
   },
 
@@ -714,7 +739,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: "You shouldn't have left food out.",
     playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Bear Trap freezes.",
     rewardCoins: 100,
-    deck: ['ani-10','ani-10','ani-11','ani-09','ani-09','ani-06','ani-13','ani-02','ani-02','ani-04','ani-05','ani-14'],
+    // Horse (epic) capped at 1; second Horse swapped for Wolf
+    // (common 5/4) — keeps the "big bodies, hard hits" identity
+    // by adding another top-end vanilla threat.
+    deck: ['ani-10','ani-11','ani-11','ani-09','ani-09','ani-06','ani-13','ani-02','ani-02','ani-04','ani-05','ani-14'],
     backdrop: U('photo-1446824505046-e43605ffb17f'),
   },
 
@@ -731,7 +759,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'Hi! Sorry. Can I — sorry.',
     playstyle: "Four interns and a stack of spam emails. No removal, no big plays — pure tempo.",
     rewardCoins: 50,
-    deck: ['wrk-01','wrk-01','wrk-01','wrk-01','wrk-02','wrk-02','wrk-02','wrk-14','wrk-04','wrk-05','wrk-11','wrk-15'],
+    // Intern (common) capped at 3; the fourth Intern is swapped
+    // for Coworker (common 2/2 vanilla) — a second-shift body that
+    // keeps the "pure tempo" identity intact.
+    deck: ['wrk-01','wrk-01','wrk-01','wrk-03','wrk-02','wrk-02','wrk-02','wrk-14','wrk-04','wrk-05','wrk-11','wrk-15'],
     backdrop: U('photo-1497366216548-37526070297c'),
   },
   {
@@ -744,7 +775,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'Close the door. This is informal.',
     playstyle: "Control with HR as the untargetable anchor. Sales Pitch removes threats, Meeting freezes them.",
     rewardCoins: 75,
-    deck: ['wrk-07','wrk-07','wrk-01','wrk-06','wrk-02','wrk-02','wrk-15','wrk-09','wrk-11','wrk-05','wrk-05','wrk-14'],
+    // HR (epic) capped at 1; the second HR is swapped for Promotion
+    // (rare +4/+4 buff) — turns the remaining HR into a fearsome
+    // untargetable threat the player still has to deal with.
+    deck: ['wrk-07','wrk-10','wrk-01','wrk-06','wrk-02','wrk-02','wrk-15','wrk-09','wrk-11','wrk-05','wrk-05','wrk-14'],
     backdrop: U('photo-1542744173-8e7e53415bb0'),
   },
   {
@@ -843,7 +877,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: 'This is your last warning.',
     playstyle: "Discipline. Freezes you with Bathroom Break, kills with Final Exam, won't let class out.",
     rewardCoins: 100,
-    deck: ['edu-08','edu-08','edu-04','edu-04','edu-07','edu-10','edu-10','edu-09','edu-03','edu-06','edu-13','edu-05'],
+    // Final Exam (epic) capped at 1; the second copy is swapped for
+    // Senior Year (epic graduate) — fits the "discipline" theme,
+    // gives the Vice Principal a late-game threat to fear.
+    deck: ['edu-08','edu-08','edu-04','edu-04','edu-07','edu-10','edu-11','edu-09','edu-03','edu-06','edu-13','edu-05'],
     backdrop: U('photo-1509062522246-3755977927d7'),
   },
 
@@ -929,7 +966,10 @@ export const MINI_BOSSES: BossDef[] = [
     intro: "There's something I want to ask you.",
     playstyle: "Proposal lands and the buffs start stacking. Cooking Together hints at Married Life.",
     rewardCoins: 100,
-    deck: ['cou-06','cou-06','cou-02','cou-02','cou-12','cou-13','cou-15','cou-16','cou-10','cou-11','cou-14','cou-17'],
+    // Proposal (epic) capped at 1; the second copy is swapped for
+    // Couple Photo (common 3/3) — a steady-mid body that fits the
+    // engagement-portrait vibe without escalating to a legendary.
+    deck: ['cou-06','cou-04','cou-02','cou-02','cou-12','cou-13','cou-15','cou-16','cou-10','cou-11','cou-14','cou-17'],
     backdrop: U('photo-1519741497674-611481863552'),
   },
 ];
