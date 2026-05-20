@@ -1219,8 +1219,10 @@ function StackStage({
     >
       {!collapsed && <WireframeStack vibe={vibe} count={count} mode="collapse" />}
       <div style={{
-        position: 'absolute', left: '50%', top: '50%',
-        transform: 'translate(-50%, -50%)',
+        position: 'absolute',
+        left: '50%', top: '50%',
+        width: 220, height: 320,
+        marginLeft: -110, marginTop: -160,
         animation: 'cardBackFadeIn 0.55s cubic-bezier(.2,.8,.3,1.05) 0.2s both',
         zIndex: 3,
       }}>
@@ -1315,8 +1317,10 @@ function RevealStack({
           exiting card so the layering reads naturally. */}
       {phase === 'exiting' && idx + 1 < total && (
         <div style={{
-          position: 'absolute', left: '50%', top: '50%',
-          transform: 'translate(-50%, -50%)',
+          position: 'absolute',
+          left: '50%', top: '50%',
+          width: 220, height: 320,
+          marginLeft: -110, marginTop: -160,
           animation: 'cardSlideInBottom 0.45s cubic-bezier(.2,.8,.3,1.05) both',
           zIndex: 1,
         }}>
