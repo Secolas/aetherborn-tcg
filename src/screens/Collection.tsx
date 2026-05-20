@@ -52,6 +52,10 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
   /** Compact = 4-column tighter cards (default — fits ~2x more on screen);
       Big = 2-column with full card detail when you need to read abilities. */
   const [layout, setLayout] = useState<'big' | 'compact'>('compact');
+  /** Are-you-sure prompt for the bulk Generate action. Generating
+   *  placeholder photos overwrites dormancy for every remaining card,
+   *  so we put a confirm gate in front of it. */
+  const [confirmGenerate, setConfirmGenerate] = useState(false);
   const summoned = collection.filter(c => c.photo).length;
   const total = collection.length;
 
@@ -126,7 +130,7 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
         </button>
         {dormantCount > 0 && (
           <button
-            onClick={onQuickFill}
+            onClick={() => setConfirmGenerate(true)}
             style={{
               display: 'flex', alignItems: 'center', gap: 5,
               background: '#fff',
@@ -140,10 +144,10 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
               boxShadow: '0 2px 6px rgba(58,46,42,.06)',
               whiteSpace: 'nowrap',
             }}
-            title="Fill all dormant cards with placeholder photos"
+            title="Generate placeholder photos for all dormant cards"
           >
             <Sparkles size={13} strokeWidth={2.4} />
-            Fill all
+            Generate
           </button>
         )}
       </div>
@@ -428,6 +432,96 @@ export function Collection({ collection, onCapture, onClearPhoto, onQuickFill, o
             >
               <X size={14} /> Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {confirmGenerate && (
+        <div
+          role="dialog"
+          aria-label="Confirm generate photos"
+          onClick={() => setConfirmGenerate(false)}
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'rgba(8,4,12,.65)',
+            display: 'grid', placeItems: 'center',
+            zIndex: 240,
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: PALETTE.paper,
+              borderRadius: 18,
+              padding: '20px 20px 18px',
+              boxShadow: '0 20px 50px rgba(0,0,0,.35)',
+              maxWidth: 360, width: '100%',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: `linear-gradient(180deg, #ffd9a8 0%, ${PALETTE.accent}33 100%)`,
+              color: PALETTE.accentDeep,
+              display: 'grid', placeItems: 'center',
+              margin: '0 auto 12px',
+            }}>
+              <Sparkles size={22} strokeWidth={2.4} />
+            </div>
+            <div style={{
+              fontSize: 17, fontWeight: 800,
+              marginBottom: 6,
+              color: PALETTE.text,
+            }}>
+              Generate photos for your dormant cards?
+            </div>
+            <div style={{
+              fontSize: 13,
+              color: PALETTE.textMid,
+              lineHeight: 1.5,
+              marginBottom: 18,
+            }}>
+              We'll fill in {dormantCount} placeholder photo{dormantCount === 1 ? '' : 's'} so
+              you can play right away. You can swap any of them out for real
+              photos later from this screen.
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setConfirmGenerate(false)}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  background: PALETTE.paper,
+                  color: PALETTE.text,
+                  border: `1.5px solid ${PALETTE.border}`,
+                  borderRadius: 999,
+                  fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setConfirmGenerate(false); onQuickFill(); }}
+                style={{
+                  flex: 1,
+                  padding: '11px 16px',
+                  background: `linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%)`,
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 999,
+                  fontFamily: 'inherit',
+                  fontSize: 13, fontWeight: 800,
+                  letterSpacing: '0.02em',
+                  cursor: 'pointer',
+                  boxShadow: '0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4)',
+                }}
+              >
+                Generate
+              </button>
+            </div>
           </div>
         </div>
       )}

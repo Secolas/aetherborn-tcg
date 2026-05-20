@@ -1325,6 +1325,12 @@ function RevealStack({
 
   const showHalo = card.rarity === 'epic' || card.rarity === 'legendary';
   const showSheen = card.rarity !== 'common';
+  const isLegendary = card.rarity === 'legendary';
+  // Legendary cards trigger a "boom" set the moment the face shows:
+  // gold radial burst + screen flash + a brief shake of the flip
+  // wrapper. The pack ordering normally puts the legendary last, so
+  // this also doubles as the dramatic finale of the pack.
+  const legendaryReveal = isLegendary && phase === 'face';
 
   return (
     <div style={{
@@ -1363,6 +1369,31 @@ function RevealStack({
         </div>
       )}
 
+      {/* Legendary "boom" — gold radial burst behind the card and a
+          screen-wide flash. Mounted only during the face phase of a
+          legendary reveal; their own keyframes fade out in ~0.9s. */}
+      {legendaryReveal && (
+        <>
+          <div aria-hidden style={{
+            position: 'absolute', left: '50%', top: '50%',
+            width: 540, height: 540, borderRadius: '50%',
+            background: 'radial-gradient(circle, #fffbe0 0%, #ffd166 24%, rgba(255,170,51,.55) 50%, transparent 78%)',
+            animation: 'legendaryBoom 0.95s cubic-bezier(.3,.7,.4,1) both',
+            pointerEvents: 'none',
+            mixBlendMode: 'screen',
+            zIndex: 1,
+          }} />
+          <div aria-hidden style={{
+            position: 'fixed', inset: 0,
+            background: '#fff',
+            animation: 'legendaryFlash 0.55s ease-out both',
+            pointerEvents: 'none',
+            mixBlendMode: 'screen',
+            zIndex: 6,
+          }} />
+        </>
+      )}
+
       <SwipeableCard
         enabled={phase === 'back' || phase === 'face'}
         onSwipe={handleSwipe}
@@ -1381,10 +1412,12 @@ function RevealStack({
         {/* Local perspective wrapper — gives the flip a clean 3D
             context so the back-face stays reliably hidden on browsers
             that otherwise flatten without an immediate ancestor
-            having both perspective and preserve-3d. */}
+            having both perspective and preserve-3d. The shake
+            animation kicks in for legendary reveals only. */}
         <div style={{
           width: 220, height: 320,
           perspective: 1200,
+          animation: legendaryReveal ? 'legendaryShake 0.7s ease-out 0.25s both' : undefined,
         }}>
           {/* Flip container. Y-rotates 180deg on flip; back face is
               shown at 0deg and the face at 180deg via backface-visibility. */}

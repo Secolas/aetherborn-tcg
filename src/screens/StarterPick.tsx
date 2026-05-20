@@ -623,7 +623,10 @@ function StarterPickStyles() {
         width: 100%;
         display: inline-flex; align-items: center; justify-content: center; gap: 10px;
         padding: 14px 22px;
-        background: linear-gradient(180deg, color-mix(in srgb, var(--theme-color) 88%, #fff) 0%, var(--theme-color) 60%, var(--theme-deep) 100%);
+        /* Brand coral — kept consistent across every theme so the
+           primary CTA reads as "this is the game's action", not
+           "this matches the focused deck's colour". */
+        background: linear-gradient(180deg, #ffa07a 0%, ${PALETTE.accent} 60%, ${PALETTE.accentDeep} 100%);
         color: #fff;
         border: 0;
         border-radius: 999px;
@@ -631,8 +634,8 @@ function StarterPickStyles() {
         font-size: 15px; font-weight: 800;
         letter-spacing: 0.02em;
         cursor: pointer;
-        box-shadow: 0 8px 20px color-mix(in srgb, var(--theme-color) 36%, transparent);
-        transition: transform .12s, background .25s, filter .2s;
+        box-shadow: 0 6px 18px rgba(255, 94, 60, .35), inset 0 1px 0 rgba(255,255,255,.4);
+        transition: transform .12s, filter .2s;
       }
       .sp-confirm:hover:not(:disabled) { transform: translateY(-1px); }
       .sp-confirm:disabled { cursor: default; filter: brightness(.94); }
