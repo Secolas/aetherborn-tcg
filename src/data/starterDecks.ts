@@ -153,7 +153,7 @@ export const STARTER_THEMES: StarterTheme[] = [
       'ani-15',                 // 2c spell — Belly Rub (heal +4)
       'ani-02',                 // 2c spell — Snake Bite (3 dmg)
       'ani-17',                 // 2c spell — Walkies (draw 2)
-      'ani-04',                 // 3c 3/2  — Cat (bond piece)
+      'ani-04',                 // 3c 2/2  — Cat (bond piece)
       'ani-05',                 // 3c 2/4  — Dog (bond piece)
       'ani-06',                 // 3c 2/3  — Owl
       'ani-10',                 // 4c 3/3  — Horse

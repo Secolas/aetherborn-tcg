@@ -353,7 +353,7 @@ export const BOSSES: BossDef[] = [
     // (Carry-On, Layover) with a Ticket Stub for early cycling.
     mythicDeck: [
       'trv-01',          // Boarding Pass (1m rush)
-      'trv-02',          // Carry-On — rare untargetable 2/2 sticky body
+      'trv-02',          // Carry-On — rare untargetable 1/2 sticky body
                          //   (replaces 2nd Summit to satisfy legendary cap)
       'trv-03',          // Suitcase draw 2
       'trv-04',          // Lost Luggage silence

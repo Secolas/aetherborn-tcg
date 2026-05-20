@@ -219,7 +219,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', tags: ['pet'], suggested: 'a rabbit, hare, or other prey animal' },
 
-  { id: 'ani-04', name: 'Cat', el: 'animals', cost: 3, atk: 3, hp: 2, type: 'Creature',
+  { id: 'ani-04', name: 'Cat', el: 'animals', cost: 3, atk: 2, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Sneaky and untouchable.',
     abilityKind: 'untargetable',
@@ -317,7 +317,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a boarding pass, ticket stub, or gate sign' },
 
-  { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
+  { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 1, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Never leaves your side.',
     abilityKind: 'untargetable',

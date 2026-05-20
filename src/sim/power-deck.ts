@@ -12,11 +12,11 @@
  *   2x fam-01 Family Pet       (1c 2/1 Rush, rare)
  *     The only 1-cost Rush 2/1. Two face damage on T1 = +11% of opp's HP.
  *
- *   2x trv-02 Carry-On         (2c 2/2 Untargetable, rare)
+ *   2x trv-02 Carry-On         (2c 1/2 Untargetable, rare)
  *     Spell-proof body that has to be answered with creatures.
  *
- *   2x ani-04 Cat              (3c 3/2 Untargetable, rare)
- *     Same protection at 3-mana with +1 ATK over Carry-On.
+ *   2x ani-04 Cat              (3c 2/2 Untargetable, rare)
+ *     Same protection at 3-mana, same body as Carry-On.
  *
  *   2x ani-02 Snake Bite       (2c spell, 3 dmg, common)
  *     Removes most 2-drops + chips face.
