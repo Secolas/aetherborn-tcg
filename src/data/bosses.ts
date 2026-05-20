@@ -333,18 +333,16 @@ export const BOSSES: BossDef[] = [
     rewardCoins: 150,
     // Normal: no legendary. Mountain Summit (trv-12, legendary 6/5
     // Rush finisher) is Mythic-only.
-    // Deck is left at its post-Carry-On-nerf tuning (42.6%). The
-    // new Travel cards from this pass — trv-16 Where to Travel? and
-    // trv-17 Cruise — were tested in Drifter's slot but every swap
-    // tanked the deck:
-    //   • Roadmap → Where to Travel?: variance worsened tight
-    //     matchups (39–40% range).
-    //   • Beach → Cruise: slow heal_each_turn 1 doesn't replace
-    //     Beach's burst 6-heal stabilizer (32.8%).
-    //   • Hotel → Cruise: Hotel's Taunt is load-bearing vs aggro
-    //     (33.4%).
-    // The cards live in the card pool for players to draft into
-    // their own decks; Drifter sticks with the proven curve.
+    // Balance pass: swap Roadmap → Scooter to finally deliver on
+    // the playstyle's "swings with Rushers" promise. Drifter's deck
+    // used to have zero rush creatures despite the boss-picker
+    // blurb advertising them — the deck was actually pure
+    // cycle/evasion. Scooter (3c 3/2 Rush, common) fills the 3-cost
+    // slot Roadmap (3c 3-damage spell) used to hold: same 3 damage
+    // on entry, but the body sticks around for follow-up swings if
+    // it survives. Previous experiments swapping Beach/Hotel/Ticket
+    // Stub all regressed the deck (Beach 32.8%, Hotel 33.4%), so
+    // every other slot stays put — only the spell→body conversion.
     deck: [
       'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early
       'trv-02',          // Carry-On — small evasive body
@@ -352,7 +350,7 @@ export const BOSSES: BossDef[] = [
       'trv-04',          // Lost Luggage — silence
       'trv-05',          // Window Seat — 3/3 Rush
       'trv-06',          // Train Conductor — value body + draw
-      'trv-07',          // Roadmap — burn
+      'trv-15',          // Scooter — 3c 3/2 Rush body (replaces Roadmap)
       'trv-09',          // Hotel — defensive anchor
       'trv-10',          // Beach — heal
       'trv-11',          // First Class — finisher buff

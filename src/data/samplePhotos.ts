@@ -99,6 +99,9 @@ const THEMED: Record<string, string> = {
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
   'trv-13': U('photo-1499856871958-5b9627545d1a'),  // Ticket Stub → boarding stub
+  'trv-15': U('photo-1568708151706-8c1d9eb84a1f'),  // Scooter → parked Vespa / scooter
+  'trv-16': U('photo-1524661135-423995f22d0b'),     // Where to Travel? → world map with pins
+  'trv-17': U('photo-1548574505-5e239809ee19'),     // Cruise → cruise ship at sea
 
   // Education — school days, classrooms, exams, graduation
   'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
@@ -123,6 +126,7 @@ const THEMED: Record<string, string> = {
   'fd-17':  U('photo-1547592180-85f173990554'),     // Stew Pot → bubbling soup pot
   'wrk-17': U('photo-1531403009284-440f080d1e12'),  // Colleagues → team around a desk
   'wrk-18': U('photo-1517245386807-bb43f82c33c4'),  // All-Hands Meeting → packed conference room (placeholder, reuses wrk-09's conference-room photo)
+  'wrk-19': U('photo-1542744173-8e7e53415bb0'),     // Hired → empty desk / first day office
 
   // Family Pet micro-set (Animals theme support spells).
   'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted

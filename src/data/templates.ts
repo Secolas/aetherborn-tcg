@@ -634,11 +634,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'someone with a backpack, hostel bunk, train platform' },
 
-  { id: 'trv-15', name: 'Hitchhiker', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
+  { id: 'trv-15', name: 'Scooter', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'Rush.',
-    flavor: 'Thumb out. Trust the road.',
+    flavor: 'Two wheels, a key, and the rest of the day.',
     abilityKind: 'rush',
-    rarity: 'common', suggested: 'a person at a roadside, a thumb up, an open highway' },
+    rarity: 'common', suggested: 'a parked Vespa, a scooter rental row, or your own ride from a trip' },
 
   // Random-destination spell. Rolls a d6 inside the engine — each face
   // resolves into a different effect. Designed as Drifter's signature
