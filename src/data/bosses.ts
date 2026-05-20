@@ -219,7 +219,12 @@ export const BOSSES: BossDef[] = [
                          // All-Hands hits heal decks (Mom/Cook/Partner)
                          // where freeze did nothing.
       'wrk-07',          // HR — Untargetable 3/4 mid-curve threat
-      'wrk-08',          // Senior Engineer
+      'wrk-19',          // Hired — 3c 2/3 spell_synergy (1 ping per cast).
+                         // Replaces Senior Engineer (4c 4/4 vanilla): the
+                         // 4-mana slot already has HR (epic) and Payroll
+                         // (board buff). Hired comes down a turn earlier
+                         // and converts Manager's 5 spell casts into ~5
+                         // bonus face damage — the missing closer.
       'wrk-15',          // Payroll — board buff
       'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
                          // to every Work creature. Real finisher.
@@ -328,6 +333,18 @@ export const BOSSES: BossDef[] = [
     rewardCoins: 150,
     // Normal: no legendary. Mountain Summit (trv-12, legendary 6/5
     // Rush finisher) is Mythic-only.
+    // Deck is left at its post-Carry-On-nerf tuning (42.6%). The
+    // new Travel cards from this pass — trv-16 Where to Travel? and
+    // trv-17 Cruise — were tested in Drifter's slot but every swap
+    // tanked the deck:
+    //   • Roadmap → Where to Travel?: variance worsened tight
+    //     matchups (39–40% range).
+    //   • Beach → Cruise: slow heal_each_turn 1 doesn't replace
+    //     Beach's burst 6-heal stabilizer (32.8%).
+    //   • Hotel → Cruise: Hotel's Taunt is load-bearing vs aggro
+    //     (33.4%).
+    // The cards live in the card pool for players to draft into
+    // their own decks; Drifter sticks with the proven curve.
     deck: [
       'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early
       'trv-02',          // Carry-On — small evasive body

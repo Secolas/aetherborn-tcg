@@ -710,7 +710,7 @@ function isValidSpellTarget(state: MatchState, owner: Owner, card: BattleCard, t
   const noTarget: AbilityKind[] = [
     'draw_on_play', 'spell_heal', 'spell_share_meal', 'spell_feast',
     'spell_both_draw', 'spell_buff_all', 'exam_pass', 'pop_quiz',
-    'spell_lock',
+    'spell_lock', 'spell_luck',
   ];
   if (noTarget.includes(card.abilityKind)) return true;
 
@@ -1029,6 +1029,54 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
     // just resets the deadline.
     them.spellLockedUntilTurn = state.turnNumber + 2;
     state.log.push(`${displayName(card)} — opponent's spells are locked next turn`);
+  } else if (card.abilityKind === 'spell_luck') {
+    // Where to Travel? — roll a d6 against the in-state PRNG so the
+    // outcome is deterministic per seed. Five favorable destinations,
+    // one bad (Flight Canceled). Buff outcomes pick the strongest
+    // friendly creature (a real player would do that); if the board
+    // is empty they fizzle but the spell still resolves (mana spent).
+    const roll = Math.floor(nextRand(state) * 6) + 1;
+    const strongestFriendly = (): BattleCard | null => {
+      if (me.field.length === 0) return null;
+      return me.field.slice().sort((a, b) => (b.currentAtk + b.currentHp) - (a.currentAtk + a.currentHp))[0];
+    };
+    if (roll === 1) {
+      // Europe — heal owner +5
+      const before = me.hp;
+      me.hp = Math.min(STARTING_HP, me.hp + 5);
+      state.log.push(`Rolled 1 — Europe: restore ${me.hp - before} HP`);
+    } else if (roll === 2) {
+      // South America — strongest friendly creature +2/+0
+      const tgt = strongestFriendly();
+      if (tgt) {
+        tgt.currentAtk += 2;
+        state.log.push(`Rolled 2 — South America: ${displayName(tgt)} gains +2/+0`);
+      } else {
+        state.log.push(`Rolled 2 — South America: no creature to buff`);
+      }
+    } else if (roll === 3) {
+      // North America — strongest friendly creature +0/+3
+      const tgt = strongestFriendly();
+      if (tgt) {
+        tgt.currentHp += 3;
+        tgt.hp += 3;
+        state.log.push(`Rolled 3 — North America: ${displayName(tgt)} gains +0/+3`);
+      } else {
+        state.log.push(`Rolled 3 — North America: no creature to buff`);
+      }
+    } else if (roll === 4) {
+      // Asia — +2 mana this turn only (doesn't raise maxMana)
+      me.mana += 2;
+      state.log.push(`Rolled 4 — Asia: +2 mana this turn`);
+    } else if (roll === 5) {
+      // Africa — 5 face damage to opponent
+      them.hp -= 5;
+      state.log.push(`Rolled 5 — Africa: deal 5 damage`);
+    } else {
+      // 6 — Flight canceled: 2 self damage
+      me.hp -= 2;
+      state.log.push(`Rolled 6 — Flight canceled: take 2 damage`);
+    }
   }
 
   // Hide the unused `them` lint

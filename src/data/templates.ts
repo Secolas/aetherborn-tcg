@@ -615,6 +615,19 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'epic', suggested: 'a team huddled around a desk, coworkers laughing, an office crew' },
 
+  // Spell-synergy enabler for Manager's spell-pile playstyle. 2/3 for
+  // 3 mana is sub-baseline (Owl is 2/3 for 3 with on-play draw at
+  // rare), so the value lives in the trigger: every spell cast pings
+  // the opponent for 1. Manager casts ~5 spells per match, so a
+  // single Hired adds ~5 face damage over the game; with two on the
+  // board the deck effectively burns ~10 HP through spell triggers
+  // alone. Common rarity (max 3 copies) so the trigger can stack.
+  { id: 'wrk-19', name: 'Hired', el: 'work', cost: 3, atk: 2, hp: 3, type: 'Creature',
+    ability: 'When you cast a spell, deal 1 damage to the opponent.',
+    flavor: 'First day. New badge, new desk, no idea what anyone does.',
+    abilityKind: 'spell_synergy', abilityValue: 1,
+    rarity: 'common', suggested: 'your first-day-at-work photo, a new ID badge, an empty desk' },
+
   { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'No itinerary, no problem.',
@@ -626,6 +639,29 @@ export const TEMPLATES: CardTemplate[] = [
     flavor: 'Thumb out. Trust the road.',
     abilityKind: 'rush',
     rarity: 'common', suggested: 'a person at a roadside, a thumb up, an open highway' },
+
+  // Random-destination spell. Rolls a d6 inside the engine — each face
+  // resolves into a different effect. Designed as Drifter's signature
+  // chaos card: high expected value (5 of 6 outcomes are positive) at
+  // a low 2-mana price, but the 1/6 self-damage on Flight Canceled
+  // keeps casters from spamming it when low on HP.
+  { id: 'trv-16', name: 'Where to Travel?', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Roll a die. 1: heal 5. 2: a friendly creature +2/+0. 3: a friendly creature +0/+3. 4: +2 mana this turn. 5: deal 5 damage. 6: Flight canceled — take 2 damage.',
+    flavor: 'A pin on every continent. The board picks for you.',
+    abilityKind: 'spell_luck',
+    rarity: 'rare', suggested: 'a map with pushpins, a globe, a stack of boarding passes from different trips' },
+
+  // Big sustain body. Travel theme. Fills Drifter's missing "real
+  // mid-game wall" slot — his old curve had no 4-cost creature
+  // bigger than Hotel's 2/5. Cruise is 3/5 with self-heal each turn,
+  // common rarity so multiple copies fit. Compares to Grandma's Pie
+  // (3c 2/5 heal_each_turn 2 rare): Cruise pays +1 cost for +1 ATK
+  // and the lower rarity (3 copies vs 2), with half the heal rate.
+  { id: 'trv-17', name: 'Cruise', el: 'travel', cost: 4, atk: 3, hp: 5, type: 'Creature',
+    ability: 'At the start of your turn, restore 1 HP.',
+    flavor: 'Salt air, sun deck. Forget what day it is.',
+    abilityKind: 'heal_each_turn', abilityValue: 1,
+    rarity: 'common', suggested: 'a cruise ship, ocean horizon, deck chair, or your trip photo' },
 
   { id: 'fd-15', name: 'Apple', el: 'food', cost: 1, atk: 1, hp: 1, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
