@@ -7,10 +7,11 @@ import {
 } from 'lucide-react';
 import { Card } from '../components/Card';
 import { MemoryPanel } from '../components/MemoryPanel';
-import { ELEMENTS } from '../data/elements';
+import { ELEMENTS, RARITY_COLOR } from '../data/elements';
 import { iconBtn, PALETTE } from '../components/styles';
 import { useViewport } from '../hooks/useViewport';
 import {
+  MAX_COPIES_PER_RARITY,
   countCopiesInDeck,
   maxCopiesForRarity,
 } from '../game/deckRules';
@@ -325,6 +326,7 @@ export function DeckBuilder({
             atCap={atCap}
             deckFull={deckFull}
             cap={cap}
+            copiesInDeck={copiesInDeck}
             onClose={() => setInspectActive(null)}
             onToggle={() => {
               toggle(inspectActive.uid);
@@ -589,6 +591,42 @@ function computeDeckStats(cards: CollectionCard[]): DeckStats {
   };
 }
 
+function CopyLimitsRow() {
+  // Rendered inside the Deck Health panel as a single tight row so the
+  // rule is visible *before* a player runs into it. Reads directly from
+  // MAX_COPIES_PER_RARITY so this UI stays in sync if the caps ever
+  // change.
+  const order: Array<keyof typeof MAX_COPIES_PER_RARITY> =
+    ['common', 'rare', 'epic', 'legendary'];
+  return (
+    <div>
+      <div style={{ fontSize: 10, color: PALETTE.textMid, marginBottom: 4, fontWeight: 700 }}>
+        Copies per deck
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {order.map(r => (
+          <span key={r} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 7px', borderRadius: 8,
+            background: `${RARITY_COLOR[r]}1F`,
+            color: PALETTE.text,
+            fontSize: 10, fontWeight: 700,
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: RARITY_COLOR[r],
+            }} />
+            <span style={{ textTransform: 'capitalize' }}>{r}</span>
+            <span style={{ color: PALETTE.textMid }}>
+              max {MAX_COPIES_PER_RARITY[r]}
+            </span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function DeckHealthCollapsible({
   stats, open, onToggle,
 }: { stats: DeckStats; open: boolean; onToggle: () => void }) {
@@ -663,6 +701,7 @@ function DeckHealthBody({ stats }: { stats: DeckStats }) {
   const slots = Array.from({ length: DECK_SIZE });
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <CopyLimitsRow />
       {/* Slot progress */}
       <div>
         <div style={{ fontSize: 10, color: PALETTE.textMid, marginBottom: 4, fontWeight: 700 }}>
@@ -1080,13 +1119,14 @@ function ManageDeckModal({
 }
 
 function CardInspectModal({
-  card, inDeck, atCap, deckFull, cap, onClose, onToggle, onUpdateMemory,
+  card, inDeck, atCap, deckFull, cap, copiesInDeck, onClose, onToggle, onUpdateMemory,
 }: {
   card: CollectionCard;
   inDeck: boolean;
   atCap: boolean;
   deckFull: boolean;
   cap: number;
+  copiesInDeck: number;
   onClose: () => void;
   onToggle: () => void;
   onUpdateMemory?: (text: string) => void;
@@ -1097,6 +1137,7 @@ function CardInspectModal({
     : deckFull
       ? `Deck is full (${DECK_SIZE} cards)`
       : null;
+  const rarityColor = RARITY_COLOR[card.rarity] ?? PALETTE.textMid;
   return (
     <div
       onClick={onClose}
@@ -1119,6 +1160,22 @@ function CardInspectModal({
         }}
       >
         <Card card={card} hovered scale={0.9} />
+        <div style={{
+          display: 'inline-flex', alignItems: 'center', gap: 8,
+          padding: '6px 12px', borderRadius: 999,
+          background: 'rgba(255,255,255,.12)',
+          color: '#fff', fontSize: 11, fontWeight: 700,
+          letterSpacing: '0.04em',
+        }}>
+          <span style={{
+            width: 8, height: 8, borderRadius: '50%',
+            background: rarityColor,
+            boxShadow: `0 0 6px ${rarityColor}`,
+          }} />
+          <span style={{ textTransform: 'capitalize' }}>{card.rarity}</span>
+          <span style={{ opacity: 0.55 }}>·</span>
+          <span>{copiesInDeck} / {cap} in deck</span>
+        </div>
         {onUpdateMemory && (
           <MemoryPanel
             memory={card.memory}
