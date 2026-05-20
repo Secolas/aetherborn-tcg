@@ -2,7 +2,12 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
-import { UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2 } from 'lucide-react';
+import {
+  UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2,
+  Users, Flame, Lock, ChevronDown,
+} from 'lucide-react';
+import { PackCinematic, type PackVibe } from './PackOpening';
+import { ElementGlyph } from '../components/ElementGlyph';
 import { iconBtn } from '../components/styles';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
@@ -113,7 +118,15 @@ export function LandingPage() {
 
         <ThemeGrid />
 
+        <PackOpeningPreview />
+
+        <GameModesSection />
+
         <LiveTicker />
+
+        <PrivacyBlock />
+
+        <FAQSection />
 
         <div ref={formRef}>
           <AuthPanel
@@ -127,9 +140,7 @@ export function LandingPage() {
           />
         </div>
 
-        <footer className="landing-footer">
-          A photo TCG. Your life becomes the deck.
-        </footer>
+        <LandingFooter />
 
       </div>
     </div>
@@ -1049,6 +1060,224 @@ function LiveTicker() {
 }
 
 // ============================================================================
+// Pack opening preview — reuses PackCinematic + PackArt from
+// PackOpening.tsx so the landing animation is byte-for-byte the same
+// pack art and packLift/packTension keyframes a real player sees
+// when they tap a pack. Loops the lift → tension cycle indefinitely.
+// ============================================================================
+
+const PACK_PREVIEW_VIBE_EL: ElementId = 'family';
+
+function PackOpeningPreview() {
+  const def = ELEMENTS[PACK_PREVIEW_VIBE_EL];
+  // Re-keys whenever a fresh lift cycle starts, so the packLift +
+  // packTension keyframes restart cleanly. Without the key bump the
+  // browser may not replay a same-named animation on re-render.
+  const [cycleKey, setCycleKey] = useState(0);
+  const [stage, setStage] = useState<'lift' | 'tension'>('lift');
+
+  useEffect(() => {
+    let t1: ReturnType<typeof setTimeout>;
+    let t2: ReturnType<typeof setTimeout>;
+    const cycle = () => {
+      setStage('lift');
+      // 0.6s lift → switch to tension. PackCinematic's tension stage
+      // adds the packTension shake (3 iterations of 0.32s) on top of
+      // the 0.6s lift, so it lasts ~1.56s before we hold for a
+      // breath and restart.
+      t1 = setTimeout(() => setStage('tension'), 600);
+      t2 = setTimeout(() => {
+        setCycleKey(k => k + 1);
+        cycle();
+      }, 600 + 1600 + 700);
+    };
+    cycle();
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  // Build the same PackVibe shape the in-game flow constructs at
+  // line 212 of PackOpening.tsx: themed colors from ELEMENTS plus an
+  // ElementGlyph as the centerpiece icon.
+  const vibe: PackVibe = {
+    deep: def.deep,
+    color: def.color,
+    glow: def.glow,
+    title: def.name,
+    icon: <ElementGlyph el={PACK_PREVIEW_VIBE_EL} size={70} />,
+    el: PACK_PREVIEW_VIBE_EL,
+  };
+
+  return (
+    <section className="landing-packopen">
+      <div className="landing-section-title"><span>Open a pack</span></div>
+      <p className="landing-packopen-lede">
+        Every pack lifts, glints, shakes — then bursts. Five dormant cards spill out, each waiting for a photo to wake them up.
+      </p>
+      <div className="landing-packopen-stage">
+        <PackCinematic key={cycleKey} vibe={vibe} stage={stage} />
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Game modes — surfaces the three play modes that aren't visible in
+// the gameplay preview: PVP rooms, Campaign arcs, and Daily quests.
+// ============================================================================
+
+interface ModeDef {
+  name: string;
+  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  color: string;
+  desc: string;
+}
+
+const GAME_MODES: ModeDef[] = [
+  {
+    name: 'Online PVP',
+    Icon: Users,
+    color: '#3a8fc4',
+    desc: 'Create a room, share a 5-letter code, fight a friend with your real-life deck.',
+  },
+  {
+    name: 'Campaign',
+    Icon: Flag,
+    color: '#ee5a52',
+    desc: 'A bosses-and-arcs ladder. Mom, The Boss, Vex the Voidcaller — beat them all.',
+  },
+  {
+    name: 'Daily Quests',
+    Icon: Flame,
+    color: '#ff9f1c',
+    desc: 'Three quests refresh every day. Stack a streak for bigger coin payouts.',
+  },
+];
+
+function GameModesSection() {
+  return (
+    <section className="landing-modes">
+      <div className="landing-section-title"><span>Game modes</span></div>
+      <div className="landing-modes-grid">
+        {GAME_MODES.map(({ name, Icon, color, desc }) => (
+          <div key={name} className="landing-mode-card">
+            <div className="landing-mode-icon" style={{
+              background: `linear-gradient(135deg, ${color}33, ${color}11)`,
+              color,
+              boxShadow: `inset 0 0 0 1.5px ${color}55`,
+            }}>
+              <Icon size={22} color={color} strokeWidth={2.4} />
+            </div>
+            <div className="landing-mode-name">{name}</div>
+            <div className="landing-mode-desc">{desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Privacy block — the single biggest objection for a photo-collecting
+// game. One short, plain-language paragraph: photos stay private, no
+// feed, no AI training. Trust signal before the auth panel.
+// ============================================================================
+
+function PrivacyBlock() {
+  return (
+    <section className="landing-privacy">
+      <div className="landing-privacy-card">
+        <div className="landing-privacy-icon" aria-hidden>
+          <Lock size={22} strokeWidth={2.4} />
+        </div>
+        <div className="landing-privacy-body">
+          <div className="landing-privacy-title">Your photos stay yours</div>
+          <p className="landing-privacy-text">
+            Memoria stores the photos you take privately in your own collection. There's no public feed, no social timeline, no other player can see your cards, and we never use your photos to train AI. Delete a card and the photo is gone from our servers.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// FAQ — five questions covering the most-asked-on-discovery objections
+// for a photo TCG. Plain HTML <details> so it works without JS state.
+// ============================================================================
+
+interface FAQ { q: string; a: string }
+const FAQS: FAQ[] = [
+  {
+    q: 'Is it free?',
+    a: 'Yes — the full game is free. Open packs with coins you earn from playing matches and completing daily quests. No paid currency, no pay-to-win.',
+  },
+  {
+    q: 'Do I need a real camera?',
+    a: 'No. The capture screen uses your phone camera when available, but every step also has a file-upload fallback. Pick a photo from your gallery and the card wakes up the same way.',
+  },
+  {
+    q: "What if I don't have a dog / a sibling / a grandparent?",
+    a: 'Each card has a flexible photo prompt. "Family Pet" accepts any pet, including a friend\'s. "Mom" can be a maternal figure. Skip the card or fill it later — you only need 8 photographed cards to build a deck.',
+  },
+  {
+    q: 'Can I play offline?',
+    a: 'You can play solo (vs. AI bosses, campaign) once your collection is loaded. Online PVP and Firestore sync need a connection, but matches against Vex and the campaign run locally.',
+  },
+  {
+    q: 'Is online PVP real-time?',
+    a: 'Turn-based, but live — both clients sync through a shared Firestore room. Both players need at least 6 photographed cards to enter a match.',
+  },
+];
+
+function FAQSection() {
+  return (
+    <section className="landing-faq">
+      <div className="landing-section-title"><span>FAQ</span></div>
+      <div className="landing-faq-list">
+        {FAQS.map(({ q, a }) => (
+          <details key={q} className="landing-faq-item">
+            <summary className="landing-faq-q">
+              <span>{q}</span>
+              <ChevronDown size={16} strokeWidth={2.4} />
+            </summary>
+            <div className="landing-faq-a">{a}</div>
+          </details>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Footer — replaces the previous single-line footer with a small
+// nav: tagline, the three legal/contact links, copyright stamp.
+// ============================================================================
+
+function LandingFooter() {
+  return (
+    <footer className="landing-footer">
+      <div className="landing-footer-row">
+        <div className="landing-footer-brand">
+          <img src="/logo.png" alt="" width={24} height={24} />
+          <span>MEMORIA</span>
+        </div>
+        <nav className="landing-footer-nav">
+          <a href="#privacy">Privacy</a>
+          <a href="#terms">Terms</a>
+          <a href="mailto:hello@memoria.tcg">Contact</a>
+        </nav>
+      </div>
+      <div className="landing-footer-tagline">
+        A photo TCG. Your life becomes the deck.
+      </div>
+      <div className="landing-footer-copy">
+        © {new Date().getFullYear()} Memoria · Built with love
+      </div>
+    </footer>
+  );
+}
+
+// ============================================================================
 // Auth panel — the embedded sign-in / sign-up form
 // ============================================================================
 
@@ -1855,10 +2084,163 @@ const LANDING_CSS = `
   }
   .landing-auth-hint code { color: #ee5a52; background: #ffe8d6; padding: 1px 4px; border-radius: 4px; }
 
-  .landing-footer {
+  /* Pack opening preview -------------------------------------------- */
+  /* Reuses PackCinematic (packLift + packTension keyframes from
+     src/index.css) so this is the exact same animation a player sees
+     when they tap a pack in-game. */
+  .landing-packopen { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-packopen-lede {
+    max-width: 540px; margin: 0 auto 22px;
     text-align: center;
-    padding: 20px;
-    font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
+    font-size: 13px; line-height: 1.55;
+    color: #7a5a52;
+  }
+  .landing-packopen-stage {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 320px;
+  }
+
+  /* Game modes ------------------------------------------------------- */
+  /* Three-up grid surfacing PVP / Campaign / Daily — the modes the
+     gameplay preview doesn't show. White paper cards, themed icon
+     tiles, plain-language one-liners. */
+  .landing-modes { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-modes-grid {
+    display: grid; grid-template-columns: 1fr; gap: 12px;
+    max-width: 880px; margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .landing-modes-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  .landing-mode-card {
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 14px;
+    padding: 18px 16px;
+    box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
+    text-align: center;
+  }
+  .landing-mode-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    margin: 0 auto 10px;
+    display: grid; place-items: center;
+  }
+  .landing-mode-name {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700; font-size: 16px;
+    color: #3a2e2a;
+    margin-bottom: 6px;
+  }
+  .landing-mode-desc {
+    font-size: 12px; line-height: 1.5;
+    color: #7a5a52;
+  }
+
+  /* Privacy block ---------------------------------------------------- */
+  /* Trust-signal block before the auth panel. Calmer-than-CTA visual
+     so the message reads as fact, not marketing. */
+  .landing-privacy { padding: 18px 20px 0; position: relative; z-index: 2; }
+  .landing-privacy-card {
+    max-width: 720px; margin: 0 auto;
+    display: flex; align-items: flex-start; gap: 14px;
+    background: #fffbf5;
+    border: 1.5px solid rgba(58, 46, 42, .12);
+    border-left: 4px solid #ee5a52;
+    border-radius: 14px;
+    padding: 16px 18px;
+  }
+  .landing-privacy-icon {
+    flex: 0 0 auto;
+    width: 40px; height: 40px; border-radius: 12px;
+    background: #ee5a521a;
+    color: #ee5a52;
+    display: grid; place-items: center;
+    margin-top: 2px;
+  }
+  .landing-privacy-title {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700; font-size: 15px;
+    color: #3a2e2a;
+    margin-bottom: 4px;
+  }
+  .landing-privacy-text {
+    margin: 0;
+    font-size: 12.5px; line-height: 1.55;
+    color: #7a5a52;
+  }
+
+  /* FAQ -------------------------------------------------------------- */
+  /* Native <details> accordion — no JS state needed. Card surface
+     matches the pitch/mode cards so the section reads consistent. */
+  .landing-faq { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-faq-list {
+    max-width: 720px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .landing-faq-item {
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 12px;
+    padding: 0 14px;
+    transition: box-shadow .15s ease;
+  }
+  .landing-faq-item[open] {
+    box-shadow: 0 6px 16px rgba(58, 46, 42, .08);
+  }
+  .landing-faq-q {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+    padding: 12px 0;
+    cursor: pointer;
+    list-style: none;
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 600; font-size: 14px;
+    color: #3a2e2a;
+  }
+  .landing-faq-q::-webkit-details-marker { display: none; }
+  .landing-faq-q > svg { transition: transform .2s ease; flex: 0 0 auto; color: #a89580; }
+  .landing-faq-item[open] .landing-faq-q > svg { transform: rotate(180deg); color: #ee5a52; }
+  .landing-faq-a {
+    padding: 0 0 14px;
+    font-size: 13px; line-height: 1.55;
+    color: #7a5a52;
+  }
+
+  /* Footer ----------------------------------------------------------- */
+  .landing-footer {
+    margin-top: 12px;
+    padding: 28px 20px 24px;
+    border-top: 1px solid rgba(58, 46, 42, .08);
+    text-align: center;
+    background: rgba(255, 255, 255, .35);
+  }
+  .landing-footer-row {
+    display: flex; align-items: center; justify-content: space-between;
+    max-width: 720px; margin: 0 auto 14px;
+    flex-wrap: wrap; gap: 12px;
+  }
+  .landing-footer-brand {
+    display: flex; align-items: center; gap: 8px;
+    font-family: Fredoka, system-ui, sans-serif; font-weight: 700;
+    letter-spacing: 3px; font-size: 13px;
+    color: #ee5a52;
+  }
+  .landing-footer-nav {
+    display: flex; gap: 18px;
+    font-size: 13px;
+  }
+  .landing-footer-nav a {
+    color: #7a5a52;
+    text-decoration: none;
+    font-weight: 600;
+  }
+  .landing-footer-nav a:hover { color: #ee5a52; }
+  .landing-footer-tagline {
+    font-size: 13px; color: #7a5a52;
+    margin-bottom: 6px;
+  }
+  .landing-footer-copy {
+    font-size: 11px; letter-spacing: 1px; text-transform: uppercase;
     color: #a89580;
   }
 

@@ -30,7 +30,7 @@ type Stage = 'pick' | 'lift' | 'tension' | 'unbox' | 'stack' | 'revealing' | 'do
 
 const THEMES: ElementId[] = ['family', 'work', 'animals', 'travel', 'food', 'education'];
 
-interface PackVibe {
+export interface PackVibe {
   deep: string;
   color: string;
   glow: string;
@@ -1110,7 +1110,7 @@ function PackShopStyles() {
 // =================================================================
 // CINEMATIC + REVEAL (unchanged)
 // =================================================================
-function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tension' }) {
+export function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tension' }) {
   const animation = stage === 'lift'
     ? 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both'
     : 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both, packTension 0.32s ease-in-out 0.6s 3';
@@ -1650,7 +1650,7 @@ function rarityCue(r: Rarity): Parameters<typeof playSfx>[0] {
   }
 }
 
-function PackArt({ vibe }: { vibe: PackVibe }) {
+export function PackArt({ vibe }: { vibe: PackVibe }) {
   return (
     <div style={{
       width: 200, height: 280,
