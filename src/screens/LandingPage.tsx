@@ -95,6 +95,8 @@ export function LandingPage() {
 
         <PitchSection />
 
+        <GameplayPreview />
+
         <ThemeGrid />
 
         <LiveTicker />
@@ -499,6 +501,115 @@ function PitchSection() {
         ))}
       </div>
     </section>
+  );
+}
+
+// ============================================================================
+// Gameplay preview — a looping mockup of one turn unfolding on the
+// match board. CSS-only (no real engine): mana orbs light up, a card
+// flies from hand to board, then a strike pulses the opponent's HP.
+// Built to read instantly on a glance, not to be a full match sim.
+// ============================================================================
+
+function GameplayPreview() {
+  return (
+    <section className="landing-gameplay">
+      <div className="landing-section-title"><span>Watch a turn</span></div>
+      <div className="gp-frame">
+        {/* Opponent strip */}
+        <div className="gp-row gp-opp">
+          <div className="gp-portrait gp-portrait-opp" aria-hidden>
+            <div className="gp-portrait-name">Vex</div>
+            <div className="gp-hpbar">
+              <div className="gp-hpbar-fill gp-hpbar-fill-opp" />
+              <span className="gp-hpbar-text">18 / 24</span>
+            </div>
+          </div>
+          <div className="gp-board">
+            <GpBoardCard el="work" name="Intern" atk={1} hp={1} />
+          </div>
+        </div>
+
+        {/* Center divider — the 'attack lane' the strike crosses */}
+        <div className="gp-lane">
+          <div className="gp-attack-arrow" aria-hidden>
+            <svg width="40" height="40" viewBox="0 0 40 40">
+              <path d="M20 4 L28 20 L22 20 L22 36 L18 36 L18 20 L12 20 Z"
+                fill="#ee5a52" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Player strip — board + hand + mana */}
+        <div className="gp-row gp-me">
+          <div className="gp-board gp-board-me">
+            <GpBoardCard el="animals" name="Dog" atk={2} hp={4} taunt />
+            <GpBoardCard el="family" name="Mom" atk={3} hp={4} entering />
+          </div>
+        </div>
+
+        <div className="gp-hand-row">
+          <div className="gp-mana">
+            {[1, 2, 3, 4].map(i => (
+              <span key={i} className={`gp-orb ${i <= 3 ? 'gp-orb-on' : ''} ${i === 3 ? 'gp-orb-spending' : ''}`} />
+            ))}
+            <span className="gp-mana-text">3 / 4</span>
+          </div>
+          <div className="gp-hand">
+            <GpHandCard el="family" name="Mom" cost={3} flying />
+            <GpHandCard el="work" name="Coffee" cost={2} />
+            <GpHandCard el="animals" name="Treats" cost={3} />
+          </div>
+        </div>
+      </div>
+      <div className="gp-caption">
+        24 HP each. Mana ramps 1 → 10. Drag a card from your hand to play it; tap a creature to attack.
+      </div>
+    </section>
+  );
+}
+
+function GpBoardCard(props: {
+  el: ElementId; name: string; atk: number; hp: number;
+  taunt?: boolean; entering?: boolean;
+}) {
+  const def = ELEMENTS[props.el];
+  return (
+    <div
+      className={`gp-bcard ${props.entering ? 'gp-bcard-entering' : ''}`}
+      style={{
+        background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
+        borderColor: def.glow,
+      }}
+    >
+      <div className="gp-bcard-icon"><ThemeIcon el={props.el} size={22} /></div>
+      <div className="gp-bcard-name">{props.name}</div>
+      <div className="gp-bcard-stats">
+        <span className="gp-bcard-atk">{props.atk}</span>
+        <span className="gp-bcard-sep">/</span>
+        <span className="gp-bcard-hp">{props.hp}</span>
+      </div>
+      {props.taunt && <div className="gp-taunt-rim" aria-hidden />}
+    </div>
+  );
+}
+
+function GpHandCard(props: { el: ElementId; name: string; cost: number; flying?: boolean }) {
+  const def = ELEMENTS[props.el];
+  return (
+    <div
+      className={`gp-hcard ${props.flying ? 'gp-hcard-flying' : ''}`}
+      style={{
+        background: `linear-gradient(160deg, ${def.color} 0%, ${def.deep} 100%)`,
+        borderColor: def.glow,
+      }}
+    >
+      <div className="gp-hcard-cost" style={{ background: def.glow, color: def.deep }}>
+        {props.cost}
+      </div>
+      <div className="gp-hcard-icon"><ThemeIcon el={props.el} size={26} /></div>
+      <div className="gp-hcard-name">{props.name}</div>
+    </div>
   );
 }
 
@@ -1295,5 +1406,222 @@ const LANDING_CSS = `
     padding: 20px;
     font-size: 12px; letter-spacing: 2px; text-transform: uppercase;
     color: #a89580;
+  }
+
+  /* Gameplay preview ------------------------------------------------- */
+  /* The whole demo runs on a single 6-second loop. Mana orb 3 dims
+     just before the Mom card peels off the hand and lands on the
+     board, then the strike arrow sweeps up and the opponent HP bar
+     shudders down — order matters because real plays go in that
+     sequence in-game. */
+  @keyframes gp-fly {
+    0%, 30%   { transform: translate(0, 0) scale(1) rotate(0); opacity: 1; }
+    50%       { transform: translate(0, -90px) scale(1.08) rotate(-2deg); opacity: 1; }
+    65%       { transform: translate(0, -150px) scale(.95) rotate(0); opacity: 0; }
+    100%      { transform: translate(0, -150px) scale(.95) rotate(0); opacity: 0; }
+  }
+  @keyframes gp-enter {
+    0%, 55%   { opacity: 0; transform: translateY(10px) scale(.9); }
+    70%       { opacity: 1; transform: translateY(-2px) scale(1.04); }
+    80%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes gp-strike {
+    0%, 78%   { opacity: 0; transform: translateY(20px) scale(.6); }
+    84%       { opacity: 1; transform: translateY(-30px) scale(1.2); }
+    92%       { opacity: .6; transform: translateY(-60px) scale(.9); }
+    100%      { opacity: 0; transform: translateY(-70px) scale(.7); }
+  }
+  @keyframes gp-hp-drop {
+    0%, 82%   { width: 100%; }
+    88%       { width: 75%; }
+    100%      { width: 75%; }
+  }
+  @keyframes gp-hp-shake {
+    0%, 82%   { transform: translateX(0); }
+    84%       { transform: translateX(-2px); }
+    86%       { transform: translateX(2px); }
+    88%, 100% { transform: translateX(0); }
+  }
+  @keyframes gp-orb-spend {
+    0%, 38%   { transform: scale(1); filter: brightness(1); }
+    44%       { transform: scale(1.3); filter: brightness(1.6); }
+    50%, 100% { transform: scale(1); filter: brightness(.55) saturate(.4); }
+  }
+
+  .landing-gameplay { padding: 24px 20px; position: relative; z-index: 2; }
+  .gp-frame {
+    max-width: 520px; margin: 0 auto;
+    background: linear-gradient(180deg, #fef8f0 0%, #ffe8d6 100%);
+    border: 1.5px solid rgba(58, 46, 42, .1);
+    border-radius: 18px;
+    padding: 14px 12px 12px;
+    box-shadow: 0 10px 28px rgba(58, 46, 42, .12), inset 0 0 0 1px rgba(255,255,255,.4);
+    position: relative;
+  }
+  .gp-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 4px;
+  }
+  .gp-opp { justify-content: space-between; }
+  .gp-me  { justify-content: center; }
+
+  .gp-portrait {
+    display: flex; flex-direction: column; gap: 4px;
+    width: 110px;
+  }
+  .gp-portrait-name {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700; font-size: 13px; color: #3a2e2a;
+  }
+  .gp-hpbar {
+    position: relative;
+    height: 12px; border-radius: 6px;
+    background: rgba(58, 46, 42, .12);
+    overflow: hidden;
+  }
+  .gp-hpbar-fill {
+    position: absolute; inset: 0 auto 0 0;
+    width: 100%;
+    background: linear-gradient(90deg, #06d6a0 0%, #f4d04a 70%, #ee5a52 100%);
+    border-radius: 6px;
+  }
+  .gp-hpbar-fill-opp {
+    animation: gp-hp-drop 6s ease-in-out infinite,
+               gp-hp-shake 6s ease-in-out infinite;
+  }
+  .gp-hpbar-text {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: 700;
+    color: #fff;
+    text-shadow: 0 1px 1px rgba(0,0,0,.4);
+    letter-spacing: .5px;
+  }
+
+  .gp-board {
+    flex: 1;
+    display: flex; gap: 6px; justify-content: flex-end;
+    min-height: 78px;
+  }
+  .gp-board-me {
+    justify-content: center;
+  }
+
+  /* Board card — mini representation of a creature on the field */
+  .gp-bcard {
+    position: relative;
+    width: 64px; height: 78px;
+    border-radius: 8px;
+    border: 1.5px solid;
+    padding: 4px;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    color: #fff;
+    box-shadow: 0 4px 10px rgba(58, 46, 42, .18);
+  }
+  .gp-bcard-entering { animation: gp-enter 6s ease-out infinite; }
+  .gp-bcard-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(255,255,255,.12);
+    display: grid; place-items: center;
+    margin-top: 2px;
+  }
+  .gp-bcard-name {
+    font-size: 9px; font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0,0,0,.5);
+    text-align: center;
+  }
+  .gp-bcard-stats {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; gap: 1px;
+  }
+  .gp-bcard-atk { color: #ffd166; }
+  .gp-bcard-sep { color: rgba(255,255,255,.6); margin: 0 1px; }
+  .gp-bcard-hp  { color: #ff7e9a; }
+  /* Taunt rim — yellow halo around the Dog card. Matches the in-game
+     visual cue (taunt creatures glow). */
+  .gp-taunt-rim {
+    position: absolute; inset: -3px;
+    border-radius: 11px;
+    border: 2px solid rgba(255, 209, 102, .7);
+    pointer-events: none;
+    box-shadow: 0 0 12px rgba(255, 209, 102, .5);
+  }
+
+  /* The 'attack lane' between the two boards. An animated arrow
+     crosses it once per loop. */
+  .gp-lane {
+    position: relative; height: 8px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .gp-attack-arrow {
+    position: absolute;
+    animation: gp-strike 6s ease-out infinite;
+  }
+
+  .gp-hand-row {
+    margin-top: 8px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(58, 46, 42, .15);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .gp-mana {
+    display: flex; align-items: center; gap: 5px;
+    padding: 0 4px;
+    font-size: 11px; color: #7a5a52; font-weight: 600;
+  }
+  .gp-orb {
+    width: 12px; height: 12px; border-radius: 50%;
+    background: rgba(58, 46, 42, .14);
+    border: 1px solid rgba(58, 46, 42, .18);
+  }
+  .gp-orb-on {
+    background: radial-gradient(circle at 35% 30%, #6cd3ff 0%, #3a8fc4 70%);
+    border-color: #2b6f9d;
+    box-shadow: 0 0 6px rgba(58, 143, 196, .6);
+  }
+  .gp-orb-spending { animation: gp-orb-spend 6s ease-in-out infinite; }
+  .gp-mana-text { margin-left: 4px; }
+
+  .gp-hand {
+    display: flex; gap: 8px; justify-content: center;
+    padding: 4px 0 2px;
+  }
+  .gp-hcard {
+    position: relative;
+    width: 60px; height: 84px;
+    border-radius: 8px;
+    border: 1.5px solid;
+    padding: 4px;
+    color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+    box-shadow: 0 6px 12px rgba(58, 46, 42, .2);
+  }
+  .gp-hcard-flying { animation: gp-fly 6s ease-in-out infinite; }
+  .gp-hcard-cost {
+    position: absolute; top: -6px; left: -6px;
+    width: 18px; height: 18px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 800;
+    box-shadow: 0 2px 4px rgba(58, 46, 42, .25);
+  }
+  .gp-hcard-icon {
+    width: 32px; height: 32px; border-radius: 6px;
+    background: rgba(255,255,255,.12);
+    display: grid; place-items: center;
+    margin-top: 8px;
+  }
+  .gp-hcard-name {
+    font-size: 9px; font-weight: 700;
+    text-shadow: 0 1px 1px rgba(0,0,0,.5);
+    text-align: center;
+    line-height: 1.1;
+  }
+
+  .gp-caption {
+    margin: 14px auto 0;
+    max-width: 520px;
+    text-align: center;
+    font-size: 12px; color: #7a5a52; line-height: 1.5;
   }
 `;
