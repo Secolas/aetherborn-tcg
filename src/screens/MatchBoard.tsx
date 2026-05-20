@@ -4537,7 +4537,7 @@ function StatusLabels({
 }
 
 /** Skull-icon pill that opens the graveyard modal for one player's pile. */
-function GraveyardButton({ count, onClick, elRef, pulseKey }: {
+export function GraveyardButton({ count, onClick, elRef, pulseKey }: {
   count: number;
   onClick: () => void;
   /** Forwarded so MatchBoard can capture this button's position into
@@ -4797,7 +4797,7 @@ function PlayerPortrait({ hp, avatar, highlight, onClick, onLongPress, damage, e
  *  PVP chat emote — bubble + picker
  * ============================================================ */
 
-function EmoteBubble({ id, bubbleKey, placement }: {
+export function EmoteBubble({ id, bubbleKey, placement }: {
   id: ChatEmoteId;
   bubbleKey: number;
   placement: 'above' | 'below';
@@ -5059,7 +5059,7 @@ function InfoRow({ icon, label, value, tint, last }: {
  * the cap approaches: white → orange (≤5 left) → red (≤2 left), so the
  * player always knows whether they need to push for the kill or hold HP.
  */
-function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
+export function TurnChip({ turnNumber, limit }: { turnNumber: number; limit: number }) {
   return (
     <div style={{
       background: '#fff',

@@ -4,7 +4,7 @@ import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
 import { UserRound } from 'lucide-react';
 import { BattlefieldCard } from '../components/BattlefieldCard';
-import { Portrait, ManaCrystals } from './MatchBoard';
+import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
 import { CosmeticsProvider } from '../state/cosmetics';
 import { getTemplateById } from '../data/templates';
 import { aiPhoto } from '../data/samplePhotos';
@@ -561,6 +561,18 @@ function GameplayPreview() {
   // Increments every time the loop wraps. Used as the key on the
   // defender so it remounts with a fresh cardSlam after a kill.
   const [loopKey, setLoopKey] = useState(0);
+  // Bumps the moment the defender takes lethal damage. Re-keys the
+  // EmoteBubble so its in/out animation replays — Mom reacts "Oops…"
+  // every time her creature gets killed.
+  const [oppEmoteKey, setOppEmoteKey] = useState(0);
+  // Re-keys the opponent's graveyard chip so the gravePulse animation
+  // plays each time a card lands in the bin.
+  const [graveCount, setGraveCount] = useState(0);
+  const [gravePulseKey, setGravePulseKey] = useState(0);
+  // Demo "turn counter" — ticks forward each loop. Starts at 4 (the
+  // turn Dog goes online in the actual tutorial) so the chip reads
+  // like a real mid-match shot.
+  const [turn, setTurn] = useState(4);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -568,9 +580,20 @@ function GameplayPreview() {
     const tick = () => {
       const step = GP_SCHEDULE[idx];
       setPhase(step.phase);
+      // Trigger Mom's "Oops…" emote + bump the opponent graveyard
+      // count the moment the defender takes lethal damage, so the
+      // emote bubble and the skull pulse arrive on the same beat.
+      if (step.phase === 'impact') {
+        setOppEmoteKey(k => k + 1);
+        setGraveCount(c => c + 1);
+        setGravePulseKey(k => k + 1);
+      }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
-        if (idx === 0) setLoopKey(k => k + 1);
+        if (idx === 0) {
+          setLoopKey(k => k + 1);
+          setTurn(t => t + 1);
+        }
         tick();
       }, step.ms);
     };
@@ -616,22 +639,37 @@ function GameplayPreview() {
           which is what a brand-new player sees. */}
       <CosmeticsProvider>
         <div className="gp-board">
-          {/* Opponent header: portrait + mana on the left, same as
-              the in-game OpponentPortrait + ManaCrystals row. */}
+          {/* Opponent header: portrait + mana + name on the left,
+              graveyard chip on the right. The Portrait wrapper is
+              position: relative so the EmoteBubble (absolutely
+              positioned) anchors to it. The bubble re-keys whenever
+              Mom's minion is killed — same wiring the PVP code path
+              uses for live chat reactions. */}
           <div className="gp-header">
-            <Portrait
-              avatar=""
-              avatarPhoto="/cards/mom.webp"
-              avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
-              avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
-              hp={24}
-              ring={null}
-              hit={false}
-              damage={null}
-              onClick={() => {}}
-            />
+            <div className="gp-portrait-wrap">
+              <Portrait
+                avatar=""
+                avatarPhoto="/cards/mom.webp"
+                avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
+                avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
+                hp={24}
+                ring={null}
+                hit={false}
+                damage={null}
+                onClick={() => {}}
+              />
+              {oppEmoteKey > 0 && (
+                <EmoteBubble id="oops" bubbleKey={oppEmoteKey} placement="below" />
+              )}
+            </div>
             <ManaCrystals mana={3} maxMana={3} />
             <div className="gp-header-name">Mom</div>
+            <div className="gp-header-spacer" />
+            <GraveyardButton
+              count={graveCount}
+              pulseKey={gravePulseKey}
+              onClick={() => {}}
+            />
           </div>
 
           {/* Opponent field — defender centered. */}
@@ -648,7 +686,13 @@ function GameplayPreview() {
             )}
           </div>
 
-          <div className="gp-divider" aria-hidden />
+          {/* Center band — dashed lane separator with the TurnChip
+              hanging in the middle, same as the in-game divider. */}
+          <div className="gp-divider">
+            <div className="gp-divider-line" aria-hidden />
+            <TurnChip turnNumber={turn} limit={20} />
+            <div className="gp-divider-line" aria-hidden />
+          </div>
 
           {/* Player field — attacker centered. */}
           <div className="gp-field">
@@ -661,8 +705,8 @@ function GameplayPreview() {
             </div>
           </div>
 
-          {/* Player footer: portrait + mana on the left, same shape
-              as the opponent header. */}
+          {/* Player footer: portrait + mana + name on the left,
+              graveyard on the right. Same shape as the opp header. */}
           <div className="gp-header">
             <Portrait
               avatar={<UserRound size={18} strokeWidth={2.2} />}
@@ -676,6 +720,8 @@ function GameplayPreview() {
             />
             <ManaCrystals mana={4} maxMana={4} />
             <div className="gp-header-name">You</div>
+            <div className="gp-header-spacer" />
+            <GraveyardButton count={0} onClick={() => {}} />
           </div>
         </div>
       </CosmeticsProvider>
@@ -1510,17 +1556,34 @@ const LANDING_CSS = `
     overflow: hidden;
   }
 
-  /* Header strip — left-aligned, mirrors the match's player + opp
-     header rows: portrait + mana + name. */
+  /* Header strip — mirrors the match's player + opp header rows:
+     portrait + mana + name on the left, graveyard chip on the right.
+     The flex spacer between the two clusters pushes the graveyard
+     to the far edge, same layout the in-game MatchBoard uses. */
   .gp-header {
-    display: flex; align-items: center; gap: 10px;
+    display: flex; align-items: center; gap: 8px;
     padding: 4px 0;
   }
   .gp-header-name {
     font-family: Fredoka, system-ui, sans-serif;
     font-weight: 700; font-size: 13px;
     color: #3a2e2a;
-    margin-left: 4px;
+    margin-left: 2px;
+  }
+  .gp-header-spacer { flex: 1; }
+  /* Position context for the EmoteBubble — the bubble positions
+     itself absolutely against the closest positioned ancestor. */
+  .gp-portrait-wrap { position: relative; }
+
+  /* Center band — dashed lane on either side of the TurnChip, same
+     visual the in-game MatchBoard uses to mark the turn count. */
+  .gp-divider {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 0;
+  }
+  .gp-divider-line {
+    flex: 1;
+    border-top: 1px dashed rgba(58, 46, 42, .22);
   }
 
   /* Field rows — creatures are dead-center horizontally. The min-
@@ -1530,14 +1593,6 @@ const LANDING_CSS = `
     display: flex; align-items: center; justify-content: center;
     min-height: 92px;
     padding: 4px 0;
-  }
-
-  /* Dashed divider — same lane separator the in-game MatchBoard
-     draws between opponent and player fields. */
-  .gp-divider {
-    height: 1px;
-    border-top: 1px dashed rgba(58, 46, 42, .22);
-    margin: 4px 6px;
   }
 
   /* Soft red pulse around the attacker while it's idle, so the
