@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { useAuth } from '../firebase/auth';
 import { ELEMENTS } from '../data/elements';
-import { UserRound, Flag, Swords } from 'lucide-react';
+import { UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban } from 'lucide-react';
 import { iconBtn } from '../components/styles';
 import { BattlefieldCard } from '../components/BattlefieldCard';
 import { Portrait, ManaCrystals, EmoteBubble, GraveyardButton, TurnChip } from './MatchBoard';
@@ -33,7 +33,10 @@ const THEME_ICON: Record<ElementId, ComponentType<{ size?: number; color?: strin
  */
 export function LandingPage() {
   const { signUp, signIn, signInWithGoogle, unconfigured } = useAuth();
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
+  // Default to signup on the landing — most visitors are new users.
+  // Returning players have the "Sign in" button in the top bar (and
+  // can flip the form with the "Already have a deck?" toggle below).
+  const [mode, setMode] = useState<'signin' | 'signup'>('signup');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -103,6 +106,8 @@ export function LandingPage() {
         <PitchSection />
 
         <GameplayPreview />
+
+        <AbilitiesSection />
 
         <ThemeGrid />
 
@@ -813,6 +818,81 @@ function GameplayPreview() {
 }
 
 // ============================================================================
+// Abilities — the in-game keyword roster, colored + iconed to match
+// the actual BattlefieldCard status pills. New visitors get a one-
+// glance read on what the keywords on the showcase cards mean.
+// ============================================================================
+
+interface AbilityDef {
+  name: string;
+  Icon: ComponentType<{ size?: number; color?: string; strokeWidth?: number }>;
+  color: string;
+  desc: string;
+}
+
+/** Same icon + color set BattlefieldCard's StatusPills use, so the
+ *  ability tile feels like a legend for what the cards on the field
+ *  are already showing. Pulled from src/components/BattlefieldCard.tsx
+ *  lines 510-513. */
+const ABILITIES: AbilityDef[] = [
+  {
+    name: 'Rush',
+    Icon: Zap,
+    color: '#ee5a52',
+    desc: 'Attacks the turn it’s summoned. No waking up — straight into the fight.',
+  },
+  {
+    name: 'Taunt',
+    Icon: Target,
+    color: '#3d8e57',
+    desc: 'Enemies must hit Taunt creatures first. Wall up your board with one.',
+  },
+  {
+    name: 'Untargetable',
+    Icon: ShieldHalf,
+    color: '#7a4ea8',
+    desc: 'Spells can’t pick this creature. The only way through is combat.',
+  },
+  {
+    name: 'Freeze',
+    Icon: Snowflake,
+    color: '#3a8fc4',
+    desc: 'Skips its next turn — can’t attack, can’t trigger end-of-turn effects.',
+  },
+  {
+    name: 'Silence',
+    Icon: Ban,
+    color: '#a47bff',
+    desc: 'Loses its ability. The body stays, the magic doesn’t.',
+  },
+];
+
+function AbilitiesSection() {
+  return (
+    <section className="landing-abilities">
+      <div className="landing-section-title"><span>Keywords</span></div>
+      <div className="landing-abilities-grid">
+        {ABILITIES.map(({ name, Icon, color, desc }) => (
+          <div key={name} className="landing-ability-card">
+            <div className="landing-ability-icon" style={{
+              background: `${color}1a`,
+              color,
+              boxShadow: `inset 0 0 0 1.5px ${color}55`,
+            }}>
+              <Icon size={18} color={color} strokeWidth={2.4} />
+            </div>
+            <div className="landing-ability-body">
+              <div className="landing-ability-name">{name}</div>
+              <div className="landing-ability-desc">{desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
 // Theme grid — six photo prompts, each one a mini themed tile
 // ============================================================================
 
@@ -1435,6 +1515,43 @@ const LANDING_CSS = `
   }
   .landing-pitch-title { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #3a2e2a; }
   .landing-pitch-body { font-size: 13px; line-height: 1.5; color: #7a5a52; }
+
+  /* Abilities --------------------------------------------------------- */
+  /* Keyword roster — same icon + color treatment the in-game
+     BattlefieldCard StatusPills use, just blown up so the keyword
+     name + description fit alongside. Card surface is paper white
+     to match the auth/pitch cards. */
+  .landing-abilities { padding: 24px 20px; position: relative; z-index: 2; }
+  .landing-abilities-grid {
+    display: grid; grid-template-columns: 1fr; gap: 10px;
+    max-width: 720px; margin: 0 auto;
+  }
+  @media (min-width: 720px) {
+    .landing-abilities-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  .landing-ability-card {
+    display: flex; align-items: center; gap: 12px;
+    background: #fff;
+    border: 1.5px solid rgba(58, 46, 42, .08);
+    border-radius: 14px;
+    padding: 12px 14px;
+    box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
+  }
+  .landing-ability-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: grid; place-items: center;
+    flex: 0 0 auto;
+  }
+  .landing-ability-name {
+    font-family: Fredoka, system-ui, sans-serif;
+    font-weight: 700; font-size: 15px;
+    color: #3a2e2a;
+  }
+  .landing-ability-desc {
+    margin-top: 2px;
+    font-size: 12px; line-height: 1.45;
+    color: #7a5a52;
+  }
 
   /* Themes ------------------------------------------------------------ */
   .landing-themes { padding: 24px 20px; position: relative; z-index: 2; }
