@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Memoria</title>
+  <meta name="theme-color" content="#fef8f0" />
+  <link rel="icon" type="image/png" href="/logo.png" />
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: #fef8f0;
+      color: #3a2e2a;
+      line-height: 1.6;
+    }
+    .doc {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 48px 24px 80px;
+    }
+    .doc-back {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #ee5a52;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+    .doc-back:hover { text-decoration: underline; }
+    h1 {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      background: linear-gradient(135deg, #ff9f1c 0%, #ff7e5f 60%, #ee5a52 100%);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .doc-sub {
+      color: #a89580;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 32px;
+    }
+    h2 {
+      font-family: 'Fredoka', system-ui, sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #3a2e2a;
+      margin: 32px 0 10px;
+    }
+    p { color: #5a4540; margin: 10px 0; }
+    strong { color: #3a2e2a; }
+    ul { color: #5a4540; padding-left: 22px; }
+    li { margin: 4px 0; }
+    a { color: #ee5a52; }
+    code {
+      background: #ffe8d6;
+      color: #ee5a52;
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-size: .9em;
+    }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <a href="/" class="doc-back">← Back to Memoria</a>
+    <h1>Privacy Policy</h1>
+    <div class="doc-sub">Last updated: May 2026</div>
+
+    <p>
+      Memoria is a photo-based trading card game. To make that work, we collect a small
+      amount of personal data. This page lays out exactly what we collect, where it lives,
+      and what we will and won't do with it. If anything here is unclear, write to us at
+      <a href="mailto:hello@memoria.tcg">hello@memoria.tcg</a>.
+    </p>
+
+    <h2>What we collect</h2>
+    <ul>
+      <li><strong>Account info</strong> — your email address and a display name. If you
+        sign in with Google, we also receive your Google profile name and avatar.</li>
+      <li><strong>Photos you take</strong> — the pictures you assign to dormant cards.
+        These live in your private Memoria collection and nowhere else.</li>
+      <li><strong>Gameplay data</strong> — your card collection, decks, match history,
+        coins, completed quests, equipped cosmetics. Same data that powers your save.</li>
+      <li><strong>PVP messages</strong> — the chat emotes you send during online
+        matches. Stored only for the duration of the match.</li>
+    </ul>
+
+    <h2>Where it lives</h2>
+    <p>
+      Everything is stored in Google Firebase: Authentication for your login, Firestore
+      for your save file, and Cloud Storage for your photos. We do not run our own
+      servers. Firebase encrypts data at rest and in transit.
+    </p>
+
+    <h2>Who can see your photos</h2>
+    <p>
+      <strong>Only you.</strong> Memoria has no public feed, no social timeline, no
+      shared galleries. Other players cannot view, download, or reverse-engineer your
+      collection — not even your PVP opponents.
+    </p>
+
+    <h2>What we won't do</h2>
+    <ul>
+      <li>We will not sell, rent, or share your photos with anyone.</li>
+      <li>We will not use your photos to train AI, train models, or improve any
+        machine-learning system.</li>
+      <li>We will not run ads on Memoria.</li>
+      <li>We will not track you across other apps or websites.</li>
+    </ul>
+
+    <h2>Deleting your data</h2>
+    <p>
+      Delete a card and its photo is removed from Cloud Storage. Delete your account by
+      writing to <a href="mailto:hello@memoria.tcg">hello@memoria.tcg</a> from the email
+      you signed up with — we wipe your save file and any photos still in storage
+      within 7 days.
+    </p>
+
+    <h2>Cookies</h2>
+    <p>
+      Memoria uses <code>localStorage</code> only for things like remembering whether
+      you've seen the landing page, your audio volume, and a one-time wipe flag for
+      legacy save data. We don't use cookies for advertising or analytics.
+    </p>
+
+    <h2>Children</h2>
+    <p>
+      Memoria is not directed to children under 13. If you believe a child has signed
+      up, contact us and we'll close the account.
+    </p>
+
+    <h2>Changes</h2>
+    <p>
+      If we change this policy materially, we will surface a notice in the app before
+      the change takes effect. The "Last updated" date at the top of this page is
+      always current.
+    </p>
+
+    <h2>Contact</h2>
+    <p>
+      Questions, deletion requests, or anything else:
+      <a href="mailto:hello@memoria.tcg">hello@memoria.tcg</a>.
+    </p>
+  </main>
+</body>
+</html>

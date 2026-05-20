@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './firebase/auth';
 import { useFirestoreSave } from './hooks/useFirestoreSave';
 import { uploadCardPhoto, uploadPlayerAvatar, deleteCardPhoto, migrateCollectionPhotos, isDataUriPhoto } from './firebase/photos';
 import { LandingPage } from './screens/LandingPage';
+import { Login } from './screens/Login';
 import { PvpLobby } from './screens/PvpLobby';
 import { PvpRoom } from './screens/PvpRoom';
 import { Capture } from './screens/Capture';
@@ -111,8 +112,42 @@ export default function App() {
   );
 }
 
+/** localStorage flag — set once the user has scrolled past the
+ *  marketing landing on this device. Subsequent unauthenticated
+ *  visits land directly on the Login screen instead of replaying the
+ *  marketing page. The version suffix lets us bump if the landing
+ *  copy changes materially and we want returning users to see it. */
+const LANDING_SEEN_KEY = 'memoria-landing-seen-v1';
+
+function hasSeenLanding(): boolean {
+  try { return localStorage.getItem(LANDING_SEEN_KEY) === '1'; }
+  catch { return false; }
+}
+
+function markLandingSeen() {
+  try { localStorage.setItem(LANDING_SEEN_KEY, '1'); } catch { /* private mode — fine */ }
+}
+
 function AuthGate() {
   const { user, loading } = useAuth();
+  // First-time visitor → landing (marketing). Returning user →
+  // straight to Login. The split keeps the marketing page clean
+  // (no auth form clutter) and gets repeat visitors to the form in
+  // one less screen.
+  const [view, setView] = useState<'landing' | 'login'>(() =>
+    hasSeenLanding() ? 'login' : 'landing'
+  );
+  // When the landing CTA fires, we also remember whether the user
+  // hit "Begin your album" (signup intent) or the topbar "Sign in"
+  // (signin intent) so Login mounts in the right mode.
+  const [loginInitialMode, setLoginInitialMode] = useState<'signin' | 'signup'>('signin');
+
+  const enterLogin = (mode: 'signin' | 'signup') => {
+    markLandingSeen();
+    setLoginInitialMode(mode);
+    setView('login');
+  };
+
   if (loading) {
     return (
       <PhoneShell>
@@ -124,9 +159,24 @@ function AuthGate() {
     );
   }
   if (!user) {
+    if (view === 'landing') {
+      return (
+        <PhoneShell>
+          <LandingPage onEnterApp={enterLogin} />
+        </PhoneShell>
+      );
+    }
+    // 'login' view. Only show the back-to-landing chip if there's
+    // somewhere to go back to — when the user cold-loads on Login
+    // (returning user, localStorage flag already set), we omit the
+    // chip so the screen isn't promising a tour that's hidden a
+    // click away.
     return (
       <PhoneShell>
-        <LandingPage />
+        <Login
+          initialMode={loginInitialMode}
+          onBackToLanding={hasSeenLanding() ? undefined : () => setView('landing')}
+        />
       </PhoneShell>
     );
   }

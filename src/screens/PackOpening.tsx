@@ -30,7 +30,7 @@ type Stage = 'pick' | 'lift' | 'tension' | 'emerge' | 'revealing' | 'done';
 
 const THEMES: ElementId[] = ['family', 'work', 'animals', 'travel', 'food', 'education'];
 
-interface PackVibe {
+export interface PackVibe {
   deep: string;
   color: string;
   glow: string;
@@ -1155,7 +1155,7 @@ function PackShopStyles() {
 // =================================================================
 // CINEMATIC + REVEAL (unchanged)
 // =================================================================
-function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tension' }) {
+export function PackCinematic({ vibe, stage }: { vibe: PackVibe; stage: 'lift' | 'tension' }) {
   const animation = stage === 'lift'
     ? 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both'
     : 'packLift 0.6s cubic-bezier(.18,.85,.3,1.1) both, packTension 0.32s ease-in-out 0.6s 3';
@@ -1743,36 +1743,125 @@ function rarityCue(r: Rarity): Parameters<typeof playSfx>[0] {
   }
 }
 
-function PackArt({ vibe }: { vibe: PackVibe }) {
+/** Pack art rendered inside the opening cinematic — matches the
+ *  BoosterElement shop tile (PULL tear strip, foil sheen, sigil disc,
+ *  wordmark, stats band) so what you grab in the shop is what you see
+ *  lifting on screen. Inline styles instead of the .bp-* class set so
+ *  PackArt stays portable outside PackShopStyles (e.g. the landing
+ *  page's preview also renders this component). */
+export function PackArt({ vibe }: { vibe: PackVibe }) {
   return (
     <div style={{
       width: 200, height: 280,
       borderRadius: 16,
-      background: `linear-gradient(135deg, ${vibe.deep} 0%, ${vibe.color} 50%, ${vibe.deep} 100%)`,
+      background: `linear-gradient(165deg, ${vibe.color} 0%, ${vibe.deep} 100%)`,
       boxShadow: `
+        0 4px 0 rgba(28,24,20,.08),
         0 18px 40px rgba(0,0,0,.5),
-        inset 0 0 0 3px ${vibe.glow},
-        inset 0 0 30px ${vibe.glow}55,
+        inset 0 -3px 0 rgba(0,0,0,.22),
+        inset 0 1.5px 0 rgba(255,255,255,.18),
+        inset 0 0 0 3px ${vibe.glow}55,
         0 0 60px ${vibe.glow}55
       `,
       position: 'relative',
-      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-      gap: 12,
-      transition: 'transform .2s',
+      overflow: 'hidden',
+      color: '#fff',
+      fontFamily: '"Fredoka", "Inter", system-ui, sans-serif',
     }}>
+      {/* Tear strip — dashed PULL band at the very top of the pack,
+          same as BoosterElement's .bp-tear / .bp-tear-pattern /
+          .bp-tear-label. Sells "this is a sealed booster". */}
       <div style={{
-        fontSize: 11, letterSpacing: '0.4em', textTransform: 'uppercase',
-        color: vibe.glow, fontFamily: '"Cinzel", Georgia, serif',
-      }}>Memoria</div>
+        position: 'absolute', top: 0, left: 0, right: 0,
+        height: 22,
+        background: 'rgba(0,0,0,.18)',
+        borderBottom: '1.5px dashed rgba(255,255,255,.35)',
+        display: 'grid', placeItems: 'center',
+        overflow: 'hidden',
+      }} aria-hidden>
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'repeating-linear-gradient(90deg, transparent 0 6px, rgba(255,255,255,.10) 6px 8px)',
+        }} />
+        <div style={{
+          position: 'relative',
+          fontWeight: 800,
+          fontSize: 8,
+          letterSpacing: '0.35em',
+          color: 'rgba(255,255,255,.65)',
+        }}>PULL</div>
+      </div>
+
+      {/* Foil sheen — diagonal radial highlights painted above the
+          base gradient. Identical math to .bp-foil. */}
       <div style={{
-        fontSize: 28, fontWeight: 700, fontFamily: '"Cinzel", Georgia, serif',
-        color: '#fff', textShadow: `0 0 20px ${vibe.glow}`,
-        letterSpacing: '0.05em', textTransform: 'uppercase',
-        textAlign: 'center', padding: '0 8px',
-      }}>{vibe.title}</div>
-      {vibe.icon}
-      <div style={{ fontSize: 10, letterSpacing: '0.2em', textTransform: 'uppercase', opacity: 0.85 }}>
-        {PACK_SIZE} dormant cards
+        position: 'absolute', inset: '22px 0 0 0',
+        background: `
+          radial-gradient(ellipse 60% 40% at 10% 0%, rgba(255,255,255,.32), transparent 60%),
+          radial-gradient(ellipse 60% 60% at 90% 100%, rgba(0,0,0,.22), transparent 60%)
+        `,
+        mixBlendMode: 'overlay',
+        opacity: 0.85,
+        pointerEvents: 'none',
+      }} aria-hidden />
+
+      {/* Sigil disc — the themed glyph centered in the top quarter,
+          framed by a soft inset ring. Mirrors .bp-sigil. */}
+      <div style={{
+        position: 'absolute', top: '24%', left: '50%',
+        width: 78, height: 78,
+        transform: 'translate(-50%, 0)',
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,.10)',
+        border: '1.5px solid rgba(255,255,255,.22)',
+        boxShadow: 'inset 0 0 0 6px rgba(255,255,255,.05)',
+        display: 'grid', placeItems: 'center',
+      }}>
+        {vibe.icon}
+      </div>
+
+      {/* Wordmark — left-aligned eyebrow + name pair, mirrors
+          .bp-wordmark / .bp-eyebrow / .bp-name. */}
+      <div style={{
+        position: 'absolute',
+        left: 12, right: 12, bottom: 56,
+        textAlign: 'left',
+      }}>
+        <div style={{
+          fontWeight: 800,
+          fontSize: 9, letterSpacing: '0.22em',
+          textTransform: 'uppercase', opacity: 0.75,
+        }}>Element pack</div>
+        <div style={{
+          fontWeight: 800,
+          fontSize: 20, letterSpacing: '-0.005em',
+          marginTop: 2,
+          textShadow: '0 1px 0 rgba(0,0,0,.18)',
+          lineHeight: 1.05,
+        }}>{vibe.title}</div>
+      </div>
+
+      {/* Stats band — same dark pill the shop tile carries, listing
+          card count + the rare+ guarantee. Mirrors .bp-band. */}
+      <div style={{
+        position: 'absolute',
+        left: 10, right: 10, bottom: 10,
+        padding: '7px 10px',
+        background: 'rgba(0,0,0,.32)',
+        backdropFilter: 'blur(4px)',
+        WebkitBackdropFilter: 'blur(4px)',
+        border: '1px solid rgba(255,255,255,.14)',
+        borderRadius: 10,
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        gap: 8,
+        fontWeight: 700,
+        fontSize: 10, letterSpacing: '0.04em',
+      }}>
+        <span style={{ color: 'rgba(255,255,255,.92)', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          <span>{PACK_SIZE} cards</span>
+          <span style={{ opacity: 0.6 }}>·</span>
+          <span style={{ color: '#ffd96b' }}>1 rare+</span>
+        </span>
       </div>
     </div>
   );
