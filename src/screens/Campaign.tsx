@@ -64,25 +64,29 @@ const ARC_REGIONS: Record<string, string> = {
 // step (see src/screens/Tutorial.tsx + the App's first-boot routing),
 // not a stop on the lane.
 const DESKTOP_STOPS: { arcId: string; x: number; y: number }[] = [
-  { arcId: 'arc-family',    x: 0.08, y: 0.65 },
-  { arcId: 'arc-animals',   x: 0.24, y: 0.32 },
-  { arcId: 'arc-work',      x: 0.40, y: 0.72 },
-  { arcId: 'arc-food',      x: 0.55, y: 0.30 },
-  { arcId: 'arc-education', x: 0.71, y: 0.66 },
-  { arcId: 'arc-travel',    x: 0.85, y: 0.32 },
-  { arcId: 'arc-couple',    x: 0.95, y: 0.72 },
+  // Path coords are positional (left→right journey across the map).
+  // Order matches CAMPAIGNS in src/data/campaign.ts — animals first
+  // (easiest curated boss, primal childhood) through family last
+  // (Mom, the hardest deck, the homecoming).
+  { arcId: 'arc-animals',   x: 0.08, y: 0.65 },
+  { arcId: 'arc-travel',    x: 0.24, y: 0.32 },
+  { arcId: 'arc-education', x: 0.40, y: 0.72 },
+  { arcId: 'arc-couple',    x: 0.55, y: 0.30 },
+  { arcId: 'arc-food',      x: 0.71, y: 0.66 },
+  { arcId: 'arc-work',      x: 0.85, y: 0.32 },
+  { arcId: 'arc-family',    x: 0.95, y: 0.72 },
 ];
 
 // Mobile / portrait — vertical zigzag down a 390x920 stage. The
-// final arc sits at center-bottom for emphasis.
+// final arc (Family / Mom) sits at center-bottom for emphasis.
 const MOBILE_STOPS: { arcId: string; x: number; y: number }[] = [
-  { arcId: 'arc-family',    x: 0.22, y: 0.16 },
-  { arcId: 'arc-animals',   x: 0.74, y: 0.27 },
-  { arcId: 'arc-work',      x: 0.26, y: 0.39 },
-  { arcId: 'arc-food',      x: 0.72, y: 0.51 },
-  { arcId: 'arc-education', x: 0.28, y: 0.63 },
-  { arcId: 'arc-travel',    x: 0.72, y: 0.75 },
-  { arcId: 'arc-couple',    x: 0.50, y: 0.87 },
+  { arcId: 'arc-animals',   x: 0.22, y: 0.16 },
+  { arcId: 'arc-travel',    x: 0.74, y: 0.27 },
+  { arcId: 'arc-education', x: 0.26, y: 0.39 },
+  { arcId: 'arc-couple',    x: 0.72, y: 0.51 },
+  { arcId: 'arc-food',      x: 0.28, y: 0.63 },
+  { arcId: 'arc-work',      x: 0.72, y: 0.75 },
+  { arcId: 'arc-family',    x: 0.50, y: 0.87 },
 ];
 
 export function Campaign({
