@@ -554,13 +554,6 @@ function GameplayPreview() {
   // plays each time a card lands in the bin.
   const [graveCount, setGraveCount] = useState(0);
   const [gravePulseKey, setGravePulseKey] = useState(0);
-  // Refs into the defender slot + opponent graveyard chip, so we can
-  // measure the delta and feed it into the flyToGrave keyframe as
-  // --gx/--gy. Without these the card would fly to (0,0) instead of
-  // arcing into the actual graveyard icon.
-  const defenderSlotRef = useRef<HTMLDivElement>(null);
-  const oppGraveRef = useRef<HTMLButtonElement>(null);
-  const [graveDelta, setGraveDelta] = useState<{ gx: number; gy: number }>({ gx: 0, gy: 0 });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -568,25 +561,14 @@ function GameplayPreview() {
     const tick = () => {
       const step = GP_SCHEDULE[idx];
       setPhase(step.phase);
-      // Trigger Mom's "Oops…" + the player's "Nice!" emote, bump the
-      // opponent graveyard count, and recompute the flyToGrave path —
-      // all on the same beat the defender takes lethal damage. The
-      // path re-measure has to happen here (not on dying) because the
-      // BattlefieldCard's internal layout shifts as the dying slice
-      // starts; latching the delta on impact gives a clean arc.
+      // On the impact beat: Mom's "Oops…" + the player's "Nice!"
+      // emote both pop, the opponent graveyard count bumps, and the
+      // grave-chip's pulse keyframe replays.
       if (step.phase === 'impact') {
         setOppEmoteKey(k => k + 1);
         setPlayerEmoteKey(k => k + 1);
         setGraveCount(c => c + 1);
         setGravePulseKey(k => k + 1);
-        const slot = defenderSlotRef.current?.getBoundingClientRect();
-        const grave = oppGraveRef.current?.getBoundingClientRect();
-        if (slot && grave) {
-          setGraveDelta({
-            gx: (grave.left + grave.width / 2) - (slot.left + slot.width / 2),
-            gy: (grave.top + grave.height / 2) - (slot.top + slot.height / 2),
-          });
-        }
       }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
@@ -674,46 +656,29 @@ function GameplayPreview() {
               count={graveCount}
               pulseKey={gravePulseKey}
               onClick={() => {}}
-              elRef={(el) => { oppGraveRef.current = el; }}
             />
           </div>
 
           {/* Opponent field — three slot zones, same scaffolding the
               real FieldRow uses (64×88px, dashed border, faint white
-              tint). Empty slots stay visible as constant chrome;
-              cards render inside the center slot on top of them.
-              During the dying phase the wrapper around the live
-              defender plays flyToGrave (1.1s arc into Mom's
-              graveyard chip — --gx/--gy are measured live on
-              impact). */}
+              tint). Cousin lives permanently in the center slot; the
+              dying prop on BattlefieldCard handles the kill visuals
+              (red tint + diagonal slash flash) without removing her
+              from the layout. Earlier versions had her fly to the
+              graveyard and back each loop, but the reappearance read
+              as a "pop in" — letting her stay in the slot matches
+              how Dog also persists, and keeps the field stable. */}
           <div className="gp-field">
             <div className="gp-slot" />
             <div className="gp-slot">
-              <div
-                ref={defenderSlotRef}
-                style={isDying || phase === 'empty' ? {
-                  // flyToGrave's `both` fill mode retains the final
-                  // keyframe (opacity 0, shrunk at the grave)
-                  // through 'empty'; removing the animation on the
-                  // next 'rest' releases the element back to its
-                  // base styles, so Cousin reappears silently in her
-                  // slot — no summon animation.
-                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
-                  ['--gx' as string]: `${graveDelta.gx}px`,
-                  ['--gy' as string]: `${graveDelta.gy}px`,
-                  pointerEvents: 'none',
-                  zIndex: 8,
-                } : {}}
-              >
-                <BattlefieldCard
-                  card={defender}
-                  impact={isImpact}
-                  dying={isDying}
-                  damage={damage}
-                  owned={false}
-                  skipSummonFx
-                />
-              </div>
+              <BattlefieldCard
+                card={defender}
+                impact={isImpact}
+                dying={isDying}
+                damage={damage}
+                owned={false}
+                skipSummonFx
+              />
             </div>
             <div className="gp-slot" />
           </div>
