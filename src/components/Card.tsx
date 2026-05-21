@@ -1,4 +1,4 @@
-import { Sparkles, Info } from 'lucide-react';
+import { Sparkles, Info, Camera } from 'lucide-react';
 import { ELEMENTS, RARITY_COLOR, TYPE_PALETTE } from '../data/elements';
 import { DAMAGE } from '../design/tokens';
 import type { CardTemplate, CollectionCard, BattleCard } from '../game/types';
@@ -243,6 +243,37 @@ export function Card({ card, scale = 1, hovered = false, displayName, displayAtk
         display: 'flex', flexDirection: 'column',
         gap: 3 * scale,
       }}>
+        {/* Photo guide — shown ONLY on dormant cards. Memoria's core
+            loop is "your photo becomes the card art", and the photo
+            decision is the most important player choice, so the
+            guide leads the description panel BEFORE the ability
+            text. Once the card is summoned (has a photo) this block
+            disappears — the player no longer needs the prompt. */}
+        {dormant && card.suggested && (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 * scale, flexWrap: 'wrap' }}>
+            <span style={{
+              background: '#0a0612', color: '#f4d04a',
+              fontSize: 7.5 * scale, fontWeight: 700, letterSpacing: '0.1em',
+              padding: `${1.5 * scale}px ${5 * scale}px`,
+              borderRadius: 4 * scale,
+              textTransform: 'uppercase',
+              flex: '0 0 auto',
+              lineHeight: 1.4,
+              marginTop: 1 * scale,
+              display: 'inline-flex', alignItems: 'center', gap: 3 * scale,
+            }}>
+              <Camera size={8 * scale} strokeWidth={2.8} />
+              Photo
+            </span>
+            <span style={{
+              fontWeight: 500,
+              color: '#5a4a42',
+              fontSize: 9.5 * scale,
+              lineHeight: 1.3,
+              flex: 1,
+            }}>{card.suggested}</span>
+          </div>
+        )}
         {card.ability && (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 5 * scale, flexWrap: 'wrap' }}>
             <span style={{
