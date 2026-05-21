@@ -516,10 +516,10 @@ export function endTurn(prev: MatchState): MatchState {
     // sickness via `justPlayed` is enforced separately on the attack
     // path), it just gains its stat tick.
     //
-    // CAPPED AT 3 LEVELS (max +3/+3). Without a cap, a Teacher
+    // CAPPED AT 2 LEVELS (max +2/+2). Without a cap, a Teacher
     // that survives mid-late game spirals into a 7/9 or worse, which
     // out-scales every other deck's creatures. With the cap, level_up
-    // gives 3 turns of growth then plateaus — a clear ceiling — so
+    // gives 2 turns of growth then plateaus — a clear ceiling — so
     // the opponent always knows what they're playing against. Study
     // Group bond doubles the tick (+2/+2 instead of +1/+1) which lets
     // it hit the cap faster, not exceed it. Graduate uses abilityValue
