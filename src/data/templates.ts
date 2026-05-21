@@ -702,13 +702,13 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Heart racing. Stomach gone.',
     abilityKind: 'rush',
-    rarity: 'common', tags: ['relationship'], suggested: 'someone you had a crush on, an old photo of an early flame' },
+    rarity: 'common', tags: ['relationship'], suggested: 'someone you had a crush on, an old photo of an early flame, a name in a yearbook, or any teenage what-if you still smile about' },
 
   { id: 'cou-02', name: 'Boyfriend / Girlfriend', el: 'family', cost: 2, atk: 2, hp: 3, type: 'Creature',
     ability: '',
     flavor: 'Your person. Your favourite.',
     abilityKind: 'none',
-    rarity: 'rare', tags: ['relationship'], suggested: 'your partner, or someone you love' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'your partner, a past partner, or anyone you love and lean on — a best friend, your person' },
 
   { id: 'cou-03', name: 'The Ex', el: 'family', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'On play: deal 2 damage to the enemy face.',
@@ -720,7 +720,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'Both smiling. Same year. Different reasons.',
     abilityKind: 'none',
-    rarity: 'common', tags: ['relationship'], suggested: 'a photo of you and your partner together' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a photo of you and your partner — or any "us" photo with someone meaningful (best friend, sibling, parent)' },
 
   { id: 'cou-05', name: 'Movie Night', el: 'family', cost: 2, atk: 1, hp: 4, type: 'Creature',
     ability: 'Taunt.',
@@ -749,19 +749,19 @@ export const TEMPLATES: CardTemplate[] = [
     // counterpart to Date Night Dinner: small permanent stat bump
     // on any friendly creature regardless of theme.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'rare', tags: ['relationship'], suggested: 'the dated photo, a card you wrote, a small gift' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a wedding/relationship anniversary, OR any "this day mattered" milestone — a sobriety chip, a graduation date, a moving-day photo' },
 
   { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw a card.',
     flavor: 'Three hours. Felt like ten minutes.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', tags: ['relationship'], suggested: 'the restaurant, the cafe, the venue of an early date' },
+    rarity: 'common', tags: ['relationship'], suggested: 'the venue of a first date — or any meaningful "first" of yours: a first solo trip, first apartment, first day at a job' },
 
   { id: 'cou-10', name: 'Beach Day', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: heal each of your Travel-type creatures by 2.',
     flavor: 'Sand everywhere. Sunburn worth it.',
     abilityKind: 'spell_share_meal', abilityValue: 2,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a beach trip together, the ocean, sunset on sand' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a beach trip — together, with friends, or alone with a book; the ocean, sunset on sand, your feet in the water' },
 
   { id: 'cou-11', name: 'Honeymoon', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
     ability: 'Heal each of your Travel-type creatures by 3, then draw a card.',
@@ -779,19 +779,19 @@ export const TEMPLATES: CardTemplate[] = [
     // any creature so a couple deck can buff its Family or Travel
     // pieces too.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'common', tags: ['relationship'], suggested: 'a candle-lit meal, a restaurant table, plated food' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a candle-lit meal for two — or your own treat-yourself dinner at a nice restaurant, a plate you made just for you' },
 
   { id: 'cou-13', name: 'Cooking Together', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a friendly creature +0/+3 HP.',
     flavor: 'Someone chops. Someone stirs. Both taste.',
     abilityKind: 'spell_nourish', abilityValue: 3,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a shared kitchen, two pairs of hands, an in-progress meal' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a shared kitchen with someone you love — partner, family, roommate, friend; OR you cooking a meal you\'re proud of (the recipe, the prep, the result)' },
 
   { id: 'cou-14', name: 'Anniversary Cake', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
     ability: 'On play: restore 3 HP.',
     flavor: 'One slice. Two forks.',
     abilityKind: 'spell_heal', abilityValue: 3,
-    rarity: 'common', tags: ['relationship'], suggested: 'an anniversary cake, candles, a small celebration' },
+    rarity: 'common', tags: ['relationship'], suggested: 'an anniversary cake or any celebration cake — your own birthday, a friend\'s milestone, a "we made it through the week" Friday slice' },
 
   { id: 'cou-15', name: 'Cleaning Day', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 2 HP, then draw a card.',
@@ -819,7 +819,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Fingers laced. Already in step.',
     abilityKind: 'rush',
-    rarity: 'common', tags: ['relationship'], suggested: 'two hands clasped, fingers interlocked, a close-up' },
+    rarity: 'common', tags: ['relationship'], suggested: 'two hands clasped — a partner\'s, a child\'s, a friend\'s, a parent\'s in a hospital bed, your own hands folded in prayer or reflection' },
 
   // FOOD — mid-cost burn. Food previously only had Spicy Sauce (2 dmg)
   // for removal, which couldn't stabilize against early aggro. Stew
