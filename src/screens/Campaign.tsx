@@ -166,6 +166,14 @@ export function Campaign({
 
       {/* Stage — the Memory Lane scene. */}
       <div className="cm-stage" data-stage>
+        {/* Full-width backdrop layer. Sits behind both MemoryLane
+            instances so the cream gradient + green hill landscape
+            extends edge-to-edge on desktop, instead of cutting off
+            at the lane's 1200px max-width. Mobile/desktop variants
+            of the hills are rendered together and gated by the same
+            container-query that picks the lane layout. */}
+        <LaneBackdrop layout="mobile" />
+        <LaneBackdrop layout="desktop" />
         <MemoryLane
           layout="mobile"
           progress={progress}
@@ -223,6 +231,61 @@ export function Campaign({
 }
 
 // ─── Memory Lane stage ──────────────────────────────────────────────
+
+/**
+ * Full-width backdrop for the stage — cream gradient + the green hill
+ * landscape, stretched edge-to-edge so wide screens don't show the
+ * paper colour bleeding through on either side of the 1200px lane.
+ * Renders independently of MemoryLane so the lane can stay capped (so
+ * the path + stops + panel don't sprawl on huge monitors) while the
+ * scenery extends. preserveAspectRatio="none" lets the hill curves
+ * stretch horizontally without warping vertically.
+ */
+function LaneBackdrop({ layout }: { layout: 'mobile' | 'desktop' }) {
+  const isMobile = layout === 'mobile';
+  const W = isMobile ? 390 : 980;
+  const H = isMobile ? 920 : 660;
+  return (
+    <div className="cm-backdrop-layer" data-layout={layout} aria-hidden>
+      <div className="cm-backdrop-bg" />
+      <svg className="cm-backdrop-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={`cm-bk-hill1-${layout}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#a3c08a" stopOpacity={isMobile ? '0.45' : '0.5'} />
+            <stop offset="100%" stopColor="#7b9f6e" stopOpacity={isMobile ? '0.25' : '0.3'} />
+          </linearGradient>
+          <linearGradient id={`cm-bk-hill2-${layout}`} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#d4a86a" stopOpacity={isMobile ? '0.45' : '0.5'} />
+            <stop offset="100%" stopColor="#a87a4a" stopOpacity={isMobile ? '0.22' : '0.25'} />
+          </linearGradient>
+        </defs>
+        {isMobile ? (
+          <>
+            <path d={`M 0 ${H * 0.90} C ${W * 0.3} ${H * 0.85}, ${W * 0.6} ${H * 0.95}, ${W} ${H * 0.88} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-bk-hill1-${layout})`} />
+            <path d={`M 0 ${H * 0.96} C ${W * 0.4} ${H * 0.92}, ${W * 0.7} ${H * 0.98}, ${W} ${H * 0.94} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-bk-hill2-${layout})`} />
+            {[[0.08, 0.16], [0.92, 0.32], [0.06, 0.55], [0.95, 0.72]].map(([tx, ty], i) => (
+              <g key={i} transform={`translate(${tx * W}, ${ty * H})`}>
+                <rect x="-2" y="0" width="3" height="10" fill="#6b3a1a" opacity="0.4" />
+                <circle cx="0" cy="-3" r="9" fill="#5e7f4e" opacity="0.45" />
+              </g>
+            ))}
+          </>
+        ) : (
+          <>
+            <path d={`M 0 ${H * 0.85} C ${W * 0.2} ${H * 0.7}, ${W * 0.35} ${H * 0.92}, ${W * 0.55} ${H * 0.82} S ${W * 0.85} ${H * 0.7}, ${W} ${H * 0.82} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-bk-hill1-${layout})`} />
+            <path d={`M 0 ${H * 0.92} C ${W * 0.25} ${H * 0.85}, ${W * 0.5} ${H * 1.0}, ${W * 0.75} ${H * 0.88} S ${W * 0.95} ${H * 0.95}, ${W} ${H * 0.94} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-bk-hill2-${layout})`} />
+            {[[0.04, 0.85], [0.34, 0.55], [0.64, 0.88], [0.92, 0.55]].map(([tx, ty], i) => (
+              <g key={i} transform={`translate(${tx * W}, ${ty * H})`}>
+                <rect x="-2" y="0" width="4" height="14" fill="#6b3a1a" opacity="0.5" />
+                <circle cx="0" cy="-4" r="14" fill="#5e7f4e" opacity="0.5" />
+              </g>
+            ))}
+          </>
+        )}
+      </svg>
+    </div>
+  );
+}
 
 interface MemoryLaneProps {
   layout: 'mobile' | 'desktop';
@@ -284,45 +347,13 @@ function MemoryLane({ layout, progress, selectedArcId, onSelectArc }: MemoryLane
 
   return (
     <div className="cm-lane" data-layout={layout}>
-      {/* Cream/wheat radial backdrop with soft colored blooms. */}
-      <div className="cm-lane-bg" />
+      {/* Hills + cream gradient moved to <LaneBackdrop> at the stage
+          level so they extend full-width on desktop instead of being
+          clipped to the lane's 1200px max-width. The lane SVG below
+          now only carries the dashed footstep path between stops. */}
 
-      {/* Decorative SVG layer — hills + trees + path. */}
+      {/* Three-pass dashed path — shadow, cream footstep dots, accent dashes. */}
       <svg className="cm-lane-svg" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
-        <defs>
-          <linearGradient id={`cm-hill1-${layout}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#a3c08a" stopOpacity={isMobile ? '0.45' : '0.5'} />
-            <stop offset="100%" stopColor="#7b9f6e" stopOpacity={isMobile ? '0.25' : '0.3'} />
-          </linearGradient>
-          <linearGradient id={`cm-hill2-${layout}`} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor="#d4a86a" stopOpacity={isMobile ? '0.45' : '0.5'} />
-            <stop offset="100%" stopColor="#a87a4a" stopOpacity={isMobile ? '0.22' : '0.25'} />
-          </linearGradient>
-        </defs>
-        {isMobile ? (
-          <>
-            <path d={`M 0 ${H * 0.90} C ${W * 0.3} ${H * 0.85}, ${W * 0.6} ${H * 0.95}, ${W} ${H * 0.88} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-hill1-${layout})`} />
-            <path d={`M 0 ${H * 0.96} C ${W * 0.4} ${H * 0.92}, ${W * 0.7} ${H * 0.98}, ${W} ${H * 0.94} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-hill2-${layout})`} />
-            {[[0.08, 0.16], [0.92, 0.32], [0.06, 0.55], [0.95, 0.72]].map(([tx, ty], i) => (
-              <g key={i} transform={`translate(${tx * W}, ${ty * H})`}>
-                <rect x="-2" y="0" width="3" height="10" fill="#6b3a1a" opacity="0.4" />
-                <circle cx="0" cy="-3" r="9" fill="#5e7f4e" opacity="0.45" />
-              </g>
-            ))}
-          </>
-        ) : (
-          <>
-            <path d={`M 0 ${H * 0.85} C ${W * 0.2} ${H * 0.7}, ${W * 0.35} ${H * 0.92}, ${W * 0.55} ${H * 0.82} S ${W * 0.85} ${H * 0.7}, ${W} ${H * 0.82} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-hill1-${layout})`} />
-            <path d={`M 0 ${H * 0.92} C ${W * 0.25} ${H * 0.85}, ${W * 0.5} ${H * 1.0}, ${W * 0.75} ${H * 0.88} S ${W * 0.95} ${H * 0.95}, ${W} ${H * 0.94} L ${W} ${H} L 0 ${H} Z`} fill={`url(#cm-hill2-${layout})`} />
-            {[[0.04, 0.85], [0.34, 0.55], [0.64, 0.88], [0.92, 0.55]].map(([tx, ty], i) => (
-              <g key={i} transform={`translate(${tx * W}, ${ty * H})`}>
-                <rect x="-2" y="0" width="4" height="14" fill="#6b3a1a" opacity="0.5" />
-                <circle cx="0" cy="-4" r="14" fill="#5e7f4e" opacity="0.5" />
-              </g>
-            ))}
-          </>
-        )}
-        {/* Three-pass dashed path — shadow, cream footstep dots, accent dashes. */}
         <path d={pathD} stroke="rgba(28,24,20,0.18)" strokeWidth={pathShadowW} fill="none" strokeLinecap="round" />
         <path d={pathD} stroke="#fff8ec" strokeWidth={pathDotsW} fill="none" strokeDasharray={pathDotsDash} strokeLinecap="round" />
         <path d={pathD} stroke="#c44e44" strokeWidth={pathAccentW} fill="none" strokeDasharray={pathAccentDash} strokeLinecap="round" />
@@ -825,13 +856,32 @@ function CampaignStyles() {
         min-height: 480px;
         max-width: 1200px;
       }
-      .cm-lane-bg {
+      /* Full-width stage backdrop — cream gradient + green hills.
+         Lives behind everything inside .cm-stage so the landscape
+         extends edge-to-edge, while the lane on top stays capped at
+         1200px so the path + stops + bottom panel don't sprawl on
+         huge monitors. */
+      .cm-backdrop-layer {
+        position: absolute; inset: 0;
+        pointer-events: none;
+        z-index: 0;
+      }
+      .cm-backdrop-layer[data-layout="desktop"] { display: none; }
+      @container (min-width: 640px) {
+        .cm-backdrop-layer[data-layout="desktop"] { display: block; }
+        .cm-backdrop-layer[data-layout="mobile"]  { display: none; }
+      }
+      .cm-backdrop-bg {
         position: absolute; inset: 0;
         background:
           radial-gradient(ellipse 220px 160px at 18% 78%, rgba(63, 116, 72, 0.18), transparent 70%),
           radial-gradient(ellipse 260px 180px at 82% 22%, rgba(107, 63, 142, 0.14), transparent 70%),
           radial-gradient(ellipse 240px 160px at 50% 86%, rgba(180, 92, 70, 0.16), transparent 70%),
           radial-gradient(ellipse at 50% 30%, #fff5dd, #f1dba4 60%, #e7c277 100%);
+      }
+      .cm-backdrop-svg {
+        position: absolute; inset: 0;
+        width: 100%; height: 100%;
       }
       .cm-lane-svg {
         position: absolute; inset: 0;
