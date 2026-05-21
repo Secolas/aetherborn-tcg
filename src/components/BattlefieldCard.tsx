@@ -275,7 +275,7 @@ export function BattlefieldCard({
             the cost circle) so its position never shifts based on
             which other status icons happen to be present. Player can
             always glance at the same spot to read "Teacher Lv
-            2/3 — one more turn before it caps." Hidden once a
+            1/2 — one more turn before it caps." Hidden once a
             Graduate creature transforms (abilityKind becomes
             untargetable, level counter no longer relevant). */}
         {(card.abilityKind === 'level_up' || card.abilityKind === 'graduate') && (
@@ -291,7 +291,7 @@ export function BattlefieldCard({
             fontFamily: '"Fredoka", system-ui',
             zIndex: 3,
           }}>
-            Lv {card.turnsAlive ?? 0}/3
+            Lv {card.turnsAlive ?? 0}/2
           </div>
         )}
 

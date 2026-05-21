@@ -150,6 +150,7 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount, onR
               <>
                 <p>You start with <strong>4 cards</strong> in hand and draw <strong>1 every turn</strong> (some abilities and Bonds draw extra).</p>
                 <p>Hand size is capped at <strong>7</strong>. If your hand is full when you'd draw, the drawn card is skipped.</p>
+                <p><strong>Fatigue</strong> — once your deck is empty, every draw deals damage to <em>you</em> instead: 1 the first time, 2 the next, 3 after that, and so on. Long games where neither side closes out tend to end on fatigue.</p>
                 <p>Tap your portrait during a match to peek at your remaining deck and cemetery.</p>
               </>
             }
