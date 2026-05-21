@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import {
-  UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2,
+  UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban,
   Users, Flame, Lock, ChevronDown,
 } from 'lucide-react';
 import { PackCinematic, type PackVibe } from './PackOpening';
@@ -82,6 +82,8 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
         <BondsSection />
 
         <ThemeGrid />
+
+        <SpellsSection />
 
         <PackOpeningPreview />
 
@@ -838,12 +840,12 @@ function AbilitiesSection() {
 // ============================================================================
 
 interface BondShowcase {
+  /** Internal id used as the React key — not rendered. */
   name: string;
   themeEl: ElementId;
   cardA: string;
   cardB: string;
   effect: string;
-  flavor: string;
 }
 
 const SHOWCASE_BONDS: BondShowcase[] = [
@@ -853,7 +855,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Mom',
     cardB: 'Dad',
     effect: 'Heal +1 HP at the start of your turn.',
-    flavor: 'Everyone showed up.',
   },
   {
     name: 'House Pets',
@@ -861,7 +862,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Dog',
     cardB: 'Cat',
     effect: 'Both gain Taunt.',
-    flavor: 'They were both yours first.',
   },
   {
     name: 'Reporting Line',
@@ -869,7 +869,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Intern',
     cardB: 'Senior Engineer',
     effect: 'Your spells cost 1 less mana (minimum 1).',
-    flavor: 'He never reads your messages but he’s online.',
   },
 ];
 
@@ -878,17 +877,13 @@ function BondsSection() {
     <section className="landing-bonds">
       <div className="landing-section-title"><span>Bonds</span></div>
       <p className="landing-bonds-lede">
-        Some cards belong together. When both halves of a bond are on the field, a hidden combo wakes up — a heal, a buff, a discount. Pair them on purpose.
+        When both halves of a pair are on the field, a combo effect activates.
       </p>
       <div className="landing-bonds-grid">
-        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect, flavor }) => {
+        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect }) => {
           const def = ELEMENTS[themeEl];
           return (
             <div key={name} className="landing-bond-card">
-              <div className="landing-bond-header" style={{ color: def.color }}>
-                <Link2 size={14} strokeWidth={2.6} />
-                <span className="landing-bond-name">{name}</span>
-              </div>
               <div className="landing-bond-pair">
                 <span className="landing-bond-pill" style={{
                   background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
@@ -899,7 +894,6 @@ function BondsSection() {
                 }}>{cardB}</span>
               </div>
               <div className="landing-bond-effect">{effect}</div>
-              <div className="landing-bond-flavor">{flavor}</div>
             </div>
           );
         })}
@@ -930,6 +924,57 @@ function ThemeGrid() {
             }}>
               <div className="landing-theme-name">{def.name}</div>
               <div className="landing-theme-blurb">{def.blurb}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Spells — companion to the Creatures grid. Each theme owns at least
+// one signature spell pulled straight from templates.ts; surface six
+// of them (one per theme) so visitors see the full effect lane:
+// damage, heal, freeze, draw, silence, buff.
+// ============================================================================
+
+interface SpellShowcase {
+  name: string;
+  themeEl: ElementId;
+  /** Mechanical text from templates.ts — never paraphrased. */
+  ability: string;
+}
+
+/** One iconic spell per theme. Names + ability text copied directly
+ *  from the matching template id in src/data/templates.ts so this
+ *  section stays accurate as the game balances. */
+const SHOWCASE_SPELLS: SpellShowcase[] = [
+  { name: 'The Look',      themeEl: 'family',    ability: 'Freeze an enemy.' },                  // fam-06
+  { name: 'Sales Pitch',   themeEl: 'work',      ability: 'Deal 4 damage to an enemy.' },        // wrk-06
+  { name: 'Treats',        themeEl: 'animals',   ability: 'Give an Animals-type creature +3/+3.' }, // ani-07
+  { name: 'Suitcase',      themeEl: 'travel',    ability: 'Draw 2 cards.' },                     // trv-03
+  { name: 'Sunday Dinner', themeEl: 'food',      ability: 'Restore 8 HP.' },                     // fam-12
+  { name: 'Pop Quiz',      themeEl: 'education', ability: 'Discard a random card, then draw 2.' }, // edu-07
+];
+
+function SpellsSection() {
+  return (
+    <section className="landing-themes">
+      <div className="landing-section-title">
+        <span>Spells</span>
+      </div>
+      <div className="landing-theme-grid">
+        {SHOWCASE_SPELLS.map(({ name, themeEl, ability }) => {
+          const def = ELEMENTS[themeEl];
+          return (
+            <div key={name} className="landing-theme-tile" style={{
+              background: `linear-gradient(155deg, ${def.color} 0%, ${def.deep} 100%)`,
+              borderColor: def.glow + '55',
+              boxShadow: `0 8px 18px rgba(58, 46, 42, .18), inset 0 0 30px ${def.glow}22`,
+            }}>
+              <div className="landing-theme-name">{name}</div>
+              <div className="landing-theme-blurb">{ability}</div>
             </div>
           );
         })}
@@ -1716,9 +1761,9 @@ const LANDING_CSS = `
   }
 
   /* Bonds ------------------------------------------------------------- */
-  /* Pair-of-cards combo showcase. Each card lists the bond name +
-     Link2 icon, the two cards in themed pills, the mechanical effect,
-     and the flavor line — same shape as the bond entry in bonds.ts. */
+  /* Pair-of-cards combo showcase. Stripped to just the two themed
+     pills + the mechanical effect — no bond name, no flavor — so the
+     section reads as "these pairs do this" without colorful prose. */
   .landing-bonds { padding: 24px 20px; position: relative; z-index: 2; }
   .landing-bonds-lede {
     max-width: 540px; margin: 0 auto 18px;
@@ -1739,14 +1784,8 @@ const LANDING_CSS = `
     border-radius: 14px;
     padding: 14px;
     box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 10px;
   }
-  .landing-bond-header {
-    display: flex; align-items: center; gap: 6px;
-    font-family: Fredoka, system-ui, sans-serif;
-    font-weight: 700;
-  }
-  .landing-bond-name { font-size: 14px; }
   .landing-bond-pair {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
@@ -1763,14 +1802,9 @@ const LANDING_CSS = `
     font-size: 13px;
   }
   .landing-bond-effect {
-    font-size: 12px; line-height: 1.45;
+    font-size: 13px; line-height: 1.45;
     color: #3a2e2a;
     font-weight: 600;
-  }
-  .landing-bond-flavor {
-    font-size: 11px; line-height: 1.45;
-    color: #a89580;
-    font-style: italic;
   }
 
   /* Themes ------------------------------------------------------------ */
