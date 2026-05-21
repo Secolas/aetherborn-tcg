@@ -72,7 +72,7 @@ export const BONDS: BondDef[] = [
     name: 'The Kids',
     themeId: 'family',
     cardA: 'fam-02', // Cousin
-    cardB: 'fam-07', // Older Sibling
+    cardB: 'fam-07', // Sibling
     description: 'Draw a card at end of your turn if your hand has fewer than 3.',
     flavor: 'They always knew where the snacks were.',
     effect: { kind: 'draw_at_end_if_low_hand' },

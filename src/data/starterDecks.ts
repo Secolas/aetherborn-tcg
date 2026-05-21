@@ -52,9 +52,9 @@ export const STARTER_THEMES: StarterTheme[] = [
     description: 'Tanky bodies, multiple heals, and the 2/6 Abuela holding the line. Hard to die, easy to grind down a faster deck.',
     iconCardId: 'fam-11',
     /* Identity: control / sustain / late-game tank.
-     * Toolkit: 2 heals (Hug, Niece passive), 2 card draw (Chat, Tio),
+     * Toolkit: 2 heals (Hug, Little Cousin passive), 2 card draw (Chat, Tio),
      * 1 freeze (The Look), 1 silence (Tough Love), bond pair
-     * (Cousin x2 + Older Sibling = "The Kids"), finisher (Dad). The
+     * (Cousin x2 + Sibling = "The Kids"), finisher (Dad). The
      * heaviest mana curve of the three — Family trades tempo for
      * raw stats and inevitability. */
     // Entry-tier deck: no epics or legendaries. Players unlock the
@@ -68,13 +68,13 @@ export const STARTER_THEMES: StarterTheme[] = [
       'fam-14', 'fam-14',       // 1c spell x2 — Hug (heal +3 friend)
                                 //   2nd copy replaces 4c Abuela (rare
                                 //   2/6 Taunt — unlocked via packs)
-      'fam-16',                 // 1c 1/2  — Niece (heal +1/turn)
+      'fam-16',                 // 1c 1/2  — Little Cousin (heal +1/turn)
       'fam-15',                 // 2c spell — Family Chat (draw 1)
       'fam-02', 'fam-02',       // 2c 2/2  — Cousin x2 (bond piece)
       'fam-04',                 // 3c 2/3  — Tio (draw on play)
       'fam-05',                 // 3c 3/4  — Mom
       'fam-06',                 // 3c spell — The Look (freeze)
-      'fam-07',                 // 4c 4/4  — Older Sibling (bond)
+      'fam-07',                 // 4c 4/4  — Sibling (bond)
       'fam-09',                 // 4c spell — Birthday Cake (heal 5)
                                 //   replaces 5c Dad (epic finisher)
       'fam-13',                 // 2c spell — Tough Love (silence)

@@ -146,7 +146,7 @@ export function starterPack(): CollectionCard[] {
     'fam-04', // Tio — 3c draw
     'fam-05', // Mom — 3c body
     'fam-06', // The Look — 3c freeze
-    'fam-07', // Older Sibling — 4c body
+    'fam-07', // Sibling — 4c body
     'fam-09', // Birthday Cake — 4c heal
   ];
   return ids

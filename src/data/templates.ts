@@ -51,11 +51,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_freeze',
     rarity: 'rare', suggested: "a stern face — mom's, dad's, anyone's" },
 
-  { id: 'fam-07', name: 'Older Sibling', el: 'family', cost: 4, atk: 4, hp: 4, type: 'Creature',
+  { id: 'fam-07', name: 'Sibling', el: 'family', cost: 4, atk: 4, hp: 4, type: 'Creature',
     ability: '',
     flavor: 'They tease you, but no one else gets to.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a sibling' },
+    rarity: 'common', suggested: 'a sibling (older or younger), a sibling-in-law, or a close friend you grew up with' },
 
   { id: 'fam-08', name: 'Abuela', el: 'family', cost: 4, atk: 2, hp: 6, type: 'Creature',
     ability: 'Taunt.',
@@ -113,7 +113,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'Eager, ready, expendable.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a young coworker, or a workspace' },
+    rarity: 'common', suggested: 'a front desk, a new-hire ID badge, your first-day-at-work selfie, a young coworker, an empty cubicle' },
 
   { id: 'wrk-02', name: 'Spam Email', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Deal 2 damage to an enemy.',
@@ -147,7 +147,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Spells cannot target this.',
     flavor: 'Protected by policy.',
     abilityKind: 'untargetable',
-    rarity: 'epic', suggested: 'an HR rep, or an office sign' },
+    rarity: 'epic', suggested: 'an HR rep, an office sign, a corporate handbook, a reception desk, any face that says "follow the policy"' },
 
   { id: 'wrk-08', name: 'Senior Engineer', el: 'work', cost: 4, atk: 4, hp: 4, type: 'Creature',
     ability: '',
@@ -581,11 +581,11 @@ export const TEMPLATES: CardTemplate[] = [
   // the "stat sticks" of each theme — predictable trades, no surprises.
   // ============================================================
 
-  { id: 'fam-16', name: 'Niece', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
+  { id: 'fam-16', name: 'Little Cousin', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
-    flavor: 'Too smart for her own good.',
+    flavor: 'Too smart for their own good.',
     abilityKind: 'heal_each_turn', abilityValue: 1,
-    rarity: 'common', suggested: 'a niece, nephew, or any young kid in the family' },
+    rarity: 'common', suggested: 'a young cousin, niece, nephew, godchild, friend\'s kid, or even your own baby photo' },
 
   { id: 'wrk-16', name: 'Custodian', el: 'work', cost: 5, atk: 4, hp: 5, type: 'Creature',
     ability: 'Taunt.',

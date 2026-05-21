@@ -26,7 +26,7 @@ const THEMED: Record<string, string> = {
   'fam-04': '/cards/tio.webp',                       // Tio → illustrated portrait
   'fam-05': '/cards/mom.webp',                       // Mom → illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
-  'fam-07': '/cards/older-sibling.webp',             // Older Sibling → illustrated portrait
+  'fam-07': '/cards/older-sibling.webp',             // Sibling → illustrated portrait
   'fam-08': '/cards/abuela.webp',                    // Abuela → illustrated portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
   'fam-10': '/cards/family-photo.webp',              // Family Photo → illustrated group

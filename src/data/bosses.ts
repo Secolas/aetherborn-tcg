@@ -143,7 +143,7 @@ export const BOSSES: BossDef[] = [
       'fam-04',          // Tio
       'fam-05',          // Mom card
       'fam-06',          // The Look
-      'fam-07',          // Older Sibling
+      'fam-07',          // Sibling
       'fam-08',          // Abuela
       'fam-09',          // Birthday Cake
       'fam-11',          // Dad
@@ -162,7 +162,7 @@ export const BOSSES: BossDef[] = [
       'fam-04',         // Tio (draw engine)
       'fam-05',         // Mom card
       'fam-06',         // The Look
-      'fam-07',         // Older Sibling — common 4/4 mid-curve body
+      'fam-07',         // Sibling — common 4/4 mid-curve body
                         // (replaces 2nd Dad to satisfy epic copy cap)
       'fam-08', 'fam-08',// Abuela x2 — Generations enabler
       'fam-10',         // Family Photo (epic buff)
