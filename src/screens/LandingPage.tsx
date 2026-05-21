@@ -2,7 +2,7 @@ import { useMemo, useRef, useState, useEffect, type CSSProperties, type Componen
 import { Heart, Briefcase, PawPrint, Plane, UtensilsCrossed, GraduationCap } from 'lucide-react';
 import { ELEMENTS } from '../data/elements';
 import {
-  UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban, Link2,
+  UserRound, Flag, Swords, Target, ShieldHalf, Zap, Snowflake, Ban,
   Users, Flame, Lock, ChevronDown,
 } from 'lucide-react';
 import { PackCinematic, type PackVibe } from './PackOpening';
@@ -82,6 +82,8 @@ export function LandingPage({ onEnterApp }: LandingPageProps) {
         <BondsSection />
 
         <ThemeGrid />
+
+        <SpellsSection />
 
         <PackOpeningPreview />
 
@@ -554,13 +556,6 @@ function GameplayPreview() {
   // plays each time a card lands in the bin.
   const [graveCount, setGraveCount] = useState(0);
   const [gravePulseKey, setGravePulseKey] = useState(0);
-  // Refs into the defender slot + opponent graveyard chip, so we can
-  // measure the delta and feed it into the flyToGrave keyframe as
-  // --gx/--gy. Without these the card would fly to (0,0) instead of
-  // arcing into the actual graveyard icon.
-  const defenderSlotRef = useRef<HTMLDivElement>(null);
-  const oppGraveRef = useRef<HTMLButtonElement>(null);
-  const [graveDelta, setGraveDelta] = useState<{ gx: number; gy: number }>({ gx: 0, gy: 0 });
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -568,25 +563,14 @@ function GameplayPreview() {
     const tick = () => {
       const step = GP_SCHEDULE[idx];
       setPhase(step.phase);
-      // Trigger Mom's "Oops…" + the player's "Nice!" emote, bump the
-      // opponent graveyard count, and recompute the flyToGrave path —
-      // all on the same beat the defender takes lethal damage. The
-      // path re-measure has to happen here (not on dying) because the
-      // BattlefieldCard's internal layout shifts as the dying slice
-      // starts; latching the delta on impact gives a clean arc.
+      // On the impact beat: Mom's "Oops…" + the player's "Nice!"
+      // emote both pop, the opponent graveyard count bumps, and the
+      // grave-chip's pulse keyframe replays.
       if (step.phase === 'impact') {
         setOppEmoteKey(k => k + 1);
         setPlayerEmoteKey(k => k + 1);
         setGraveCount(c => c + 1);
         setGravePulseKey(k => k + 1);
-        const slot = defenderSlotRef.current?.getBoundingClientRect();
-        const grave = oppGraveRef.current?.getBoundingClientRect();
-        if (slot && grave) {
-          setGraveDelta({
-            gx: (grave.left + grave.width / 2) - (slot.left + slot.width / 2),
-            gy: (grave.top + grave.height / 2) - (slot.top + slot.height / 2),
-          });
-        }
       }
       timer = setTimeout(() => {
         idx = (idx + 1) % GP_SCHEDULE.length;
@@ -674,46 +658,29 @@ function GameplayPreview() {
               count={graveCount}
               pulseKey={gravePulseKey}
               onClick={() => {}}
-              elRef={(el) => { oppGraveRef.current = el; }}
             />
           </div>
 
           {/* Opponent field — three slot zones, same scaffolding the
               real FieldRow uses (64×88px, dashed border, faint white
-              tint). Empty slots stay visible as constant chrome;
-              cards render inside the center slot on top of them.
-              During the dying phase the wrapper around the live
-              defender plays flyToGrave (1.1s arc into Mom's
-              graveyard chip — --gx/--gy are measured live on
-              impact). */}
+              tint). Cousin lives permanently in the center slot; the
+              dying prop on BattlefieldCard handles the kill visuals
+              (red tint + diagonal slash flash) without removing her
+              from the layout. Earlier versions had her fly to the
+              graveyard and back each loop, but the reappearance read
+              as a "pop in" — letting her stay in the slot matches
+              how Dog also persists, and keeps the field stable. */}
           <div className="gp-field">
             <div className="gp-slot" />
             <div className="gp-slot">
-              <div
-                ref={defenderSlotRef}
-                style={isDying || phase === 'empty' ? {
-                  // flyToGrave's `both` fill mode retains the final
-                  // keyframe (opacity 0, shrunk at the grave)
-                  // through 'empty'; removing the animation on the
-                  // next 'rest' releases the element back to its
-                  // base styles, so Cousin reappears silently in her
-                  // slot — no summon animation.
-                  animation: 'flyToGrave 1.1s cubic-bezier(.4,.1,.7,.4) both',
-                  ['--gx' as string]: `${graveDelta.gx}px`,
-                  ['--gy' as string]: `${graveDelta.gy}px`,
-                  pointerEvents: 'none',
-                  zIndex: 8,
-                } : {}}
-              >
-                <BattlefieldCard
-                  card={defender}
-                  impact={isImpact}
-                  dying={isDying}
-                  damage={damage}
-                  owned={false}
-                  skipSummonFx
-                />
-              </div>
+              <BattlefieldCard
+                card={defender}
+                impact={isImpact}
+                dying={isDying}
+                damage={damage}
+                owned={false}
+                skipSummonFx
+              />
             </div>
             <div className="gp-slot" />
           </div>
@@ -873,12 +840,12 @@ function AbilitiesSection() {
 // ============================================================================
 
 interface BondShowcase {
+  /** Internal id used as the React key — not rendered. */
   name: string;
   themeEl: ElementId;
   cardA: string;
   cardB: string;
   effect: string;
-  flavor: string;
 }
 
 const SHOWCASE_BONDS: BondShowcase[] = [
@@ -888,7 +855,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Mom',
     cardB: 'Dad',
     effect: 'Heal +1 HP at the start of your turn.',
-    flavor: 'Everyone showed up.',
   },
   {
     name: 'House Pets',
@@ -896,7 +862,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Dog',
     cardB: 'Cat',
     effect: 'Both gain Taunt.',
-    flavor: 'They were both yours first.',
   },
   {
     name: 'Reporting Line',
@@ -904,7 +869,6 @@ const SHOWCASE_BONDS: BondShowcase[] = [
     cardA: 'Intern',
     cardB: 'Senior Engineer',
     effect: 'Your spells cost 1 less mana (minimum 1).',
-    flavor: 'He never reads your messages but he’s online.',
   },
 ];
 
@@ -913,17 +877,13 @@ function BondsSection() {
     <section className="landing-bonds">
       <div className="landing-section-title"><span>Bonds</span></div>
       <p className="landing-bonds-lede">
-        Some cards belong together. When both halves of a bond are on the field, a hidden combo wakes up — a heal, a buff, a discount. Pair them on purpose.
+        When both halves of a pair are on the field, a combo effect activates.
       </p>
       <div className="landing-bonds-grid">
-        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect, flavor }) => {
+        {SHOWCASE_BONDS.map(({ name, themeEl, cardA, cardB, effect }) => {
           const def = ELEMENTS[themeEl];
           return (
             <div key={name} className="landing-bond-card">
-              <div className="landing-bond-header" style={{ color: def.color }}>
-                <Link2 size={14} strokeWidth={2.6} />
-                <span className="landing-bond-name">{name}</span>
-              </div>
               <div className="landing-bond-pair">
                 <span className="landing-bond-pill" style={{
                   background: `linear-gradient(135deg, ${def.color}, ${def.deep})`,
@@ -934,7 +894,6 @@ function BondsSection() {
                 }}>{cardB}</span>
               </div>
               <div className="landing-bond-effect">{effect}</div>
-              <div className="landing-bond-flavor">{flavor}</div>
             </div>
           );
         })}
@@ -965,6 +924,57 @@ function ThemeGrid() {
             }}>
               <div className="landing-theme-name">{def.name}</div>
               <div className="landing-theme-blurb">{def.blurb}</div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
+// Spells — companion to the Creatures grid. Each theme owns at least
+// one signature spell pulled straight from templates.ts; surface six
+// of them (one per theme) so visitors see the full effect lane:
+// damage, heal, freeze, draw, silence, buff.
+// ============================================================================
+
+interface SpellShowcase {
+  name: string;
+  themeEl: ElementId;
+  /** Mechanical text from templates.ts — never paraphrased. */
+  ability: string;
+}
+
+/** One iconic spell per theme. Names + ability text copied directly
+ *  from the matching template id in src/data/templates.ts so this
+ *  section stays accurate as the game balances. */
+const SHOWCASE_SPELLS: SpellShowcase[] = [
+  { name: 'The Look',      themeEl: 'family',    ability: 'Freeze an enemy.' },                  // fam-06
+  { name: 'Sales Pitch',   themeEl: 'work',      ability: 'Deal 4 damage to an enemy.' },        // wrk-06
+  { name: 'Treats',        themeEl: 'animals',   ability: 'Give an Animals-type creature +3/+3.' }, // ani-07
+  { name: 'Suitcase',      themeEl: 'travel',    ability: 'Draw 2 cards.' },                     // trv-03
+  { name: 'Sunday Dinner', themeEl: 'food',      ability: 'Restore 8 HP.' },                     // fam-12
+  { name: 'Pop Quiz',      themeEl: 'education', ability: 'Discard a random card, then draw 2.' }, // edu-07
+];
+
+function SpellsSection() {
+  return (
+    <section className="landing-themes">
+      <div className="landing-section-title">
+        <span>Spells</span>
+      </div>
+      <div className="landing-theme-grid">
+        {SHOWCASE_SPELLS.map(({ name, themeEl, ability }) => {
+          const def = ELEMENTS[themeEl];
+          return (
+            <div key={name} className="landing-theme-tile" style={{
+              background: `linear-gradient(155deg, ${def.color} 0%, ${def.deep} 100%)`,
+              borderColor: def.glow + '55',
+              boxShadow: `0 8px 18px rgba(58, 46, 42, .18), inset 0 0 30px ${def.glow}22`,
+            }}>
+              <div className="landing-theme-name">{name}</div>
+              <div className="landing-theme-blurb">{ability}</div>
             </div>
           );
         })}
@@ -1751,9 +1761,9 @@ const LANDING_CSS = `
   }
 
   /* Bonds ------------------------------------------------------------- */
-  /* Pair-of-cards combo showcase. Each card lists the bond name +
-     Link2 icon, the two cards in themed pills, the mechanical effect,
-     and the flavor line — same shape as the bond entry in bonds.ts. */
+  /* Pair-of-cards combo showcase. Stripped to just the two themed
+     pills + the mechanical effect — no bond name, no flavor — so the
+     section reads as "these pairs do this" without colorful prose. */
   .landing-bonds { padding: 24px 20px; position: relative; z-index: 2; }
   .landing-bonds-lede {
     max-width: 540px; margin: 0 auto 18px;
@@ -1774,14 +1784,8 @@ const LANDING_CSS = `
     border-radius: 14px;
     padding: 14px;
     box-shadow: 0 4px 12px rgba(58, 46, 42, .05);
-    display: flex; flex-direction: column; gap: 8px;
+    display: flex; flex-direction: column; gap: 10px;
   }
-  .landing-bond-header {
-    display: flex; align-items: center; gap: 6px;
-    font-family: Fredoka, system-ui, sans-serif;
-    font-weight: 700;
-  }
-  .landing-bond-name { font-size: 14px; }
   .landing-bond-pair {
     display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
   }
@@ -1798,14 +1802,9 @@ const LANDING_CSS = `
     font-size: 13px;
   }
   .landing-bond-effect {
-    font-size: 12px; line-height: 1.45;
+    font-size: 13px; line-height: 1.45;
     color: #3a2e2a;
     font-weight: 600;
-  }
-  .landing-bond-flavor {
-    font-size: 11px; line-height: 1.45;
-    color: #a89580;
-    font-style: italic;
   }
 
   /* Themes ------------------------------------------------------------ */
