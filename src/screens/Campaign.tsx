@@ -806,15 +806,19 @@ function CampaignStyles() {
 
       .cm-stage {
         flex: 1; min-height: 0;
-        overflow-y: auto;
-        overflow-x: hidden;
+        /* Locked viewport — the scene is meant to read as a single
+           painted-map view, the same way the desktop layout already
+           fits a single screen. No scroll on any size; the lane just
+           reflows to the available space and the stops scale via
+           their percentage positions. */
+        overflow: hidden;
         position: relative;
         display: flex;
         flex-direction: column;
-        /* Leave clearance at the bottom so the floating selected-arc
-           panel never covers the last-row stops (Pass or Fail / Til
-           Dishes Do Us Part) when the user scrolls to the bottom.
-           Tuned to panel-height (~96-104px) + ~24px breathing room. */
+        /* Bottom clearance for the absolute-positioned selected-arc
+           panel — keeps the last-row stops (Pass or Fail / Til Dishes
+           Do Us Part) from sitting underneath it. Panel-height
+           (~96-104px) + ~24px breathing room. */
         padding-bottom: 130px;
       }
 
@@ -841,11 +845,12 @@ function CampaignStyles() {
         flex: 1;
       }
       .cm-lane[data-layout="mobile"] {
-        /* Vertical zigzag — let the lane grow tall so the path has
-           room to bow between alternating-side stops, but allow the
-           stage to scroll if the viewport is shorter than that. */
+        /* Vertical zigzag — fills whatever vertical room the stage
+           has. The previous min-height of 720px forced a scroll on
+           shorter phones; now the path bows and the stops compress
+           via their percentage positions so the whole scene reads as
+           one screen. */
         width: 100%;
-        min-height: 720px;
         max-width: 520px;
       }
       .cm-lane[data-layout="desktop"] {
@@ -853,7 +858,6 @@ function CampaignStyles() {
            padding-bottom on .cm-stage already reserves room for the
            floating selected-arc panel underneath. */
         width: 100%;
-        min-height: 480px;
         max-width: 1200px;
       }
       /* Full-width stage backdrop — cream gradient + green hills.
