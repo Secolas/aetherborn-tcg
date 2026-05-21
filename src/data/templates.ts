@@ -153,7 +153,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'They get things done.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a senior coworker, or a desk' },
+    rarity: 'common', suggested: 'an experienced coworker, a mentor, a well-worn keyboard, a toolbox, or any lived-in desk' },
 
   { id: 'wrk-09', name: 'Meeting', el: 'work', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
