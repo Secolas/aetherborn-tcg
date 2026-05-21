@@ -204,6 +204,15 @@ input {
   100% { transform: translate(14px, 22px) rotate(18deg); opacity: 0; }
 }
 
+/* Drag-to-attack aim arrow — animates the stroke dash so the curve
+   reads as energy flowing from the attacker toward the cursor while
+   the player is mid-aim. Dash pattern set inline; this keyframe just
+   slides it. Negative dashoffset so motion flows from anchor → tip. */
+@keyframes aimArrowShimmer {
+  0%   { stroke-dashoffset: 0; }
+  100% { stroke-dashoffset: -24; }
+}
+
 /* Attack arrow — stroke draws from attacker to defender. The arrowhead
    marker would otherwise pop in immediately at the destination point;
    we keep the line opacity 0 until the dashoffset starts collapsing so

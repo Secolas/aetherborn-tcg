@@ -126,9 +126,15 @@ export function BattlefieldCard({
   const pressTimer = useRef<number | null>(null);
   const longFired = useRef(false);
   const downPos = useRef<{ x: number; y: number } | null>(null);
+  /** Set true when the pointer has moved more than the click slop since
+   *  pointerdown. Suppresses the trailing onClick on pointerup so a
+   *  drag-to-target attack gesture (handled by the parent FieldRow)
+   *  doesn't also toggle the click-to-select attacker state. */
+  const movedFar = useRef(false);
 
   const handlePointerDown = (ev: React.PointerEvent) => {
     longFired.current = false;
+    movedFar.current = false;
     downPos.current = { x: ev.clientX, y: ev.clientY };
     if (onLongPress) {
       pressTimer.current = window.setTimeout(() => {
@@ -139,13 +145,19 @@ export function BattlefieldCard({
   };
 
   const handlePointerMove = (ev: React.PointerEvent) => {
-    if (!downPos.current || !pressTimer.current) return;
+    if (!downPos.current) return;
     const dx = ev.clientX - downPos.current.x;
     const dy = ev.clientY - downPos.current.y;
-    if (dx * dx + dy * dy > 100) {
+    const dist2 = dx * dx + dy * dy;
+    if (pressTimer.current && dist2 > 100) {
       window.clearTimeout(pressTimer.current);
       pressTimer.current = null;
     }
+    // Click-slop ≈ 8px. Past that we treat the gesture as a drag (drag-
+    // to-target attack lives on the parent slot wrapper) and suppress
+    // the onClick fallback so the parent's drop logic is the only thing
+    // that resolves the gesture.
+    if (dist2 > 64) movedFar.current = true;
   };
 
   const handlePointerUp = () => {
@@ -153,7 +165,7 @@ export function BattlefieldCard({
       window.clearTimeout(pressTimer.current);
       pressTimer.current = null;
     }
-    if (!longFired.current && onClick) onClick();
+    if (!longFired.current && !movedFar.current && onClick) onClick();
   };
 
   // Attack-ready cards used to also run a pulsing yellow glow halo

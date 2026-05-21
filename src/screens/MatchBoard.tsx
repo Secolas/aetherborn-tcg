@@ -485,6 +485,20 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   };
   const [arrow, setArrow] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
+  /** Live drag-to-attack aim arrow. Set the moment the player drags off
+   *  one of their attackable creatures past the click-slop; cleared on
+   *  pointerup / pointercancel. Anchor coords are board-local; cursor
+   *  coords follow the pointer. `target` is the currently-hit-tested
+   *  opponent (creature or face) the cursor is hovering — drives the
+   *  arrow color and the resolution on release. */
+  type AimTarget = { kind: 'face' } | { kind: 'creature'; battleId: string };
+  const [aim, setAim] = useState<{
+    attackerId: string;
+    anchorX: number; anchorY: number;
+    cursorX: number; cursorY: number;
+    target: AimTarget | null;
+  } | null>(null);
+
   // Maintain stable slot positions. Every time a side's field changes,
   // (a) drop entries for battleIds no longer present, (b) assign any new
   // battleId to the lowest currently-free slot. This makes a death at
@@ -2000,16 +2014,17 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
   };
 
   // ============== Player attack ==============
-  const playerAttack = (target: 'face' | { battleId: string }) => {
-    if (!selectedAttacker) return;
-    const attacker = state.player.field.find(c => c.battleId === selectedAttacker);
+  const playerAttack = (target: 'face' | { battleId: string }, explicitAttackerId?: string) => {
+    const attackerId = explicitAttackerId ?? selectedAttacker;
+    if (!attackerId) return;
+    const attacker = state.player.field.find(c => c.battleId === attackerId);
     if (!attacker) return;
     const targetKind: 'face' | 'creature' = target === 'face' ? 'face' : 'creature';
     if (tutorialAllow && !tutorialAllow({ kind: 'attack', target: targetKind })) {
       flashMsg('Follow the tutorial step');
       return;
     }
-    const result = attack(state, 'player', selectedAttacker,
+    const result = attack(state, 'player', attackerId,
       target === 'face' ? { kind: 'face' } : { kind: 'creature', battleId: target.battleId });
     if (!result.ok) {
       flashMsg(result.reason ?? 'Cannot attack');
@@ -2076,6 +2091,109 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     }
     if (c.tapped || c.justPlayed) { flashMsg('Cannot attack yet'); return; }
     setSelectedAttacker(prev => prev === c.battleId ? null : c.battleId);
+  };
+
+  /** Hit-test the opponent's face + creatures against a viewport-space
+   *  point. Used by the drag-to-attack aim flow to colour the arrow and
+   *  resolve the target on release. We hit the face first because its
+   *  rect is small enough that overlap with a creature is rare and the
+   *  face is the "default" target — but a creature directly under the
+   *  cursor takes priority via the loop below. */
+  const hitTestAttackTarget = (clientX: number, clientY: number): AimTarget | null => {
+    const inside = (el: HTMLElement | undefined): boolean => {
+      if (!el) return false;
+      const r = el.getBoundingClientRect();
+      return clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom;
+    };
+    // Creatures take priority over the face portrait so a cursor over a
+    // minion that overlaps the avatar rect picks the minion, not face.
+    for (const oc of state.opponent.field) {
+      if (inside(cardEls.current.get(oc.battleId))) {
+        return { kind: 'creature', battleId: oc.battleId };
+      }
+    }
+    if (inside(cardEls.current.get(FACE_OPP))) return { kind: 'face' };
+    return null;
+  };
+
+  /** Begin a drag-to-attack gesture from one of the player's creatures.
+   *  Wired into the player FieldRow slot wrappers via onPointerDown.
+   *  The first ~8px of pointer movement arms the aim (renders the arrow
+   *  + selects the attacker); release over a valid target fires the
+   *  attack, release elsewhere cancels. A pure tap (no movement) falls
+   *  through to BattlefieldCard's onClick — keeping the existing tap-
+   *  to-select-attacker flow as accessibility / mistake-recovery. */
+  const beginAttackAim = (card: BattleCard, ev: React.PointerEvent) => {
+    if (pendingSpell) return;
+    if (state.turn !== 'player' || state.outcome !== 'ongoing') return;
+    if (playerPhase !== 'battle') return;
+    if (card.tapped || card.justPlayed) return;
+    // Only primary button / single touch.
+    if (ev.button !== undefined && ev.button !== 0) return;
+
+    const board = boardRef.current?.getBoundingClientRect();
+    const attackerEl = cardEls.current.get(card.battleId);
+    if (!board || !attackerEl) return;
+    const aRect = attackerEl.getBoundingClientRect();
+    const anchorX = aRect.left + aRect.width / 2 - board.left;
+    const anchorY = aRect.top + aRect.height / 2 - board.top;
+    const startX = ev.clientX;
+    const startY = ev.clientY;
+    let armed = false;
+    // Window listeners (instead of pointer capture on the slot wrapper)
+    // so BattlefieldCard's own React onPointerMove still fires and can
+    // cancel its long-press timer + flip its `movedFar` flag — without
+    // this the press timer would fire ~450ms into the drag and pop the
+    // inspect modal on top of the aim arrow.
+    const onMove = (e: PointerEvent) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!armed && dx * dx + dy * dy < 64) return;
+      if (!armed) {
+        armed = true;
+        setSelectedAttacker(card.battleId);
+      }
+      const b = boardRef.current?.getBoundingClientRect();
+      if (!b) return;
+      const target = hitTestAttackTarget(e.clientX, e.clientY);
+      setAim({
+        attackerId: card.battleId,
+        anchorX, anchorY,
+        cursorX: e.clientX - b.left,
+        cursorY: e.clientY - b.top,
+        target,
+      });
+    };
+
+    const cleanup = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+    };
+
+    const onUp = (e: PointerEvent) => {
+      cleanup();
+      if (!armed) return;             // pure tap → BattlefieldCard's onClick handles it
+      const target = hitTestAttackTarget(e.clientX, e.clientY);
+      setAim(null);
+      if (target) {
+        if (target.kind === 'face') playerAttack('face', card.battleId);
+        else playerAttack({ battleId: target.battleId }, card.battleId);
+      } else {
+        setSelectedAttacker(null);
+      }
+    };
+
+    const onCancel = () => {
+      cleanup();
+      if (!armed) return;
+      setAim(null);
+      setSelectedAttacker(null);
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
   };
 
   const onOppCreatureClick = (c: BattleCard) => {
@@ -2799,6 +2917,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }
           }}
           onCardLongPress={(c) => setInspect(c)}
+          onAttackPointerDown={beginAttackAim}
         />
         <BondPillStack bonds={playerActiveBonds} newlyActiveIds={newPlayerBonds} side="player" onPillRef={(id, el) => { if (el) bondPillEls.current.set(id, el); else bondPillEls.current.delete(id); }} />
       </div>
@@ -3267,6 +3386,64 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               zIndex: 176,
             }} />
           </>
+        );
+      })()}
+
+      {/* Live drag-to-attack aim — the player has pressed on one of
+          their attackable creatures and dragged past the click slop.
+          Renders a curved SVG arrow from the attacker to the cursor,
+          colored gold while hovering a valid opponent target and red
+          when over empty space. Released over a creature or the boss
+          face triggers the attack; released anywhere else cancels. */}
+      {aim && (() => {
+        const x1 = aim.anchorX, y1 = aim.anchorY;
+        const x2 = aim.cursorX, y2 = aim.cursorY;
+        const midX = (x1 + x2) / 2;
+        const midY = (y1 + y2) / 2;
+        // Quadratic Bezier control point — offset perpendicular to the
+        // line by ~25% so the arrow always reads as a curve, never as
+        // a flat segment.
+        const cx = midX + (y2 - y1) * 0.25;
+        const cy = midY - (x2 - x1) * 0.25;
+        const pathD = `M ${x1} ${y1} Q ${cx} ${cy} ${x2} ${y2}`;
+        const hasTarget = !!aim.target;
+        const stroke = hasTarget ? '#f4d04a' : '#ee5a52';
+        const strokeSoft = hasTarget ? 'rgba(244,208,74,.6)' : 'rgba(238,90,82,.6)';
+        // Arrowhead angle: tangent to the bezier at t=1 = direction from
+        // the control point to the endpoint. Atan2 returns radians, the
+        // SVG `rotate()` transform wants degrees.
+        const angle = Math.atan2(y2 - cy, x2 - cx) * 180 / Math.PI;
+        return (
+          <svg style={{
+            position: 'absolute', inset: 0,
+            width: '100%', height: '100%',
+            pointerEvents: 'none', zIndex: 152,
+            overflow: 'visible',
+          }}>
+            {/* Wide soft glow underlay */}
+            <path d={pathD} stroke={strokeSoft} strokeWidth={14}
+                  fill="none" strokeLinecap="round" opacity={0.45} />
+            {/* Crisp inner stroke with the moving dashed shimmer */}
+            <path d={pathD} stroke={stroke} strokeWidth={5}
+                  fill="none" strokeLinecap="round"
+                  style={{
+                    filter: `drop-shadow(0 0 8px ${stroke})`,
+                    strokeDasharray: '14 10',
+                    animation: 'aimArrowShimmer .8s linear infinite',
+                  }} />
+            {/* Arrowhead — small chevron rotated to point along the
+                tangent at the cursor end of the curve. */}
+            <g transform={`translate(${x2} ${y2}) rotate(${angle})`}>
+              <path d="M 0 0 L -16 -10 L -10 0 L -16 10 Z"
+                    fill={stroke}
+                    style={{ filter: `drop-shadow(0 0 6px ${stroke})` }} />
+            </g>
+            {/* Anchor disc at the attacker — gives the line a clear
+                "this is where it starts" anchor when the arrow tail is
+                near the card. */}
+            <circle cx={x1} cy={y1} r={6} fill={stroke}
+                    style={{ filter: `drop-shadow(0 0 6px ${stroke})` }} />
+          </svg>
         );
       })()}
 
@@ -4357,7 +4534,7 @@ function BondPillStack({
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
   bondLookup, tauntFromBonds, slotMap, highlightSlot,
-  registerEl, onCardClick, onCardLongPress,
+  registerEl, onCardClick, onCardLongPress, onAttackPointerDown,
 }: {
   side: 'player' | 'opponent';
   cards: BattleCard[];
@@ -4386,6 +4563,11 @@ function FieldRow({
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
+  /** Player-side only: starts the drag-to-attack aim gesture on the
+   *  card's slot wrapper. Tap (no movement) falls through to onCardClick
+   *  via BattlefieldCard so the existing select-then-tap flow keeps
+   *  working. Undefined on the opponent row. */
+  onAttackPointerDown?: (c: BattleCard, ev: React.PointerEvent) => void;
 }) {
   // Build a fixed 3-slot row. slots[i] holds the card whose slotMap
   // entry === i, or null if the slot is empty. This keeps positions
@@ -4435,6 +4617,15 @@ function FieldRow({
         // handleDragEnd. Border / background swap on a 120ms ease so
         // the highlight fades in/out instead of popping.
         const isDropTarget = highlightSlot === i && !c;
+        // Drag-to-attack is wired here on the slot wrapper (not on the
+        // BattlefieldCard) so the pointer capture lives on a stable
+        // element — the BattlefieldCard inside can re-mount mid-combat
+        // (lunge / shake animations rerender). Only the player row gets
+        // a handler, and only when the card is actually attackable this
+        // turn — otherwise we leave pointerdown alone so the normal tap
+        // / long-press paths still work.
+        const canAttackHere = !!(side === 'player' && c && onAttackPointerDown
+          && turn === 'player' && battlePhaseActive && !c.tapped && !c.justPlayed);
         return (
           <div
             key={`slot-${i}`}
@@ -4442,6 +4633,9 @@ function FieldRow({
             data-tut-field-card={c && side === 'player' ? c.id : undefined}
             data-tut-side={side}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
+            onPointerDown={canAttackHere && c
+              ? (ev) => onAttackPointerDown!(c, ev)
+              : undefined}
             style={{
               width: 64, height: 88,
               borderRadius: 8,
