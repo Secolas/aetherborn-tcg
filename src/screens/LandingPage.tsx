@@ -989,7 +989,7 @@ const TICKER_ITEMS: { who: string; what: string; rarity: 'common' | 'rare' | 'le
   { who: 'alex',     what: 'opened Family pack',        rarity: 'common' },
   { who: 'devon',    what: 'reached Mountain Summit',   rarity: 'legendary' },
   { who: 'noor',     what: 'summoned Cousin',           rarity: 'common' },
-  { who: 'jules',    what: 'beat Vex on Mythic',        rarity: 'rare' },
+  { who: 'jules',    what: 'beat The Manager on Mythic', rarity: 'rare' },
   { who: 'ren',      what: 'photographed Abuela',       rarity: 'rare' },
   { who: 'tomas',    what: 'captured Family Pet',       rarity: 'rare' },
   { who: 'iris',     what: 'summoned Graduation Day',   rarity: 'legendary' },
@@ -1103,7 +1103,7 @@ const GAME_MODES: ModeDef[] = [
     name: 'Campaign',
     Icon: Flag,
     color: '#ee5a52',
-    desc: 'A bosses-and-arcs ladder. Mom, The Boss, Vex the Voidcaller — beat them all.',
+    desc: 'A bosses-and-arcs ladder. Mom, The Manager, Pack Alpha — beat them all.',
   },
   {
     name: 'Daily Quests',
@@ -1181,7 +1181,7 @@ const FAQS: FAQ[] = [
   },
   {
     q: 'Can I play offline?',
-    a: 'You can play solo (vs. AI bosses, campaign) once your collection is loaded. Online PVP and Firestore sync need a connection, but matches against Vex and the campaign run locally.',
+    a: 'You can play solo (vs. AI bosses, campaign) once your collection is loaded. Online PVP and Firestore sync need a connection, but campaign matches and boss fights run locally.',
   },
   {
     q: 'Is online PVP real-time?',
@@ -1349,6 +1349,11 @@ const LANDING_CSS = `
   .landing-scroll {
     position: absolute; inset: 0;
     overflow-y: auto;
+    /* Lock horizontal scrolling — a few absolutely-positioned
+       hero-stage cards can extend past the viewport's right edge on
+       narrow phones, and without this Mobile Safari treats that as
+       a draggable horizontal scroll. */
+    overflow-x: hidden;
     -webkit-overflow-scrolling: touch;
     padding-top: 56px; /* clearance for sticky topbar */
   }
@@ -1451,6 +1456,10 @@ const LANDING_CSS = `
     height: 380px;
     display: flex; align-items: center; justify-content: center;
     margin-top: 8px;
+    /* Clip any floating showcase card that drifts past the stage
+       edge — they're absolutely positioned by % and would otherwise
+       extend the parent on narrow viewports. */
+    overflow: hidden;
   }
   @media (min-width: 760px) {
     .landing-hero-inner {
