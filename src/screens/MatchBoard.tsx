@@ -483,6 +483,16 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     if (el) cardEls.current.set(id, el);
     else cardEls.current.delete(id);
   };
+  /** Per-hand-card tilt layer refs — the child div inside each motion.div
+   *  that owns the 3D parallax transform. We mutate `transform` directly
+   *  on pointermove so the tilt tracks the cursor at native pointer-event
+   *  cadence without going through React render. Keyed by battleId so
+   *  rebuilds (a card leaving the hand, the hand reshuffling) clean up. */
+  const handTiltRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  /** Last slot the dragged card was over. Used to play a short tick SFX
+   *  the moment the card crosses into a new slot, selling the "magnetic
+   *  snap" feel without actually moving the card off the finger. */
+  const lastDragSlotRef = useRef<number | null>(null);
   const [arrow, setArrow] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
 
   /** Live drag-to-attack aim arrow. Set the moment the player drags off
@@ -1898,6 +1908,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         }
       }
     }
+    // Magnetic-snap tick: every time the dragged card crosses INTO a new
+    // slot (null → 0/1/2 or one slot → another) the empty slot's golden
+    // glow already pops in, but pairing that with a short audible click
+    // sells the snap. Skipped on slot exit so leaving the field doesn't
+    // chirp.
+    if (overSlot !== lastDragSlotRef.current) {
+      if (overSlot !== null) sfx('tap');
+      lastDragSlotRef.current = overSlot;
+    }
     setDrag(d => d ? { ...d, overField, overSlot } : d);
   };
 
@@ -1957,6 +1976,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
     }
     setDrag(null);
+    lastDragSlotRef.current = null;
     // Clear the drag flag on the next tick so an onTap fired on the
     // same gesture release skips. setTimeout 0 is enough — onTap fires
     // synchronously after onDragEnd in Framer's pointer handler chain.
@@ -3100,6 +3120,48 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 scale: 1.15,
                 filter: 'drop-shadow(0 16px 28px rgba(0,0,0,.55))',
               }}
+              // Desktop hover: lift the card up, scale 1.2, straighten
+              // out of the fan, drop a chunky shadow. `whileHover` is a
+              // no-op on touch (no mouse hover) so this is purely a
+              // desktop affordance. Skipped while the card is selected
+              // (the centered preview already owns the focus) or being
+              // dragged (whileDrag wins).
+              whileHover={canDrag && !isSelected && !isDraggingThis ? {
+                scale: 1.2,
+                y: -36,
+                rotate: 0,
+                // zIndex bump so the lifted card sits ABOVE the right-
+                // side fan neighbours (whose static zIndex is higher).
+                // Framer doesn't tween zIndex — discrete swap is fine.
+                zIndex: 80,
+                filter: 'drop-shadow(0 14px 22px rgba(0,0,0,.45))',
+                transition: { type: 'spring', stiffness: 340, damping: 26 },
+              } : undefined}
+              // 3D parallax — track the cursor within the card and tilt
+              // a child layer toward it. Direct DOM writes (no React
+              // state) so the tilt updates at pointer-event cadence
+              // without thrashing the hand-fan render. Drag/selected
+              // bypass the tilt so the transform layers never fight.
+              onPointerMove={(ev) => {
+                if (!canDrag || isSelected || isDraggingThis) return;
+                const r = (ev.currentTarget as HTMLElement).getBoundingClientRect();
+                const dx = (ev.clientX - r.left - r.width / 2) / (r.width / 2);
+                const dy = (ev.clientY - r.top - r.height / 2) / (r.height / 2);
+                const rx = Math.max(-1, Math.min(1, -dy)) * 12;
+                const ry = Math.max(-1, Math.min(1, dx)) * 16;
+                const tilt = handTiltRefs.current.get(card.battleId);
+                if (tilt) {
+                  tilt.style.transition = 'none';
+                  tilt.style.transform = `perspective(800px) rotateX(${rx.toFixed(1)}deg) rotateY(${ry.toFixed(1)}deg)`;
+                }
+              }}
+              onPointerLeave={() => {
+                const tilt = handTiltRefs.current.get(card.battleId);
+                if (tilt) {
+                  tilt.style.transition = 'transform 0.3s cubic-bezier(.18,.85,.3,1.1)';
+                  tilt.style.transform = 'perspective(800px) rotateX(0deg) rotateY(0deg)';
+                }
+              }}
               style={{
                 position: 'absolute',
                 bottom: 0,
@@ -3137,7 +3199,28 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                   : undefined,
               }}
             >
-              <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+              {/* Tilt layer — owns the 3D rotateX/rotateY transform
+                  applied directly by the parent's onPointerMove. Lives
+                  as a child of the motion.div so the tilt composes on
+                  TOP of the fan rotation + hover lift / drag scale,
+                  without entering Framer's animate transform pipeline.
+                  Ref lets the pointer handler mutate `transform` at
+                  native cadence; the transition kicks in on pointer-
+                  leave so the card eases back to flat. */}
+              <div
+                ref={(el) => {
+                  if (el) handTiltRefs.current.set(card.battleId, el);
+                  else handTiltRefs.current.delete(card.battleId);
+                }}
+                style={{
+                  width: '100%', height: '100%',
+                  transformStyle: 'preserve-3d',
+                  transition: 'transform 0.3s cubic-bezier(.18,.85,.3,1.1)',
+                  willChange: 'transform',
+                }}
+              >
+                <Card card={card} scale={baseScale} hovered={isSelected || isDraggingThis} unaffordable={!playableNow} />
+              </div>
               {/* Spell-lock indicator — All-Hands Meeting (wrk-18)
                   freezes the player's spells for one turn. Tint the
                   card blue + pin a snowflake badge so the player can
