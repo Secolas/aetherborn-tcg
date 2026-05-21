@@ -2752,6 +2752,12 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
           bondLookup={playerBondLookup}
           tauntFromBonds={playerTauntFromBonds}
           slotMap={playerSlots}
+          // Glow the targeted slot while dragging a Creature over the
+          // field. We only forward the index when it's a creature drag
+          // AND the pointer is currently over the field; otherwise null
+          // so no slot lights up (e.g. spell drags, or finger drifting
+          // off the field).
+          highlightSlot={drag?.cardType === 'Creature' && drag.overField ? drag.overSlot : null}
           registerEl={registerEl}
           onCardClick={(c) => {
             // If a friendly spell is mid-cast, tapping one of the
@@ -2920,7 +2926,18 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               // re-asserting xOff against Framer's drag write during
               // the gesture, leaving cards in the wrong slot on release.
               animate={{ rotate: poseRot, y: poseY }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              // While DRAGGING, the un-fan (rotate → 0, y → -12) must
+              // complete almost instantly. The old 400-stiffness spring
+              // took ~250ms, during which the card visibly twisted
+              // under the finger because Framer's drag translate and
+              // this rotation animation ran on the same transform. A
+              // short tween (60ms) reads as a clean "snap upright"
+              // pickup with no fighting transforms. On release
+              // (isThisDragging flips false) we go back to the spring
+              // so the card re-fans into its hand slot smoothly.
+              transition={isThisDragging
+                ? { duration: 0.06, ease: 'easeOut' }
+                : { type: 'spring', stiffness: 400, damping: 30 }}
               onDragStart={() => handleDragStart(card)}
               onDrag={(_, info) => handleDrag(info.point.x, info.point.y)}
               onDragEnd={() => handleDragEnd(card)}
@@ -4306,7 +4323,7 @@ function BondPillStack({
 
 function FieldRow({
   side, cards, dying, turn, battlePhaseActive, combat, damages, buffs, silencedAt, triggers, selectedAttacker, pendingSpell,
-  bondLookup, tauntFromBonds, slotMap,
+  bondLookup, tauntFromBonds, slotMap, highlightSlot,
   registerEl, onCardClick, onCardLongPress,
 }: {
   side: 'player' | 'opponent';
@@ -4328,6 +4345,11 @@ function FieldRow({
    *  matches the engine. */
   tauntFromBonds: Set<string>;
   slotMap: Record<string, number>;
+  /** Index of the slot currently being targeted by an in-flight drag.
+   *  Only the player's row receives this — used to glow an empty slot
+   *  while the player drags a Creature over it. null when no drag is
+   *  active or the slot is occupied. */
+  highlightSlot?: number | null;
   registerEl: (id: string, el: HTMLElement | null) => void;
   onCardClick: (c: BattleCard) => void;
   onCardLongPress: (c: BattleCard) => void;
@@ -4371,6 +4393,15 @@ function FieldRow({
         // dying-card animation that's about to fly to the graveyard).
         // Cards render on top and cover the tint while present; once
         // they leave, the tint is revealed without a pop.
+        //
+        // EXCEPTION: when the player is dragging a Creature and the
+        // pointer is over this empty slot (`highlightSlot === i` and
+        // `c == null`), promote the wrapper to a golden solid border
+        // + soft glow. Only empty slots glow because the drop logic
+        // only honours `drag.overSlot` when the slot is free — see
+        // handleDragEnd. Border / background swap on a 120ms ease so
+        // the highlight fades in/out instead of popping.
+        const isDropTarget = highlightSlot === i && !c;
         return (
           <div
             key={`slot-${i}`}
@@ -4379,21 +4410,21 @@ function FieldRow({
             data-tut-side={side}
             ref={c ? (el) => registerEl(c.battleId, el) : undefined}
             style={{
-              // Slot zones are a constant of the field. Border,
-              // background, transform, and shadow are identical in
-              // every state — empty, occupied, drag-over, blocked,
-              // dying. Drop feedback is handled by other layers
-              // (the dragged card itself, the center divider
-              // "Summon" hint), never by mutating the zone. Cards
-              // and dying-animation ghosts sit on top of the
-              // unchanged scaffolding.
               width: 64, height: 88,
               borderRadius: 8,
               flex: '0 0 auto',
               position: 'relative',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              border: '1.5px dashed rgba(58,46,42,.14)',
-              background: 'rgba(255,255,255,.18)',
+              border: isDropTarget
+                ? '1.5px solid rgba(244,208,74,.95)'
+                : '1.5px dashed rgba(58,46,42,.14)',
+              background: isDropTarget
+                ? 'rgba(244,208,74,.18)'
+                : 'rgba(255,255,255,.18)',
+              boxShadow: isDropTarget
+                ? '0 0 14px rgba(244,208,74,.55), inset 0 0 12px rgba(244,208,74,.35)'
+                : undefined,
+              transition: 'border-color .12s ease, background .12s ease, box-shadow .12s ease',
             }}
           >
           {c && (
