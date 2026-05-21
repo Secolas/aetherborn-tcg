@@ -168,7 +168,7 @@ export const STARTER_THEMES: StarterTheme[] = [
                                 //   deck teaches level_up via this
                                 //   duplicate; players unlock Math
                                 //   Teacher + Senior Year via packs.
-      'edu-08',                 // 3c 4/2 — The Bully (common)
+      'edu-08',                 // 3c 4/2 — Detention (common)
       'edu-09',                 // 4c 1/6  — Library (heal each turn)
       'edu-14',                 // 1c 1/2 — Notebook (draw on play, common)
                                 //   replaces 6c Graduation Day (legendary)

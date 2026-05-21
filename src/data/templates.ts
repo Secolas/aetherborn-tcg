@@ -538,11 +538,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'pop_quiz',
     rarity: 'rare', suggested: 'a test sheet, scantron, or stack of exams' },
 
-  { id: 'edu-08', name: 'The Bully', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
+  { id: 'edu-08', name: 'Detention', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
     ability: '',
-    flavor: 'The hallway feels longer when he\'s in it.',
+    flavor: 'Held back, but still here.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a closed locker, a scuffed sneaker, a graffiti-tagged wall, a clenched fist on a desk, an empty corridor' },
+    rarity: 'common', suggested: 'an empty classroom after hours, a desk facing the wall, a closed door with the lights still on, a late slip, a clock at 3:30, an after-school sign' },
 
   { id: 'edu-09', name: 'Library', el: 'education', cost: 4, atk: 1, hp: 6, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',

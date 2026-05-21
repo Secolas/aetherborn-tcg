@@ -488,14 +488,14 @@ export const BOSSES: BossDef[] = [
       'edu-05',          // Group Project (+1/+1 all)
       'edu-06',          // Science Class (level_up)
       'edu-07',          // Pop Quiz (discard + draw 2)
-      'edu-08',          // The Bully (vanilla 4/2)
+      'edu-08',          // Detention (vanilla 4/2)
       'edu-09',          // Library (heal_each_turn 1)
       'edu-10',          // Final Exam (conditional damage / heal)
       'edu-13',          // Physical Ed Class (3/3 Rush)
     ],
     photoOverrides: {
       'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
-      // No override for edu-08 The Bully here — the previous override
+      // No override for edu-08 Detention here — the previous override
       // accidentally reused the Family Cousin photo. Let the global
       // edu-08 photo (varsity teen) carry the card so it doesn't
       // duplicate another theme's portrait.
@@ -520,7 +520,7 @@ export const BOSSES: BossDef[] = [
       'edu-12',          // Graduation Day legendary
       'edu-13',          // Physical Ed Class — rare 3/3 Rush mid-curve aggression
                          //   (replaces 2nd Senior Year to satisfy epic cap)
-      'edu-08',          // The Bully (one early threat)
+      'edu-08',          // Detention (one early threat)
     ],
   },
 

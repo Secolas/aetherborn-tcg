@@ -111,10 +111,12 @@ const THEMED: Record<string, string> = {
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
   'edu-06': U('photo-1532094349884-543bc11b234d'),  // Science Class → science lab
   'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
-  // The Bully — Unsplash doesn't really stock "bully" photos. We use
-  // a thematic substitute: a moody teen portrait. Previous IDs kept
-  // rotating into unrelated stock (water / mountain / cousin photo).
-  'edu-08': U('photo-1496345875659-11f7dd282d1d'),  // The Bully → moody teen portrait
+  // Detention — moody teen portrait as the AI-side fallback. (Was
+  // previously "The Bully"; the rename landed on Detention partly
+  // because the original-intent bully photo was impossible to source
+  // from Unsplash, and "moody teen in detention" reads naturally
+  // for the same image.)
+  'edu-08': U('photo-1496345875659-11f7dd282d1d'),  // Detention → moody teen portrait
   'edu-09': U('photo-1481627834876-b7833e8f5570'),  // Library → bookshelves
   'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
