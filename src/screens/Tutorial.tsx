@@ -443,7 +443,14 @@ export function Tutorial({
               <Trophy size={18} strokeWidth={2.4} />
               <span>Begin Tutorial</span>
             </button>
-            <div className="tu-intro-foot">I'll spotlight what to tap at every step.</div>
+            <button
+              type="button"
+              className="tu-intro-skip"
+              onClick={onComplete}
+            >
+              Skip tutorial
+            </button>
+            <div className="tu-intro-foot">I'll spotlight what to tap at every step. You can revisit the rules anytime from Settings → Help.</div>
           </div>
         </div>
       </div>
@@ -811,6 +818,22 @@ function TutorialStyles() {
         transition: transform .12s;
       }
       .tu-intro-cta:hover { transform: translateY(-1px); }
+      .tu-intro-skip {
+        display: block;
+        margin: 10px auto 0;
+        background: transparent;
+        border: 0;
+        color: ${PALETTE.textMid};
+        font-family: inherit;
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        cursor: pointer;
+        padding: 6px 10px;
+      }
+      .tu-intro-skip:hover { color: ${PALETTE.text}; }
       .tu-intro-foot {
         text-align: center;
         margin-top: 10px;

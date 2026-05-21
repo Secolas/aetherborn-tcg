@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle, ChevronDown, BookOpen, Hand, Wand2, LinkIcon as Link2, Swords, Clock } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle, ChevronDown, BookOpen, Hand, Wand2, LinkIcon as Link2, Swords, Clock, Sparkles, Layers } from 'lucide-react';
 import { PALETTE } from '../components/styles';
 import { DAMAGE } from '../design/tokens';
 import { playSfx } from '../audio/sfx';
@@ -118,9 +118,22 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
             title="Goal & turns"
             body={
               <>
-                <p>Drop the opponent's HP to 0 within <strong>12 turns</strong>, or have more HP when the timer runs out.</p>
+                <p>Both players start with <strong>18 HP</strong>. Drop the opponent's HP to 0 within <strong>12 turns</strong>, or have more HP than them when the turn limit hits (ties count as a loss).</p>
                 <p>Each turn flows: <strong>Draw</strong> (gain +1 max mana, draw 1) → <strong>Main Phase</strong> (summon creatures, cast spells) → <strong>Battle Phase</strong> (attack) → <strong>End Turn</strong>.</p>
                 <p>You can only cast spells and summon creatures in the Main Phase, before you tap the swords icon to enter Battle.</p>
+                <p>Mana starts at <strong>1</strong> and rises by +1 each turn up to a cap of <strong>7</strong>. Unused mana doesn't carry over.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Layers size={18} strokeWidth={2.2} />}
+            title="Hand & drawing"
+            body={
+              <>
+                <p>You start with <strong>4 cards</strong> in hand and draw <strong>1 every turn</strong> (some abilities and Bonds draw extra).</p>
+                <p>Hand size is capped at <strong>7</strong>. If your hand is full when you'd draw, the drawn card is skipped.</p>
+                <p>Tap your portrait during a match to peek at your remaining deck and cemetery.</p>
               </>
             }
           />
@@ -130,7 +143,7 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
             title="Summoning creatures"
             body={
               <>
-                <p>Drag a creature card onto an empty field slot and pay its mana cost. You have three slots.</p>
+                <p>Drag a creature card onto an empty field slot and pay its mana cost. You have <strong>3 field slots</strong> — when they're full you can't summon more until one dies.</p>
                 <p>A new creature <strong>sleeps</strong> the turn you summon it — it can't attack until next turn. Cards with <strong>Rush</strong> ignore this and swing the same turn.</p>
                 <p>Creatures with <strong>Taunt</strong> force the opponent to attack them before your portrait.</p>
               </>
@@ -168,6 +181,23 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
                 <p>Tap the <strong>swords icon</strong> to enter Battle Phase. Drag any awake creature onto an opponent target.</p>
                 <p>Attacking the opponent's portrait deals damage to their HP. Attacking a creature trades damage both ways — both take damage equal to the other's attack value.</p>
                 <p>At 0 HP a creature dies and goes to the cemetery.</p>
+              </>
+            }
+          />
+          <div className="settings-divider" />
+          <HelpRow
+            icon={<Sparkles size={18} strokeWidth={2.2} />}
+            title="Card rarity"
+            body={
+              <>
+                <p>Every card belongs to one of four rarities, shown by the coloured chip on the card:</p>
+                <p>
+                  <strong style={{ color: '#9a958c' }}>Common</strong> — ~60% of pack pulls. The everyday backbone of a deck.<br />
+                  <strong style={{ color: '#5a8fc4' }}>Rare</strong> — ~28%. Stronger stats or a useful keyword.<br />
+                  <strong style={{ color: '#a45ec8' }}>Epic</strong> — ~10%. Heavier on-play abilities or board swings.<br />
+                  <strong style={{ color: '#e0a93a' }}>Legendary</strong> — ~2%. Match-defining effects, often Bond pieces.
+                </p>
+                <p>Every pack guarantees at least one <strong>Rare or higher</strong>.</p>
               </>
             }
           />
