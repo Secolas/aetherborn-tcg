@@ -195,7 +195,7 @@ export const STARTER_THEMES: StarterTheme[] = [
       'ani-17',                 // 2c spell — Walkies (draw 2)
       'ani-04',                 // 3c 2/2  — Cat (bond piece)
       'ani-05',                 // 3c 2/4  — Dog (bond piece)
-      'ani-06',                 // 3c 2/3  — Owl
+      'ani-06',                 // 3c 2/3  — Bird
       'ani-10',                 // 4c 3/3  — Horse
       'ani-11',                 // 5c 5/4  — Wolf (finisher)
     ],

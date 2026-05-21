@@ -291,9 +291,9 @@ export const BOSSES: BossDef[] = [
       'ani-03',          // Rabbit
       'ani-04',          // Cat
       'ani-05',          // Dog
-      'ani-06',          // Owl
+      'ani-06',          // Bird
       'ani-07',          // Treats
-      'ani-09',          // Bear Trap
+      'ani-09',          // Cage
       'ani-10',          // Horse
       'ani-11',          // Wolf
       'ani-14',          // Mosquito (cheap vanilla — replaces Lion)
@@ -314,8 +314,8 @@ export const BOSSES: BossDef[] = [
       'ani-02',          // Snake Bite damage
       'ani-04',          // Cat
       'ani-05',          // Dog
-      'ani-06',          // Owl (untargetable)
-      'ani-09',          // Bear Trap freeze
+      'ani-06',          // Bird (untargetable)
+      'ani-09',          // Cage freeze
       'ani-10',          // Horse — epic 3/3 Rush mid-curve aggression
                          //   (replaces 2nd Lion to satisfy legendary cap)
       'ani-11', 'ani-11',// Wolf x2
@@ -766,7 +766,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'H',
     avatarPhoto: U('photo-1587300003388-59208cc962cb'),
     intro: 'Run. He likes that.',
-    playstyle: "A loyal hound with bite. House Pets bond protects with Taunt; Bear Trap and Muzzle lock you down.",
+    playstyle: "A loyal hound with bite. House Pets bond protects with Taunt; Cage and Muzzle lock you down.",
     rewardCoins: 75,
     deck: ['ani-05','ani-05','ani-04','ani-04','ani-09','ani-13','ani-07','ani-07','ani-10','ani-06','ani-02','fam-01'],
     backdrop: U('photo-1601758228041-f3b2795255f1'),
@@ -779,7 +779,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'B',
     avatarPhoto: U('photo-1530595467537-0b5996c41f2d'),
     intro: "You shouldn't have left food out.",
-    playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Bear Trap freezes.",
+    playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Cage freezes.",
     rewardCoins: 100,
     // Horse (epic) capped at 1; second Horse swapped for Wolf
     // (common 5/4) — keeps the "big bodies, hard hits" identity

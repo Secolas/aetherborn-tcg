@@ -231,10 +231,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'rare', tags: ['pet'], suggested: 'a dog — any dog' },
 
-  { id: 'ani-06', name: 'Owl', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
+  { id: 'ani-06', name: 'Bird', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
+    flavor: 'Sees the move before it happens.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'rare', suggested: 'a bird — owl, eagle, sparrow, anything' },
+    rarity: 'rare', suggested: 'any bird you can photograph — a sparrow on a bench, a pigeon on a sidewalk, a parrot, a heron at the lake' },
 
   { id: 'ani-07', name: 'Treats', el: 'animals', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give an Animals-type creature +3/+3.',
@@ -247,28 +248,29 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'rare', tags: ['pet'], suggested: 'a vet, a clinic, or a pet carrier' },
 
-  { id: 'ani-09', name: 'Bear Trap', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
+  { id: 'ani-09', name: 'Cage', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
+    flavor: 'Whatever can be caught, can be held.',
     abilityKind: 'spell_freeze',
-    rarity: 'rare', suggested: 'a fence, cage, or trap of any kind' },
+    rarity: 'rare', suggested: 'a wire cage, a closed gate, a padlocked fence, a kennel, a birdcage' },
 
   { id: 'ani-10', name: 'Horse', el: 'animals', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: 'Rush.',
     flavor: 'Charges in.',
     abilityKind: 'rush',
-    rarity: 'epic', suggested: 'a horse, donkey, or large animal' },
+    rarity: 'epic', suggested: 'a horse at a stable, a carriage horse downtown, a donkey at a farm, or any large mammal at a zoo' },
 
   { id: 'ani-11', name: 'Wolf', el: 'animals', cost: 5, atk: 5, hp: 4, type: 'Creature',
     ability: '',
     flavor: 'Pack hunter.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a dog with serious eyes, a wolf, a husky' },
+    rarity: 'common', suggested: 'a husky, malamute, or shepherd — any dog with wolf-like eyes; a wolf at a sanctuary works too' },
 
   { id: 'ani-12', name: 'Lion', el: 'animals', cost: 6, atk: 6, hp: 6, type: 'Creature',
     ability: 'On play: deal 1 to all enemy creatures.',
     flavor: 'Apex predator.',
     abilityKind: 'aoe_on_play', abilityValue: 1,
-    rarity: 'legendary', suggested: 'the most majestic creature you can find' },
+    rarity: 'legendary', suggested: 'a lion at a zoo, sanctuary, or safari park — any big cat in person counts (tiger, leopard, jaguar)' },
 
   { id: 'ani-13', name: 'Muzzle', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Silence an enemy creature.',
@@ -375,13 +377,13 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Give a Travel-type creature +4/+4.',
     flavor: 'Some people travel differently.',
     abilityKind: 'spell_buff', abilityValue: 4,
-    rarity: 'rare', suggested: 'a lie-flat seat, a champagne flute, a lounge' },
+    rarity: 'rare', suggested: 'any travel upgrade moment — a nicer-than-usual seat, a lounge entrance, a priority boarding line, a champagne flute' },
 
   { id: 'trv-12', name: 'Mountain Summit', el: 'travel', cost: 6, atk: 6, hp: 5, type: 'Creature',
     ability: 'Rush.',
     flavor: 'You made it to the top.',
     abilityKind: 'rush',
-    rarity: 'legendary', suggested: 'a peak, summit, or panoramic mountain view' },
+    rarity: 'legendary', suggested: 'any high vantage point — a mountain peak, a hilltop, a rooftop city skyline, a panoramic view that took effort to reach' },
 
   { id: 'trv-13', name: 'Ticket Stub', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw a card.',
@@ -510,25 +512,25 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
     flavor: 'Show your work.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'a teacher at a chalkboard, with numbers or formulas' },
+    rarity: 'rare', suggested: 'an old class photo of your math teacher, a whiteboard with equations, a tutoring app screen, or your old textbook' },
 
   { id: 'edu-04', name: 'Bathroom Break', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
     flavor: '"Can I be excused?"',
     abilityKind: 'spell_freeze',
-    rarity: 'common', suggested: 'a school hallway, lockers, or a hall pass' },
+    rarity: 'common', suggested: 'an empty corridor, a row of lockers (school, gym, or office), a restroom sign' },
 
   { id: 'edu-05', name: 'Group Project', el: 'education', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give each of your Education-type creatures +1/+1.',
     flavor: 'Two people do the work. Everyone signs.',
     abilityKind: 'spell_buff_all', abilityValue: 1,
-    rarity: 'rare', suggested: 'students gathered around a table working together' },
+    rarity: 'rare', suggested: 'any group huddle — a study group, a work team meeting, friends with laptops at a café, a brainstorm whiteboard' },
 
   { id: 'edu-06', name: 'Physics Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
     flavor: 'For every action, an equal and opposite reaction.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'a science classroom, lab equipment, or an experiment' },
+    rarity: 'rare', suggested: 'a science museum exhibit, lab equipment in any setting, a home science kit, an old class photo with a lab in the background' },
 
   { id: 'edu-07', name: 'Pop Quiz', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Discard a random card from your hand, then draw 2.',
@@ -540,7 +542,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'The hallway feels longer when he\'s in it.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a tough-looking kid, a closed locker, or a tense scene' },
+    rarity: 'common', suggested: 'a closed locker, a scuffed sneaker, a graffiti-tagged wall, a clenched fist on a desk, an empty corridor' },
 
   { id: 'edu-09', name: 'Library', el: 'education', cost: 4, atk: 1, hp: 6, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
@@ -552,7 +554,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'If you have 3+ creatures, deal 5 to the enemy boss. Otherwise, restore 5 HP.',
     flavor: 'Bring a pencil. And a backup.',
     abilityKind: 'exam_pass', abilityValue: 5,
-    rarity: 'epic', suggested: 'a packed exam room, a clock on the wall, an answer sheet' },
+    rarity: 'epic', suggested: 'an old exam paper from your archives, a wall clock at 9:00, a #2 pencil over a scantron, a stack of answer sheets' },
 
   { id: 'edu-11', name: 'Senior Year', el: 'education', cost: 4, atk: 2, hp: 3, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (3 turns). On the 3rd, also gain +2/+2 and Untargetable.',
@@ -570,7 +572,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Suit up. Lap one.',
     abilityKind: 'rush',
-    rarity: 'rare', suggested: 'a gym class, kids running, basketball hoop, sports equipment' },
+    rarity: 'rare', suggested: 'a basketball hoop, an empty court, a gym bag, sports gear in a locker, a soccer ball on grass' },
 
   // ============================================================
   // VANILLA FILLER — common-rarity creatures with no abilities.
@@ -685,7 +687,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'You saw them every day. You never asked their name.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a school friend, a kid at the desk next to you' },
+    rarity: 'common', suggested: 'an old class photo, a school friend you stayed in touch with, a selfie with a course-mate, or two desks side by side' },
 
   // ============================================================
   // COUPLE ARC — relationship-life cards distributed across the
@@ -712,7 +714,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'On play: deal 2 damage to the enemy face.',
     flavor: 'A door you closed. A scar you kept.',
     abilityKind: 'aoe_on_play', abilityValue: 2,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a dramatic photo, a memory, a closed door' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a closed door, an empty chair, a left-behind object, a torn page, a faded photograph' },
 
   { id: 'cou-04', name: 'Couple Photo', el: 'family', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: '',
