@@ -1229,7 +1229,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
 
       // Buff popups (level_up +1/+1, spell_buff resolves, etc.) fire
-      // AFTER the effect toast — so the player reads "Math Teacher
+      // AFTER the effect toast — so the player reads "Teacher
       // levels up" from the centered card reveal, THEN sees the
       // +1/+1 pop on the actual creature. This matches the requested
       // sequence: ability animation first, stat change second.

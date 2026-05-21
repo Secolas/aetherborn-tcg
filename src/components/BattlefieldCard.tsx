@@ -262,7 +262,7 @@ export function BattlefieldCard({
         {/* Level counter — pinned to a FIXED corner (top-left, under
             the cost circle) so its position never shifts based on
             which other status icons happen to be present. Player can
-            always glance at the same spot to read "Math Teacher Lv
+            always glance at the same spot to read "Teacher Lv
             2/3 — one more turn before it caps." Hidden once a
             Graduate creature transforms (abilityKind becomes
             untargetable, level counter no longer relevant). */}

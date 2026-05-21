@@ -145,8 +145,8 @@ export const STARTER_THEMES: StarterTheme[] = [
       'edu-01',                 // 1c 1/1  — Pencil
       'edu-02', 'edu-02',       // 1c spell x2 — Backpack (draw)
       'edu-15',                 // 2c 2/2  — Classmate (common vanilla).
-                                //   Replaces 2c Math Teacher (rare
-                                //   level_up). Math Teacher's scaling
+                                //   Replaces 2c Teacher (rare
+                                //   level_up). Teacher's scaling
                                 //   was the engine keeping Education at
                                 //   52% above every boss — the deck
                                 //   teaches level_up via the remaining
@@ -164,7 +164,7 @@ export const STARTER_THEMES: StarterTheme[] = [
                                 //   2nd copy restores enough scaling
                                 //   to lift Education out of
                                 //   Underpowered (40%) after dropping
-                                //   Math Teacher for Classmate. The
+                                //   Teacher for Classmate. The
                                 //   deck teaches level_up via this
                                 //   duplicate; players unlock Math
                                 //   Teacher + Senior Year via packs.

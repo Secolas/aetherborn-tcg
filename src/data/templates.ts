@@ -508,11 +508,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'a school backpack, tote, or messenger bag' },
 
-  { id: 'edu-03', name: 'Math Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
+  { id: 'edu-03', name: 'Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
     flavor: 'Show your work.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'an old class photo of your math teacher, a whiteboard with equations, a tutoring app screen, or your old textbook' },
+    rarity: 'rare', suggested: 'a teacher who shaped you — any subject. An old class photo, a whiteboard, a tutoring screen, a textbook on your shelf' },
 
   { id: 'edu-04', name: 'Bathroom Break', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',

@@ -473,7 +473,7 @@ export const BOSSES: BossDef[] = [
     // so it doesn't share rotation fate.
     avatarPhoto: U('photo-1568602471122-7832951cc4c5'),
     intro: 'Sit. Down.',
-    playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
+    playstyle: "Patient teacher. Drops Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
     // Normal-tier deck deliberately OMITS the epic/legendary finishers
     // (Senior Year, Graduation Day) so Family / Animals / Travel players
@@ -483,7 +483,7 @@ export const BOSSES: BossDef[] = [
     deck: [
       'edu-01', 'edu-01',// Pencil x2 — vanilla filler
       'edu-02',          // Backpack (1m draw)
-      'edu-03',          // Math Teacher (level_up)
+      'edu-03',          // Teacher (level_up)
       'edu-04',          // Bathroom Break (freeze)
       'edu-05',          // Group Project (+1/+1 all)
       'edu-06',          // Physics Class (level_up)
@@ -504,13 +504,13 @@ export const BOSSES: BossDef[] = [
     },
     // School hallway — lockers, fluorescent lighting, polished floor.
     backdrop: U('photo-1503676260728-1c00da094a0b'),
-    // Mythic: 2x Math Teacher + 2x Physics Class to lock Study Group
+    // Mythic: 2x Teacher + 2x Physics Class to lock Study Group
     // bond + double Senior Year copies to chain graduations. Drops
     // Pencil and Bathroom Break — Mythic Principal doesn't need
     // training wheels.
     mythicDeck: [
       'edu-02',          // Backpack
-      'edu-03', 'edu-03',// Math Teacher x2 — Study Group enabler
+      'edu-03', 'edu-03',// Teacher x2 — Study Group enabler
       'edu-05',          // Group Project
       'edu-06', 'edu-06',// Physics Class x2 — Study Group enabler
       'edu-07',          // Pop Quiz
@@ -904,7 +904,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'T',
     avatarPhoto: U('photo-1544717297-fa95b6ee9643'),
     intro: 'From the top.',
-    playstyle: "Study Group bond preview. Math Teacher and Physics Class level up every turn.",
+    playstyle: "Study Group bond preview. Teacher and Physics Class level up every turn.",
     rewardCoins: 75,
     deck: ['edu-03','edu-03','edu-06','edu-02','edu-02','edu-07','edu-09','edu-09','edu-05','edu-10','edu-01','edu-13'],
     backdrop: U('photo-1577896851231-70ef18881754'),

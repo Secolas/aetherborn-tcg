@@ -147,7 +147,7 @@ export const BONDS: BondDef[] = [
     id: 'study-group',
     name: 'Study Group',
     themeId: 'education',
-    cardA: 'edu-03', // Math Teacher
+    cardA: 'edu-03', // Teacher
     cardB: 'edu-06', // Physics Class
     description: 'Your leveling creatures gain +2/+2 each turn instead of +1/+1.',
     flavor: 'Two heads, twice the homework done.',

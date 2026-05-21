@@ -516,7 +516,7 @@ export function endTurn(prev: MatchState): MatchState {
     // sickness via `justPlayed` is enforced separately on the attack
     // path), it just gains its stat tick.
     //
-    // CAPPED AT 3 LEVELS (max +3/+3). Without a cap, a Math Teacher
+    // CAPPED AT 3 LEVELS (max +3/+3). Without a cap, a Teacher
     // that survives mid-late game spirals into a 7/9 or worse, which
     // out-scales every other deck's creatures. With the cap, level_up
     // gives 3 turns of growth then plateaus — a clear ceiling — so
@@ -1009,7 +1009,7 @@ function resolveSpell(state: MatchState, owner: Owner, card: BattleCard, target?
       // !silenced) and then restores the ability. So silence
       // suppresses the target's level_up / heal_each_turn / etc. for
       // exactly one of their turns, which is what "Muzzle disables
-      // Math Teacher for 1 turn" should mean.
+      // Teacher for 1 turn" should mean.
       c.silencedUntilTurn = state.turnNumber + 2;
     }
   } else if (card.abilityKind === 'draw_on_play') {

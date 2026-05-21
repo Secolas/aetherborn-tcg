@@ -55,10 +55,10 @@ const THEMED: Record<string, string> = {
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
   'ani-05': '/cards/dog.webp',                       // Dog → illustrated sleeping dog
-  'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
+  'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Bird → owl portrait (fallback only — players photograph their own bird) (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
-  'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Bear Trap → fence/wire
+  'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Cage → fence/wire
   'ani-10': U('photo-1553284965-83fd3e82fa5a'),     // Horse → horse
   'ani-11': U('photo-1474511320723-9a56873867b5'),  // Wolf → wolf portrait, mountain backdrop
   'ani-12': U('photo-1546182990-dffeafbe841d'),     // Lion → lion
@@ -106,7 +106,7 @@ const THEMED: Record<string, string> = {
   // Education — school days, classrooms, exams, graduation
   'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
   'edu-02': U('photo-1622260614153-03223fb72052'),  // Backpack → school bag with books
-  'edu-03': U('photo-1577896851231-70ef18881754'),  // Math Teacher → chalkboard
+  'edu-03': U('photo-1577896851231-70ef18881754'),  // Teacher → chalkboard
   'edu-04': U('photo-1497436072909-60f360e1d4b1'),  // Bathroom Break → empty school hallway
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
   'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
