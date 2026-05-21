@@ -172,7 +172,7 @@ export interface PlayerState {
       field change. */
   claimedBonds?: string[];
   /** Carry-over mana for next turn. Spent down by beginTurn (added once,
-      then cleared). Set by `mana_prep` creatures (Slow Cooker) and any
+      then cleared). Set by `mana_prep` creatures (Crockpot) and any
       future one-shot ramp effect. Doesn't raise maxMana — only the
       immediate spend for the upcoming turn — so ramp can't snowball. */
   manaBonusNextTurn?: number;

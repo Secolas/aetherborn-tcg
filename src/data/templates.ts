@@ -355,11 +355,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_damage', abilityValue: 3,
     rarity: 'common', suggested: 'a paper map, a GPS screen, a road sign' },
 
-  { id: 'trv-08', name: 'Layover', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
+  { id: 'trv-08', name: 'Airport Wait', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
     flavor: 'Hours bleed into hours.',
     abilityKind: 'spell_freeze',
-    rarity: 'rare', suggested: 'a departure board, a quiet terminal, a long hall' },
+    rarity: 'rare', suggested: 'a departure board, a quiet terminal seat, a long hall, a coffee cup at the gate, an empty boarding line' },
 
   { id: 'trv-09', name: 'Hotel', el: 'travel', cost: 4, atk: 2, hp: 5, type: 'Creature',
     ability: 'Taunt.',
@@ -431,11 +431,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'recover_on_death',
     rarity: 'rare', suggested: 'a lunch box, takeout container, or packed meal' },
 
-  { id: 'fd-06', name: 'Slow Cooker', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
+  { id: 'fd-06', name: 'Crockpot', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
     ability: 'On play: gain +1 mana next turn.',
     flavor: 'It will be ready when it is ready.',
     abilityKind: 'mana_prep', abilityValue: 1,
-    rarity: 'rare', suggested: 'a crockpot, slow cooker, or simmering pot' },
+    rarity: 'rare', suggested: 'a crockpot, instant pot, rice cooker, simmering pot, or anything cooking low-and-slow on the counter' },
 
   { id: 'fd-07', name: 'Recipe Card', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Food-type creature +1/+1.',
@@ -526,11 +526,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'rare', suggested: 'any group huddle — a study group, a work team meeting, friends with laptops at a café, a brainstorm whiteboard' },
 
-  { id: 'edu-06', name: 'Physics Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
+  { id: 'edu-06', name: 'Science Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
-    flavor: 'For every action, an equal and opposite reaction.',
+    flavor: 'Hypothesis. Experiment. Conclusion.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'a science museum exhibit, lab equipment in any setting, a home science kit, an old class photo with a lab in the background' },
+    rarity: 'rare', suggested: 'any science subject — a lab bench, a microscope, a beaker, a science museum exhibit, a home kit, or an old class photo' },
 
   { id: 'edu-07', name: 'Pop Quiz', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Discard a random card from your hand, then draw 2.',
@@ -581,11 +581,11 @@ export const TEMPLATES: CardTemplate[] = [
   // the "stat sticks" of each theme — predictable trades, no surprises.
   // ============================================================
 
-  { id: 'fam-16', name: 'Little Cousin', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
+  { id: 'fam-16', name: 'Younger Me', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
-    flavor: 'Too smart for their own good.',
+    flavor: 'The kid you used to be still has your back.',
     abilityKind: 'heal_each_turn', abilityValue: 1,
-    rarity: 'common', suggested: 'a young cousin, niece, nephew, godchild, friend\'s kid, or even your own baby photo' },
+    rarity: 'common', suggested: 'a baby photo of you, a kindergarten portrait, you on a tricycle, any childhood snapshot — or a young cousin/niece/nephew if you prefer' },
 
   { id: 'wrk-16', name: 'Custodian', el: 'work', cost: 5, atk: 4, hp: 5, type: 'Creature',
     ability: 'Taunt.',

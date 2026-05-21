@@ -385,7 +385,7 @@ export function beginTurn(prev: MatchState, owner: Owner): MatchState {
   // Mana ramp
   me.maxMana = Math.min(MAX_MANA, me.maxMana + 1);
   me.mana = me.maxMana;
-  // One-shot ramp from `mana_prep` creatures (Slow Cooker etc.). Adds to
+  // One-shot ramp from `mana_prep` creatures (Crockpot etc.). Adds to
   // THIS turn's spendable mana only — doesn't raise maxMana — so the
   // boost can't snowball across multiple turns. Cleared after applying.
   if (me.manaBonusNextTurn && me.manaBonusNextTurn > 0) {

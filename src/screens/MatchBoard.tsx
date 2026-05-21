@@ -573,7 +573,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       if (step) {
         // ai.ts uses a generic "The Boss" prefix in its log strings; we
         // substitute the actual boss name at display time so the message
-        // reads "Mom summons Dad" / "The Drifter casts Layover" / etc.
+        // reads "Mom summons Dad" / "The Drifter casts Airport Wait" / etc.
         // Only the leading "The Boss" gets swapped — the wrk-12 card is
         // also named "The Boss" and shouldn't be renamed mid-string.
         showMsg(step.action.replace(/^The Boss\b /, ''));
@@ -1180,7 +1180,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }
           }
         }
-        // Draw-phase: mana_prep bonus (Slow Cooker etc.) fires when the
+        // Draw-phase: mana_prep bonus (Crockpot etc.) fires when the
         // active side's mana exceeds their maxMana at turn start.
         const newActiveMana = newActiveSide === 'player' ? state.player.mana : state.opponent.mana;
         const newActiveMaxMana = newActiveSide === 'player' ? state.player.maxMana : state.opponent.maxMana;

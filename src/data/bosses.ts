@@ -375,7 +375,7 @@ export const BOSSES: BossDef[] = [
     backdrop: U('photo-1436491865332-7a61a109cc05'),
     // Mythic: 2x Window Seat (First Class Window bond enabler) and 2x
     // Mountain Summit (the legendary Rush finisher). Replaces filler
-    // (Carry-On, Layover) with a Ticket Stub for early cycling.
+    // (Carry-On, Airport Wait) with a Ticket Stub for early cycling.
     mythicDeck: [
       'trv-01',          // Boarding Pass (1m rush)
       'trv-02',          // Carry-On — rare untargetable 1/2 sticky body
@@ -418,7 +418,7 @@ export const BOSSES: BossDef[] = [
       'fd-03',           // Snack — early rush body
       'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
       'fd-05',           // Lunch Box — recover_on_death
-      'fd-06',           // Slow Cooker — ramp
+      'fd-06',           // Crockpot — ramp
       'fd-17',           // Stew Pot — 4-damage removal (replaces Spicy
                          // Sauce 2-dmg; lets the sustain plan survive
                          // early aggression long enough to come online)
@@ -444,7 +444,7 @@ export const BOSSES: BossDef[] = [
       'fd-14',           // Spicy Sauce removal
       'fd-04', 'fd-04',  // Breakfast Plate x2 — Breakfast Combo enabler + draw
       'fd-05',           // Lunch Box recover
-      'fd-06',           // Slow Cooker ramp
+      'fd-06',           // Crockpot ramp
       'fd-08',           // Share the Meal board heal
       'fd-10',           // Grandma's Pie heal_each_turn
       'fd-11',           // The Cook on-play heal
@@ -473,7 +473,7 @@ export const BOSSES: BossDef[] = [
     // so it doesn't share rotation fate.
     avatarPhoto: U('photo-1568602471122-7832951cc4c5'),
     intro: 'Sit. Down.',
-    playstyle: "Patient teacher. Drops Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
+    playstyle: "Patient teacher. Drops Teacher and Science Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
     // Normal-tier deck deliberately OMITS the epic/legendary finishers
     // (Senior Year, Graduation Day) so Family / Animals / Travel players
@@ -486,7 +486,7 @@ export const BOSSES: BossDef[] = [
       'edu-03',          // Teacher (level_up)
       'edu-04',          // Bathroom Break (freeze)
       'edu-05',          // Group Project (+1/+1 all)
-      'edu-06',          // Physics Class (level_up)
+      'edu-06',          // Science Class (level_up)
       'edu-07',          // Pop Quiz (discard + draw 2)
       'edu-08',          // The Bully (vanilla 4/2)
       'edu-09',          // Library (heal_each_turn 1)
@@ -504,7 +504,7 @@ export const BOSSES: BossDef[] = [
     },
     // School hallway — lockers, fluorescent lighting, polished floor.
     backdrop: U('photo-1503676260728-1c00da094a0b'),
-    // Mythic: 2x Teacher + 2x Physics Class to lock Study Group
+    // Mythic: 2x Teacher + 2x Science Class to lock Study Group
     // bond + double Senior Year copies to chain graduations. Drops
     // Pencil and Bathroom Break — Mythic Principal doesn't need
     // training wheels.
@@ -512,7 +512,7 @@ export const BOSSES: BossDef[] = [
       'edu-02',          // Backpack
       'edu-03', 'edu-03',// Teacher x2 — Study Group enabler
       'edu-05',          // Group Project
-      'edu-06', 'edu-06',// Physics Class x2 — Study Group enabler
+      'edu-06', 'edu-06',// Science Class x2 — Study Group enabler
       'edu-07',          // Pop Quiz
       'edu-09',          // Library
       'edu-10',          // Final Exam
@@ -874,7 +874,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'S',
     avatarPhoto: U('photo-1577219491135-ce391730fb2c'),
     intro: 'On your six.',
-    playstyle: "Removal and ramp. Stew Pot kills threats, Slow Cooker ramps mana, Grandma's Pie heals every turn.",
+    playstyle: "Removal and ramp. Stew Pot kills threats, Crockpot ramps mana, Grandma's Pie heals every turn.",
     rewardCoins: 100,
     deck: ['fd-17','fd-17','fd-14','fd-06','fd-06','fd-11','fd-04','fd-05','fd-05','fd-10','fd-08','fd-01'],
     backdrop: U('photo-1556909114-f6e7ad7d3136'),
@@ -904,7 +904,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'T',
     avatarPhoto: U('photo-1544717297-fa95b6ee9643'),
     intro: 'From the top.',
-    playstyle: "Study Group bond preview. Teacher and Physics Class level up every turn.",
+    playstyle: "Study Group bond preview. Teacher and Science Class level up every turn.",
     rewardCoins: 75,
     deck: ['edu-03','edu-03','edu-06','edu-02','edu-02','edu-07','edu-09','edu-09','edu-05','edu-10','edu-01','edu-13'],
     backdrop: U('photo-1577896851231-70ef18881754'),

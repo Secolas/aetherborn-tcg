@@ -52,7 +52,7 @@ export const STARTER_THEMES: StarterTheme[] = [
     description: 'Tanky bodies, multiple heals, and the 2/6 Abuela holding the line. Hard to die, easy to grind down a faster deck.',
     iconCardId: 'fam-11',
     /* Identity: control / sustain / late-game tank.
-     * Toolkit: 2 heals (Hug, Little Cousin passive), 2 card draw (Chat, Tio),
+     * Toolkit: 2 heals (Hug, Younger Me passive), 2 card draw (Chat, Tio),
      * 1 freeze (The Look), 1 silence (Tough Love), bond pair
      * (Cousin x2 + Sibling = "The Kids"), finisher (Dad). The
      * heaviest mana curve of the three — Family trades tempo for
@@ -68,7 +68,7 @@ export const STARTER_THEMES: StarterTheme[] = [
       'fam-14', 'fam-14',       // 1c spell x2 — Hug (heal +3 friend)
                                 //   2nd copy replaces 4c Abuela (rare
                                 //   2/6 Taunt — unlocked via packs)
-      'fam-16',                 // 1c 1/2  — Little Cousin (heal +1/turn)
+      'fam-16',                 // 1c 1/2  — Younger Me (heal +1/turn)
       'fam-15',                 // 2c spell — Family Chat (draw 1)
       'fam-02', 'fam-02',       // 2c 2/2  — Cousin x2 (bond piece)
       'fam-04',                 // 3c 2/3  — Tio (draw on play)
@@ -150,7 +150,7 @@ export const STARTER_THEMES: StarterTheme[] = [
                                 //   was the engine keeping Education at
                                 //   52% above every boss — the deck
                                 //   teaches level_up via the remaining
-                                //   Physics Class, and Classmate fills
+                                //   Science Class, and Classmate fills
                                 //   the 2-cost slot at common rarity.
       'edu-04',                 // 2c spell — Bathroom Break (freeze)
       'edu-07',                 // 2c spell — Pop Quiz (discard 1, draw 2)
@@ -160,7 +160,7 @@ export const STARTER_THEMES: StarterTheme[] = [
                                 //   the deck playable at ~43% without
                                 //   pushing it back above the boss tier.
       'edu-13',                 // 3c 3/3 — Physical Ed Class (rush)
-      'edu-06', 'edu-06',       // 3c 2/4 x2 — Physics Class (level_up).
+      'edu-06', 'edu-06',       // 3c 2/4 x2 — Science Class (level_up).
                                 //   2nd copy restores enough scaling
                                 //   to lift Education out of
                                 //   Underpowered (40%) after dropping
@@ -214,7 +214,7 @@ export const STARTER_THEMES: StarterTheme[] = [
       'fd-05',                  // 2c 2/2  — Lunch Box
       'fd-07',                  // 2c spell — Recipe Card (+1/+1 buff)
       'fd-14',                  // 2c spell — Spicy Sauce (2 dmg)
-      'fd-06',                  // 3c 1/4  — Slow Cooker
+      'fd-06',                  // 3c 1/4  — Crockpot
       'fd-10',                  // 3c 2/5  — Grandma's Pie (heal/turn)
       'fd-16',                  // 3c 3/3  — Sandwich
       'fd-11',                  // 4c 3/4  — The Cook

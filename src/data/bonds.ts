@@ -148,7 +148,7 @@ export const BONDS: BondDef[] = [
     name: 'Study Group',
     themeId: 'education',
     cardA: 'edu-03', // Teacher
-    cardB: 'edu-06', // Physics Class
+    cardB: 'edu-06', // Science Class
     description: 'Your leveling creatures gain +2/+2 each turn instead of +1/+1.',
     flavor: 'Two heads, twice the homework done.',
     effect: { kind: 'level_up_doubled' },

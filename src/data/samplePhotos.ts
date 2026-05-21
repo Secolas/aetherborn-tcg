@@ -72,7 +72,7 @@ const THEMED: Record<string, string> = {
   'trv-05': U('photo-1502139214982-d0ad755818d8'),  // Window Seat → airplane window over clouds
   'trv-06': U('photo-1474487548417-781cb71495f3'),  // Train Conductor → vintage train
   'trv-07': U('photo-1507608616759-54f48f0af0ee'),  // Roadmap → paper map
-  'trv-08': U('photo-1466354424719-343280fe118b'),  // Layover → departure board
+  'trv-08': U('photo-1466354424719-343280fe118b'),  // Airport Wait → departure board
   'trv-09': U('photo-1566073771259-6a8506099945'),  // Hotel → hotel facade
   'trv-10': U('photo-1507525428034-b723cf961d3e'),  // Beach → tropical shore
   'trv-11': U('photo-1540339832862-474599807836'),  // First Class → luxury cabin
@@ -84,7 +84,7 @@ const THEMED: Record<string, string> = {
   'fd-03': U('photo-1599490659213-e2b9527bd087'),  // Snack → chips / bowl of snacks
   'fd-04': U('photo-1490645935967-10de6ba17061'),  // Breakfast Plate → eggs / pancakes
   'fd-05': U('photo-1565299507177-b0ac66763828'),  // Lunch Box → packed meal box
-  'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Slow Cooker → kitchen stove
+  'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Crockpot → kitchen stove
   'fd-07': U('photo-1455619452474-d2be8b1e70cd'),  // Recipe Card → handwritten recipe
   'fd-08': U('photo-1414235077428-338989a2e8c0'),  // Share the Meal → table set for many
   'fd-09': U('photo-1567620905732-2d1ec7ab7445'),  // Comfort Food → pancake stack
@@ -109,7 +109,7 @@ const THEMED: Record<string, string> = {
   'edu-03': U('photo-1577896851231-70ef18881754'),  // Teacher → chalkboard
   'edu-04': U('photo-1497436072909-60f360e1d4b1'),  // Bathroom Break → empty school hallway
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
-  'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
+  'edu-06': U('photo-1532094349884-543bc11b234d'),  // Science Class → science lab
   'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
   // The Bully — Unsplash doesn't really stock "bully" photos. We use
   // a thematic substitute: a moody teen portrait. Previous IDs kept
