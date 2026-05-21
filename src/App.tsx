@@ -1055,6 +1055,7 @@ function Game() {
           settings={settings}
           onChange={setSettings}
           onBack={() => setScreen('home')}
+          onReplayTutorial={() => setScreen('tutorial')}
           onResetAccount={() => {
             // Wipe save back to the initial empty state, but keep
             // tutorialCompleted = true so the player lands on the

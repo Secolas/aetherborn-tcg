@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle, ChevronDown, BookOpen, Hand, Wand2, LinkIcon as Link2, Swords, Clock, Sparkles, Layers } from 'lucide-react';
+import { ArrowLeft, Volume2, VolumeX, Music, Smile, RotateCcw, AlertTriangle, ChevronDown, BookOpen, Hand, Wand2, LinkIcon as Link2, Swords, Clock, Sparkles, Layers, GraduationCap } from 'lucide-react';
 import { PALETTE } from '../components/styles';
 import { DAMAGE } from '../design/tokens';
 import { playSfx } from '../audio/sfx';
@@ -21,9 +21,12 @@ interface Props {
    *  starter-pick flow. Skips the tutorial since they've already
    *  done it. Called from the Danger zone confirmation dialog. */
   onResetAccount?: () => void;
+  /** Re-launches the scripted tutorial so a returning player can
+   *  walk through the rules again without resetting their save. */
+  onReplayTutorial?: () => void;
 }
 
-export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: Props) {
+export function SettingsScreen({ settings, onChange, onBack, onResetAccount, onReplayTutorial }: Props) {
   const [resetOpen, setResetOpen] = useState(false);
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) =>
     onChange({ ...settings, [key]: value });
@@ -113,6 +116,20 @@ export function SettingsScreen({ settings, onChange, onBack, onResetAccount }: P
         </header>
 
         <div className="settings-card help-card">
+          {onReplayTutorial && (
+            <>
+              <button
+                type="button"
+                className="replay-btn"
+                onClick={onReplayTutorial}
+              >
+                <span className="replay-ico"><GraduationCap size={16} strokeWidth={2.4} /></span>
+                <span className="replay-lbl">Replay tutorial</span>
+                <span className="replay-hint">Walk through the scripted match again.</span>
+              </button>
+              <div className="settings-divider" />
+            </>
+          )}
           <HelpRow
             icon={<Clock size={18} strokeWidth={2.2} />}
             title="Goal & turns"
@@ -591,6 +608,47 @@ function SettingsStyles() {
       @keyframes helpBodyIn {
         from { opacity: 0; transform: translateY(-4px); }
         to   { opacity: 1; transform: translateY(0); }
+      }
+
+      /* Replay tutorial button — sits at the top of the Help card.
+         Same row geometry as the danger-btn so the two read as a
+         matched pair, but the colours pull from the accent palette
+         since this is a constructive action. */
+      .settings .replay-btn {
+        width: 100%;
+        display: flex; align-items: center; gap: 10px;
+        padding: 10px 12px;
+        background: ${PALETTE.accent}12;
+        border: 1.5px solid ${PALETTE.accent}55;
+        border-radius: 14px;
+        color: ${PALETTE.text};
+        font-family: inherit;
+        font-size: 14px; font-weight: 700;
+        cursor: pointer;
+        transition: background .12s, transform .1s;
+        text-align: left;
+      }
+      .settings .replay-btn:hover { background: ${PALETTE.accent}1f; transform: translateY(-1px); }
+      .settings .replay-ico {
+        width: 32px; height: 32px; border-radius: 10px;
+        background: ${PALETTE.accent}; color: #fff;
+        display: grid; place-items: center;
+        flex: 0 0 auto;
+      }
+      .settings .replay-lbl {
+        font-weight: 800;
+        letter-spacing: 0.02em;
+        flex: 0 0 auto;
+      }
+      .settings .replay-hint {
+        flex: 1;
+        font-size: 11px;
+        font-weight: 600;
+        color: ${PALETTE.textMid};
+        text-align: right;
+      }
+      @media (max-width: 360px) {
+        .settings .replay-hint { display: none; }
       }
 
       /* Danger button + reset confirm dialog */
