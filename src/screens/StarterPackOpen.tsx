@@ -219,11 +219,6 @@ export function StarterPackOpen({ theme, cards, onSetPhoto, onDone }: Props) {
               inspect modal — the card chrome carries the colour and
               the halo / sheen do the rest. */}
         </div>
-        {!photoSet && (
-          <div className="po-hint">
-            Snap a photo of <em>{current.suggested ?? current.name.toLowerCase()}</em>.
-          </div>
-        )}
         {photoSet && (
           <div className="po-hint po-hint-done">
             <Check size={14} strokeWidth={3} /> <span>Photo set!</span>

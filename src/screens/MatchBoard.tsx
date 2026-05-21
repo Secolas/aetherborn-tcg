@@ -4266,7 +4266,20 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
                 cursor: 'pointer',
                 fontFamily: 'inherit',
               }}>Keep playing</button>
-              <button onClick={() => onExit('quit')} style={{
+              <button onClick={() => {
+                setConfirmGiveUp(false);
+                if (online) {
+                  // PVP: concede via Firestore (see PvpRoom.onExit('quit')) —
+                  // the subscription pushes the terminal state back down and
+                  // MatchEnd renders from that.
+                  onExit('quit');
+                } else {
+                  // Solo: flip the outcome locally so MatchEnd renders with the
+                  // boss's loss dialogue + reward, instead of bailing straight
+                  // to the home screen.
+                  setState(s => ({ ...s, outcome: 'loss' }));
+                }
+              }} style={{
                 flex: 1,
                 background: 'linear-gradient(180deg, #ee5a52, #c8362e)',
                 color: '#fff',
