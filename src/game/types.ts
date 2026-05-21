@@ -42,7 +42,12 @@ export type AbilityKind =
   | 'exam_pass'          // (Spell) if you have 3+ creatures, deal X to enemy face; otherwise heal owner X
   | 'pop_quiz'           // (Spell) discard a random card from your hand, then draw 2
   // ---- Work theme: meta-control ----
-  | 'spell_lock';        // (Spell) opponent cannot cast spells on their next turn
+  | 'spell_lock'         // (Spell) opponent cannot cast spells on their next turn
+  // ---- Travel theme: random destination spell ----
+  | 'spell_luck';        // (Spell) roll a d6 — six destination effects (heal,
+                         // creature buff atk, creature buff hp, +mana, face
+                         // damage, self damage). Rolled with the in-state
+                         // PRNG so sims stay reproducible.
 
 export interface CardTemplate {
   id: string;
@@ -167,7 +172,7 @@ export interface PlayerState {
       field change. */
   claimedBonds?: string[];
   /** Carry-over mana for next turn. Spent down by beginTurn (added once,
-      then cleared). Set by `mana_prep` creatures (Slow Cooker) and any
+      then cleared). Set by `mana_prep` creatures (Crockpot) and any
       future one-shot ramp effect. Doesn't raise maxMana — only the
       immediate spend for the upcoming turn — so ramp can't snowball. */
   manaBonusNextTurn?: number;

@@ -26,7 +26,7 @@ const THEMED: Record<string, string> = {
   'fam-04': '/cards/tio.webp',                       // Tio → illustrated portrait
   'fam-05': '/cards/mom.webp',                       // Mom → illustrated portrait
   'fam-06': U('photo-1531746020798-e6953c6e8e04'),  // The Look → silhouette
-  'fam-07': '/cards/older-sibling.webp',             // Older Sibling → illustrated portrait
+  'fam-07': '/cards/older-sibling.webp',             // Sibling → illustrated portrait
   'fam-08': '/cards/abuela.webp',                    // Abuela → illustrated portrait
   'fam-09': U('photo-1535141192574-5d4897c12636'),  // Birthday Cake → cake
   'fam-10': '/cards/family-photo.webp',              // Family Photo → illustrated group
@@ -55,10 +55,10 @@ const THEMED: Record<string, string> = {
   'ani-03': U('photo-1535241749838-299277b6305f'),  // Rabbit → bunny
   'ani-04': U('photo-1574144611937-0df059b5ef3e'),  // Cat → cat
   'ani-05': '/cards/dog.webp',                       // Dog → illustrated sleeping dog
-  'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Owl → owl portrait (was a leaf-droplet photo when the previous ID rotated)
+  'ani-06': U('photo-1543549790-8b5f4a028cfb'),  // Bird → owl portrait (fallback only — players photograph their own bird) (was a leaf-droplet photo when the previous ID rotated)
   'ani-07': U('photo-1601758228041-f3b2795255f1'),  // Treats → pet food
   'ani-08': U('photo-1583337130417-3346a1be7dee'),  // Vet Visit → vet/pet
-  'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Bear Trap → fence/wire
+  'ani-09': U('photo-1485894050903-8e8ee7b071a8'),  // Cage → fence/wire
   'ani-10': U('photo-1553284965-83fd3e82fa5a'),     // Horse → horse
   'ani-11': U('photo-1474511320723-9a56873867b5'),  // Wolf → wolf portrait, mountain backdrop
   'ani-12': U('photo-1546182990-dffeafbe841d'),     // Lion → lion
@@ -72,7 +72,7 @@ const THEMED: Record<string, string> = {
   'trv-05': U('photo-1502139214982-d0ad755818d8'),  // Window Seat → airplane window over clouds
   'trv-06': U('photo-1474487548417-781cb71495f3'),  // Train Conductor → vintage train
   'trv-07': U('photo-1507608616759-54f48f0af0ee'),  // Roadmap → paper map
-  'trv-08': U('photo-1466354424719-343280fe118b'),  // Layover → departure board
+  'trv-08': U('photo-1466354424719-343280fe118b'),  // Airport Wait → departure board
   'trv-09': U('photo-1566073771259-6a8506099945'),  // Hotel → hotel facade
   'trv-10': U('photo-1507525428034-b723cf961d3e'),  // Beach → tropical shore
   'trv-11': U('photo-1540339832862-474599807836'),  // First Class → luxury cabin
@@ -84,7 +84,7 @@ const THEMED: Record<string, string> = {
   'fd-03': U('photo-1599490659213-e2b9527bd087'),  // Snack → chips / bowl of snacks
   'fd-04': U('photo-1490645935967-10de6ba17061'),  // Breakfast Plate → eggs / pancakes
   'fd-05': U('photo-1565299507177-b0ac66763828'),  // Lunch Box → packed meal box
-  'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Slow Cooker → kitchen stove
+  'fd-06': U('photo-1556909114-f6e7ad7d3136'),     // Crockpot → kitchen stove
   'fd-07': U('photo-1455619452474-d2be8b1e70cd'),  // Recipe Card → handwritten recipe
   'fd-08': U('photo-1414235077428-338989a2e8c0'),  // Share the Meal → table set for many
   'fd-09': U('photo-1567620905732-2d1ec7ab7445'),  // Comfort Food → pancake stack
@@ -99,19 +99,24 @@ const THEMED: Record<string, string> = {
   'wrk-15': U('photo-1554224155-6726b3ff858f'),     // Payroll → ATM / paycheck
   'ani-14': U('photo-1518810827419-c66f7c5b2c63'),  // Mosquito → small bug
   'trv-13': U('photo-1499856871958-5b9627545d1a'),  // Ticket Stub → boarding stub
+  'trv-15': U('photo-1568708151706-8c1d9eb84a1f'),  // Scooter → parked Vespa / scooter
+  'trv-16': U('photo-1524661135-423995f22d0b'),     // Where to Travel? → world map with pins
+  'trv-17': U('photo-1548574505-5e239809ee19'),     // Cruise → cruise ship at sea
 
   // Education — school days, classrooms, exams, graduation
   'edu-01': U('photo-1455390582262-044cdead277a'),  // Pencil → pencil / notebook
   'edu-02': U('photo-1622260614153-03223fb72052'),  // Backpack → school bag with books
-  'edu-03': U('photo-1577896851231-70ef18881754'),  // Math Teacher → chalkboard
+  'edu-03': U('photo-1577896851231-70ef18881754'),  // Teacher → chalkboard
   'edu-04': U('photo-1497436072909-60f360e1d4b1'),  // Bathroom Break → empty school hallway
   'edu-05': U('photo-1571260899304-425eee4c7efc'),  // Group Project → students working
-  'edu-06': U('photo-1532094349884-543bc11b234d'),  // Physics Class → science lab
+  'edu-06': U('photo-1532094349884-543bc11b234d'),  // Science Class → science lab
   'edu-07': U('photo-1606326608690-4e0281b1e588'),  // Pop Quiz → scantron / answer sheet
-  // The Bully — Unsplash doesn't really stock "bully" photos. We use
-  // a thematic substitute: a moody teen portrait. Previous IDs kept
-  // rotating into unrelated stock (water / mountain / cousin photo).
-  'edu-08': U('photo-1496345875659-11f7dd282d1d'),  // The Bully → moody teen portrait
+  // Detention — moody teen portrait as the AI-side fallback. (Was
+  // previously "The Bully"; the rename landed on Detention partly
+  // because the original-intent bully photo was impossible to source
+  // from Unsplash, and "moody teen in detention" reads naturally
+  // for the same image.)
+  'edu-08': U('photo-1496345875659-11f7dd282d1d'),  // Detention → moody teen portrait
   'edu-09': U('photo-1481627834876-b7833e8f5570'),  // Library → bookshelves
   'edu-10': U('photo-1576267423445-b2e0074d68a4'),  // Final Exam → exam room
   'edu-11': U('photo-1523580494863-6f3031224c94'),  // Senior Year → graduation cap closeup
@@ -123,6 +128,7 @@ const THEMED: Record<string, string> = {
   'fd-17':  U('photo-1547592180-85f173990554'),     // Stew Pot → bubbling soup pot
   'wrk-17': U('photo-1531403009284-440f080d1e12'),  // Colleagues → team around a desk
   'wrk-18': U('photo-1517245386807-bb43f82c33c4'),  // All-Hands Meeting → packed conference room (placeholder, reuses wrk-09's conference-room photo)
+  'wrk-19': U('photo-1542744173-8e7e53415bb0'),     // Hired → empty desk / first day office
 
   // Family Pet micro-set (Animals theme support spells).
   'ani-15': U('photo-1450778869180-41d0601e046e'),  // Belly Rub → dog being petted

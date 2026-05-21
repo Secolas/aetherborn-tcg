@@ -143,7 +143,7 @@ export const BOSSES: BossDef[] = [
       'fam-04',          // Tio
       'fam-05',          // Mom card
       'fam-06',          // The Look
-      'fam-07',          // Older Sibling
+      'fam-07',          // Sibling
       'fam-08',          // Abuela
       'fam-09',          // Birthday Cake
       'fam-11',          // Dad
@@ -162,7 +162,7 @@ export const BOSSES: BossDef[] = [
       'fam-04',         // Tio (draw engine)
       'fam-05',         // Mom card
       'fam-06',         // The Look
-      'fam-07',         // Older Sibling — common 4/4 mid-curve body
+      'fam-07',         // Sibling — common 4/4 mid-curve body
                         // (replaces 2nd Dad to satisfy epic copy cap)
       'fam-08', 'fam-08',// Abuela x2 — Generations enabler
       'fam-10',         // Family Photo (epic buff)
@@ -189,10 +189,38 @@ export const BOSSES: BossDef[] = [
     rewardCoins: 150,
     // Normal: no legendary. The Boss (wrk-12) is the Mythic-tier
     // exclusive. Hard uses this same deck under smarter AI.
+    //
+    // Balance pass (was 38% across the field — bottom of every
+    // matchup table). Swaps:
+    //   − wrk-14 Stand-up Meeting (cheap both-draw cycle): gave the
+    //     opponent a free card too, anti-synergy for a tempo deck
+    //     that wants to chip its opponent down, not even card parity.
+    //   − wrk-11 Lunch Break (5c heal 7): off-theme stabilizer; the
+    //     data showed Manager wasn't dying to face damage in 92% of
+    //     games — it was losing on HP attrition at the turn cap.
+    //     A one-shot heal didn't move the long-game outcome.
+    //   + wrk-03 Coworker (2c 2/2): fixes a missing turn-2 play. The
+    //     old curve had no creature on T2 — opponent always got first
+    //     to the board.
+    //   + wrk-16 Custodian (5c 4/5 Taunt): common-rarity closer. The
+    //     deck had no real finisher at Normal tier (Colleagues is
+    //     epic but only 3/4); Custodian shields HR + Senior Engineer
+    //     through the late game and forces lethal trades.
+    // Balance pass: 2nd Spam Email replaces Custodian. Custodian
+    // was defensive when Manager's actual loss pattern is failing
+    // to close — he wasn't dying, he was running out of damage
+    // before the turn cap. The 2nd Spam Email delivers on the
+    // "pings with spam" line in the playstyle blurb (the original
+    // deck only had one), AND every Spam Email cast triggers
+    // Hired's spell_synergy for a free +1 face damage — so each
+    // 1-cost spam is effectively 3 damage when Hired is on board.
+    // Earlier attempt with wrk-10 Promotion regressed Manager
+    // (42.8% → 40.3%): Promotion is a two-card combo (creature +
+    // buff) and the AI often had nothing live to buff.
     deck: [
       'wrk-01',          // Intern
-      'wrk-02',          // Spam Email (1c chip damage)
-      'wrk-14',          // Stand-up Meeting (cheap both-draw cycle)
+      'wrk-02', 'wrk-02',// Spam Email x2 — 1c chip damage; pairs with Hired
+      'wrk-03',          // Coworker — 2c 2/2 tempo body
       'wrk-05',          // IT Support
       'wrk-06', 'wrk-06',// Sales Pitch x2 — removal (4 dmg, kills creatures)
       'wrk-18',          // All-Hands Meeting — anti-heal spell lock.
@@ -202,11 +230,15 @@ export const BOSSES: BossDef[] = [
                          // All-Hands hits heal decks (Mom/Cook/Partner)
                          // where freeze did nothing.
       'wrk-07',          // HR — Untargetable 3/4 mid-curve threat
-      'wrk-08',          // Senior Engineer
+      'wrk-19',          // Hired — 3c 2/3 spell_synergy (1 ping per cast).
+                         // Replaces Senior Engineer (4c 4/4 vanilla): the
+                         // 4-mana slot already has HR (epic) and Payroll
+                         // (board buff). Hired comes down a turn earlier
+                         // and converts Manager's 6 spell casts into ~6
+                         // bonus face damage — the missing closer.
       'wrk-15',          // Payroll — board buff
       'wrk-17',          // Colleagues — epic 3/4 with on-play +1/+1
                          // to every Work creature. Real finisher.
-      'wrk-11',          // Lunch Break — 7 face heal stabilizer
     ],
     photoOverrides: {
       'wrk-12': U('photo-1573497019940-1c28c88b4f3e'),  // his own dapper boss photo
@@ -259,9 +291,9 @@ export const BOSSES: BossDef[] = [
       'ani-03',          // Rabbit
       'ani-04',          // Cat
       'ani-05',          // Dog
-      'ani-06',          // Owl
+      'ani-06',          // Bird
       'ani-07',          // Treats
-      'ani-09',          // Bear Trap
+      'ani-09',          // Cage
       'ani-10',          // Horse
       'ani-11',          // Wolf
       'ani-14',          // Mosquito (cheap vanilla — replaces Lion)
@@ -282,8 +314,8 @@ export const BOSSES: BossDef[] = [
       'ani-02',          // Snake Bite damage
       'ani-04',          // Cat
       'ani-05',          // Dog
-      'ani-06',          // Owl (untargetable)
-      'ani-09',          // Bear Trap freeze
+      'ani-06',          // Bird (untargetable)
+      'ani-09',          // Cage freeze
       'ani-10',          // Horse — epic 3/3 Rush mid-curve aggression
                          //   (replaces 2nd Lion to satisfy legendary cap)
       'ani-11', 'ani-11',// Wolf x2
@@ -311,6 +343,16 @@ export const BOSSES: BossDef[] = [
     rewardCoins: 150,
     // Normal: no legendary. Mountain Summit (trv-12, legendary 6/5
     // Rush finisher) is Mythic-only.
+    // Balance pass: swap Roadmap → Scooter to finally deliver on
+    // the playstyle's "swings with Rushers" promise. Drifter's deck
+    // used to have zero rush creatures despite the boss-picker
+    // blurb advertising them — the deck was actually pure
+    // cycle/evasion. Scooter (3c 3/2 Rush, common) fills the 3-cost
+    // slot Roadmap (3c 3-damage spell) used to hold: same 3 damage
+    // on entry, but the body sticks around for follow-up swings if
+    // it survives. Previous experiments swapping Beach/Hotel/Ticket
+    // Stub all regressed the deck (Beach 32.8%, Hotel 33.4%), so
+    // every other slot stays put — only the spell→body conversion.
     deck: [
       'trv-01', 'trv-01',// Boarding Pass x2 — keep the pressure on early
       'trv-02',          // Carry-On — small evasive body
@@ -318,7 +360,7 @@ export const BOSSES: BossDef[] = [
       'trv-04',          // Lost Luggage — silence
       'trv-05',          // Window Seat — 3/3 Rush
       'trv-06',          // Train Conductor — value body + draw
-      'trv-07',          // Roadmap — burn
+      'trv-15',          // Scooter — 3c 3/2 Rush body (replaces Roadmap)
       'trv-09',          // Hotel — defensive anchor
       'trv-10',          // Beach — heal
       'trv-11',          // First Class — finisher buff
@@ -333,10 +375,10 @@ export const BOSSES: BossDef[] = [
     backdrop: U('photo-1436491865332-7a61a109cc05'),
     // Mythic: 2x Window Seat (First Class Window bond enabler) and 2x
     // Mountain Summit (the legendary Rush finisher). Replaces filler
-    // (Carry-On, Layover) with a Ticket Stub for early cycling.
+    // (Carry-On, Airport Wait) with a Ticket Stub for early cycling.
     mythicDeck: [
       'trv-01',          // Boarding Pass (1m rush)
-      'trv-02',          // Carry-On — rare untargetable 2/2 sticky body
+      'trv-02',          // Carry-On — rare untargetable 1/2 sticky body
                          //   (replaces 2nd Summit to satisfy legendary cap)
       'trv-03',          // Suitcase draw 2
       'trv-04',          // Lost Luggage silence
@@ -376,7 +418,7 @@ export const BOSSES: BossDef[] = [
       'fd-03',           // Snack — early rush body
       'fd-04',           // Breakfast Plate — Breakfast Combo partner + draw
       'fd-05',           // Lunch Box — recover_on_death
-      'fd-06',           // Slow Cooker — ramp
+      'fd-06',           // Crockpot — ramp
       'fd-17',           // Stew Pot — 4-damage removal (replaces Spicy
                          // Sauce 2-dmg; lets the sustain plan survive
                          // early aggression long enough to come online)
@@ -402,7 +444,7 @@ export const BOSSES: BossDef[] = [
       'fd-14',           // Spicy Sauce removal
       'fd-04', 'fd-04',  // Breakfast Plate x2 — Breakfast Combo enabler + draw
       'fd-05',           // Lunch Box recover
-      'fd-06',           // Slow Cooker ramp
+      'fd-06',           // Crockpot ramp
       'fd-08',           // Share the Meal board heal
       'fd-10',           // Grandma's Pie heal_each_turn
       'fd-11',           // The Cook on-play heal
@@ -431,7 +473,7 @@ export const BOSSES: BossDef[] = [
     // so it doesn't share rotation fate.
     avatarPhoto: U('photo-1568602471122-7832951cc4c5'),
     intro: 'Sit. Down.',
-    playstyle: "Patient teacher. Drops Math Teacher and Physics Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
+    playstyle: "Patient teacher. Drops Teacher and Science Class early, freezes your attackers with Bathroom Break, and wins long games when his Seniors graduate into Untargetable threats.",
     rewardCoins: 150,
     // Normal-tier deck deliberately OMITS the epic/legendary finishers
     // (Senior Year, Graduation Day) so Family / Animals / Travel players
@@ -441,19 +483,19 @@ export const BOSSES: BossDef[] = [
     deck: [
       'edu-01', 'edu-01',// Pencil x2 — vanilla filler
       'edu-02',          // Backpack (1m draw)
-      'edu-03',          // Math Teacher (level_up)
+      'edu-03',          // Teacher (level_up)
       'edu-04',          // Bathroom Break (freeze)
       'edu-05',          // Group Project (+1/+1 all)
-      'edu-06',          // Physics Class (level_up)
+      'edu-06',          // Science Class (level_up)
       'edu-07',          // Pop Quiz (discard + draw 2)
-      'edu-08',          // The Bully (vanilla 4/2)
+      'edu-08',          // Detention (vanilla 4/2)
       'edu-09',          // Library (heal_each_turn 1)
       'edu-10',          // Final Exam (conditional damage / heal)
       'edu-13',          // Physical Ed Class (3/3 Rush)
     ],
     photoOverrides: {
       'edu-03': U('photo-1577896851231-70ef18881754'),  // his own chalkboard teacher
-      // No override for edu-08 The Bully here — the previous override
+      // No override for edu-08 Detention here — the previous override
       // accidentally reused the Family Cousin photo. Let the global
       // edu-08 photo (varsity teen) carry the card so it doesn't
       // duplicate another theme's portrait.
@@ -462,15 +504,15 @@ export const BOSSES: BossDef[] = [
     },
     // School hallway — lockers, fluorescent lighting, polished floor.
     backdrop: U('photo-1503676260728-1c00da094a0b'),
-    // Mythic: 2x Math Teacher + 2x Physics Class to lock Study Group
+    // Mythic: 2x Teacher + 2x Science Class to lock Study Group
     // bond + double Senior Year copies to chain graduations. Drops
     // Pencil and Bathroom Break — Mythic Principal doesn't need
     // training wheels.
     mythicDeck: [
       'edu-02',          // Backpack
-      'edu-03', 'edu-03',// Math Teacher x2 — Study Group enabler
+      'edu-03', 'edu-03',// Teacher x2 — Study Group enabler
       'edu-05',          // Group Project
-      'edu-06', 'edu-06',// Physics Class x2 — Study Group enabler
+      'edu-06', 'edu-06',// Science Class x2 — Study Group enabler
       'edu-07',          // Pop Quiz
       'edu-09',          // Library
       'edu-10',          // Final Exam
@@ -478,7 +520,7 @@ export const BOSSES: BossDef[] = [
       'edu-12',          // Graduation Day legendary
       'edu-13',          // Physical Ed Class — rare 3/3 Rush mid-curve aggression
                          //   (replaces 2nd Senior Year to satisfy epic cap)
-      'edu-08',          // The Bully (one early threat)
+      'edu-08',          // Detention (one early threat)
     ],
   },
 
@@ -724,7 +766,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'H',
     avatarPhoto: U('photo-1587300003388-59208cc962cb'),
     intro: 'Run. He likes that.',
-    playstyle: "A loyal hound with bite. House Pets bond protects with Taunt; Bear Trap and Muzzle lock you down.",
+    playstyle: "A loyal hound with bite. House Pets bond protects with Taunt; Cage and Muzzle lock you down.",
     rewardCoins: 75,
     deck: ['ani-05','ani-05','ani-04','ani-04','ani-09','ani-13','ani-07','ani-07','ani-10','ani-06','ani-02','fam-01'],
     backdrop: U('photo-1601758228041-f3b2795255f1'),
@@ -737,7 +779,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'B',
     avatarPhoto: U('photo-1530595467537-0b5996c41f2d'),
     intro: "You shouldn't have left food out.",
-    playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Bear Trap freezes.",
+    playstyle: "Big bodies, hard hits. Horses and a Wolf anchored by Cage freezes.",
     rewardCoins: 100,
     // Horse (epic) capped at 1; second Horse swapped for Wolf
     // (common 5/4) — keeps the "big bodies, hard hits" identity
@@ -832,7 +874,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'S',
     avatarPhoto: U('photo-1577219491135-ce391730fb2c'),
     intro: 'On your six.',
-    playstyle: "Removal and ramp. Stew Pot kills threats, Slow Cooker ramps mana, Grandma's Pie heals every turn.",
+    playstyle: "Removal and ramp. Stew Pot kills threats, Crockpot ramps mana, Grandma's Pie heals every turn.",
     rewardCoins: 100,
     deck: ['fd-17','fd-17','fd-14','fd-06','fd-06','fd-11','fd-04','fd-05','fd-05','fd-10','fd-08','fd-01'],
     backdrop: U('photo-1556909114-f6e7ad7d3136'),
@@ -862,7 +904,7 @@ export const MINI_BOSSES: BossDef[] = [
     avatar: 'T',
     avatarPhoto: U('photo-1544717297-fa95b6ee9643'),
     intro: 'From the top.',
-    playstyle: "Study Group bond preview. Math Teacher and Physics Class level up every turn.",
+    playstyle: "Study Group bond preview. Teacher and Science Class level up every turn.",
     rewardCoins: 75,
     deck: ['edu-03','edu-03','edu-06','edu-02','edu-02','edu-07','edu-09','edu-09','edu-05','edu-10','edu-01','edu-13'],
     backdrop: U('photo-1577896851231-70ef18881754'),

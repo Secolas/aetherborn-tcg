@@ -72,7 +72,7 @@ export const BONDS: BondDef[] = [
     name: 'The Kids',
     themeId: 'family',
     cardA: 'fam-02', // Cousin
-    cardB: 'fam-07', // Older Sibling
+    cardB: 'fam-07', // Sibling
     description: 'Draw a card at end of your turn if your hand has fewer than 3.',
     flavor: 'They always knew where the snacks were.',
     effect: { kind: 'draw_at_end_if_low_hand' },
@@ -147,8 +147,8 @@ export const BONDS: BondDef[] = [
     id: 'study-group',
     name: 'Study Group',
     themeId: 'education',
-    cardA: 'edu-03', // Math Teacher
-    cardB: 'edu-06', // Physics Class
+    cardA: 'edu-03', // Teacher
+    cardB: 'edu-06', // Science Class
     description: 'Your leveling creatures gain +2/+2 each turn instead of +1/+1.',
     flavor: 'Two heads, twice the homework done.',
     effect: { kind: 'level_up_doubled' },

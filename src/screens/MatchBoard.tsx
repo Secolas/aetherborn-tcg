@@ -573,7 +573,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       if (step) {
         // ai.ts uses a generic "The Boss" prefix in its log strings; we
         // substitute the actual boss name at display time so the message
-        // reads "Mom summons Dad" / "The Drifter casts Layover" / etc.
+        // reads "Mom summons Dad" / "The Drifter casts Airport Wait" / etc.
         // Only the leading "The Boss" gets swapped — the wrk-12 card is
         // also named "The Boss" and shouldn't be renamed mid-string.
         showMsg(step.action.replace(/^The Boss\b /, ''));
@@ -1180,7 +1180,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             }
           }
         }
-        // Draw-phase: mana_prep bonus (Slow Cooker etc.) fires when the
+        // Draw-phase: mana_prep bonus (Crockpot etc.) fires when the
         // active side's mana exceeds their maxMana at turn start.
         const newActiveMana = newActiveSide === 'player' ? state.player.mana : state.opponent.mana;
         const newActiveMaxMana = newActiveSide === 'player' ? state.player.maxMana : state.opponent.maxMana;
@@ -1229,7 +1229,7 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
       }
 
       // Buff popups (level_up +1/+1, spell_buff resolves, etc.) fire
-      // AFTER the effect toast — so the player reads "Math Teacher
+      // AFTER the effect toast — so the player reads "Teacher
       // levels up" from the centered card reveal, THEN sees the
       // +1/+1 pop on the actual creature. This matches the requested
       // sequence: ability animation first, stat change second.
@@ -3708,10 +3708,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
             willChange: 'opacity',
           }}
         >
-          {/* Rotating ray fan — sits behind the card. */}
+          {/* Rotating ray fan — sits behind the card. Clipped to a
+              circle (borderRadius + radial mask) so the conic gradient
+              doesn't render as a visible yellow square — the box was
+              showing because `mixBlendMode: screen` lights every pixel
+              of the 480×480 element on top of the dark overlay. */}
           <div style={{
             position: 'absolute', left: '50%', top: '50%',
             width: 480, height: 480,
+            borderRadius: '50%',
             background: `conic-gradient(
               from 0deg,
               transparent 0deg,
@@ -3728,6 +3733,8 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
               rgba(255,209,102,.5) 340deg,
               transparent 360deg
             )`,
+            WebkitMaskImage: 'radial-gradient(circle, #000 45%, transparent 75%)',
+            maskImage: 'radial-gradient(circle, #000 45%, transparent 75%)',
             transformOrigin: 'center',
             animation: 'legendaryRayRotate 1.4s ease-out both',
             mixBlendMode: 'screen',

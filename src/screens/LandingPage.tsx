@@ -657,7 +657,7 @@ function GameplayPreview() {
                 avatarPhoto="/cards/mom.webp"
                 avatarBg={`linear-gradient(160deg, ${fam.deep}, ${fam.color})`}
                 avatarRing={`conic-gradient(from 90deg, ${fam.deep}, ${fam.color}, ${fam.deep})`}
-                hp={20}
+                hp={18}
                 ring={null}
                 hit={false}
                 damage={null}
@@ -765,7 +765,7 @@ function GameplayPreview() {
                 avatar={<UserRound size={18} strokeWidth={2.2} />}
                 avatarBg="linear-gradient(135deg, #ffd166, #ff7e5f)"
                 avatarRing="conic-gradient(from 90deg, #ff7e5f, #ffd166, #ff7e5f)"
-                hp={20}
+                hp={18}
                 ring={null}
                 hit={false}
                 damage={null}

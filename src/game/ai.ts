@@ -379,6 +379,14 @@ function chooseSpellTarget(card: BattleCard, state: MatchState, c: AiCaps): Spel
     return { kind: 'face', owner: 'opponent' };
   }
 
+  if (card.abilityKind === 'spell_luck') {
+    // No real target — engine rolls a d6 and resolves stochastically.
+    // 5 of 6 outcomes are favorable; AI casts it whenever it has the
+    // mana. The patient-casts pass below adds a small disincentive when
+    // own HP is critical (the 1/6 self-damage could be lethal).
+    return { kind: 'face', owner: 'opponent' };
+  }
+
   return undefined;
 }
 
@@ -506,6 +514,9 @@ function scoreCard(card: BattleCard, state: MatchState, c: AiCaps): number {
         x.abilityKind === 'taunt' || x.abilityKind === 'untargetable' || x.abilityKind === 'rush'
       )) s -= 4;
       if (card.abilityKind === 'spell_heal' && me.hp >= 18) s -= 5;
+      // spell_luck: a 1/6 chance to take 3 self-damage. If that would
+      // kill us, don't cast — the variance isn't worth losing the game.
+      if (card.abilityKind === 'spell_luck' && me.hp <= 3) s -= 10;
     }
   }
   return s;

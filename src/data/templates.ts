@@ -51,11 +51,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_freeze',
     rarity: 'rare', suggested: "a stern face — mom's, dad's, anyone's" },
 
-  { id: 'fam-07', name: 'Older Sibling', el: 'family', cost: 4, atk: 4, hp: 4, type: 'Creature',
+  { id: 'fam-07', name: 'Sibling', el: 'family', cost: 4, atk: 4, hp: 4, type: 'Creature',
     ability: '',
     flavor: 'They tease you, but no one else gets to.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a sibling' },
+    rarity: 'common', suggested: 'a sibling (older or younger), a sibling-in-law, or a close friend you grew up with' },
 
   { id: 'fam-08', name: 'Abuela', el: 'family', cost: 4, atk: 2, hp: 6, type: 'Creature',
     ability: 'Taunt.',
@@ -113,7 +113,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'Eager, ready, expendable.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a young coworker, or a workspace' },
+    rarity: 'common', suggested: 'a front desk, a new-hire ID badge, your first-day-at-work selfie, a young coworker, an empty cubicle' },
 
   { id: 'wrk-02', name: 'Spam Email', el: 'work', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Deal 2 damage to an enemy.',
@@ -147,7 +147,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Spells cannot target this.',
     flavor: 'Protected by policy.',
     abilityKind: 'untargetable',
-    rarity: 'epic', suggested: 'an HR rep, or an office sign' },
+    rarity: 'epic', suggested: 'an HR rep, an office sign, a corporate handbook, a reception desk, any face that says "follow the policy"' },
 
   { id: 'wrk-08', name: 'Senior Engineer', el: 'work', cost: 4, atk: 4, hp: 4, type: 'Creature',
     ability: '',
@@ -219,7 +219,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', tags: ['pet'], suggested: 'a rabbit, hare, or other prey animal' },
 
-  { id: 'ani-04', name: 'Cat', el: 'animals', cost: 3, atk: 3, hp: 2, type: 'Creature',
+  { id: 'ani-04', name: 'Cat', el: 'animals', cost: 3, atk: 2, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Sneaky and untouchable.',
     abilityKind: 'untargetable',
@@ -231,10 +231,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'taunt',
     rarity: 'rare', tags: ['pet'], suggested: 'a dog — any dog' },
 
-  { id: 'ani-06', name: 'Owl', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
+  { id: 'ani-06', name: 'Bird', el: 'animals', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: draw a card.',
+    flavor: 'Sees the move before it happens.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'rare', suggested: 'a bird — owl, eagle, sparrow, anything' },
+    rarity: 'rare', suggested: 'any bird you can photograph — a sparrow on a bench, a pigeon on a sidewalk, a parrot, a heron at the lake' },
 
   { id: 'ani-07', name: 'Treats', el: 'animals', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give an Animals-type creature +3/+3.',
@@ -247,28 +248,29 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_heal', abilityValue: 6,
     rarity: 'rare', tags: ['pet'], suggested: 'a vet, a clinic, or a pet carrier' },
 
-  { id: 'ani-09', name: 'Bear Trap', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
+  { id: 'ani-09', name: 'Cage', el: 'animals', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
+    flavor: 'Whatever can be caught, can be held.',
     abilityKind: 'spell_freeze',
-    rarity: 'rare', suggested: 'a fence, cage, or trap of any kind' },
+    rarity: 'rare', suggested: 'a wire cage, a closed gate, a padlocked fence, a kennel, a birdcage' },
 
   { id: 'ani-10', name: 'Horse', el: 'animals', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: 'Rush.',
     flavor: 'Charges in.',
     abilityKind: 'rush',
-    rarity: 'epic', suggested: 'a horse, donkey, or large animal' },
+    rarity: 'epic', suggested: 'a horse at a stable, a carriage horse downtown, a donkey at a farm, or any large mammal at a zoo' },
 
   { id: 'ani-11', name: 'Wolf', el: 'animals', cost: 5, atk: 5, hp: 4, type: 'Creature',
     ability: '',
     flavor: 'Pack hunter.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a dog with serious eyes, a wolf, a husky' },
+    rarity: 'common', suggested: 'a husky, malamute, or shepherd — any dog with wolf-like eyes; a wolf at a sanctuary works too' },
 
   { id: 'ani-12', name: 'Lion', el: 'animals', cost: 6, atk: 6, hp: 6, type: 'Creature',
     ability: 'On play: deal 1 to all enemy creatures.',
     flavor: 'Apex predator.',
     abilityKind: 'aoe_on_play', abilityValue: 1,
-    rarity: 'legendary', suggested: 'the most majestic creature you can find' },
+    rarity: 'legendary', suggested: 'a lion at a zoo, sanctuary, or safari park — any big cat in person counts (tiger, leopard, jaguar)' },
 
   { id: 'ani-13', name: 'Muzzle', el: 'animals', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Silence an enemy creature.',
@@ -317,7 +319,7 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'none',
     rarity: 'common', suggested: 'a boarding pass, ticket stub, or gate sign' },
 
-  { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
+  { id: 'trv-02', name: 'Carry-On', el: 'travel', cost: 2, atk: 1, hp: 2, type: 'Creature',
     ability: 'Spells cannot target this.',
     flavor: 'Never leaves your side.',
     abilityKind: 'untargetable',
@@ -353,11 +355,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_damage', abilityValue: 3,
     rarity: 'common', suggested: 'a paper map, a GPS screen, a road sign' },
 
-  { id: 'trv-08', name: 'Layover', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
+  { id: 'trv-08', name: 'Airport Wait', el: 'travel', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
     flavor: 'Hours bleed into hours.',
     abilityKind: 'spell_freeze',
-    rarity: 'rare', suggested: 'a departure board, a quiet terminal, a long hall' },
+    rarity: 'rare', suggested: 'a departure board, a quiet terminal seat, a long hall, a coffee cup at the gate, an empty boarding line' },
 
   { id: 'trv-09', name: 'Hotel', el: 'travel', cost: 4, atk: 2, hp: 5, type: 'Creature',
     ability: 'Taunt.',
@@ -375,13 +377,13 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Give a Travel-type creature +4/+4.',
     flavor: 'Some people travel differently.',
     abilityKind: 'spell_buff', abilityValue: 4,
-    rarity: 'rare', suggested: 'a lie-flat seat, a champagne flute, a lounge' },
+    rarity: 'rare', suggested: 'any travel upgrade moment — a nicer-than-usual seat, a lounge entrance, a priority boarding line, a champagne flute' },
 
   { id: 'trv-12', name: 'Mountain Summit', el: 'travel', cost: 6, atk: 6, hp: 5, type: 'Creature',
     ability: 'Rush.',
     flavor: 'You made it to the top.',
     abilityKind: 'rush',
-    rarity: 'legendary', suggested: 'a peak, summit, or panoramic mountain view' },
+    rarity: 'legendary', suggested: 'any high vantage point — a mountain peak, a hilltop, a rooftop city skyline, a panoramic view that took effort to reach' },
 
   { id: 'trv-13', name: 'Ticket Stub', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw a card.',
@@ -429,11 +431,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'recover_on_death',
     rarity: 'rare', suggested: 'a lunch box, takeout container, or packed meal' },
 
-  { id: 'fd-06', name: 'Slow Cooker', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
+  { id: 'fd-06', name: 'Crockpot', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
     ability: 'On play: gain +1 mana next turn.',
     flavor: 'It will be ready when it is ready.',
     abilityKind: 'mana_prep', abilityValue: 1,
-    rarity: 'rare', suggested: 'a crockpot, slow cooker, or simmering pot' },
+    rarity: 'rare', suggested: 'a crockpot, instant pot, rice cooker, simmering pot, or anything cooking low-and-slow on the counter' },
 
   { id: 'fd-07', name: 'Recipe Card', el: 'food', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a Food-type creature +1/+1.',
@@ -506,29 +508,29 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'a school backpack, tote, or messenger bag' },
 
-  { id: 'edu-03', name: 'Math Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
+  { id: 'edu-03', name: 'Teacher', el: 'education', cost: 2, atk: 1, hp: 3, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
     flavor: 'Show your work.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'a teacher at a chalkboard, with numbers or formulas' },
+    rarity: 'rare', suggested: 'a teacher who shaped you — any subject. An old class photo, a whiteboard, a tutoring screen, a textbook on your shelf' },
 
   { id: 'edu-04', name: 'Bathroom Break', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Freeze an enemy creature.',
     flavor: '"Can I be excused?"',
     abilityKind: 'spell_freeze',
-    rarity: 'common', suggested: 'a school hallway, lockers, or a hall pass' },
+    rarity: 'common', suggested: 'an empty corridor, a row of lockers (school, gym, or office), a restroom sign' },
 
   { id: 'edu-05', name: 'Group Project', el: 'education', cost: 4, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give each of your Education-type creatures +1/+1.',
     flavor: 'Two people do the work. Everyone signs.',
     abilityKind: 'spell_buff_all', abilityValue: 1,
-    rarity: 'rare', suggested: 'students gathered around a table working together' },
+    rarity: 'rare', suggested: 'any group huddle — a study group, a work team meeting, friends with laptops at a café, a brainstorm whiteboard' },
 
-  { id: 'edu-06', name: 'Physics Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
+  { id: 'edu-06', name: 'Science Class', el: 'education', cost: 3, atk: 2, hp: 4, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (max 2 levels).',
-    flavor: 'For every action, an equal and opposite reaction.',
+    flavor: 'Hypothesis. Experiment. Conclusion.',
     abilityKind: 'level_up',
-    rarity: 'rare', suggested: 'a science classroom, lab equipment, or an experiment' },
+    rarity: 'rare', suggested: 'any science subject — a lab bench, a microscope, a beaker, a science museum exhibit, a home kit, or an old class photo' },
 
   { id: 'edu-07', name: 'Pop Quiz', el: 'education', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Discard a random card from your hand, then draw 2.',
@@ -536,11 +538,11 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'pop_quiz',
     rarity: 'rare', suggested: 'a test sheet, scantron, or stack of exams' },
 
-  { id: 'edu-08', name: 'The Bully', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
+  { id: 'edu-08', name: 'Detention', el: 'education', cost: 3, atk: 4, hp: 2, type: 'Creature',
     ability: '',
-    flavor: 'The hallway feels longer when he\'s in it.',
+    flavor: 'Held back, but still here.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a tough-looking kid, a closed locker, or a tense scene' },
+    rarity: 'common', suggested: 'an empty classroom after hours, a desk facing the wall, a closed door with the lights still on, a late slip, a clock at 3:30, an after-school sign' },
 
   { id: 'edu-09', name: 'Library', el: 'education', cost: 4, atk: 1, hp: 6, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
@@ -552,7 +554,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'If you have 3+ creatures, deal 5 to the enemy boss. Otherwise, restore 5 HP.',
     flavor: 'Bring a pencil. And a backup.',
     abilityKind: 'exam_pass', abilityValue: 5,
-    rarity: 'epic', suggested: 'a packed exam room, a clock on the wall, an answer sheet' },
+    rarity: 'epic', suggested: 'an old exam paper from your archives, a wall clock at 9:00, a #2 pencil over a scantron, a stack of answer sheets' },
 
   { id: 'edu-11', name: 'Senior Year', el: 'education', cost: 4, atk: 2, hp: 3, type: 'Creature',
     ability: 'At the end of your turn, this gains +1/+1 (3 turns). On the 3rd, also gain +2/+2 and Untargetable.',
@@ -570,7 +572,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Suit up. Lap one.',
     abilityKind: 'rush',
-    rarity: 'rare', suggested: 'a gym class, kids running, basketball hoop, sports equipment' },
+    rarity: 'rare', suggested: 'a basketball hoop, an empty court, a gym bag, sports gear in a locker, a soccer ball on grass' },
 
   // ============================================================
   // VANILLA FILLER — common-rarity creatures with no abilities.
@@ -579,11 +581,11 @@ export const TEMPLATES: CardTemplate[] = [
   // the "stat sticks" of each theme — predictable trades, no surprises.
   // ============================================================
 
-  { id: 'fam-16', name: 'Niece', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
+  { id: 'fam-16', name: 'Younger Me', el: 'family', cost: 1, atk: 1, hp: 2, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
-    flavor: 'Too smart for her own good.',
+    flavor: 'The kid you used to be still has your back.',
     abilityKind: 'heal_each_turn', abilityValue: 1,
-    rarity: 'common', suggested: 'a niece, nephew, or any young kid in the family' },
+    rarity: 'common', suggested: 'a baby photo of you, a kindergarten portrait, you on a tricycle, any childhood snapshot — or a young cousin/niece/nephew if you prefer' },
 
   { id: 'wrk-16', name: 'Custodian', el: 'work', cost: 5, atk: 4, hp: 5, type: 'Creature',
     ability: 'Taunt.',
@@ -615,17 +617,53 @@ export const TEMPLATES: CardTemplate[] = [
     abilityKind: 'spell_buff_all', abilityValue: 1,
     rarity: 'epic', suggested: 'a team huddled around a desk, coworkers laughing, an office crew' },
 
+  // Spell-synergy enabler for Manager's spell-pile playstyle. 2/3 for
+  // 3 mana is sub-baseline (Owl is 2/3 for 3 with on-play draw at
+  // rare), so the value lives in the trigger: every spell cast pings
+  // the opponent for 1. Manager casts ~5 spells per match, so a
+  // single Hired adds ~5 face damage over the game; with two on the
+  // board the deck effectively burns ~10 HP through spell triggers
+  // alone. Common rarity (max 3 copies) so the trigger can stack.
+  { id: 'wrk-19', name: 'Hired', el: 'work', cost: 3, atk: 2, hp: 3, type: 'Creature',
+    ability: 'When you cast a spell, deal 1 damage to the opponent.',
+    flavor: 'First day. New badge, new desk, no idea what anyone does.',
+    abilityKind: 'spell_synergy', abilityValue: 1,
+    rarity: 'common', suggested: 'your first-day-at-work photo, a new ID badge, an empty desk' },
+
   { id: 'trv-14', name: 'Backpacker', el: 'travel', cost: 2, atk: 2, hp: 2, type: 'Creature',
     ability: 'On play: draw a card.',
     flavor: 'No itinerary, no problem.',
     abilityKind: 'draw_on_play', abilityValue: 1,
     rarity: 'common', suggested: 'someone with a backpack, hostel bunk, train platform' },
 
-  { id: 'trv-15', name: 'Hitchhiker', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
+  { id: 'trv-15', name: 'Scooter', el: 'travel', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'Rush.',
-    flavor: 'Thumb out. Trust the road.',
+    flavor: 'Two wheels, a key, and the rest of the day.',
     abilityKind: 'rush',
-    rarity: 'common', suggested: 'a person at a roadside, a thumb up, an open highway' },
+    rarity: 'common', suggested: 'a parked Vespa, a scooter rental row, or your own ride from a trip' },
+
+  // Random-destination spell. Rolls a d6 inside the engine — each face
+  // resolves into a different effect. Designed as Drifter's signature
+  // chaos card: high expected value (5 of 6 outcomes are positive) at
+  // a low 2-mana price, but the 1/6 self-damage on Flight Canceled
+  // keeps casters from spamming it when low on HP.
+  { id: 'trv-16', name: 'Where to Travel?', el: 'travel', cost: 2, atk: 0, hp: 0, type: 'Spell',
+    ability: 'Roll a die. 1: heal 5. 2: a friendly creature +2/+0. 3: a friendly creature +0/+3. 4: +2 mana this turn. 5: deal 5 damage. 6: Flight canceled — take 2 damage.',
+    flavor: 'A pin on every continent. The board picks for you.',
+    abilityKind: 'spell_luck',
+    rarity: 'rare', suggested: 'a map with pushpins, a globe, a stack of boarding passes from different trips' },
+
+  // Big sustain body. Travel theme. Fills Drifter's missing "real
+  // mid-game wall" slot — his old curve had no 4-cost creature
+  // bigger than Hotel's 2/5. Cruise is 3/5 with self-heal each turn,
+  // common rarity so multiple copies fit. Compares to Grandma's Pie
+  // (3c 2/5 heal_each_turn 2 rare): Cruise pays +1 cost for +1 ATK
+  // and the lower rarity (3 copies vs 2), with half the heal rate.
+  { id: 'trv-17', name: 'Cruise', el: 'travel', cost: 4, atk: 3, hp: 5, type: 'Creature',
+    ability: 'At the start of your turn, restore 1 HP.',
+    flavor: 'Salt air, sun deck. Forget what day it is.',
+    abilityKind: 'heal_each_turn', abilityValue: 1,
+    rarity: 'common', suggested: 'a cruise ship, ocean horizon, deck chair, or your trip photo' },
 
   { id: 'fd-15', name: 'Apple', el: 'food', cost: 1, atk: 1, hp: 1, type: 'Creature',
     ability: 'At the start of your turn, restore 1 HP.',
@@ -649,7 +687,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: '',
     flavor: 'You saw them every day. You never asked their name.',
     abilityKind: 'none',
-    rarity: 'common', suggested: 'a school friend, a kid at the desk next to you' },
+    rarity: 'common', suggested: 'an old class photo, a school friend you stayed in touch with, a selfie with a course-mate, or two desks side by side' },
 
   // ============================================================
   // COUPLE ARC — relationship-life cards distributed across the
@@ -664,25 +702,25 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Heart racing. Stomach gone.',
     abilityKind: 'rush',
-    rarity: 'common', tags: ['relationship'], suggested: 'someone you had a crush on, an old photo of an early flame' },
+    rarity: 'common', tags: ['relationship'], suggested: 'someone you had a crush on, an old photo of an early flame, a name in a yearbook, or any teenage what-if you still smile about' },
 
   { id: 'cou-02', name: 'Boyfriend / Girlfriend', el: 'family', cost: 2, atk: 2, hp: 3, type: 'Creature',
     ability: '',
     flavor: 'Your person. Your favourite.',
     abilityKind: 'none',
-    rarity: 'rare', tags: ['relationship'], suggested: 'your partner, or someone you love' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'your partner, a past partner, or anyone you love and lean on — a best friend, your person' },
 
   { id: 'cou-03', name: 'The Ex', el: 'family', cost: 3, atk: 3, hp: 2, type: 'Creature',
     ability: 'On play: deal 2 damage to the enemy face.',
     flavor: 'A door you closed. A scar you kept.',
     abilityKind: 'aoe_on_play', abilityValue: 2,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a dramatic photo, a memory, a closed door' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a closed door, an empty chair, a left-behind object, a torn page, a faded photograph' },
 
   { id: 'cou-04', name: 'Couple Photo', el: 'family', cost: 4, atk: 3, hp: 3, type: 'Creature',
     ability: '',
     flavor: 'Both smiling. Same year. Different reasons.',
     abilityKind: 'none',
-    rarity: 'common', tags: ['relationship'], suggested: 'a photo of you and your partner together' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a photo of you and your partner — or any "us" photo with someone meaningful (best friend, sibling, parent)' },
 
   { id: 'cou-05', name: 'Movie Night', el: 'family', cost: 2, atk: 1, hp: 4, type: 'Creature',
     ability: 'Taunt.',
@@ -711,19 +749,19 @@ export const TEMPLATES: CardTemplate[] = [
     // counterpart to Date Night Dinner: small permanent stat bump
     // on any friendly creature regardless of theme.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'rare', tags: ['relationship'], suggested: 'the dated photo, a card you wrote, a small gift' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a wedding/relationship anniversary, OR any "this day mattered" milestone — a sobriety chip, a graduation date, a moving-day photo' },
 
   { id: 'cou-09', name: 'First Date', el: 'travel', cost: 1, atk: 0, hp: 0, type: 'Spell',
     ability: 'Draw a card.',
     flavor: 'Three hours. Felt like ten minutes.',
     abilityKind: 'draw_on_play', abilityValue: 1,
-    rarity: 'common', tags: ['relationship'], suggested: 'the restaurant, the cafe, the venue of an early date' },
+    rarity: 'common', tags: ['relationship'], suggested: 'the venue of a first date — or any meaningful "first" of yours: a first solo trip, first apartment, first day at a job' },
 
   { id: 'cou-10', name: 'Beach Day', el: 'travel', cost: 3, atk: 2, hp: 3, type: 'Creature',
     ability: 'On play: heal each of your Travel-type creatures by 2.',
     flavor: 'Sand everywhere. Sunburn worth it.',
     abilityKind: 'spell_share_meal', abilityValue: 2,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a beach trip together, the ocean, sunset on sand' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a beach trip — together, with friends, or alone with a book; the ocean, sunset on sand, your feet in the water' },
 
   { id: 'cou-11', name: 'Honeymoon', el: 'travel', cost: 5, atk: 0, hp: 0, type: 'Spell',
     ability: 'Heal each of your Travel-type creatures by 3, then draw a card.',
@@ -741,19 +779,19 @@ export const TEMPLATES: CardTemplate[] = [
     // any creature so a couple deck can buff its Family or Travel
     // pieces too.
     abilityKind: 'spell_buff_any', abilityValue: 1,
-    rarity: 'common', tags: ['relationship'], suggested: 'a candle-lit meal, a restaurant table, plated food' },
+    rarity: 'common', tags: ['relationship'], suggested: 'a candle-lit meal for two — or your own treat-yourself dinner at a nice restaurant, a plate you made just for you' },
 
   { id: 'cou-13', name: 'Cooking Together', el: 'food', cost: 3, atk: 0, hp: 0, type: 'Spell',
     ability: 'Give a friendly creature +0/+3 HP.',
     flavor: 'Someone chops. Someone stirs. Both taste.',
     abilityKind: 'spell_nourish', abilityValue: 3,
-    rarity: 'rare', tags: ['relationship'], suggested: 'a shared kitchen, two pairs of hands, an in-progress meal' },
+    rarity: 'rare', tags: ['relationship'], suggested: 'a shared kitchen with someone you love — partner, family, roommate, friend; OR you cooking a meal you\'re proud of (the recipe, the prep, the result)' },
 
   { id: 'cou-14', name: 'Anniversary Cake', el: 'food', cost: 3, atk: 1, hp: 4, type: 'Creature',
     ability: 'On play: restore 3 HP.',
     flavor: 'One slice. Two forks.',
     abilityKind: 'spell_heal', abilityValue: 3,
-    rarity: 'common', tags: ['relationship'], suggested: 'an anniversary cake, candles, a small celebration' },
+    rarity: 'common', tags: ['relationship'], suggested: 'an anniversary cake or any celebration cake — your own birthday, a friend\'s milestone, a "we made it through the week" Friday slice' },
 
   { id: 'cou-15', name: 'Cleaning Day', el: 'work', cost: 2, atk: 0, hp: 0, type: 'Spell',
     ability: 'Restore 2 HP, then draw a card.',
@@ -781,7 +819,7 @@ export const TEMPLATES: CardTemplate[] = [
     ability: 'Rush.',
     flavor: 'Fingers laced. Already in step.',
     abilityKind: 'rush',
-    rarity: 'common', tags: ['relationship'], suggested: 'two hands clasped, fingers interlocked, a close-up' },
+    rarity: 'common', tags: ['relationship'], suggested: 'two hands clasped — a partner\'s, a child\'s, a friend\'s, a parent\'s in a hospital bed, your own hands folded in prayer or reflection' },
 
   // FOOD — mid-cost burn. Food previously only had Spicy Sauce (2 dmg)
   // for removal, which couldn't stabilize against early aggro. Stew
