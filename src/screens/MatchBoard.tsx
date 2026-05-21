@@ -2328,12 +2328,23 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
     >
     <div
       ref={boardRef}
+      className="match-board-root"
       // Drag handlers moved off the board root — each motion.div in the
       // hand owns its own drag lifecycle via Framer Motion now.
       onContextMenu={(e) => e.preventDefault()}
       onDragStart={(e) => e.preventDefault()}
       style={{
-        width: '100%', height: '100%',
+        // The board was designed against a phone-sized stage. On
+        // tablet/desktop we lay it out at (100% / --match-zoom) and
+        // visually scale it back up via CSS `zoom`, so every fixed
+        // pixel size (card slots, hand, mana, portraits) grows in
+        // lockstep. `zoom` is used instead of `transform: scale`
+        // because it respects getBoundingClientRect and fixed
+        // positioning — the arrow drawing, drop detection and spell
+        // burst math all stay correct.
+        width: 'calc(100% / var(--match-zoom, 1))',
+        height: 'calc(100% / var(--match-zoom, 1))',
+        zoom: 'var(--match-zoom, 1)',
         // PVP gets its own cosmetic surface — deep-space gradient
         // replacing the player's equipped board skin, with the
         // drifting universe overlay rendered as a separate layer
@@ -2358,6 +2369,15 @@ export function MatchBoard({ deck, boss, difficulty = 'normal', playerAvatar, se
         display: 'flex', flexDirection: 'column',
       }}
     >
+      <style>{`
+        .match-board-root { --match-zoom: 1; }
+        @media (min-width: 720px) and (min-height: 720px) {
+          .match-board-root { --match-zoom: 1.3; }
+        }
+        @media (min-width: 1024px) and (min-height: 820px) {
+          .match-board-root { --match-zoom: 1.5; }
+        }
+      `}</style>
       {/* PVP universe — two stacked cosmetic layers only mounted in
           online matches. A pair of counter-rotating nebula clouds
           drifts behind a multi-layered starfield panning very slowly
